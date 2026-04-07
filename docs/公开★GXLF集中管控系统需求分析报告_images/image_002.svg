@@ -1,0 +1,561 @@
+<?xml version="1.0"  encoding="UTF-8" standalone="no"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="430.0000" height="352.0000">
+<g transform="translate(-0.0000, -0.0000)">
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 938.0000,1066.0000 L 5888.0000,1069.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 934.0000,1068.0000 L 934.0000,1411.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="4.0000" height="25.0000" x="220.0000" y="45.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAZCAYAAAAWuY87AAAAOklEQVQYlc2PyQ0AIAzDHPbf2TwQFccAkF/cNFICyKIGoO4gScFKJBlgmvVNhxPw245c8+fl9ZYz0QHXhmntSgG8GwAAAABJRU5ErkJgggAA" />
+<image width="4.0000" height="25.0000" x="220.0000" y="45.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAZCAYAAAAWuY87AAAARUlEQVQYlc2PMQ6AMAwDr/z/aUmTHx0LqJUYGMGTbVmWbqiy6QCYc67GSxGhKntQpapeFn/9GA/87gYgMxf+Byy3yUxVT9pJTzVfd62GAAAAAElFTkSuQmCC" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 3506.0000,703.0000 L 3506.0000,1046.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="162.0000" height="45.0000" x="141.0000" y="3.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKIAAAAtCAYAAAAtFLAWAAABBElEQVR4nO3WMQoEIRQE0Zq9/53dZPazsQg2dJk8E6GCDnyAhcdz+XxuB3g88DfEtZbqNd/7Wqq3BBa3I1TfMd6P0G5niAkx2i0JEdot+EfUEEmI0G5niAkx2i0JEdot+EfUEEmI0G5niAkx2u0M8cCife/7/fe7j1VPSkKEdjtDTIjRbkmI0G7BP6KGSEKEdjtDTIjRbkmI0G7BP6KGSEKEdjtDTIjRbkmI0G7BP6KGSEKEdjtDTIjRbmeIBxbte9/vv999rHpSEiK02xliQox2S0KEdgv+ETVEEiK02xliQox2S0KEdgv+ETVEEiK02xliQox2O0NMiNFOgfX81ujx3DxfXC/1lG61bQ4AAAAASUVORK5CYIIA" />
+<image width="162.0000" height="45.0000" x="141.0000" y="3.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKIAAAAtCAYAAAAtFLAWAAAA7ElEQVR4nO3dMYqEUBBFUXv2vzTFJd1JhqZzB6qgTyUnKvnB5/FAwVfVYczw/EwfwJjj+LiI13WRYx5V53lGTll13Pe94jD8biUix62/i7jhMPxuJSLHLR2RS5SIHLd0RC5RInLc0hG5RInIcUtH5BLfF/HJQ+zbf7qvI3KFOiLHLR2RS5SIHLd0RC5RInLc0hG5RInIcUtH5BIlIsctHZFLlIgct3RELlEictzSEblE3yPaX7GvI3KFOiLHLR2RS5SIHLd0RC5RInLc0hG5RInIcUtH5BIlIsctHZFL/Jd3zeQTq17lX3xmfn4BHHeMpOG7UUIAAAAASUVORK5CYIIA" />
+<path d="M 140.0000,2.0000 L 140.0000,6.0000 L 299.0000,6.0000 L 299.0000,2.0000 L 140.0000,2.0000 Z" stroke-width="1px" stroke="#FFCC66"  fill="#FFCC66" />
+<path d="M 140.0000,6.0000 L 140.0000,9.0000 L 299.0000,9.0000 L 299.0000,6.0000 L 140.0000,6.0000 Z" stroke-width="1px" stroke="#FFCC65"  fill="#FFCC65" />
+<path d="M 140.0000,9.0000 L 140.0000,10.0000 L 299.0000,10.0000 L 299.0000,9.0000 L 140.0000,9.0000 Z" stroke-width="1px" stroke="#FFCB64"  fill="#FFCB64" />
+<path d="M 140.0000,10.0000 L 140.0000,12.0000 L 299.0000,12.0000 L 299.0000,10.0000 L 140.0000,10.0000 Z" stroke-width="1px" stroke="#FFCB63"  fill="#FFCB63" />
+<path d="M 140.0000,12.0000 L 140.0000,14.0000 L 299.0000,14.0000 L 299.0000,12.0000 L 140.0000,12.0000 Z" stroke-width="1px" stroke="#FFCB62"  fill="#FFCB62" />
+<path d="M 140.0000,14.0000 L 140.0000,15.0000 L 299.0000,15.0000 L 299.0000,14.0000 L 140.0000,14.0000 Z" stroke-width="1px" stroke="#FFCA61"  fill="#FFCA61" />
+<path d="M 140.0000,15.0000 L 140.0000,16.0000 L 299.0000,16.0000 L 299.0000,15.0000 L 140.0000,15.0000 Z" stroke-width="1px" stroke="#FFCA60"  fill="#FFCA60" />
+<path d="M 140.0000,16.0000 L 140.0000,17.0000 L 299.0000,17.0000 L 299.0000,16.0000 L 140.0000,16.0000 Z" stroke-width="1px" stroke="#FFCA5F"  fill="#FFCA5F" />
+<path d="M 140.0000,17.0000 L 140.0000,18.0000 L 299.0000,18.0000 L 299.0000,17.0000 L 140.0000,17.0000 Z" stroke-width="1px" stroke="#FFCA5E"  fill="#FFCA5E" />
+<path d="M 140.0000,18.0000 L 140.0000,19.0000 L 299.0000,19.0000 L 299.0000,18.0000 L 140.0000,18.0000 Z" stroke-width="1px" stroke="#FFC95D"  fill="#FFC95D" />
+<path d="M 140.0000,19.0000 L 140.0000,20.0000 L 299.0000,20.0000 L 299.0000,19.0000 L 140.0000,19.0000 Z" stroke-width="1px" stroke="#FFC95C"  fill="#FFC95C" />
+<path d="M 140.0000,20.0000 L 140.0000,21.0000 L 299.0000,21.0000 L 299.0000,20.0000 L 140.0000,20.0000 Z" stroke-width="1px" stroke="#FFC95B"  fill="#FFC95B" />
+<path d="M 140.0000,21.0000 L 140.0000,22.0000 L 299.0000,22.0000 L 299.0000,21.0000 L 140.0000,21.0000 Z" stroke-width="1px" stroke="#FFC85A"  fill="#FFC85A" />
+<path d="M 140.0000,22.0000 L 140.0000,23.0000 L 299.0000,23.0000 L 299.0000,22.0000 L 140.0000,22.0000 Z" stroke-width="1px" stroke="#FFC859"  fill="#FFC859" />
+<path d="M 140.0000,23.0000 L 140.0000,24.0000 L 299.0000,24.0000 L 299.0000,23.0000 L 140.0000,23.0000 Z" stroke-width="1px" stroke="#FFC857"  fill="#FFC857" />
+<path d="M 140.0000,24.0000 L 140.0000,25.0000 L 299.0000,25.0000 L 299.0000,24.0000 L 140.0000,24.0000 Z" stroke-width="1px" stroke="#FFC756"  fill="#FFC756" />
+<path d="M 140.0000,25.0000 L 140.0000,26.0000 L 299.0000,26.0000 L 299.0000,25.0000 L 140.0000,25.0000 Z" stroke-width="1px" stroke="#FFC755"  fill="#FFC755" />
+<path d="M 140.0000,26.0000 L 140.0000,27.0000 L 299.0000,27.0000 L 299.0000,26.0000 L 140.0000,26.0000 Z" stroke-width="1px" stroke="#FFC754"  fill="#FFC754" />
+<path d="M 140.0000,27.0000 L 140.0000,28.0000 L 299.0000,28.0000 L 299.0000,27.0000 L 140.0000,27.0000 Z" stroke-width="1px" stroke="#FFC653"  fill="#FFC653" />
+<path d="M 140.0000,28.0000 L 140.0000,29.0000 L 299.0000,29.0000 L 299.0000,28.0000 L 140.0000,28.0000 Z" stroke-width="1px" stroke="#FFC651"  fill="#FFC651" />
+<path d="M 140.0000,29.0000 L 140.0000,30.0000 L 299.0000,30.0000 L 299.0000,29.0000 L 140.0000,29.0000 Z" stroke-width="1px" stroke="#FFC650"  fill="#FFC650" />
+<path d="M 140.0000,30.0000 L 140.0000,31.0000 L 299.0000,31.0000 L 299.0000,30.0000 L 140.0000,30.0000 Z" stroke-width="1px" stroke="#FFC64F"  fill="#FFC64F" />
+<path d="M 140.0000,31.0000 L 140.0000,32.0000 L 299.0000,32.0000 L 299.0000,31.0000 L 140.0000,31.0000 Z" stroke-width="1px" stroke="#FFC54E"  fill="#FFC54E" />
+<path d="M 140.0000,32.0000 L 140.0000,33.0000 L 299.0000,33.0000 L 299.0000,32.0000 L 140.0000,32.0000 Z" stroke-width="1px" stroke="#FFC54D"  fill="#FFC54D" />
+<path d="M 140.0000,33.0000 L 140.0000,35.0000 L 299.0000,35.0000 L 299.0000,33.0000 L 140.0000,33.0000 Z" stroke-width="1px" stroke="#FFC54C"  fill="#FFC54C" />
+<path d="M 140.0000,35.0000 L 140.0000,36.0000 L 299.0000,36.0000 L 299.0000,35.0000 L 140.0000,35.0000 Z" stroke-width="1px" stroke="#FFC54B"  fill="#FFC54B" />
+<path d="M 140.0000,36.0000 L 140.0000,37.0000 L 299.0000,37.0000 L 299.0000,36.0000 L 140.0000,36.0000 Z" stroke-width="1px" stroke="#FFC54A"  fill="#FFC54A" />
+<path d="M 140.0000,37.0000 L 140.0000,38.0000 L 299.0000,38.0000 L 299.0000,37.0000 L 140.0000,37.0000 Z" stroke-width="1px" stroke="#FFC44A"  fill="#FFC44A" />
+<path d="M 140.0000,38.0000 L 140.0000,40.0000 L 299.0000,40.0000 L 299.0000,38.0000 L 140.0000,38.0000 Z" stroke-width="1px" stroke="#FFC449"  fill="#FFC449" />
+<path d="M 140.0000,40.0000 L 140.0000,43.0000 L 299.0000,43.0000 L 299.0000,40.0000 L 140.0000,40.0000 Z" stroke-width="1px" stroke="#FFC448"  fill="#FFC448" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2241.0000,683.0000 L 4771.0000,683.0000 L 4771.0000,42.0000 L 2241.0000,42.0000 L 2241.0000,683.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 174.4184 27.2954)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="15.0000" ><![CDATA[集中管控系统]]></text>
+<image width="126.0000" height="37.0000" x="3.0000" y="88.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH4AAAAlCAYAAACEal28AAAA00lEQVR4nO3UQQrDQAxDUU3vf2d3kcaQbYgdTf0HyiOFoQJFXZJCnHHn83YAzjsni48IHKR0/NXH8V3gAH8fSp+oHEIgi8cms3iHMMjisVg5hEAWj01m8Q5hkMVjsVm8Qxhk8VhsFv/AG8T9Te5fir/7o7incgiB7aWz+Klm8Q5hkMVjsXIIgSwem8ziHcIgi8di5RACWTw2mcU7hEEWj8Vm8Q5hkMVjsVn8A28Q9ze5fyn+7o/insohBLaXzuKnmsU7hMG+xa+z/fNEhNZaPP/58xcAmd+21my/QAAAAABJRU5ErkJgggAA" />
+<image width="126.0000" height="37.0000" x="3.0000" y="88.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAH4AAAAlCAYAAACEal28AAAAwUlEQVR4nO3ZSwrCMBgA4er9j9bHJvcZVxZxLY06k81HF4FAGP6W3gCWlm7dZx+gNWedF79tW4pceFnruqZAgPPiZx8mr3UB2Pf9Kw6TFZ9XFP9csw+TFZ9XFN+MdwkVr7UZLxQqXmvFC4WK1/qR4tv/W/uh4rX2HS8UKl5rb/VCoeK1NuOFQsVrbcYLhYrX2owXChWvtRkvFCpea8ULhYrX2v944X6oeK19xwuFitfaW71QeLt4gOM4ev7j5zEGAA+NRICMjIembwAAAABJRU5ErkJgggAA" />
+<path d="M 2.0000,87.0000 L 2.0000,90.0000 L 124.0000,90.0000 L 124.0000,87.0000 L 2.0000,87.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 2.0000,90.0000 L 2.0000,92.0000 L 124.0000,92.0000 L 124.0000,90.0000 L 2.0000,90.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 2.0000,92.0000 L 2.0000,94.0000 L 124.0000,94.0000 L 124.0000,92.0000 L 2.0000,92.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 2.0000,94.0000 L 2.0000,95.0000 L 124.0000,95.0000 L 124.0000,94.0000 L 2.0000,94.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 2.0000,95.0000 L 2.0000,96.0000 L 124.0000,96.0000 L 124.0000,95.0000 L 2.0000,95.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 2.0000,96.0000 L 2.0000,97.0000 L 124.0000,97.0000 L 124.0000,96.0000 L 2.0000,96.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 2.0000,97.0000 L 2.0000,98.0000 L 124.0000,98.0000 L 124.0000,97.0000 L 2.0000,97.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 2.0000,98.0000 L 2.0000,99.0000 L 124.0000,99.0000 L 124.0000,98.0000 L 2.0000,98.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 2.0000,99.0000 L 2.0000,100.0000 L 124.0000,100.0000 L 124.0000,99.0000 L 2.0000,99.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 2.0000,100.0000 L 2.0000,101.0000 L 124.0000,101.0000 L 124.0000,100.0000 L 2.0000,100.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 2.0000,101.0000 L 2.0000,102.0000 L 124.0000,102.0000 L 124.0000,101.0000 L 2.0000,101.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 2.0000,102.0000 L 2.0000,103.0000 L 124.0000,103.0000 L 124.0000,102.0000 L 2.0000,102.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 2.0000,103.0000 L 2.0000,104.0000 L 124.0000,104.0000 L 124.0000,103.0000 L 2.0000,103.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 2.0000,104.0000 L 2.0000,105.0000 L 124.0000,105.0000 L 124.0000,104.0000 L 2.0000,104.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 2.0000,105.0000 L 2.0000,106.0000 L 124.0000,106.0000 L 124.0000,105.0000 L 2.0000,105.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 2.0000,106.0000 L 2.0000,107.0000 L 124.0000,107.0000 L 124.0000,106.0000 L 2.0000,106.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 2.0000,107.0000 L 2.0000,108.0000 L 124.0000,108.0000 L 124.0000,107.0000 L 2.0000,107.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 2.0000,108.0000 L 2.0000,109.0000 L 124.0000,109.0000 L 124.0000,108.0000 L 2.0000,108.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 2.0000,109.0000 L 2.0000,110.0000 L 124.0000,110.0000 L 124.0000,109.0000 L 2.0000,109.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 2.0000,110.0000 L 2.0000,111.0000 L 124.0000,111.0000 L 124.0000,110.0000 L 2.0000,110.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 2.0000,111.0000 L 2.0000,112.0000 L 124.0000,112.0000 L 124.0000,111.0000 L 2.0000,111.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 2.0000,112.0000 L 2.0000,113.0000 L 124.0000,113.0000 L 124.0000,112.0000 L 2.0000,112.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 2.0000,113.0000 L 2.0000,114.0000 L 124.0000,114.0000 L 124.0000,113.0000 L 2.0000,113.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 2.0000,114.0000 L 2.0000,116.0000 L 124.0000,116.0000 L 124.0000,114.0000 L 2.0000,114.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 2.0000,116.0000 L 2.0000,118.0000 L 124.0000,118.0000 L 124.0000,116.0000 L 2.0000,116.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 2.0000,118.0000 L 2.0000,120.0000 L 124.0000,120.0000 L 124.0000,118.0000 L 2.0000,118.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 42.0000,1920.0000 L 1985.0000,1920.0000 L 1985.0000,1405.0000 L 42.0000,1405.0000 L 42.0000,1920.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 16.9870 107.6027)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="12.0000" ><![CDATA[运维任务管控组件]]></text>
+<image width="96.0000" height="37.0000" x="22.0000" y="183.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAw0lEQVRoge2UUQqFQAzEpt7/zvVD7QFEbGBmQYLCQnhDXklq5aydY1vA/cwA3R0uULr+gvr61uGPvJ/8+Msj7Eu4MgUAOAMQZNyYAgAUQcKVKQDAGYAg48YUAKAIEq5MAQDOAB8smfvv7qWA9QK2JVyZAgCcAQgybkwBAIog4coUAOAMQJBxYwoAUAQJV6YAAGcAgowbUwCAIki4MgUAOAN8sGTuv7uXAtYL2JZwZQoAcAYgyLhRUtezwnO6W1WV95/eT1mMCvWjPMoCAAAAAElFTkSuQmCC" />
+<image width="96.0000" height="37.0000" x="22.0000" y="183.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAuUlEQVRoge3ZMQrDMBQE0Z/c/2a20ZEmnQkpQ/AEPL95qBAIxLIIPQCm0eZpH+Duc17AcRx5oWutmZkZ3mbf97xQgPMC7MPc1QHYtu0vDnM3oQTo1gGiUAJ06wBRKAG6dYAolADdOkAUSoDuTzqg/d/thxKgWweIQgnQ7R0gCiVAtw4QhRKgWweIQgnQrQNEoQTo1gGiUAJ06wBRKAG6/QeI+6EE6NYBolACdHsHiMLHBQCstVpfuH4BLDikDrauRfcAAAAASUVORK5CYIIA" />
+<path d="M 21.0000,182.0000 L 21.0000,185.0000 L 113.0000,185.0000 L 113.0000,182.0000 L 21.0000,182.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 21.0000,185.0000 L 21.0000,187.0000 L 113.0000,187.0000 L 113.0000,185.0000 L 21.0000,185.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 21.0000,187.0000 L 21.0000,189.0000 L 113.0000,189.0000 L 113.0000,187.0000 L 21.0000,187.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 21.0000,189.0000 L 21.0000,190.0000 L 113.0000,190.0000 L 113.0000,189.0000 L 21.0000,189.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 21.0000,190.0000 L 21.0000,191.0000 L 113.0000,191.0000 L 113.0000,190.0000 L 21.0000,190.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 21.0000,191.0000 L 21.0000,192.0000 L 113.0000,192.0000 L 113.0000,191.0000 L 21.0000,191.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 21.0000,192.0000 L 21.0000,193.0000 L 113.0000,193.0000 L 113.0000,192.0000 L 21.0000,192.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 21.0000,193.0000 L 21.0000,194.0000 L 113.0000,194.0000 L 113.0000,193.0000 L 21.0000,193.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 21.0000,194.0000 L 21.0000,195.0000 L 113.0000,195.0000 L 113.0000,194.0000 L 21.0000,194.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 21.0000,195.0000 L 21.0000,196.0000 L 113.0000,196.0000 L 113.0000,195.0000 L 21.0000,195.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 21.0000,196.0000 L 21.0000,197.0000 L 113.0000,197.0000 L 113.0000,196.0000 L 21.0000,196.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 21.0000,197.0000 L 21.0000,198.0000 L 113.0000,198.0000 L 113.0000,197.0000 L 21.0000,197.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 21.0000,198.0000 L 21.0000,199.0000 L 113.0000,199.0000 L 113.0000,198.0000 L 21.0000,198.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 21.0000,199.0000 L 21.0000,200.0000 L 113.0000,200.0000 L 113.0000,199.0000 L 21.0000,199.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 21.0000,200.0000 L 21.0000,201.0000 L 113.0000,201.0000 L 113.0000,200.0000 L 21.0000,200.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 21.0000,201.0000 L 21.0000,202.0000 L 113.0000,202.0000 L 113.0000,201.0000 L 21.0000,201.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 21.0000,202.0000 L 21.0000,203.0000 L 113.0000,203.0000 L 113.0000,202.0000 L 21.0000,202.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 21.0000,203.0000 L 21.0000,204.0000 L 113.0000,204.0000 L 113.0000,203.0000 L 21.0000,203.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 21.0000,204.0000 L 21.0000,205.0000 L 113.0000,205.0000 L 113.0000,204.0000 L 21.0000,204.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 21.0000,205.0000 L 21.0000,206.0000 L 113.0000,206.0000 L 113.0000,205.0000 L 21.0000,205.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 21.0000,206.0000 L 21.0000,207.0000 L 113.0000,207.0000 L 113.0000,206.0000 L 21.0000,206.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 21.0000,207.0000 L 21.0000,208.0000 L 113.0000,208.0000 L 113.0000,207.0000 L 21.0000,207.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 21.0000,208.0000 L 21.0000,209.0000 L 113.0000,209.0000 L 113.0000,208.0000 L 21.0000,208.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 21.0000,209.0000 L 21.0000,211.0000 L 113.0000,211.0000 L 113.0000,209.0000 L 21.0000,209.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 21.0000,211.0000 L 21.0000,213.0000 L 113.0000,213.0000 L 113.0000,211.0000 L 21.0000,211.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 21.0000,213.0000 L 21.0000,215.0000 L 113.0000,215.0000 L 113.0000,213.0000 L 21.0000,213.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 346.0000,3438.0000 L 1803.0000,3438.0000 L 1803.0000,2924.0000 L 346.0000,2924.0000 L 346.0000,3438.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 37.5071 202.0675)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[运维任务管理]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 173.0000,3101.0000 L 344.0000,3101.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="96.0000" height="36.0000" x="22.0000" y="228.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAkCAYAAAB2UT9CAAAAv0lEQVRoge2TMQrEQAwD5fz/z74ixOTaEOIByc1gFoNYMSWpdZvuVlVl/2g/dJvrsbuzf7DPv59vHS5wCiCEceNfAdthXClCCFfGAACnAEIYN8YAAEUI4coYAOAUQAjjxhgAoAghXBkDAJwCXmgy98/uYsC6AdshXBkDAJwCCGHcGAMAFCGEK2MAgFMAIYwbYwCAIoRwZQwAcAoghHFjDABQhBCujAEATgEvNJn7Z3cxYN2A7RCujAEA1tVCZmd+vawLOFzJr4oAAAAASUVORK5CYIIA" />
+<image width="96.0000" height="36.0000" x="22.0000" y="228.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAkCAYAAAB2UT9CAAAAqklEQVRoge3ZMQrDMADFUPf+R7Oxj6SuoWMpUSHK8vBgCBTxCR18POeczjeex/Ww1sobhcsPYL/MU60AUagA3QEw5/yLl3maUAG6bYAoVIBuGyAKFaDbBohCBei2AaJQAbo/2YDuf3cfKkC3DRCFCtDtO0AUKkC3DRCFCtBtA0ShAnTbAFGoAN02QBQqQLcNEIUK0O3/APE+VIBuGyAKFaC59wbgBTB6tOcNscSVmdg+YIsAAAAASUVORK5CYIIA" />
+<path d="M 21.0000,226.0000 L 21.0000,229.0000 L 113.0000,229.0000 L 113.0000,226.0000 L 21.0000,226.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 21.0000,229.0000 L 21.0000,231.0000 L 113.0000,231.0000 L 113.0000,229.0000 L 21.0000,229.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 21.0000,231.0000 L 21.0000,233.0000 L 113.0000,233.0000 L 113.0000,231.0000 L 21.0000,231.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 21.0000,233.0000 L 21.0000,235.0000 L 113.0000,235.0000 L 113.0000,233.0000 L 21.0000,233.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 21.0000,235.0000 L 21.0000,236.0000 L 113.0000,236.0000 L 113.0000,235.0000 L 21.0000,235.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 21.0000,236.0000 L 21.0000,237.0000 L 113.0000,237.0000 L 113.0000,236.0000 L 21.0000,236.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 21.0000,237.0000 L 21.0000,238.0000 L 113.0000,238.0000 L 113.0000,237.0000 L 21.0000,237.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 21.0000,238.0000 L 21.0000,239.0000 L 113.0000,239.0000 L 113.0000,238.0000 L 21.0000,238.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 21.0000,239.0000 L 21.0000,240.0000 L 113.0000,240.0000 L 113.0000,239.0000 L 21.0000,239.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 21.0000,240.0000 L 21.0000,241.0000 L 113.0000,241.0000 L 113.0000,240.0000 L 21.0000,240.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 21.0000,241.0000 L 21.0000,242.0000 L 113.0000,242.0000 L 113.0000,241.0000 L 21.0000,241.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 21.0000,242.0000 L 21.0000,243.0000 L 113.0000,243.0000 L 113.0000,242.0000 L 21.0000,242.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 21.0000,243.0000 L 21.0000,244.0000 L 113.0000,244.0000 L 113.0000,243.0000 L 21.0000,243.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 21.0000,244.0000 L 21.0000,245.0000 L 113.0000,245.0000 L 113.0000,244.0000 L 21.0000,244.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 21.0000,245.0000 L 21.0000,246.0000 L 113.0000,246.0000 L 113.0000,245.0000 L 21.0000,245.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 21.0000,246.0000 L 21.0000,247.0000 L 113.0000,247.0000 L 113.0000,246.0000 L 21.0000,246.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 21.0000,247.0000 L 21.0000,248.0000 L 113.0000,248.0000 L 113.0000,247.0000 L 21.0000,247.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 21.0000,248.0000 L 21.0000,249.0000 L 113.0000,249.0000 L 113.0000,248.0000 L 21.0000,248.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 21.0000,249.0000 L 21.0000,250.0000 L 113.0000,250.0000 L 113.0000,249.0000 L 21.0000,249.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 21.0000,250.0000 L 21.0000,251.0000 L 113.0000,251.0000 L 113.0000,250.0000 L 21.0000,250.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 21.0000,251.0000 L 21.0000,252.0000 L 113.0000,252.0000 L 113.0000,251.0000 L 21.0000,251.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 21.0000,252.0000 L 21.0000,253.0000 L 113.0000,253.0000 L 113.0000,252.0000 L 21.0000,252.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 21.0000,253.0000 L 21.0000,255.0000 L 113.0000,255.0000 L 113.0000,253.0000 L 21.0000,253.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 21.0000,255.0000 L 21.0000,257.0000 L 113.0000,257.0000 L 113.0000,255.0000 L 21.0000,255.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 21.0000,257.0000 L 21.0000,259.0000 L 113.0000,259.0000 L 113.0000,257.0000 L 21.0000,257.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 346.0000,4146.0000 L 1803.0000,4146.0000 L 1803.0000,3631.0000 L 346.0000,3631.0000 L 346.0000,4146.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 37.5071 246.2800)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[运行配置管理]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 173.0000,3808.0000 L 344.0000,3808.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 170.0000,1936.0000 L 170.0000,5215.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 3495.0000,1069.0000 L 3495.0000,1412.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="115.0000" height="36.0000" x="166.0000" y="89.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHMAAAAkCAYAAAC6yAWpAAAAy0lEQVR4nO2V0QrEQAgD4/3/P9uHXqUFn8qC3TALMtiiBEIwJKVuLzMVEfQb9r/rw/0H/Z69dCYz8/wCN+W/5oXAJUampoVAkgl7Q7mZDiSZJqyaFgJJJuwN5WY6kGSasGpaCCSZsDeUm+nAh5kLFjE/PK+3C+C3WMmcFgKXGcrNdCDJNGHVtBBIMmFvKDfTgSTThFXTQiDJhL2h3EwHkkwTVk0LgSQT9oZyMx34MHPBIuaH5/V2AfwWK5nTQuAyQ7mZDpSUcTnK2/8dHE1fVkjSEisAAAAASUVORK5CYIIA" />
+<image width="115.0000" height="36.0000" x="166.0000" y="89.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHMAAAAkCAYAAAC6yAWpAAAAvUlEQVR4nO3ZMQ6DMAAEQef/H6Mw4kmbJo5QWgrCaq8ZKIyQ0OWKDH5yHEf3D7rftu17PQDmnORz3fcd+HzMf3ihvCbUTIUrY/0G3/1CWTPzZJspEWqmwpU2UyLUTJVtpkSomQpX2kyJUDNVtpkS4fQxrz6o8/efbzMlQpupss2UCDVT4UqbKRFqpso2UyLUTIUrbaZEqJkq20yJUDMVrrSZEqFmqmwzJUL/Z6rOt5kSoc1U2WZKBHgBjKLIGzdhKTvQfjUwAAAAAElFTkSuQmCC" />
+<path d="M 165.0000,88.0000 L 165.0000,90.0000 L 276.0000,90.0000 L 276.0000,88.0000 L 165.0000,88.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 165.0000,90.0000 L 165.0000,92.0000 L 276.0000,92.0000 L 276.0000,90.0000 L 165.0000,90.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 165.0000,92.0000 L 165.0000,94.0000 L 276.0000,94.0000 L 276.0000,92.0000 L 165.0000,92.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 165.0000,94.0000 L 165.0000,96.0000 L 276.0000,96.0000 L 276.0000,94.0000 L 165.0000,94.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 165.0000,96.0000 L 165.0000,97.0000 L 276.0000,97.0000 L 276.0000,96.0000 L 165.0000,96.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 165.0000,97.0000 L 165.0000,98.0000 L 276.0000,98.0000 L 276.0000,97.0000 L 165.0000,97.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 165.0000,98.0000 L 165.0000,99.0000 L 276.0000,99.0000 L 276.0000,98.0000 L 165.0000,98.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 165.0000,99.0000 L 165.0000,100.0000 L 276.0000,100.0000 L 276.0000,99.0000 L 165.0000,99.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 165.0000,100.0000 L 165.0000,101.0000 L 276.0000,101.0000 L 276.0000,100.0000 L 165.0000,100.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 165.0000,101.0000 L 165.0000,102.0000 L 276.0000,102.0000 L 276.0000,101.0000 L 165.0000,101.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 165.0000,102.0000 L 165.0000,103.0000 L 276.0000,103.0000 L 276.0000,102.0000 L 165.0000,102.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 165.0000,103.0000 L 165.0000,104.0000 L 276.0000,104.0000 L 276.0000,103.0000 L 165.0000,103.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 165.0000,104.0000 L 165.0000,105.0000 L 276.0000,105.0000 L 276.0000,104.0000 L 165.0000,104.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 165.0000,105.0000 L 165.0000,106.0000 L 276.0000,106.0000 L 276.0000,105.0000 L 165.0000,105.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 165.0000,106.0000 L 165.0000,107.0000 L 276.0000,107.0000 L 276.0000,106.0000 L 165.0000,106.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 165.0000,107.0000 L 165.0000,108.0000 L 276.0000,108.0000 L 276.0000,107.0000 L 165.0000,107.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 165.0000,108.0000 L 165.0000,109.0000 L 276.0000,109.0000 L 276.0000,108.0000 L 165.0000,108.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 165.0000,109.0000 L 165.0000,110.0000 L 276.0000,110.0000 L 276.0000,109.0000 L 165.0000,109.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 165.0000,110.0000 L 165.0000,111.0000 L 276.0000,111.0000 L 276.0000,110.0000 L 165.0000,110.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 165.0000,111.0000 L 165.0000,112.0000 L 276.0000,112.0000 L 276.0000,111.0000 L 165.0000,111.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 165.0000,112.0000 L 165.0000,113.0000 L 276.0000,113.0000 L 276.0000,112.0000 L 165.0000,112.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 165.0000,113.0000 L 165.0000,115.0000 L 276.0000,115.0000 L 276.0000,113.0000 L 165.0000,113.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 165.0000,115.0000 L 165.0000,116.0000 L 276.0000,116.0000 L 276.0000,115.0000 L 165.0000,115.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 165.0000,116.0000 L 165.0000,118.0000 L 276.0000,118.0000 L 276.0000,116.0000 L 165.0000,116.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 165.0000,118.0000 L 165.0000,121.0000 L 276.0000,121.0000 L 276.0000,118.0000 L 165.0000,118.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2641.0000,1923.0000 L 4412.0000,1923.0000 L 4412.0000,1408.0000 L 2641.0000,1408.0000 L 2641.0000,1923.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 185.7334 107.8081)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="12.0000" ><![CDATA[状态监控组件]]></text>
+<image width="96.0000" height="37.0000" x="22.0000" y="272.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAyElEQVRoge2UwQqFQAwDs/7/P9eD2sPjnUS2A0lBhq4sBMO4JJUyY3P8O6yq7Jv24/ewqrTWyr5pl65fUF3vKtzI+8nHHy5hPoQrYwCAXQAhjBtjAIAihHBlDACwCyCEcWMMAFCEEK6MAQB2AR80mfvv7sWAcQOmQ7gyBgDYBRDCuDEGAChCCFfGAAC7AEIYN8YAAEUI4coYAGAXQAjjxhgAoAghXBkDAOwCPmgy99/diwHjBkyHcGUMALALIIRxo6RaTwuZmTkBopwK9Wk65jYAAAAASUVORK5CYIIA" />
+<image width="96.0000" height="37.0000" x="22.0000" y="272.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAuElEQVRoge3bQQrCMBgF4db73ywhVxo3oi5ciTKFzL/5SCEQKI9HKD0Bjkab26eHc87Wf1yvtV4LHjPnTMHnC7jCYXYT3l6AfZhdPQDGGJc4zG5CCdCtA0ShBOjWAaJQAnTrAFEoAbp1gCiUAN2fdED7v9sPJUC3DhCFEqDbPUAUSoBuHSAKJUC3DhCFEqBbB4hCCdCtA0ShBOjWAaJQAnT7HiDuhxKgWweIQgnQ7R4gCnBC/4iZcwefk171Sei2+wAAAABJRU5ErkJgggAA" />
+<path d="M 21.0000,271.0000 L 21.0000,274.0000 L 113.0000,274.0000 L 113.0000,271.0000 L 21.0000,271.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 21.0000,274.0000 L 21.0000,276.0000 L 113.0000,276.0000 L 113.0000,274.0000 L 21.0000,274.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 21.0000,276.0000 L 21.0000,278.0000 L 113.0000,278.0000 L 113.0000,276.0000 L 21.0000,276.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 21.0000,278.0000 L 21.0000,279.0000 L 113.0000,279.0000 L 113.0000,278.0000 L 21.0000,278.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 21.0000,279.0000 L 21.0000,280.0000 L 113.0000,280.0000 L 113.0000,279.0000 L 21.0000,279.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 21.0000,280.0000 L 21.0000,281.0000 L 113.0000,281.0000 L 113.0000,280.0000 L 21.0000,280.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 21.0000,281.0000 L 21.0000,282.0000 L 113.0000,282.0000 L 113.0000,281.0000 L 21.0000,281.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 21.0000,282.0000 L 21.0000,283.0000 L 113.0000,283.0000 L 113.0000,282.0000 L 21.0000,282.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 21.0000,283.0000 L 21.0000,284.0000 L 113.0000,284.0000 L 113.0000,283.0000 L 21.0000,283.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 21.0000,284.0000 L 21.0000,285.0000 L 113.0000,285.0000 L 113.0000,284.0000 L 21.0000,284.0000 Z" stroke-width="1px" stroke="#FFFFC2"  fill="#FFFFC2" />
+<path d="M 21.0000,285.0000 L 21.0000,286.0000 L 113.0000,286.0000 L 113.0000,285.0000 L 21.0000,285.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 21.0000,286.0000 L 21.0000,287.0000 L 113.0000,287.0000 L 113.0000,286.0000 L 21.0000,286.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 21.0000,287.0000 L 21.0000,288.0000 L 113.0000,288.0000 L 113.0000,287.0000 L 21.0000,287.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 21.0000,288.0000 L 21.0000,289.0000 L 113.0000,289.0000 L 113.0000,288.0000 L 21.0000,288.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 21.0000,289.0000 L 21.0000,290.0000 L 113.0000,290.0000 L 113.0000,289.0000 L 21.0000,289.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 21.0000,290.0000 L 21.0000,291.0000 L 113.0000,291.0000 L 113.0000,290.0000 L 21.0000,290.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 21.0000,291.0000 L 21.0000,292.0000 L 113.0000,292.0000 L 113.0000,291.0000 L 21.0000,291.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 21.0000,292.0000 L 21.0000,293.0000 L 113.0000,293.0000 L 113.0000,292.0000 L 21.0000,292.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 21.0000,293.0000 L 21.0000,294.0000 L 113.0000,294.0000 L 113.0000,293.0000 L 21.0000,293.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 21.0000,294.0000 L 21.0000,295.0000 L 113.0000,295.0000 L 113.0000,294.0000 L 21.0000,294.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 21.0000,295.0000 L 21.0000,296.0000 L 113.0000,296.0000 L 113.0000,295.0000 L 21.0000,295.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 21.0000,296.0000 L 21.0000,297.0000 L 113.0000,297.0000 L 113.0000,296.0000 L 21.0000,296.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 21.0000,297.0000 L 21.0000,298.0000 L 113.0000,298.0000 L 113.0000,297.0000 L 21.0000,297.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 21.0000,298.0000 L 21.0000,300.0000 L 113.0000,300.0000 L 113.0000,298.0000 L 21.0000,298.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 21.0000,300.0000 L 21.0000,302.0000 L 113.0000,302.0000 L 113.0000,300.0000 L 21.0000,300.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 21.0000,302.0000 L 21.0000,304.0000 L 113.0000,304.0000 L 113.0000,302.0000 L 21.0000,302.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 346.0000,4860.0000 L 1803.0000,4860.0000 L 1803.0000,4345.0000 L 346.0000,4345.0000 L 346.0000,4860.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 37.5071 290.8935)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[发射流程控制]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 173.0000,4522.0000 L 344.0000,4522.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="95.0000" height="37.0000" x="186.0000" y="139.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAlCAYAAAAk9TVSAAAA10lEQVRoge2YwQqFMAwEt/7/P8dL8g7yLjboIJvAMkSsHYj14JIUmkLq+HcxIqZ/sK86rjdEhNZa0z/YXwYTMXyfogVcmeFFXKmaAi1iSlzAlqIFXJnhRVypmgItYkpcwJaiBVyZ4UVcqZoCLWLK3xHYftCs31uv3Q2HPWZ4EVeqe+SGLeICthQt4MoML+JK1RRoEVPiArYULeDKDC/iStUUaBFT4gK2FC3gygwv4krVFGgRU373f/jX12t3w2GPGV7EleoeuWGL/W/e8PYbH5Ji1es/9X6dKsPy+0SFhtUAAAAASUVORK5CYIIA" />
+<image width="95.0000" height="37.0000" x="186.0000" y="139.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAlCAYAAAAk9TVSAAAAu0lEQVRoge3bOwqDUBQAUc3+F6bwwCVNmmiVJt8RnNscFASL6yCCM8DUKHN7dnKM0fEPj4/hMWOM/KMA0xlu5KpO67qe4kauJrT5qjVfctu2Nt+05ktCzVet+ZI13978mu8INV+15ksezd/nk0eo69/Y/JrvCDVfteZL9p5vb37Nd4Sar1rzJWu+vfk13xFqvmrNl6z59ubXfEeo+ao1X7Lv+fL1NV8Sar5qzZdcluU7zc/X3GeG/smy5g4wOdKjOvnT4gAAAABJRU5ErkJgggAA" />
+<path d="M 184.0000,138.0000 L 184.0000,141.0000 L 276.0000,141.0000 L 276.0000,138.0000 L 184.0000,138.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 184.0000,141.0000 L 184.0000,143.0000 L 276.0000,143.0000 L 276.0000,141.0000 L 184.0000,141.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 184.0000,143.0000 L 184.0000,145.0000 L 276.0000,145.0000 L 276.0000,143.0000 L 184.0000,143.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 184.0000,145.0000 L 184.0000,146.0000 L 276.0000,146.0000 L 276.0000,145.0000 L 184.0000,145.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 184.0000,146.0000 L 184.0000,147.0000 L 276.0000,147.0000 L 276.0000,146.0000 L 184.0000,146.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 184.0000,147.0000 L 184.0000,148.0000 L 276.0000,148.0000 L 276.0000,147.0000 L 184.0000,147.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 184.0000,148.0000 L 184.0000,149.0000 L 276.0000,149.0000 L 276.0000,148.0000 L 184.0000,148.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 184.0000,149.0000 L 184.0000,150.0000 L 276.0000,150.0000 L 276.0000,149.0000 L 184.0000,149.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 184.0000,150.0000 L 184.0000,151.0000 L 276.0000,151.0000 L 276.0000,150.0000 L 184.0000,150.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 184.0000,151.0000 L 184.0000,152.0000 L 276.0000,152.0000 L 276.0000,151.0000 L 184.0000,151.0000 Z" stroke-width="1px" stroke="#FFFFC2"  fill="#FFFFC2" />
+<path d="M 184.0000,152.0000 L 184.0000,153.0000 L 276.0000,153.0000 L 276.0000,152.0000 L 184.0000,152.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 184.0000,153.0000 L 184.0000,154.0000 L 276.0000,154.0000 L 276.0000,153.0000 L 184.0000,153.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 184.0000,154.0000 L 184.0000,155.0000 L 276.0000,155.0000 L 276.0000,154.0000 L 184.0000,154.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 184.0000,155.0000 L 184.0000,156.0000 L 276.0000,156.0000 L 276.0000,155.0000 L 184.0000,155.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 184.0000,156.0000 L 184.0000,157.0000 L 276.0000,157.0000 L 276.0000,156.0000 L 184.0000,156.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 184.0000,157.0000 L 184.0000,158.0000 L 276.0000,158.0000 L 276.0000,157.0000 L 184.0000,157.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 184.0000,158.0000 L 184.0000,159.0000 L 276.0000,159.0000 L 276.0000,158.0000 L 184.0000,158.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 184.0000,159.0000 L 184.0000,160.0000 L 276.0000,160.0000 L 276.0000,159.0000 L 184.0000,159.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 184.0000,160.0000 L 184.0000,161.0000 L 276.0000,161.0000 L 276.0000,160.0000 L 184.0000,160.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 184.0000,161.0000 L 184.0000,162.0000 L 276.0000,162.0000 L 276.0000,161.0000 L 184.0000,161.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 184.0000,162.0000 L 184.0000,163.0000 L 276.0000,163.0000 L 276.0000,162.0000 L 184.0000,162.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 184.0000,163.0000 L 184.0000,164.0000 L 276.0000,164.0000 L 276.0000,163.0000 L 184.0000,163.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 184.0000,164.0000 L 184.0000,165.0000 L 276.0000,165.0000 L 276.0000,164.0000 L 184.0000,164.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 184.0000,165.0000 L 184.0000,167.0000 L 276.0000,167.0000 L 276.0000,165.0000 L 184.0000,165.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 184.0000,167.0000 L 184.0000,169.0000 L 276.0000,169.0000 L 276.0000,167.0000 L 184.0000,167.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 184.0000,169.0000 L 184.0000,171.0000 L 276.0000,171.0000 L 276.0000,169.0000 L 184.0000,169.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2959.0000,2731.0000 L 4417.0000,2731.0000 L 4417.0000,2217.0000 L 2959.0000,2217.0000 L 2959.0000,2731.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 200.8638 157.8550)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[设备状态监控]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2804.0000,2393.0000 L 2948.0000,2393.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="95.0000" height="37.0000" x="186.0000" y="183.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAlCAYAAAAk9TVSAAAAz0lEQVRoge3YQQrDMAwF0e/e/87qolYOYEOGMjKIRwpuhrjZdCWpzELWhw4wr+fhV9X4or2qfp+MLxs6wOoePsRq+hToEKl4gNbQAVb38CFW06dAh0jFA7SGDrC6hw+xmj4FOkTq8wocf9HsP9uf0xuOd+7hQ6zm9pUbr8QDtIYOsLqHD7GaPgU6RCoeoDV0gNU9fIjV9CnQIVLxAK2hA6zu4UOspk+BDpH6v/+H//v+nN5wvHMPH2I1t6/ceCUeoLNn9c+/V1VlrTXXL1x/AdEi+PhiO4U3AAAAAElFTkSuQmCC" />
+<image width="95.0000" height="37.0000" x="186.0000" y="183.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAlCAYAAAAk9TVSAAAAw0lEQVRoge3YwQqCUBQA0Vf//2OCDz9pWpRC2wJHcO7m4EJ41G0SHwCjUeZpH+DOc3z4c8480THGGADrupLnO5ZlucRB7iZAmy86+Ix9kLu5bVubb1rzJaHmq9Z8yZpvb37Nd4Sar1rzJY/m7/PPT6j7f9j8mu8INV+15kv2nG9vfs13hJqvWvMla769+TXfEWq+as2XrPn25td8R6j5qjVfsvf58v01XxJqvmrNlzyaP+e8xIHu4j5ff7jw/ka6Puf6BQPHFq6kJYDeAAAAAElFTkSuQmCC" />
+<path d="M 184.0000,182.0000 L 184.0000,185.0000 L 276.0000,185.0000 L 276.0000,182.0000 L 184.0000,182.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 184.0000,185.0000 L 184.0000,187.0000 L 276.0000,187.0000 L 276.0000,185.0000 L 184.0000,185.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 184.0000,187.0000 L 184.0000,189.0000 L 276.0000,189.0000 L 276.0000,187.0000 L 184.0000,187.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 184.0000,189.0000 L 184.0000,190.0000 L 276.0000,190.0000 L 276.0000,189.0000 L 184.0000,189.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 184.0000,190.0000 L 184.0000,191.0000 L 276.0000,191.0000 L 276.0000,190.0000 L 184.0000,190.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 184.0000,191.0000 L 184.0000,192.0000 L 276.0000,192.0000 L 276.0000,191.0000 L 184.0000,191.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 184.0000,192.0000 L 184.0000,193.0000 L 276.0000,193.0000 L 276.0000,192.0000 L 184.0000,192.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 184.0000,193.0000 L 184.0000,194.0000 L 276.0000,194.0000 L 276.0000,193.0000 L 184.0000,193.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 184.0000,194.0000 L 184.0000,195.0000 L 276.0000,195.0000 L 276.0000,194.0000 L 184.0000,194.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 184.0000,195.0000 L 184.0000,196.0000 L 276.0000,196.0000 L 276.0000,195.0000 L 184.0000,195.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 184.0000,196.0000 L 184.0000,197.0000 L 276.0000,197.0000 L 276.0000,196.0000 L 184.0000,196.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 184.0000,197.0000 L 184.0000,198.0000 L 276.0000,198.0000 L 276.0000,197.0000 L 184.0000,197.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 184.0000,198.0000 L 184.0000,199.0000 L 276.0000,199.0000 L 276.0000,198.0000 L 184.0000,198.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 184.0000,199.0000 L 184.0000,200.0000 L 276.0000,200.0000 L 276.0000,199.0000 L 184.0000,199.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 184.0000,200.0000 L 184.0000,201.0000 L 276.0000,201.0000 L 276.0000,200.0000 L 184.0000,200.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 184.0000,201.0000 L 184.0000,202.0000 L 276.0000,202.0000 L 276.0000,201.0000 L 184.0000,201.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 184.0000,202.0000 L 184.0000,203.0000 L 276.0000,203.0000 L 276.0000,202.0000 L 184.0000,202.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 184.0000,203.0000 L 184.0000,204.0000 L 276.0000,204.0000 L 276.0000,203.0000 L 184.0000,203.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 184.0000,204.0000 L 184.0000,205.0000 L 276.0000,205.0000 L 276.0000,204.0000 L 184.0000,204.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 184.0000,205.0000 L 184.0000,206.0000 L 276.0000,206.0000 L 276.0000,205.0000 L 184.0000,205.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 184.0000,206.0000 L 184.0000,207.0000 L 276.0000,207.0000 L 276.0000,206.0000 L 184.0000,206.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 184.0000,207.0000 L 184.0000,208.0000 L 276.0000,208.0000 L 276.0000,207.0000 L 184.0000,207.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 184.0000,208.0000 L 184.0000,209.0000 L 276.0000,209.0000 L 276.0000,208.0000 L 184.0000,208.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 184.0000,209.0000 L 184.0000,211.0000 L 276.0000,211.0000 L 276.0000,209.0000 L 184.0000,209.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 184.0000,211.0000 L 184.0000,213.0000 L 276.0000,213.0000 L 276.0000,211.0000 L 184.0000,211.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 184.0000,213.0000 L 184.0000,215.0000 L 276.0000,215.0000 L 276.0000,213.0000 L 184.0000,213.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2959.0000,3438.0000 L 4417.0000,3438.0000 L 4417.0000,2924.0000 L 2959.0000,2924.0000 L 2959.0000,3438.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 200.8638 202.0675)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[门禁状态监控]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2788.0000,3101.0000 L 2960.0000,3101.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2776.0000,1939.0000 L 2776.0000,3808.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="95.0000" height="36.0000" x="186.0000" y="228.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAkCAYAAADvqeb3AAAAzklEQVRoge2YQQoEIRDEyv3/n93D2MucFQxLWihCO6iB1suMJDOvMefMGKPrC/WnJt4fur5TJ8/Nn/OZad4lLqBlaAErV3gRK1NdoEWkxAW0DC1g5QovYmWqC7SIlLiAlqEFrFzhRaxMdYEWkfL3BLY36vV767N7YPOMK7yIlTl9cs0j4gJahhawcoUXsTLVBVpESlxAy9ACVq7wIlamukCLSIkLaBlawMoVXsTKVBdoESn/93/4v6/P7oHNM67wIlbm9Mk192/+qA70uD++eUv8OGFvlPcAAAAASUVORK5CYIIA" />
+<image width="95.0000" height="36.0000" x="186.0000" y="228.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF8AAAAkCAYAAADvqeb3AAAAs0lEQVRoge3YMQrDMBTAUPf+JzM4+Ejq0nbo2EIUiLwIDwYTfh4hg6+1925/0n4ArLWo5/U4DuD18K9wobt1793kmx1zzktc5G6FzFeb+VIz3578zHcKma8286Vmvj35me8UMl9t5kv9mP9e/7xCnf9h8jPfKWS+2syX2ne+PfmZ7xQyX23mS818e/Iz3ylkvtrMl5r59uRnvlPIfLWZL7X/+fL5zJcKma8288XJfwCMlrKeAoYGpJr+mUgAAAAASUVORK5CYIIA" />
+<path d="M 184.0000,226.0000 L 184.0000,229.0000 L 276.0000,229.0000 L 276.0000,226.0000 L 184.0000,226.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 184.0000,229.0000 L 184.0000,231.0000 L 276.0000,231.0000 L 276.0000,229.0000 L 184.0000,229.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 184.0000,231.0000 L 184.0000,233.0000 L 276.0000,233.0000 L 276.0000,231.0000 L 184.0000,231.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 184.0000,233.0000 L 184.0000,235.0000 L 276.0000,235.0000 L 276.0000,233.0000 L 184.0000,233.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 184.0000,235.0000 L 184.0000,236.0000 L 276.0000,236.0000 L 276.0000,235.0000 L 184.0000,235.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 184.0000,236.0000 L 184.0000,237.0000 L 276.0000,237.0000 L 276.0000,236.0000 L 184.0000,236.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 184.0000,237.0000 L 184.0000,238.0000 L 276.0000,238.0000 L 276.0000,237.0000 L 184.0000,237.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 184.0000,238.0000 L 184.0000,239.0000 L 276.0000,239.0000 L 276.0000,238.0000 L 184.0000,238.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 184.0000,239.0000 L 184.0000,240.0000 L 276.0000,240.0000 L 276.0000,239.0000 L 184.0000,239.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 184.0000,240.0000 L 184.0000,241.0000 L 276.0000,241.0000 L 276.0000,240.0000 L 184.0000,240.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 184.0000,241.0000 L 184.0000,242.0000 L 276.0000,242.0000 L 276.0000,241.0000 L 184.0000,241.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 184.0000,242.0000 L 184.0000,243.0000 L 276.0000,243.0000 L 276.0000,242.0000 L 184.0000,242.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 184.0000,243.0000 L 184.0000,244.0000 L 276.0000,244.0000 L 276.0000,243.0000 L 184.0000,243.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 184.0000,244.0000 L 184.0000,245.0000 L 276.0000,245.0000 L 276.0000,244.0000 L 184.0000,244.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 184.0000,245.0000 L 184.0000,246.0000 L 276.0000,246.0000 L 276.0000,245.0000 L 184.0000,245.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 184.0000,246.0000 L 184.0000,247.0000 L 276.0000,247.0000 L 276.0000,246.0000 L 184.0000,246.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 184.0000,247.0000 L 184.0000,248.0000 L 276.0000,248.0000 L 276.0000,247.0000 L 184.0000,247.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 184.0000,248.0000 L 184.0000,249.0000 L 276.0000,249.0000 L 276.0000,248.0000 L 184.0000,248.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 184.0000,249.0000 L 184.0000,250.0000 L 276.0000,250.0000 L 276.0000,249.0000 L 184.0000,249.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 184.0000,250.0000 L 184.0000,251.0000 L 276.0000,251.0000 L 276.0000,250.0000 L 184.0000,250.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 184.0000,251.0000 L 184.0000,252.0000 L 276.0000,252.0000 L 276.0000,251.0000 L 184.0000,251.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 184.0000,252.0000 L 184.0000,253.0000 L 276.0000,253.0000 L 276.0000,252.0000 L 184.0000,252.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 184.0000,253.0000 L 184.0000,255.0000 L 276.0000,255.0000 L 276.0000,253.0000 L 184.0000,253.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 184.0000,255.0000 L 184.0000,257.0000 L 276.0000,257.0000 L 276.0000,255.0000 L 184.0000,255.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 184.0000,257.0000 L 184.0000,259.0000 L 276.0000,259.0000 L 276.0000,257.0000 L 184.0000,257.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2959.0000,4146.0000 L 4417.0000,4146.0000 L 4417.0000,3631.0000 L 2959.0000,3631.0000 L 2959.0000,4146.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 200.8638 246.2800)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[环境状态监控]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 2776.0000,3808.0000 L 2948.0000,3808.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 5888.0000,1069.0000 L 5888.0000,1412.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="115.0000" height="36.0000" x="315.0000" y="89.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHMAAAAkCAYAAAC6yAWpAAAAs0lEQVR4nO3ZQQrAIAxE0aT3v3O6kEL3BqKf7+ZhizAgQyjNiKj4raqKzHR/4f6J3/peVJX7C/cRq5lV64ne7brMA4LopjaT5XgAbdJmsnRmUrSZLMcDaJM2k6Uzk6LNZDkeQJu0mSz3Z6bnzzhvM1mOB9AmbSZLvzMp2kyW4wG0SZvJ0plJ0WayHA+gTdpMls5MijaT5XgAbdJmsjznf5zn987bTJbjAbRJmwkyvxt13b9epo93PnkdMB0AAAAASUVORK5CYIIA" />
+<image width="115.0000" height="36.0000" x="315.0000" y="89.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHMAAAAkCAYAAAC6yAWpAAAApklEQVR4nO3ZQQqEMBQE0Xj/m+UHcqR2F8StgqaobB4yBIShaIZpuZ05p8+bPrfrB2MM3dj1ZX79IvrMqrJMkpYJcZVZVb94IbVMjZuJ0zIhupkwLROimwnTMiG6mTAtE+Jrm+n9f9y3TIhuJkzLhOjvTJiWCdHNhGmZEN1MmJYJ0c2EaZkQ3UyYlgnRzYRpmRD9PxN23zIhupkwLRNi7z1HkjQP4pxBtyPv+fQ9cQAAAABJRU5ErkJgggAA" />
+<path d="M 314.0000,88.0000 L 314.0000,90.0000 L 425.0000,90.0000 L 425.0000,88.0000 L 314.0000,88.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 314.0000,90.0000 L 314.0000,92.0000 L 425.0000,92.0000 L 425.0000,90.0000 L 314.0000,90.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 314.0000,92.0000 L 314.0000,94.0000 L 425.0000,94.0000 L 425.0000,92.0000 L 314.0000,92.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 314.0000,94.0000 L 314.0000,96.0000 L 425.0000,96.0000 L 425.0000,94.0000 L 314.0000,94.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 314.0000,96.0000 L 314.0000,97.0000 L 425.0000,97.0000 L 425.0000,96.0000 L 314.0000,96.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 314.0000,97.0000 L 314.0000,98.0000 L 425.0000,98.0000 L 425.0000,97.0000 L 314.0000,97.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 314.0000,98.0000 L 314.0000,99.0000 L 425.0000,99.0000 L 425.0000,98.0000 L 314.0000,98.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 314.0000,99.0000 L 314.0000,100.0000 L 425.0000,100.0000 L 425.0000,99.0000 L 314.0000,99.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 314.0000,100.0000 L 314.0000,101.0000 L 425.0000,101.0000 L 425.0000,100.0000 L 314.0000,100.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 314.0000,101.0000 L 314.0000,102.0000 L 425.0000,102.0000 L 425.0000,101.0000 L 314.0000,101.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 314.0000,102.0000 L 314.0000,103.0000 L 425.0000,103.0000 L 425.0000,102.0000 L 314.0000,102.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 314.0000,103.0000 L 314.0000,104.0000 L 425.0000,104.0000 L 425.0000,103.0000 L 314.0000,103.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 314.0000,104.0000 L 314.0000,105.0000 L 425.0000,105.0000 L 425.0000,104.0000 L 314.0000,104.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 314.0000,105.0000 L 314.0000,106.0000 L 425.0000,106.0000 L 425.0000,105.0000 L 314.0000,105.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 314.0000,106.0000 L 314.0000,107.0000 L 425.0000,107.0000 L 425.0000,106.0000 L 314.0000,106.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 314.0000,107.0000 L 314.0000,108.0000 L 425.0000,108.0000 L 425.0000,107.0000 L 314.0000,107.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 314.0000,108.0000 L 314.0000,109.0000 L 425.0000,109.0000 L 425.0000,108.0000 L 314.0000,108.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 314.0000,109.0000 L 314.0000,110.0000 L 425.0000,110.0000 L 425.0000,109.0000 L 314.0000,109.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 314.0000,110.0000 L 314.0000,111.0000 L 425.0000,111.0000 L 425.0000,110.0000 L 314.0000,110.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 314.0000,111.0000 L 314.0000,112.0000 L 425.0000,112.0000 L 425.0000,111.0000 L 314.0000,111.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 314.0000,112.0000 L 314.0000,113.0000 L 425.0000,113.0000 L 425.0000,112.0000 L 314.0000,112.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 314.0000,113.0000 L 314.0000,115.0000 L 425.0000,115.0000 L 425.0000,113.0000 L 314.0000,113.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 314.0000,115.0000 L 314.0000,116.0000 L 425.0000,116.0000 L 425.0000,115.0000 L 314.0000,115.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 314.0000,116.0000 L 314.0000,118.0000 L 425.0000,118.0000 L 425.0000,116.0000 L 314.0000,116.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 314.0000,118.0000 L 314.0000,121.0000 L 425.0000,121.0000 L 425.0000,118.0000 L 314.0000,118.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 5034.0000,1923.0000 L 6804.0000,1923.0000 L 6804.0000,1408.0000 L 5034.0000,1408.0000 L 5034.0000,1923.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 335.2846 107.8081)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="12.0000" ><![CDATA[控制环境组件]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 5153.0000,1922.0000 L 5153.0000,2387.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<defs><clipPath id="clip-16807"><path d="M 0.0000,0.0000 L 431.0000,0.0000 L 431.0000,353.0000 L 0.0000,353.0000 L 0.0000,0.0000 Z Z" /></clipPath></defs>
+<image width="96.0000" height="36.0000" x="335.0000" y="139.0000"  clip-path="url(#clip-16807)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAkCAYAAAB2UT9CAAAAk0lEQVRoge3TQQrAIAwF0W/vf+d0IfUAIo0wk82AEBDCG0kqTts8SVI1b2D/7Tc138o2NDd8gtp1gBs+Q60CFMCuAhTArgIUwK4CFMCuAhTA7jrAgUu6v7engHYB3Z+gVgEXVAEKYFcBCmBXAQpgVwEKYFcBCmBXAQpgdx3gwCXd39tTQLuA7k9Qq4ALOr4rOD3zArnl2s8LrqZlAAAAAElFTkSuQmCC" />
+<image width="96.0000" height="36.0000" x="335.0000" y="139.0000"  clip-path="url(#clip-16807)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAkCAYAAAB2UT9CAAAApklEQVRoge3bQQqFMAwG4fjuf7SkVxo3+i4g2Ejm38xKKJSPrjwAwm3bLyKiqsK+18yM/7iWmfbFrrUAiA6HmVq4LqDDYaZVAQ0KClDA5IICFDC5oAAFTC4oQAGTCwroIeDek5v0ewV8qr4BDQoKUMDkggIUMLmgAAVMLihAAZMLClDA5IICFDC5oIAeAu49uUm/V8Cn6hvQoKCAba0qAA7wF6WdOwGieTKtA0gFiQAAAABJRU5ErkJgggAA" />
+<path d="M 334.0000,138.0000 L 334.0000,140.0000 L 426.0000,140.0000 L 426.0000,138.0000 L 334.0000,138.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 334.0000,140.0000 L 334.0000,143.0000 L 426.0000,143.0000 L 426.0000,140.0000 L 334.0000,140.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 334.0000,143.0000 L 334.0000,144.0000 L 426.0000,144.0000 L 426.0000,143.0000 L 334.0000,143.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 334.0000,144.0000 L 334.0000,146.0000 L 426.0000,146.0000 L 426.0000,144.0000 L 334.0000,144.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 334.0000,146.0000 L 334.0000,147.0000 L 426.0000,147.0000 L 426.0000,146.0000 L 334.0000,146.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 334.0000,147.0000 L 334.0000,148.0000 L 426.0000,148.0000 L 426.0000,147.0000 L 334.0000,147.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 334.0000,148.0000 L 334.0000,149.0000 L 426.0000,149.0000 L 426.0000,148.0000 L 334.0000,148.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 334.0000,149.0000 L 334.0000,150.0000 L 426.0000,150.0000 L 426.0000,149.0000 L 334.0000,149.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 334.0000,150.0000 L 334.0000,151.0000 L 426.0000,151.0000 L 426.0000,150.0000 L 334.0000,150.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 334.0000,151.0000 L 334.0000,152.0000 L 426.0000,152.0000 L 426.0000,151.0000 L 334.0000,151.0000 Z" stroke-width="1px" stroke="#FFFFC2"  fill="#FFFFC2" />
+<path d="M 334.0000,152.0000 L 334.0000,153.0000 L 426.0000,153.0000 L 426.0000,152.0000 L 334.0000,152.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 334.0000,153.0000 L 334.0000,154.0000 L 426.0000,154.0000 L 426.0000,153.0000 L 334.0000,153.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 334.0000,154.0000 L 334.0000,155.0000 L 426.0000,155.0000 L 426.0000,154.0000 L 334.0000,154.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 334.0000,155.0000 L 334.0000,156.0000 L 426.0000,156.0000 L 426.0000,155.0000 L 334.0000,155.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 334.0000,156.0000 L 334.0000,157.0000 L 426.0000,157.0000 L 426.0000,156.0000 L 334.0000,156.0000 Z" stroke-width="1px" stroke="#FFFFBA"  fill="#FFFFBA" />
+<path d="M 334.0000,157.0000 L 334.0000,158.0000 L 426.0000,158.0000 L 426.0000,157.0000 L 334.0000,157.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 334.0000,158.0000 L 334.0000,159.0000 L 426.0000,159.0000 L 426.0000,158.0000 L 334.0000,158.0000 Z" stroke-width="1px" stroke="#FFFFB7"  fill="#FFFFB7" />
+<path d="M 334.0000,159.0000 L 334.0000,160.0000 L 426.0000,160.0000 L 426.0000,159.0000 L 334.0000,159.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 334.0000,160.0000 L 334.0000,161.0000 L 426.0000,161.0000 L 426.0000,160.0000 L 334.0000,160.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 334.0000,161.0000 L 334.0000,162.0000 L 426.0000,162.0000 L 426.0000,161.0000 L 334.0000,161.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 334.0000,162.0000 L 334.0000,163.0000 L 426.0000,163.0000 L 426.0000,162.0000 L 334.0000,162.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 334.0000,163.0000 L 334.0000,165.0000 L 426.0000,165.0000 L 426.0000,163.0000 L 334.0000,163.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 334.0000,165.0000 L 334.0000,166.0000 L 426.0000,166.0000 L 426.0000,165.0000 L 334.0000,165.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 334.0000,166.0000 L 334.0000,168.0000 L 426.0000,168.0000 L 426.0000,166.0000 L 334.0000,166.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 334.0000,168.0000 L 334.0000,171.0000 L 426.0000,171.0000 L 426.0000,168.0000 L 334.0000,168.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 5349.0000,2726.0000 L 6807.0000,2726.0000 L 6807.0000,2211.0000 L 5349.0000,2211.0000 L 5349.0000,2726.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 350.2133 157.5251)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[控制辅助单元]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 5159.0000,2388.0000 L 5331.0000,2388.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<defs><clipPath id="clip-282475249"><path d="M 0.0000,0.0000 L 431.0000,0.0000 L 431.0000,353.0000 L 0.0000,353.0000 L 0.0000,0.0000 Z Z" /></clipPath></defs>
+<image width="96.0000" height="37.0000" x="22.0000" y="316.0000"  clip-path="url(#clip-282475249)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAzUlEQVRoge2U0QqEQAwDU///n3sP6sId9ySyDWQKMnRlIRjGktRixub4d9jd7Jv24/ewu1VV7Jt26fwF9fmu4UZeDx9/uIT5EKnEAAOuAhzCpBEDDCiHEKnEAAOuAhzCpBEDDCiHEKnEAAOuAl5okvvP7mHAuAHTIVKJAQZcBTiESSMGGFAOIVKJAQZcBTiESSMGGFAOIVKJAQZcBTiESSMGGFAOIVKJAQZcBbzQJPef3cOAcQOmQ6QSAwxYdwuXCqoqse/ZJemrAGb/fABsqWfQvveLRgAAAABJRU5ErkJgggAA" />
+<image width="96.0000" height="37.0000" x="22.0000" y="316.0000"  clip-path="url(#clip-282475249)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAuElEQVRoge3bQQrCQBQE0cT732z+ncqNioIrkVQgNZvHDwwMDE0TQnaAraWt27eHM9N81MxjzUwKvi7gDIe5mvB2AfZhruoGsNY6xWGuJpQA3TpAFEqAbh0gCiVAtw4QhRKgWweIQgnQ/UsHtP+3/VACdOsAUSgBur0HiEIJ0K0DRKEE6NYBolACdOsAUSgBunWAKJQA3TpAFEqAbt8DxP1QAnTrAFEoAbofHfBMQvMxM8AO/SNmrjt/omxpilILHgAAAABJRU5ErkJgggAA" />
+<path d="M 21.0000,315.0000 L 21.0000,318.0000 L 113.0000,318.0000 L 113.0000,315.0000 L 21.0000,315.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 21.0000,318.0000 L 21.0000,320.0000 L 113.0000,320.0000 L 113.0000,318.0000 L 21.0000,318.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 21.0000,320.0000 L 21.0000,322.0000 L 113.0000,322.0000 L 113.0000,320.0000 L 21.0000,320.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 21.0000,322.0000 L 21.0000,323.0000 L 113.0000,323.0000 L 113.0000,322.0000 L 21.0000,322.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 21.0000,323.0000 L 21.0000,324.0000 L 113.0000,324.0000 L 113.0000,323.0000 L 21.0000,323.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 21.0000,324.0000 L 21.0000,325.0000 L 113.0000,325.0000 L 113.0000,324.0000 L 21.0000,324.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 21.0000,325.0000 L 21.0000,326.0000 L 113.0000,326.0000 L 113.0000,325.0000 L 21.0000,325.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 21.0000,326.0000 L 21.0000,327.0000 L 113.0000,327.0000 L 113.0000,326.0000 L 21.0000,326.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 21.0000,327.0000 L 21.0000,328.0000 L 113.0000,328.0000 L 113.0000,327.0000 L 21.0000,327.0000 Z" stroke-width="1px" stroke="#FFFFC3"  fill="#FFFFC3" />
+<path d="M 21.0000,328.0000 L 21.0000,329.0000 L 113.0000,329.0000 L 113.0000,328.0000 L 21.0000,328.0000 Z" stroke-width="1px" stroke="#FFFFC2"  fill="#FFFFC2" />
+<path d="M 21.0000,329.0000 L 21.0000,330.0000 L 113.0000,330.0000 L 113.0000,329.0000 L 21.0000,329.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 21.0000,330.0000 L 21.0000,331.0000 L 113.0000,331.0000 L 113.0000,330.0000 L 21.0000,330.0000 Z" stroke-width="1px" stroke="#FFFFBF"  fill="#FFFFBF" />
+<path d="M 21.0000,331.0000 L 21.0000,332.0000 L 113.0000,332.0000 L 113.0000,331.0000 L 21.0000,331.0000 Z" stroke-width="1px" stroke="#FFFFBD"  fill="#FFFFBD" />
+<path d="M 21.0000,332.0000 L 21.0000,333.0000 L 113.0000,333.0000 L 113.0000,332.0000 L 21.0000,332.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 21.0000,333.0000 L 21.0000,334.0000 L 113.0000,334.0000 L 113.0000,333.0000 L 21.0000,333.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 21.0000,334.0000 L 21.0000,335.0000 L 113.0000,335.0000 L 113.0000,334.0000 L 21.0000,334.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 21.0000,335.0000 L 21.0000,336.0000 L 113.0000,336.0000 L 113.0000,335.0000 L 21.0000,335.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 21.0000,336.0000 L 21.0000,337.0000 L 113.0000,337.0000 L 113.0000,336.0000 L 21.0000,336.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 21.0000,337.0000 L 21.0000,338.0000 L 113.0000,338.0000 L 113.0000,337.0000 L 21.0000,337.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 21.0000,338.0000 L 21.0000,339.0000 L 113.0000,339.0000 L 113.0000,338.0000 L 21.0000,338.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 21.0000,339.0000 L 21.0000,340.0000 L 113.0000,340.0000 L 113.0000,339.0000 L 21.0000,339.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 21.0000,340.0000 L 21.0000,341.0000 L 113.0000,341.0000 L 113.0000,340.0000 L 21.0000,340.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 21.0000,341.0000 L 21.0000,342.0000 L 113.0000,342.0000 L 113.0000,341.0000 L 21.0000,341.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 21.0000,342.0000 L 21.0000,344.0000 L 113.0000,344.0000 L 113.0000,342.0000 L 21.0000,342.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 21.0000,344.0000 L 21.0000,346.0000 L 113.0000,346.0000 L 113.0000,344.0000 L 21.0000,344.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 21.0000,346.0000 L 21.0000,348.0000 L 113.0000,348.0000 L 113.0000,346.0000 L 21.0000,346.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 346.0000,5561.0000 L 1803.0000,5561.0000 L 1803.0000,5046.0000 L 346.0000,5046.0000 L 346.0000,5561.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 37.5071 334.7050)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[智能维护管理]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 173.0000,5223.0000 L 344.0000,5223.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+<image width="96.0000" height="37.0000" x="22.0000" y="139.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAyElEQVRoge2UwQqFQAwDs/7/P9eD2sPjnUS2A0lBhq4sBMO4JJUyY3P8O6yq7Jv24/ewqrTWyr5pl65fUF3vKtzI+8nHHy5hPoQrYwCAXQAhjBtjAIAihHBlDACwCyCEcWMMAFCEEK6MAQB2AR80mfvv7sWAcQOmQ7gyBgDYBRDCuDEGAChCCFfGAAC7AEIYN8YAAEUI4coYAGAXQAjjxhgAoAghXBkDAOwCPmgy99/diwHjBkyHcGUMALALIIRxo6RaTwuZmTkBopwK9Wk65jYAAAAASUVORK5CYIIA" />
+<image width="96.0000" height="37.0000" x="22.0000" y="139.0000" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAlCAYAAAC9DeznAAAAuklEQVRoge3bOwrDMBQFUTv735mkNU2a/IpUwWEMntccZBAIzOUijHeArdHm9u3hnLP1H9drrfeCx8w5U/D1As5wmKsJHy/APsxV3QDGGKc4zNWEEqBbB4hCCdCtA0ShBOjWAaJQAnTrAFEoAbqHdED7f9sPJUC3DhCFEqDbPUAUSoBuHSAKJUC3DhCFEqBbB4hCCdCtA0ShBOjWAaJQAnT7HiDuhxKgWweIQgnQ7R4guNbiOTv0j5g5dwYtXvUTnfGSAAAAAElFTkSuQmCC" />
+<path d="M 21.0000,138.0000 L 21.0000,141.0000 L 113.0000,141.0000 L 113.0000,138.0000 L 21.0000,138.0000 Z" stroke-width="1px" stroke="#FFFFCC"  fill="#FFFFCC" />
+<path d="M 21.0000,141.0000 L 21.0000,143.0000 L 113.0000,143.0000 L 113.0000,141.0000 L 21.0000,141.0000 Z" stroke-width="1px" stroke="#FFFFCB"  fill="#FFFFCB" />
+<path d="M 21.0000,143.0000 L 21.0000,145.0000 L 113.0000,145.0000 L 113.0000,143.0000 L 21.0000,143.0000 Z" stroke-width="1px" stroke="#FFFFCA"  fill="#FFFFCA" />
+<path d="M 21.0000,145.0000 L 21.0000,146.0000 L 113.0000,146.0000 L 113.0000,145.0000 L 21.0000,145.0000 Z" stroke-width="1px" stroke="#FFFFC9"  fill="#FFFFC9" />
+<path d="M 21.0000,146.0000 L 21.0000,147.0000 L 113.0000,147.0000 L 113.0000,146.0000 L 21.0000,146.0000 Z" stroke-width="1px" stroke="#FFFFC8"  fill="#FFFFC8" />
+<path d="M 21.0000,147.0000 L 21.0000,148.0000 L 113.0000,148.0000 L 113.0000,147.0000 L 21.0000,147.0000 Z" stroke-width="1px" stroke="#FFFFC7"  fill="#FFFFC7" />
+<path d="M 21.0000,148.0000 L 21.0000,149.0000 L 113.0000,149.0000 L 113.0000,148.0000 L 21.0000,148.0000 Z" stroke-width="1px" stroke="#FFFFC6"  fill="#FFFFC6" />
+<path d="M 21.0000,149.0000 L 21.0000,150.0000 L 113.0000,150.0000 L 113.0000,149.0000 L 21.0000,149.0000 Z" stroke-width="1px" stroke="#FFFFC5"  fill="#FFFFC5" />
+<path d="M 21.0000,150.0000 L 21.0000,151.0000 L 113.0000,151.0000 L 113.0000,150.0000 L 21.0000,150.0000 Z" stroke-width="1px" stroke="#FFFFC4"  fill="#FFFFC4" />
+<path d="M 21.0000,151.0000 L 21.0000,152.0000 L 113.0000,152.0000 L 113.0000,151.0000 L 21.0000,151.0000 Z" stroke-width="1px" stroke="#FFFFC2"  fill="#FFFFC2" />
+<path d="M 21.0000,152.0000 L 21.0000,153.0000 L 113.0000,153.0000 L 113.0000,152.0000 L 21.0000,152.0000 Z" stroke-width="1px" stroke="#FFFFC1"  fill="#FFFFC1" />
+<path d="M 21.0000,153.0000 L 21.0000,154.0000 L 113.0000,154.0000 L 113.0000,153.0000 L 21.0000,153.0000 Z" stroke-width="1px" stroke="#FFFFC0"  fill="#FFFFC0" />
+<path d="M 21.0000,154.0000 L 21.0000,155.0000 L 113.0000,155.0000 L 113.0000,154.0000 L 21.0000,154.0000 Z" stroke-width="1px" stroke="#FFFFBE"  fill="#FFFFBE" />
+<path d="M 21.0000,155.0000 L 21.0000,156.0000 L 113.0000,156.0000 L 113.0000,155.0000 L 21.0000,155.0000 Z" stroke-width="1px" stroke="#FFFFBC"  fill="#FFFFBC" />
+<path d="M 21.0000,156.0000 L 21.0000,157.0000 L 113.0000,157.0000 L 113.0000,156.0000 L 21.0000,156.0000 Z" stroke-width="1px" stroke="#FFFFBB"  fill="#FFFFBB" />
+<path d="M 21.0000,157.0000 L 21.0000,158.0000 L 113.0000,158.0000 L 113.0000,157.0000 L 21.0000,157.0000 Z" stroke-width="1px" stroke="#FFFFB9"  fill="#FFFFB9" />
+<path d="M 21.0000,158.0000 L 21.0000,159.0000 L 113.0000,159.0000 L 113.0000,158.0000 L 21.0000,158.0000 Z" stroke-width="1px" stroke="#FFFFB8"  fill="#FFFFB8" />
+<path d="M 21.0000,159.0000 L 21.0000,160.0000 L 113.0000,160.0000 L 113.0000,159.0000 L 21.0000,159.0000 Z" stroke-width="1px" stroke="#FFFFB6"  fill="#FFFFB6" />
+<path d="M 21.0000,160.0000 L 21.0000,161.0000 L 113.0000,161.0000 L 113.0000,160.0000 L 21.0000,160.0000 Z" stroke-width="1px" stroke="#FFFFB5"  fill="#FFFFB5" />
+<path d="M 21.0000,161.0000 L 21.0000,162.0000 L 113.0000,162.0000 L 113.0000,161.0000 L 21.0000,161.0000 Z" stroke-width="1px" stroke="#FFFFB4"  fill="#FFFFB4" />
+<path d="M 21.0000,162.0000 L 21.0000,163.0000 L 113.0000,163.0000 L 113.0000,162.0000 L 21.0000,162.0000 Z" stroke-width="1px" stroke="#FFFFB3"  fill="#FFFFB3" />
+<path d="M 21.0000,163.0000 L 21.0000,164.0000 L 113.0000,164.0000 L 113.0000,163.0000 L 21.0000,163.0000 Z" stroke-width="1px" stroke="#FFFFB2"  fill="#FFFFB2" />
+<path d="M 21.0000,164.0000 L 21.0000,165.0000 L 113.0000,165.0000 L 113.0000,164.0000 L 21.0000,164.0000 Z" stroke-width="1px" stroke="#FFFFB1"  fill="#FFFFB1" />
+<path d="M 21.0000,165.0000 L 21.0000,167.0000 L 113.0000,167.0000 L 113.0000,165.0000 L 21.0000,165.0000 Z" stroke-width="1px" stroke="#FFFFB0"  fill="#FFFFB0" />
+<path d="M 21.0000,167.0000 L 21.0000,169.0000 L 113.0000,169.0000 L 113.0000,167.0000 L 21.0000,167.0000 Z" stroke-width="1px" stroke="#FFFFAF"  fill="#FFFFAF" />
+<path d="M 21.0000,169.0000 L 21.0000,171.0000 L 113.0000,171.0000 L 113.0000,169.0000 L 21.0000,169.0000 Z" stroke-width="1px" stroke="#FFFFAE"  fill="#FFFFAE" />
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 346.0000,2731.0000 L 1803.0000,2731.0000 L 1803.0000,2217.0000 L 346.0000,2217.0000 L 346.0000,2731.0000 Z" stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 37.5071 157.8550)">
+<text fill="#000000" style ="white-space:pre;" font-weight="700" text-anchor="start" x="0.0000" y="0.0000" font-size="10.0000" ><![CDATA[装置运行态势]]></text>
+</g>
+<g transform="matrix(0.0625 0.0000 0.0000 0.0625 0.0000 0.0000)">
+<path d="M 173.0000,2393.0000 L 344.0000,2393.0000 " stroke="#FF6600" stroke-width="40.0000"  stroke-linecap="round"  stroke-linejoin="round" fill="none" />
+</g>
+<g transform="matrix(1.0000 0.0000 0.0000 1.0000 0.0000 0.0000)">
+</g>
+</g>
+</svg>

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GXLF 集中管控 — JZGK 控制台</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+#header {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 10;
+}
+#header-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.05em;
+}
+.jzgk-badge {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border: 1px solid;
+}
+.jstate-idle      { background:#1e293b; border-color:#475569; color:#94a3b8; }
+.jstate-preparing { background:#1c3a5e; border-color:#3b82f6; color:#93c5fd; }
+.jstate-firing    { background:#3b1f00; border-color:#f59e0b; color:#fde68a; animation: pulse 1s ease-in-out infinite; }
+.jstate-post      { background:#1a3a2a; border-color:#22c55e; color:#86efac; }
+.jstate-emergency { background:#7f1d1d; border-color:#ef4444; color:#fca5a5; animation: pulse 0.5s ease-in-out infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+@keyframes pulse-border { 0%,100%{opacity:1;stroke-width:2} 50%{opacity:0.5;stroke-width:1.5} }
+
+#header-spacer { flex: 1; }
+.header-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
+}
+.btn-primary  { background:#1d4ed8; border-color:#3b82f6; color:#fff; }
+.btn-primary:hover { background:#2563eb; }
+.btn-danger   { background:#991b1b; border-color:#ef4444; color:#fff; }
+.btn-danger:hover { background:#b91c1c; }
+.btn-warn     { background:#92400e; border-color:#f59e0b; color:#fff; position:relative; }
+.btn-warn:hover { background:#b45309; }
+header-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* ── Safety Banner ───────────────────────────────────────── */
+#safety-banner {
+    display: none;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.banner-error { background:#7f1d1d; color:#fca5a5; border-bottom:1px solid #ef4444; }
+.banner-warn  { background:#78350f; color:#fde68a; border-bottom:1px solid #f59e0b; }
+
+/* ── Main Layout ─────────────────────────────────────────── */
+#main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+}
+
+/* ── Left Panel ──────────────────────────────────────────── */
+#left-panel {
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #334155;
+    overflow: hidden;
+}
+
+/* FSM diagram */
+#fsm-section {
+    background: #1e293b;
+    padding: 10px 16px;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+}
+#fsm-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing:.08em; margin-bottom:6px; }
+#fsm-diagram {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.fsm-state {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #64748b;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+}
+.fsm-active {
+    border-color: #3b82f6;
+    background: #1c3a5e;
+    color: #93c5fd;
+    font-weight: 700;
+}
+.fsm-emg {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #ef4444;
+    background: #7f1d1d;
+    color: #fca5a5;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 8px;
+}
+.fsm-arrow { color: #475569; font-size: 14px; }
+
+/* DAG section */
+#dag-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#dag-header {
+    padding: 8px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #1e293b;
+    background: #0f172a;
+}
+#dag-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing:.08em; }
+.phase-tab {
+    padding: 5px 12px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid #334155;
+    border-bottom: none;
+    background: #1e293b;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+}
+.phase-tab.active { background:#0f172a; color:#e2e8f0; border-color:#475569; }
+#dag-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 12px;
+    background: #0f172a;
+}
+#dag-svg { display: block; }
+
+/* ── Right Panel ─────────────────────────────────────────── */
+#right-panel {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Queue section */
+#queue-section {
+    padding: 10px 12px;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+    max-height: 180px;
+    overflow-y: auto;
+}
+.section-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing:.08em; margin-bottom:6px; }
+#queue-list { display: flex; flex-direction: column; gap: 4px; }
+.queue-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; font-size:12px; }
+.queue-running { background:#1c3a5e; border:1px solid #3b82f6; }
+.queue-pending { background:#1e293b; border:1px solid #334155; }
+.qi-bullet { width:16px; }
+.qi-id { flex:1; }
+.qi-tag { font-size:10px; color:#3b82f6; }
+.btn-cancel-qi { background:none; border:none; color:#64748b; cursor:pointer; font-size:14px; padding:0 4px; }
+.btn-cancel-qi:hover { color:#ef4444; }
+.queue-empty { color:#475569; font-size:12px; padding:4px; }
+#btn-add-shot { margin-top:6px; padding:4px 10px; border-radius:5px; border:1px dashed #475569; background:none; color:#64748b; cursor:pointer; font-size:11px; font-family:inherit; width:100%; }
+#btn-add-shot:hover { border-color:#94a3b8; color:#94a3b8; }
+
+/* Subsystem grid */
+#subsys-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 10px 12px;
+}
+#subsys-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    overflow-y: auto;
+}
+.subsys-tile {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px 6px 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    text-align: center;
+}
+.subsys-tile:hover { border-color: #64748b; background: #263347; }
+.tile-name  { font-size: 12px; font-weight: 700; color: #f1f5f9; }
+.tile-label { font-size: 10px; color: #64748b; margin-bottom: 4px; }
+.tile-state { font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; font-weight: 600; }
+
+/* state color classes */
+.state-off     { background:#1e293b; color:#475569; border:1px solid #334155; }
+.state-standby { background:#1e293b; color:#94a3b8; border:1px solid #475569; }
+.state-running { background:#713f12; color:#fde68a; border:1px solid #f59e0b; }
+.state-ready   { background:#14532d; color:#86efac; border:1px solid #22c55e; }
+.state-fault   { background:#7f1d1d; color:#fca5a5; border:1px solid #ef4444; animation: pulse 1s ease-in-out infinite; }
+
+/* ── Bottom Panel ────────────────────────────────────────── */
+#bottom {
+    height: 200px;
+    border-top: 1px solid #334155;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+#bottom-tabs {
+    display: flex;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+}
+.bottom-tab {
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #64748b;
+    border-right: 1px solid #334155;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    font-family: inherit;
+}
+.bottom-tab.active { color: #e2e8f0; border-bottom-color: #3b82f6; }
+.bottom-panel { display: none; flex: 1; overflow-y: auto; padding: 8px 12px; }
+#panel-history { display: block; }
+
+/* History table */
+#history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#history-table th { text-align: left; color: #64748b; font-weight: 600; padding: 3px 8px; border-bottom: 1px solid #334155; }
+#history-table td { padding: 4px 8px; border-bottom: 1px solid #1e293b; }
+.hist-success td { color: #86efac; }
+.hist-abort td { color: #fca5a5; }
+#history-table tr.hist-success:hover, #history-table tr.hist-abort:hover { background: #1e293b; cursor: pointer; }
+.timing-row td { background: #1e293b; }
+.timing-detail { font-size: 11px; color: #94a3b8; padding: 4px 8px; line-height: 1.8; }
+.abort-detail { color: #f87171; }
+
+/* Log */
+#log-container { font-size: 11px; }
+.log-entry { padding: 1px 0; border-bottom: 1px solid #0f172a; display: flex; gap: 6px; }
+.log-time  { color: #475569; flex-shrink: 0; }
+.log-level { flex-shrink: 0; width: 60px; }
+.log-msg   { flex: 1; word-break: break-all; }
+.log-debug    .log-level { color: #475569; }
+.log-info     .log-level { color: #38bdf8; }
+.log-warning  .log-level { color: #fbbf24; }
+.log-error    .log-level { color: #f87171; }
+.log-critical .log-level { color: #fca5a5; font-weight: 700; }
+
+/* ── Dialogs / Modal ─────────────────────────────────────── */
+.dialog-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+}
+.dialog-box {
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-radius: 10px;
+    padding: 20px 24px;
+    min-width: 340px;
+    max-width: 480px;
+}
+.dialog-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 14px;
+}
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+.form-row label { font-size: 11px; color: #94a3b8; }
+.form-row input, .form-row select {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 5px;
+    color: #e2e8f0;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 12px;
+}
+.form-row input:focus, .form-row select:focus { outline: none; border-color: #3b82f6; }
+.form-advanced { font-size: 11px; color: #64748b; cursor: pointer; margin-bottom: 10px; }
+.form-advanced-body { display: none; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.btn-secondary {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid #475569;
+    background: none; color: #94a3b8; cursor: pointer; font-family: inherit; font-size: 12px;
+}
+.btn-secondary:hover { border-color: #64748b; }
+
+/* ── Inject fault dropdown ───────────────────────────────── */
+#inject-menu {
+    display: none;
+    position: absolute;
+    background: #1e293b;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    padding: 6px;
+    min-width: 160px;
+    z-index: 50;
+    right: 16px;
+    top: 44px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.inject-menu-item {
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #e2e8f0;
+}
+.inject-menu-item:hover { background: #334155; }
+.inject-menu-sep { border-top: 1px solid #334155; margin: 4px 0; }
+
+/* ── Detail Panel ────────────────────────────────────────── */
+#detail-panel {
+    display: none;
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: 380px;
+    background: #1e293b;
+    border-left: 1px solid #475569;
+    z-index: 80;
+    flex-direction: column;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+}
+#detail-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+#panel-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+#detail-close { background: none; border: none; color: #64748b; cursor: pointer; font-size: 18px; padding: 0 4px; }
+#detail-close:hover { color: #e2e8f0; }
+#detail-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+.detail-section-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing:.08em; margin-bottom: 4px; }
+#panel-state { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.panel-status { color: #94a3b8; font-size: 12px; }
+
+#panel-metrics { background: #0f172a; border-radius: 6px; padding: 8px; }
+.metric-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #1e293b; font-size: 11px; }
+.metric-key { color: #64748b; }
+.metric-val { color: #e2e8f0; font-weight: 600; }
+
+#panel-timeline { background: #0f172a; border-radius: 6px; padding: 6px 8px; max-height: 140px; overflow-y: auto; }
+.tl-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 11px; }
+.tl-time { color: #475569; flex-shrink: 0; }
+.tl-msg { color: #94a3b8; }
+
+#panel-logs { background: #0f172a; border-radius: 6px; padding: 6px 8px; flex: 1; overflow-y: auto; min-height: 80px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<div id="header">
+    <span id="header-title">GXLF 集中管控</span>
+    <span id="jzgk-badge" class="jzgk-badge jstate-idle">IDLE</span>
+    <div id="header-spacer"></div>
+    <button id="btn-enqueue" class="header-btn btn-primary" onclick="openEnqueueDialog()">+ 启动发次</button>
+    <button id="btn-estop" class="header-btn btn-danger" onclick="emergencyStop()" disabled>紧急停止</button>
+    <div style="position:relative">
+        <button id="btn-inject" class="header-btn btn-warn" onclick="openInjectMenu()">注入故障 ▾</button>
+        <div id="inject-menu">
+            <div class="inject-menu-item" onclick="injectS1()">⚠ 注入 S1（人员入侵）</div>
+            <div class="inject-menu-sep"></div>
+            <div class="inject-menu-item" onclick="openInjectFaultDialog()">🔧 注入子系统故障…</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Safety Banner ───────────────────────────────────────── -->
+<div id="safety-banner"></div>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<div id="main">
+
+    <!-- Left Panel -->
+    <div id="left-panel">
+
+        <!-- FSM -->
+        <div id="fsm-section">
+            <div id="fsm-label">JZGK 状态机</div>
+            <div id="fsm-diagram"></div>
+        </div>
+
+        <!-- DAG -->
+        <div id="dag-section">
+            <div id="dag-header">
+                <span id="dag-label">工作流 DAG</span>
+                <button class="phase-tab active" data-phase="a">A 准备</button>
+                <button class="phase-tab" data-phase="b">B 发射</button>
+                <button class="phase-tab" data-phase="c">C 后处理</button>
+            </div>
+            <div id="dag-scroll">
+                <svg id="dag-svg"></svg>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right Panel -->
+    <div id="right-panel">
+
+        <!-- Queue -->
+        <div id="queue-section">
+            <div class="section-label">发次队列</div>
+            <div id="queue-list"></div>
+            <button id="btn-add-shot" onclick="openEnqueueDialog()">＋ 新增发次</button>
+        </div>
+
+        <!-- Subsystem Grid -->
+        <div id="subsys-section">
+            <div class="section-label">子系统监控</div>
+            <div id="subsys-grid"></div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Bottom ───────────────────────────────────────────────── -->
+<div id="bottom">
+    <div id="bottom-tabs">
+        <button class="bottom-tab active" data-tab="history">历史发次</button>
+        <button class="bottom-tab" data-tab="logs">实时日志</button>
+    </div>
+    <div class="bottom-panel" id="panel-history">
+        <table id="history-table">
+            <thead><tr>
+                <th>ID</th><th>配方</th><th>结果</th>
+                <th>UV能量</th><th>中子数</th><th>A/B/C 耗时</th>
+            </tr></thead>
+            <tbody id="history-tbody"></tbody>
+        </table>
+    </div>
+    <div class="bottom-panel" id="panel-logs">
+        <div id="log-container"></div>
+    </div>
+</div>
+
+<!-- ── Detail Panel ─────────────────────────────────────────── -->
+<div id="detail-panel">
+    <div id="detail-header">
+        <span id="panel-title">子系统详情</span>
+        <button id="detail-close" onclick="closeDetailPanel()">✕</button>
+    </div>
+    <div id="detail-body">
+        <div>
+            <div class="detail-section-label">状态</div>
+            <div id="panel-state"></div>
+        </div>
+        <div>
+            <div class="detail-section-label">关键指标</div>
+            <div id="panel-metrics"></div>
+        </div>
+        <div>
+            <div class="detail-section-label">状态时间线</div>
+            <div id="panel-timeline"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="detail-section-label">近期日志</div>
+            <div id="panel-logs"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Enqueue Dialog ────────────────────────────────────────── -->
+<div class="dialog-overlay" id="enqueue-dialog">
+    <div class="dialog-box">
+        <div class="dialog-title">新增发次</div>
+        <div class="form-row">
+            <label>发次配方 ID</label>
+            <input id="f-recipe-id" type="text" placeholder="SHOT_001">
+        </div>
+        <div class="form-row">
+            <label>泵浦能量 (J)</label>
+            <input id="f-pump-energy" type="number" value="500" step="10">
+        </div>
+        <div class="form-row">
+            <label>开关电压 (kV)</label>
+            <input id="f-kg-voltage" type="number" value="8.0" step="0.1">
+        </div>
+        <div class="form-row">
+            <label>靶标 ID</label>
+            <input id="f-target-id" type="text" value="TARGET_001">
+        </div>
+        <details>
+            <summary class="form-advanced">高级参数 ▸</summary>
+            <div style="margin-top:8px">
+                <div class="form-row">
+                    <label>PLZ 俯仰角 (mrad)</label>
+                    <input id="f-plz-pitch" type="number" value="0.05" step="0.01">
+                </div>
+                <div class="form-row">
+                    <label>PLZ 偏航角 (mrad)</label>
+                    <input id="f-plz-yaw" type="number" value="-0.02" step="0.01">
+                </div>
+            </div>
+        </details>
+        <div class="dialog-footer">
+            <button class="btn-secondary" onclick="closeEnqueueDialog()">取消</button>
+            <button class="header-btn btn-primary" onclick="submitEnqueue()">入队</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Inject Fault Dialog ───────────────────────────────────── -->
+<div class="dialog-overlay" id="inject-fault-dialog">
+    <div class="dialog-box">
+        <div class="dialog-title">注入子系统故障</div>
+        <div class="form-row">
+            <label>子系统</label>
+            <select id="f-fault-subsys">
+                <option value="ZZY">ZZY — 种子源</option>
+                <option value="EPJ">EPJ — 注入</option>
+                <option value="YF">YF — 预放</option>
+                <option value="DCF">DCF — 主放</option>
+                <option value="BB">BB — 泵浦</option>
+                <option value="KG">KG — 开关</option>
+                <option value="JZT">JZT — 同步</option>
+                <option value="ZK">ZK — 真空</option>
+                <option value="BM">BM — 靶瞄</option>
+                <option value="PLZ">PLZ — 频转</option>
+                <option value="CLY">CLY — 测量</option>
+                <option value="WLZD">WLZD — 诊断</option>
+                <option value="LDB">LDB — 靶</option>
+                <option value="LK">LK — 吹扫</option>
+                <option value="MX">MX — 模型</option>
+                <option value="AQ">AQ — 安全</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label>故障原因</label>
+            <input id="f-fault-reason" type="text" placeholder="例：电容击穿" value="Web UI 手动注入故障">
+        </div>
+        <div class="dialog-footer">
+            <button class="btn-secondary" onclick="closeInjectFaultDialog()">取消</button>
+            <button class="header-btn btn-danger" onclick="submitInjectFault()">注入</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── CDN: dagre.js ─────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<script src="/static/js/dag.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
