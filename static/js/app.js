@@ -117,6 +117,8 @@ function applySnapshot(snap) {
 
     State.history = snap.history;
     renderHistory(snap.history);
+
+    updateResetFaultsBtn();
 }
 
 // ── SSE 连接 ─────────────────────────────────────────────────
@@ -198,12 +200,16 @@ function onSubsysState(data) {
     if (panel && panel.dataset.subsys === data.name) {
         refreshDetailPanel(data.name);
     }
+
+    // 更新"清除故障"按钮可见性
+    updateResetFaultsBtn();
 }
 
 function onSafety(data) {
     const banner = document.getElementById("safety-banner");
     banner.textContent = `⚠ ${data.signal} — ${data.source}: ${data.msg}`;
     banner.className = data.signal === "S3" ? "banner-warn" : "banner-error";
+    banner.dataset.signal = data.signal;
     banner.style.display = "block";
     if (data.signal === "S3") {
         setTimeout(() => { banner.style.display = "none"; }, 8000);
@@ -246,7 +252,10 @@ function buildSubsystemGrid() {
         tile.id = `tile-${name}`;
         tile.dataset.name = name;
         tile.innerHTML = `
-            <div class="tile-name">${name}</div>
+            <div class="tile-header">
+                <span class="led" id="tile-led-${name}"></span>
+                <span class="tile-name">${name}</span>
+            </div>
             <div class="tile-label">${meta.label}</div>
             <div class="tile-state state-off" id="tile-state-${name}">OFF</div>
         `;
@@ -289,12 +298,32 @@ function updateJzgkStateUI(state) {
     document.getElementById("btn-estop").disabled = state === "IDLE";
 }
 
+const LED_STYLE = {
+    "state-off":     { bg: "#222",       shadow: "none" },
+    "state-standby": { bg: "#555",       shadow: "none" },
+    "state-running": { bg: "#ff9500",    shadow: "0 0 6px #ff9500" },
+    "state-ready":   { bg: "#39ff14",    shadow: "0 0 6px #39ff14" },
+    "state-fault":   { bg: "#ff2d2d",    shadow: "0 0 8px #ff2d2d" },
+};
+
 function updateSubsysTile(name, state, status) {
     const stateEl = document.getElementById(`tile-state-${name}`);
     if (!stateEl) return;
     const cls = STATE_CLASS[state] || "state-off";
     stateEl.className = `tile-state ${cls}`;
     stateEl.textContent = state;
+
+    // 同步更新 LED 指示灯
+    const led = document.getElementById(`tile-led-${name}`);
+    if (led) {
+        const style = LED_STYLE[cls] || LED_STYLE["state-off"];
+        led.style.background = style.bg;
+        led.style.boxShadow  = style.shadow;
+        led.style.animation  = cls === "state-fault" ? "led-blink 0.4s ease-in-out infinite"
+                             : cls === "state-running" ? "led-blink 0.8s ease-in-out infinite"
+                             : "none";
+    }
+
     const tile = document.getElementById(`tile-${name}`);
     if (tile) tile.title = status || "";
 }
@@ -431,6 +460,9 @@ function refreshDetailPanel(name) {
     document.getElementById("panel-title").textContent = `${name} — ${meta.desc}`;
     document.getElementById("panel-state").innerHTML = `<span class="tile-state ${cls}">${sim.state || "-"}</span> <span class="panel-status">${escHtml(sim.status || "")}</span>`;
 
+    // 故障时显示复位按钮
+    document.getElementById("panel-reset-row").style.display = sim.state === "FAULT" ? "block" : "none";
+
     // 关键指标
     const metrics = sim.metrics || {};
     const mEl = document.getElementById("panel-metrics");
@@ -516,6 +548,35 @@ async function cancelShot(recipeId) {
 async function emergencyStop() {
     if (!confirm("确认紧急停止？")) return;
     await fetch("/api/emergency-stop", { method: "POST" });
+}
+
+function updateResetFaultsBtn() {
+    const hasFault = Object.values(State.subsystems).some(s => s.state === "FAULT");
+    document.getElementById("btn-reset-faults").style.display = hasFault ? "inline-flex" : "none";
+    // 无故障时顺带清除安全警告条
+    if (!hasFault) dismissSafetyBanner();
+}
+
+function dismissSafetyBanner() {
+    const banner = document.getElementById("safety-banner");
+    if (banner.dataset.signal !== "S3") {
+        banner.style.display = "none";
+    }
+}
+
+async function resetAllFaults() {
+    const res = await fetch("/api/subsystem/reset-all", { method: "POST" });
+    const data = await res.json();
+    if (data.reset?.length) {
+        console.info("已复位:", data.reset.join(", "));
+    }
+}
+
+async function resetSubsystem() {
+    const panel = document.getElementById("detail-panel");
+    const name = panel.dataset.subsys;
+    if (!name) return;
+    await fetch(`/api/subsystem/${name}/reset`, { method: "POST" });
 }
 
 function openInjectMenu() {

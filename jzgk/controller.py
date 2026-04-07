@@ -408,15 +408,27 @@ class JZGK:
         """
         将所有已激活子系统带回安全状态。
         并发执行，单个失败不阻塞其他，全部完成后记录结果。
+
+        AQ 特殊处理：若 AQ 因 S1 进入 FAULT（操作员触发），保留 FAULT 状态，
+        由操作员手动复位确认；否则正常调用 release() 解除联锁。
         """
         reg = self.registry
+
+        async def aq_safe_release():
+            aq = reg.get("AQ")
+            if aq.is_fault:
+                # S1 紧急停机，保留 FAULT，等待操作员手动复位
+                logger.warning("AQ 处于 FAULT（S1 紧急停机），需操作员手动复位")
+            else:
+                await aq.release()
+
         results = await asyncio.gather(
             self._safe("ZZY 禁光",    self._disable_beam_source("ZZY")),
             self._safe("EPJ 禁光",    self._disable_beam_source("EPJ")),
             self._safe("BB 停充",     self._safe_bb()),
             self._safe("KG 复位",     self._safe_charged(reg.get("KG"))),
             self._safe("JZT 复位",    reg.get("JZT").reset()),
-            self._safe("AQ 释放联锁", reg.get("AQ").release()),
+            self._safe("AQ 安全处置", aq_safe_release()),
             self._safe("ZK 停止监控", reg.get("ZK").stop_monitoring()),
             return_exceptions=True,
         )

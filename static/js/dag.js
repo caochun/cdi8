@@ -6,16 +6,16 @@
  */
 
 const STEP_COLORS = {
-    pending:     { fill: "#1e293b", stroke: "#475569", text: "#94a3b8" },
-    running:     { fill: "#713f12", stroke: "#f59e0b", text: "#fde68a" },
-    success:     { fill: "#14532d", stroke: "#22c55e", text: "#bbf7d0" },
-    failed:      { fill: "#7f1d1d", stroke: "#ef4444", text: "#fecaca" },
-    soft_failed: { fill: "#431407", stroke: "#f97316", text: "#fed7aa" },
+    pending:     { fill: "#141414", stroke: "#333", text: "#666" },
+    running:     { fill: "#1a0e00", stroke: "#ff9500", text: "#ff9500" },
+    success:     { fill: "#001500", stroke: "#39ff14", text: "#39ff14" },
+    failed:      { fill: "#2a0000", stroke: "#ff2d2d", text: "#ff2d2d" },
+    soft_failed: { fill: "#1a0a00", stroke: "#f97316", text: "#f97316" },
 };
 
-const NODE_W = 100;
-const NODE_H = 36;
-const ARROW_SIZE = 6;
+const NODE_W = 130;
+const NODE_H = 44;
+const ARROW_SIZE = 7;
 
 class DAGRenderer {
     constructor(svgId) {
@@ -57,7 +57,7 @@ class DAGRenderer {
 
     _layout() {
         const g = new dagre.graphlib.Graph();
-        g.setGraph({ rankdir: "TB", ranksep: 28, nodesep: 16, marginx: 20, marginy: 20 });
+        g.setGraph({ rankdir: "TB", ranksep: 36, nodesep: 20, marginx: 24, marginy: 24 });
         g.setDefaultEdgeLabel(() => ({}));
 
         for (const s of this._steps) {
@@ -87,7 +87,7 @@ class DAGRenderer {
         });
         const path = this._el("path", {
             d: `M0,0 L0,${ARROW_SIZE} L${ARROW_SIZE},${ARROW_SIZE / 2} Z`,
-            fill: "#475569",
+            fill: "#444",
         });
         marker.appendChild(path);
         defs.appendChild(marker);
@@ -128,7 +128,7 @@ class DAGRenderer {
             const colors = STEP_COLORS[state] || STEP_COLORS.pending;
 
             const rect = this._el("rect", {
-                width: NODE_W, height: NODE_H, rx: 5, ry: 5,
+                width: NODE_W, height: NODE_H, rx: 3, ry: 3,
                 fill: colors.fill,
                 stroke: colors.stroke,
                 "stroke-width": state === "running" ? "2" : "1",
@@ -146,8 +146,9 @@ class DAGRenderer {
                 "text-anchor": "middle",
                 "dominant-baseline": "middle",
                 fill: colors.text,
-                "font-size": "11",
+                "font-size": "13",
                 "font-family": "monospace",
+                "font-weight": "700",
             });
             text.textContent = displayLabel;
 
@@ -156,7 +157,7 @@ class DAGRenderer {
 
             // 软故障标记（橙色角标）
             if (node.soft) {
-                const dot = this._el("circle", { cx: NODE_W - 5, cy: 5, r: 3, fill: "#f97316" });
+                const dot = this._el("circle", { cx: NODE_W - 6, cy: 6, r: 4, fill: "#f97316" });
                 grp.appendChild(dot);
             }
 
@@ -186,6 +187,8 @@ class DAGRenderer {
         const label = node.label || name;
         const text = grp.querySelector("text");
         text.setAttribute("fill", colors.text);
+        text.setAttribute("font-size", "13");
+        text.setAttribute("font-weight", "700");
         text.textContent = icon ? `${icon} ${label}` : label;
     }
 

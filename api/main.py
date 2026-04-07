@@ -108,7 +108,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="JZGK Web 控制台", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR, html=False), name="static")
+
+
+@app.middleware("http")
+async def no_cache_static(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 
 # ── 启动逻辑 ─────────────────────────────────────────────────
@@ -297,9 +307,33 @@ async def inject_fault(body: dict):
     return {"ok": True}
 
 
+@app.post("/api/subsystem/{name}/reset")
+async def reset_subsystem(name: str):
+    """将指定子系统从 FAULT 状态复位到 STANDBY。"""
+    sim = _registry.get(name)
+    if sim is None:
+        raise HTTPException(404, f"子系统 {name} 不存在")
+    if not sim.is_fault:
+        return {"ok": False, "reason": "not_in_fault", "state": sim.state.value}
+    await sim.reset()
+    return {"ok": True, "state": sim.state.value}
+
+
+@app.post("/api/subsystem/reset-all")
+async def reset_all_faults():
+    """将所有处于 FAULT 状态的子系统并发复位。"""
+    import asyncio as _asyncio
+    faulted = [name for name, sim in _registry.all().items() if sim.is_fault]
+    if not faulted:
+        return {"ok": True, "reset": []}
+    await _asyncio.gather(*[_registry.get(n).reset() for n in faulted], return_exceptions=True)
+    return {"ok": True, "reset": faulted}
+
+
 @app.post("/api/inject-s1")
 async def inject_s1():
-    await _registry.get("AQ").simulate_intrusion()
+    """直接触发 S1 紧急停机：AQ 进入 FAULT，需操作员手动复位。"""
+    await _registry.get("AQ").emergency_stop("Web UI 手动注入 S1")
     return {"ok": True}
 
 
