@@ -213,6 +213,7 @@ async def get_state():
         })
     return {
         "jzgk_state": _jzgk.state.value,
+        "sim_speed": _sim_speed,
         "queue": _queue.snapshot_queue(),
         "subsystems": subsystems,
         "history": _queue.get_history(),
@@ -300,6 +301,23 @@ async def inject_fault(body: dict):
 async def inject_s1():
     await _registry.get("AQ").simulate_intrusion()
     return {"ok": True}
+
+
+@app.post("/api/config")
+async def set_config(body: dict):
+    """运行时调整仿真速度（不重建模拟器）。"""
+    global _sim_speed
+    speed = body.get("sim_speed")
+    if speed is not None:
+        speed = float(speed)
+        if speed <= 0:
+            raise HTTPException(400, "sim_speed 必须 > 0")
+        _sim_speed = speed
+        for sim in _registry.all().values():
+            sim.sim_speed = speed
+        await _broadcaster.broadcast("config_update", {"sim_speed": speed})
+        logging.getLogger(__name__).info("仿真速度已调整为 %.1fx", speed)
+    return {"ok": True, "sim_speed": _sim_speed}
 
 
 @app.get("/api/subsystem/{name}/metrics")

@@ -103,6 +103,10 @@ function applySnapshot(snap) {
     State.jzgkState = snap.jzgk_state;
     updateJzgkStateUI(snap.jzgk_state);
 
+    if (snap.sim_speed != null) {
+        document.getElementById("speed-input").value = snap.sim_speed;
+    }
+
     for (const s of snap.subsystems) {
         State.subsystems[s.name] = { state: s.state, status: s.status, metrics: s.metrics };
         updateSubsysTile(s.name, s.state, s.status);
@@ -143,6 +147,9 @@ function handleEvent(type, data) {
         case "log":             onLog(data); break;
         case "queue_update":    onQueueUpdate(data); break;
         case "shot_complete":   onShotComplete(data); break;
+        case "config_update":
+            document.getElementById("speed-input").value = data.sim_speed;
+            break;
     }
 }
 
@@ -490,6 +497,16 @@ async function submitEnqueue() {
     } else {
         alert("入队失败: " + (await res.text()));
     }
+}
+
+async function setSimSpeed(value) {
+    const speed = parseFloat(value);
+    if (!speed || speed <= 0) return;
+    await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sim_speed: speed }),
+    });
 }
 
 async function cancelShot(recipeId) {

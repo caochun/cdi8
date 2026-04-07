@@ -420,6 +420,13 @@ header-btn:disabled { opacity:0.4; cursor:not-allowed; }
     <div id="header-spacer"></div>
     <button id="btn-enqueue" class="header-btn btn-primary" onclick="openEnqueueDialog()">+ 启动发次</button>
     <button id="btn-estop" class="header-btn btn-danger" onclick="emergencyStop()" disabled>紧急停止</button>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:4px">
+        <label for="speed-input" style="font-size:11px;color:#64748b;white-space:nowrap">仿真速度</label>
+        <input id="speed-input" type="number" min="0.1" max="1000" step="1" value="5"
+            style="width:60px;background:#0f172a;border:1px solid #334155;border-radius:5px;color:#e2e8f0;padding:4px 6px;font-family:inherit;font-size:12px;text-align:right"
+            onchange="setSimSpeed(this.value)">
+        <span style="font-size:11px;color:#475569">x</span>
+    </div>
     <div style="position:relative">
         <button id="btn-inject" class="header-btn btn-warn" onclick="openInjectMenu()">注入故障 ▾</button>
         <div id="inject-menu">
