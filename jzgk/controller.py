@@ -82,8 +82,10 @@ class JZGK:
         self._shot_counter = 0
         self._history: list[ShotRecord] = []
         self._on_phase_change: list = []
-        # 追踪本发次已激活的子系统，用于补偿
-        self._activated: set[str] = set()
+        # 当前发次各阶段的工作流实例，用于中止时执行补偿
+        self._wf_a: "Workflow | None" = None
+        self._wf_b: "Workflow | None" = None
+        self._wf_c: "Workflow | None" = None
         # 步骤级事件回调（由 Web API 层注入）
         self._on_step_start: Callable | None = None
         self._on_step_done: Callable | None = None
@@ -115,7 +117,7 @@ class JZGK:
             raise RuntimeError(f"JZGK 非 IDLE 状态，无法启动发次（当前: {self._state}）")
 
         self._shot_counter += 1
-        self._activated.clear()
+        self._wf_a = self._wf_b = self._wf_c = None
         record = ShotRecord(shot_id=self._shot_counter, recipe=recipe)
         self.safety.clear()
 
@@ -177,46 +179,45 @@ class JZGK:
         logger.info("── A 阶段：发射准备 ──")
         reg = self.registry
 
-        async def zzz_out():
-            await reg.get("ZZY").enable_output()
-            self._activated.add("ZZY")
+        # ── 动作闭包 ──
+        async def zzz_out():     await reg.get("ZZY").enable_output()
+        async def epj_out():     await reg.get("EPJ").enable_output()
+        async def yf_wakeup():   await reg.get("YF").wake_up()
+        async def bb_prepare():  await reg.get("BB").prepare(recipe.pump_energy_j)
+        async def zk_evacuate(): await reg.get("ZK").start_evacuation()
+        async def dcf_confirm(): await reg.get("DCF").confirm_ready()
+        async def aq_lockdown(): await reg.get("AQ").lock_down()
 
-        async def epj_out():
-            await reg.get("EPJ").enable_output()
-            self._activated.add("EPJ")
+        # ── 补偿闭包 ──
+        async def bb_safe():
+            bb = reg.get("BB")
+            if bb.state.value in ("RUNNING", "READY"):
+                await bb.emergency_stop("发次中止，安全停充")
 
-        async def yf_wakeup():
-            await reg.get("YF").wake_up()
-            self._activated.add("YF")
-
-        async def bb_prepare():
-            await reg.get("BB").prepare(recipe.pump_energy_j)
-            self._activated.add("BB")
-
-        async def zk_evacuate():
-            await reg.get("ZK").start_evacuation()
-            self._activated.add("ZK")
-
-        async def dcf_confirm():
-            await reg.get("DCF").confirm_ready()
-            self._activated.add("DCF")
-
-        async def aq_lockdown():
-            await reg.get("AQ").lock_down()
-            self._activated.add("AQ_LOCKED")
+        async def aq_safe_release():
+            aq = reg.get("AQ")
+            if aq.is_fault:
+                logger.warning("AQ 处于 FAULT（S1 紧急停机），需操作员手动复位")
+            else:
+                await aq.release()
 
         _PARALLEL = [
             "zzz_out", "epj_out", "yf_wakeup", "dcf_align", "jzt_load",
             "bb_prepare", "bm_pos", "zk_evacuate", "wlzd_setup", "cly_setup",
         ]
         wf = Workflow("phase_a", [
-            Step("zk_monitor",  [],         reg.get("ZK").start_monitoring),
-            Step("zzz_out",     ["zk_monitor"], zzz_out),
-            Step("epj_out",     ["zk_monitor"], epj_out),
+            Step("zk_monitor",  [],         reg.get("ZK").start_monitoring,
+                 compensate=reg.get("ZK").stop_monitoring),
+            Step("zzz_out",     ["zk_monitor"], zzz_out,
+                 compensate=reg.get("ZZY").disable_output),
+            Step("epj_out",     ["zk_monitor"], epj_out,
+                 compensate=reg.get("EPJ").disable_output),
             Step("yf_wakeup",   ["zk_monitor"], yf_wakeup),
             Step("dcf_align",   ["zk_monitor"], reg.get("DCF").align),
-            Step("jzt_load",    ["zk_monitor"], lambda: reg.get("JZT").load_recipe(recipe.recipe_id)),
-            Step("bb_prepare",  ["zk_monitor"], bb_prepare),
+            Step("jzt_load",    ["zk_monitor"], lambda: reg.get("JZT").load_recipe(recipe.recipe_id),
+                 compensate=reg.get("JZT").reset),
+            Step("bb_prepare",  ["zk_monitor"], bb_prepare,
+                 compensate=bb_safe),
             Step("bm_pos",      ["zk_monitor"], lambda: reg.get("BM").pre_position(recipe.target_id)),
             Step("zk_evacuate", ["zk_monitor"], zk_evacuate),
             Step("wlzd_setup",  ["zk_monitor"], lambda: reg.get("WLZD").setup_detectors(recipe.diagnostic_config), soft=True),
@@ -225,12 +226,14 @@ class JZGK:
             Step("s3_check",    ["fault_check"], self._check_s3_severity),
             Step("dcf_confirm", ["s3_check"],    dcf_confirm),
             Step("aq_clear",    ["dcf_confirm"], reg.get("AQ").clear_area),
-            Step("aq_lockdown", ["aq_clear"],    aq_lockdown),
+            Step("aq_lockdown", ["aq_clear"],    aq_lockdown,
+                 compensate=aq_safe_release),
         ], on_step_start=self._on_step_start, on_step_done=self._on_step_done)
+        self._wf_a = wf
         try:
             results = await wf.run()
         except WorkflowAborted as e:
-            self._log_steps("a", wf.results, record)   # 保留已完成步骤的耗时
+            self._log_steps("a", wf.results, record)
             raise self._abort_from_workflow(e)
         self._log_steps("a", results, record)
         logger.info("A 阶段完成")
@@ -241,38 +244,42 @@ class JZGK:
         logger.info("── B 阶段：发射 ──")
         reg = self.registry
 
-        async def bb_charge():
-            await reg.get("BB").charge()
-            self._activated.add("BB_CHARGED")
-
-        async def kg_charge():
-            await reg.get("KG").charge(recipe.kg_voltage_kv)
-            self._activated.add("KG_CHARGED")
-
-        async def bb_trigger():
-            await reg.get("BB").trigger()
-            self._activated.discard("BB_CHARGED")
-
-        async def kg_trigger():
-            await reg.get("KG").trigger()
-            self._activated.discard("KG_CHARGED")
+        # ── 动作闭包 ──
+        async def bb_charge():  await reg.get("BB").charge()
+        async def kg_charge():  await reg.get("KG").charge(recipe.kg_voltage_kv)
+        async def bb_trigger(): await reg.get("BB").trigger()
+        async def kg_trigger(): await reg.get("KG").trigger()
 
         async def capture_uv():
             record.uv_energy_j = reg.get("PLZ").uv_energy
             logger.info("B 阶段完成  UV能量: %.1f J", record.uv_energy_j)
 
+        # ── 补偿闭包 ──
+        async def bb_safe():
+            bb = reg.get("BB")
+            if bb.state.value in ("RUNNING", "READY", "CHARGING", "CHARGED"):
+                await bb.emergency_stop("发次中止，安全停充")
+
+        async def kg_safe():
+            kg = reg.get("KG")
+            if kg.state.value in ("RUNNING", "READY", "CHARGING", "CHARGED"):
+                await kg.reset()
+
         _CHARGE = ["bb_charge", "kg_charge", "plz_crystal", "wlzd_arm"]
         wf = Workflow("phase_b", [
-            Step("jzt_single",  [],        lambda: reg.get("JZT").load_single_shot(recipe.timing_channels)),
-            Step("bb_charge",   ["jzt_single"], bb_charge),
-            Step("kg_charge",   ["jzt_single"], kg_charge),
+            Step("jzt_single",  [],            lambda: reg.get("JZT").load_single_shot(recipe.timing_channels),
+                 compensate=reg.get("JZT").reset),
+            Step("bb_charge",   ["jzt_single"], bb_charge,
+                 compensate=bb_safe),
+            Step("kg_charge",   ["jzt_single"], kg_charge,
+                 compensate=kg_safe),
             Step("plz_crystal", ["jzt_single"], lambda: reg.get("PLZ").set_crystal_pose(recipe.plz_pitch_mrad, recipe.plz_yaw_mrad)),
             Step("wlzd_arm",    ["jzt_single"], reg.get("WLZD").arm_detectors),
-            Step("fault_check", _CHARGE,    lambda: self._check_faults(_B_HARD, [], "B 阶段充电")),
+            Step("fault_check", _CHARGE,        lambda: self._check_faults(_B_HARD, [], "B 阶段充电")),
             Step("safety_chk",  ["fault_check"], self.safety.check),
             Step("s3_check",    ["safety_chk"],  self._check_s3_severity),
             Step("bb_trigger",  ["s3_check"],    bb_trigger),
-            Step("kg_trigger",  ["bb_trigger"],  kg_trigger),   # BB 触发后再触发 KG
+            Step("kg_trigger",  ["bb_trigger"],  kg_trigger),
             Step("yf_pump",     ["kg_trigger"],  lambda: reg.get("YF").receive_pump_energy(reg.get("BB").actual_energy * 0.3)),
             Step("dcf_fire",    ["kg_trigger"],  lambda: reg.get("DCF").receive_pump_and_fire(reg.get("BB").actual_energy * 0.7)),
             Step("plz_uv",      ["yf_pump", "dcf_fire"], lambda: reg.get("PLZ").receive_fundamental(reg.get("DCF").output_energy)),
@@ -281,6 +288,7 @@ class JZGK:
             Step("jzt_fire",    ["jzt_arm"],      reg.get("JZT").fire),
             Step("capture_uv",  ["jzt_fire"],     capture_uv),
         ], on_step_start=self._on_step_start, on_step_done=self._on_step_done)
+        self._wf_b = wf
         try:
             results = await wf.run()
         except WorkflowAborted as e:
@@ -316,7 +324,6 @@ class JZGK:
 
         async def yf_purge():
             await reg.get("YF").accept_purge()
-            self._activated.discard("YF")
 
         async def mx_calibrate():
             shot_data = {**_buf.get("laser_params", {}), **_buf.get("phys_signals", {})}
@@ -327,14 +334,16 @@ class JZGK:
 
         wf = Workflow("phase_c", [
             Step("wlzd_acquire", [],                        reg.get("WLZD").acquire),
-            Step("cly_read",     ["wlzd_acquire"],          cly_read),
-            Step("wlzd_read",    ["wlzd_acquire"],          wlzd_read),
-            Step("record_data",  ["cly_read", "wlzd_read"], record_data),
-            Step("lk_purge_on",  ["record_data"],           reg.get("LK").start_purge),
-            Step("yf_purge",     ["lk_purge_on"],           yf_purge),
-            Step("lk_purge_off", ["yf_purge"],              reg.get("LK").stop_purge),
-            Step("mx_calibrate", ["lk_purge_off"],          mx_calibrate),
+            Step("cly_read",     ["wlzd_acquire"],           cly_read),
+            Step("wlzd_read",    ["wlzd_acquire"],           wlzd_read),
+            Step("record_data",  ["cly_read", "wlzd_read"],  record_data),
+            Step("lk_purge_on",  ["record_data"],            reg.get("LK").start_purge,
+                 compensate=reg.get("LK").stop_purge),
+            Step("yf_purge",     ["lk_purge_on"],            yf_purge),
+            Step("lk_purge_off", ["yf_purge"],               reg.get("LK").stop_purge),
+            Step("mx_calibrate", ["lk_purge_off"],           mx_calibrate),
         ], on_step_start=self._on_step_start, on_step_done=self._on_step_done)
+        self._wf_c = wf
         try:
             results = await wf.run()
         except WorkflowAborted as e:
@@ -401,35 +410,19 @@ class JZGK:
 
     async def _handle_abort(self, exc: ShotAborted):
         logger.error("JZGK 发次中止: %s", exc)
-        # 转换到 EMERGENCY_STOP 将自动触发 entry action: _safe_state_all
         await self._set_state(JZGKState.EMERGENCY_STOP)
 
     async def _safe_state_all(self):
         """
-        将所有已激活子系统带回安全状态。
-        并发执行，单个失败不阻塞其他，全部完成后记录结果。
-
-        AQ 特殊处理：若 AQ 因 S1 进入 FAULT（操作员触发），保留 FAULT 状态，
-        由操作员手动复位确认；否则正常调用 release() 解除联锁。
+        执行所有已启动步骤的补偿动作（来自三个阶段的工作流）。
+        并发运行，单项失败不阻塞其他。
         """
-        reg = self.registry
-
-        async def aq_safe_release():
-            aq = reg.get("AQ")
-            if aq.is_fault:
-                # S1 紧急停机，保留 FAULT，等待操作员手动复位
-                logger.warning("AQ 处于 FAULT（S1 紧急停机），需操作员手动复位")
-            else:
-                await aq.release()
-
+        wfs = [w for w in (self._wf_a, self._wf_b, self._wf_c) if w is not None]
+        if not wfs:
+            logger.info("无已激活工作流，无需补偿")
+            return
         results = await asyncio.gather(
-            self._safe("ZZY 禁光",    self._disable_beam_source("ZZY")),
-            self._safe("EPJ 禁光",    self._disable_beam_source("EPJ")),
-            self._safe("BB 停充",     self._safe_bb()),
-            self._safe("KG 复位",     self._safe_charged(reg.get("KG"))),
-            self._safe("JZT 复位",    reg.get("JZT").reset()),
-            self._safe("AQ 安全处置", aq_safe_release()),
-            self._safe("ZK 停止监控", reg.get("ZK").stop_monitoring()),
+            *[wf.run_compensations() for wf in wfs],
             return_exceptions=True,
         )
         failed = [r for r in results if isinstance(r, Exception)]
@@ -437,43 +430,6 @@ class JZGK:
             logger.warning("安全复位部分失败（%d 项）: %s", len(failed), failed)
         else:
             logger.info("安全复位完成，所有子系统已到达安全状态")
-
-    async def _safe(self, label: str, coro):
-        """单个子系统的安全动作，捕获所有异常并记录。"""
-        try:
-            await coro
-        except Exception as e:
-            logger.warning("安全复位 [%s] 失败: %s", label, e)
-            raise
-
-    async def _disable_beam_source(self, name: str):
-        """关闭光源输出。
-        检查 _activated 记录 OR 模拟器实际状态，防止部分激活场景漏补偿。
-        """
-        sim = self.registry.get(name)
-        tracked = name in self._activated
-        active_state = sim.state.value in ("RUNNING", "READY")
-        if not tracked and not active_state:
-            return
-        if hasattr(sim, "disable_output"):
-            await sim.disable_output()
-
-    async def _safe_bb(self):
-        """BB 安全处置：充电中 → 紧急停充；已触发/待机 → 不操作。"""
-        bb = self.registry.get("BB")
-        state_val = bb.state.value
-        if state_val in ("RUNNING", "READY"):
-            # RUNNING 可能是充电中或触发中
-            if "BB_CHARGED" in self._activated or "BB" in self._activated:
-                await bb.emergency_stop("发次中止，安全停充")
-        elif bb.is_fault:
-            pass  # 已故障，不重复操作
-
-    async def _safe_charged(self, sim):
-        """通用充电设备安全处置：有高压则复位。"""
-        state_val = sim.state.value
-        if state_val in ("RUNNING", "READY", "CHARGING", "CHARGED"):
-            await sim.reset()
 
     # ── 内部工具 ─────────────────────────────────────────────
 

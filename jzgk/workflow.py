@@ -39,6 +39,9 @@ class Step:
     retry_delay: float = 0.0  # 重试前等待（秒，真实时间）
     soft: bool = False        # True → 失败仅 WARNING，不中止工作流
     timeout: float | None = None  # 单次执行超时（秒，真实时间；None = 不限）
+    compensate: Callable[[], Awaitable | None] | None = None
+    # 中止时的补偿动作（同步或异步，无参数）。
+    # 凡步骤已开始执行（无论成功/失败/取消），均会在 run_compensations() 中调用。
 
 
 @dataclass
@@ -72,6 +75,7 @@ class Workflow:
         self.name = name
         self._steps: dict[str, Step] = {s.name: s for s in steps}
         self.results: dict[str, StepResult] = {}
+        self.started: set[str] = set()       # 已开始执行的步骤名（含取消/失败）
         self._on_step_start = on_step_start  # (phase_name, step_name)
         self._on_step_done = on_step_done    # (phase_name, StepResult)
         self._validate()
@@ -187,6 +191,8 @@ class Workflow:
         last_exc: BaseException | None = None
         t0 = time.monotonic()
 
+        self.started.add(step.name)          # 在 action() 之前记录，确保补偿不漏
+
         if self._on_step_start is not None:
             try:
                 self._on_step_start(self.name, step.name)
@@ -252,3 +258,24 @@ class Workflow:
             except Exception:
                 pass
         return result
+
+    async def run_compensations(self):
+        """
+        并发执行所有已启动步骤的补偿动作（无论步骤成功/失败/取消）。
+        单项失败只记录，不阻塞其他补偿。
+        """
+        coros = [
+            self._run_compensation(name, self._steps[name].compensate)
+            for name in self.started
+            if self._steps[name].compensate is not None
+        ]
+        if coros:
+            await asyncio.gather(*coros, return_exceptions=True)
+
+    async def _run_compensation(self, name: str, compensate: Callable):
+        try:
+            r = compensate()
+            if asyncio.iscoroutine(r):
+                await r
+        except Exception as e:
+            logger.warning("[%s] 步骤 [%s] 补偿动作失败: %s", self.name, name, e)
