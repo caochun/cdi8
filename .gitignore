@@ -39,3 +39,9 @@ htmlcov/
 *.doc
 *.xlsx
 *.pptx
+
+# Tango file-db（simulators/server.py 运行时生成的临时数据库）
+gxlf_sim_*.db
+
+# Temporary / scratch files
+*.mermaid
