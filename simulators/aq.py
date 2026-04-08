@@ -1,134 +1,207 @@
 """
-AQ — 安全联锁模拟器
+AQ — 安全联锁 Tango Device。
 
-职责：屏蔽门管理、警灯、人员计数、紧急停机上报（S1）。
+职责：靶场区域安全管控（屏蔽门、警灯、人员计数 RFID、紧急停机）。
+  A 阶段：清场（ClearArea）、联锁激活（LockDown）
+  C 阶段：释放联锁（Release）
+  紧急：SimulateIntrusion 发出 S1 紧急停机信号
 
-状态序列：
-  OPEN（人员可进入）
-  → CLEARING（清场中，等待人员撤离）
-  → LOCKED（门已锁，屏蔽完成）
-  → ARMED（联锁激活，允许出光）
-  → OPEN（发射后解除）
-
-安全信号：
-  S1 紧急停机 — 任何阶段均可触发，通过 'safety' 事件上报
+⚠️  S1 触发后，AQ 进入 FAULT 状态。软件不自动解除联锁。
+    必须由操作员人工确认清场后手动调用 Reset 复位。
 """
+
 import asyncio
-import enum
 import logging
 import random
 
-from .base import BaseSimulator, SimState
+from tango import AttrWriteType, DevState
+from tango.server import attribute, command
+
+from ._base import SubsystemDevice
 
 logger = logging.getLogger(__name__)
 
 
-class AQState(enum.Enum):
-    """AQ 子系统专用状态（独立枚举，不扩展 SimState）。"""
-    OPEN = "OPEN"
-    CLEARING = "CLEARING"
-    LOCKED = "LOCKED"
-    ARMED = "ARMED"
-    FAULT = "FAULT"   # 与 SimState.FAULT.value 相同，用于故障态
+class AQDevice(SubsystemDevice):
+    """安全联锁系统。"""
 
+    areaCleared = attribute(
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="True = 人员清场已确认（RFID 计数为零）",
+    )
+    lockedDown = attribute(
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="True = 屏蔽门关闭锁定、联锁已激活",
+    )
+    personCount = attribute(
+        dtype=int,
+        access=AttrWriteType.READ,
+        doc="靶场内当前 RFID 检测人员数",
+    )
+    safetySignal = attribute(
+        dtype=str,
+        access=AttrWriteType.READ,
+        doc="安全信号：'' = 无，'S1' = 紧急停机",
+    )
 
-class AQSimulator(BaseSimulator):
-    """安全联锁子系统模拟器。"""
+    async def init_device(self):
+        await super().init_device()
+        self._area_cleared: bool = False
+        self._locked_down: bool = False
+        self._person_count: int = 3  # 初始有人员
+        self._safety_signal: str = ""
+        self._intrusion_task: asyncio.Task | None = None
+        self.set_change_event("safetySignal", True, False)
+        self.set_change_event("personCount", True, False)
 
-    def __init__(self, sim_speed: float = 1.0):
-        super().__init__("AQ", sim_speed)
-        self._state = AQState.OPEN
-        self._status = "区域开放，人员可进入"
-        self._door_status: str = "OPEN"    # OPEN / CLOSING / LOCKED
-        self._area_clear: bool = False
-        self._beam_shutter_closed: bool = True
-        self._emergency_stop_active: bool = False
-        # 模拟：区域内有随机数量的人员
-        self._person_count: int = random.randint(0, 3)
+    async def read_areaCleared(self) -> bool:
+        return self._area_cleared
 
-    # ── 属性 ────────────────────────────────────────────────
+    async def read_lockedDown(self) -> bool:
+        return self._locked_down
 
-    @property
-    def door_status(self) -> str:
-        return self._door_status
-
-    @property
-    def person_count(self) -> int:
+    async def read_personCount(self) -> int:
         return self._person_count
 
-    @property
-    def area_clear(self) -> bool:
-        return self._area_clear
+    async def read_safetySignal(self) -> str:
+        return self._safety_signal
 
-    @property
-    def beam_shutter_closed(self) -> bool:
-        return self._beam_shutter_closed
+    @command
+    async def ClearArea(self):
+        """A10: 清场（等待 RFID 确认靶场无人）。"""
+        if self.get_state() == DevState.FAULT:
+            raise Exception("AQ 处于故障（S1）状态，需操作员手动复位")
+        self.set_state(DevState.RUNNING)
+        self.set_status("清场中，等待人员撤离")
 
-    @property
-    def emergency_stop_active(self) -> bool:
-        return self._emergency_stop_active
+        # 模拟人员逐步撤离（3 步）
+        for i in range(3, 0, -1):
+            await self._delay(0.5)
+            self._person_count = i - 1
+            self.push_change_event("personCount", self._person_count)
 
-    # ── 命令 ────────────────────────────────────────────────
+        self._area_cleared = True
+        self.set_state(DevState.ON)
+        self.set_status("清场完成，RFID 确认无人")
+        logger.info("AQ: 清场完成")
 
-    async def clear_area(self):
-        """
-        A13: 清场指令。
-        打开警报，等待人员撤离，关闭屏蔽门。
-        """
-        if self._emergency_stop_active:
-            raise RuntimeError("紧急停机激活，无法执行清场")
+    @command
+    async def LockDown(self):
+        """A10: 屏蔽门关闭锁定，警灯亮起，进入安全联锁状态。"""
+        if not self._area_cleared:
+            raise Exception("AQ: 未完成清场，无法锁定")
+        self._locked_down = True
+        self.set_state(DevState.ON)
+        self.set_status("⚠ 安全联锁激活，屏蔽门已锁")
+        logger.info("AQ: 安全联锁激活")
 
-        await self._transition(AQState.CLEARING, "清场中：警报已启动，等待人员撤离")
-        self._door_status = "CLOSING"
+    @command
+    async def Release(self):
+        """C11: 退出安全联锁状态（警灯熄灭、屏蔽门解锁）。"""
+        if self.get_state() == DevState.FAULT:
+            logger.warning("AQ: FAULT（S1）状态下，Release 被忽略，需操作员手动复位")
+            return
+        self._locked_down = False
+        self._area_cleared = False
+        self.set_state(DevState.STANDBY)
+        self.set_status("联锁已释放，警灯熄灭")
+        logger.info("AQ: 安全联锁释放")
 
-        # 模拟人员撤离（每人约 2 秒）
-        while self._person_count > 0:
-            await self._delay(2.0)
-            self._person_count -= 1
-            logger.info("AQ: 区域内剩余人员 %d", self._person_count)
+    @command
+    async def SimulateIntrusion(self):
+        """测试：模拟人员入侵（触发 S1 紧急停机信号）。"""
+        self._person_count = 1
+        self.push_change_event("personCount", 1)
+        await self._trigger_s1("检测到人员进入受保护区域")
 
-        self._area_clear = True
-        await self._delay(1.0)  # 门关闭时间
+    async def _trigger_s1(self, message: str):
+        """内部：发出 S1 紧急停机信号并进入 FAULT。"""
+        self._safety_signal = "S1"
+        self._locked_down = False
+        self.set_state(DevState.FAULT)
+        self.set_status(f"⚠ S1 紧急停机: {message}")
+        await self._emit_safety("S1", message)
+        logger.critical("AQ: S1 紧急停机 — %s", message)
 
-        self._door_status = "LOCKED"
-        self._beam_shutter_closed = False  # 屏蔽门锁定后光束通路打开
-        await self._transition(AQState.LOCKED, "区域已清场，屏蔽门已锁定")
-
-    async def lock_down(self):
-        """在 LOCKED 状态后激活联锁，允许出光。对应 A14。"""
-        if self._state is not AQState.LOCKED:
-            raise RuntimeError(f"AQ 需在 LOCKED 状态才能激活联锁，当前: {self._state}")
-        await self._delay(0.5)
-        await self._transition(AQState.ARMED, "联锁已激活，允许出光")
-
-    async def release(self):
-        """发射后解除联锁，恢复区域开放。"""
-        self._beam_shutter_closed = True
-        self._area_clear = False
+    @command
+    async def Reset(self):
+        """操作员确认清场后手动复位（S1 后必须由人工触发）。"""
+        self._safety_signal = ""
+        self._area_cleared = False
+        self._locked_down = False
         self._person_count = 0
-        await self._transition(AQState.OPEN, "联锁解除，区域已开放")
-        self._door_status = "OPEN"
+        await super().Reset()
+        logger.info("AQ: 手动复位完成")
 
-    async def emergency_stop(self, reason: str = "手动紧急停机"):
-        """触发 S1 紧急停机信号。可由内部检测（人员闯入）或外部按钮触发。"""
-        self._emergency_stop_active = True
-        self._beam_shutter_closed = True
-        await self._transition(AQState.FAULT, f"紧急停机: {reason}")
-        await self._emit_safety("S1", reason)
+    @command(dtype_in=int, doc_in="警灯控制：0=关闭，1=常亮，2=闪烁")
+    async def ControlWarningLight(self, mode: int):
+        """B/C阶段：警灯控制。
+        控制靶场区域警示灯的工作状态：
+        - 0：关闭警灯（发次结束、区域安全时使用）；
+        - 1：常亮（联锁激活、激光运行期间）；
+        - 2：闪烁（系统预备状态、人员撤离提示）。
+        B 阶段联锁激活后应置为常亮，C 阶段联锁释放后关闭。
+        """
+        modes = {0: "关闭", 1: "常亮", 2: "闪烁"}
+        mode_str = modes.get(mode, f"未知({mode})")
+        self.set_status(f"警灯状态: {mode_str}")
+        logger.info("AQ: 警灯设置为 %s（mode=%d）", mode_str, mode)
 
-    async def reset(self):
-        """复位：解除紧急停机，恢复 OPEN 状态。"""
-        self._emergency_stop_active = False
-        self._door_status = "OPEN"
-        self._area_clear = False
-        self._beam_shutter_closed = True
-        self._person_count = 0
-        self._fault_reason = ""
-        await self._transition(AQState.OPEN, "已复位，区域开放")
+    @command(dtype_in=int, doc_in="警示音控制：0=关闭，1=开启")
+    async def ControlAlarmSound(self, mode: int):
+        """B/C阶段：警示音乐控制。
+        控制靶场区域警示音响的开关状态：
+        - 0：关闭警示音（联锁释放后停止）；
+        - 1：开启警示音（联锁激活前提示人员撤离）。
+        通常在 ClearArea() 时开启，LockDown() 完成后可根据需要关闭。
+        """
+        mode_str = "开启" if mode else "关闭"
+        self.set_status(f"警示音: {mode_str}")
+        logger.info("AQ: 警示音设置为 %s（mode=%d）", mode_str, mode)
 
-    async def simulate_intrusion(self):
-        """故障注入：模拟人员闯入（用于测试 S1 路径）。"""
-        self._person_count += 1
-        logger.warning("AQ: 检测到人员进入！count=%d", self._person_count)
-        if self._state in (AQState.LOCKED, AQState.ARMED):
-            await self.emergency_stop("检测到人员进入受保护区域")
+    @command(dtype_in=int, doc_in="屏蔽门控制：0=开门，1=关门，2=锁定")
+    async def ControlShieldDoor(self, action: int):
+        """A阶段：屏蔽门控制。
+        控制靶场屏蔽门的开关与锁定状态：
+        - 0：开门（允许人员进出，用于 C 阶段联锁释放后）；
+        - 1：关门（人员撤离完成后关闭屏蔽门）；
+        - 2：锁定（屏蔽门关闭并电磁锁定，与联锁激活联动）。
+        A 阶段清场后应执行关门（1）再锁定（2）操作。
+        """
+        actions = {0: "开门", 1: "关门", 2: "锁定"}
+        action_str = actions.get(action, f"未知({action})")
+        self.set_state(DevState.RUNNING)
+        self.set_status(f"屏蔽门{action_str}中")
+        await self._delay(1.0)  # 模拟门动作时间
+        if action == 2:
+            self._locked_down = True
+        elif action == 0:
+            self._locked_down = False
+        self.set_state(DevState.ON if action in (1, 2) else DevState.STANDBY)
+        self.set_status(f"屏蔽门{action_str}完成")
+        logger.info("AQ: 屏蔽门 %s（action=%d）", action_str, action)
+
+    @command(dtype_in=int, doc_in="安全管控状态：0=释放，1=预备，2=联锁激活，3=紧急停机")
+    async def SetSafetyState(self, state: int):
+        """A/C阶段：安全管控状态控制。
+        设置靶场安全管控系统的整体状态：
+        - 0：释放（发次结束，联锁解除，允许人员入场）；
+        - 1：预备（系统预备，人员开始撤离，警灯闪烁）；
+        - 2：联锁激活（清场完成，屏蔽门锁定，激光允许发射）；
+        - 3：紧急停机（触发 S1，进入 FAULT，等待人工复位）。
+        A 阶段末尾置为 2，C 阶段结束后置为 0。
+        """
+        states = {0: "释放", 1: "预备", 2: "联锁激活", 3: "紧急停机"}
+        state_str = states.get(state, f"未知({state})")
+        if state == 3:
+            await self._trigger_s1("SetSafetyState(3) 触发紧急停机")
+            return
+        if state == 0:
+            self._locked_down = False
+            self._area_cleared = False
+        elif state == 2:
+            self._locked_down = True
+        self.set_status(f"安全管控状态: {state_str}")
+        logger.info("AQ: 安全管控状态设置为 %s（state=%d）", state_str, state)

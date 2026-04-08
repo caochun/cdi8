@@ -16,6 +16,8 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 
+import tango
+
 from simulators.registry import SimulatorRegistry
 
 from .recipe import AbortReason, ShotAborted, ShotRecord, ShotRecipe
@@ -191,7 +193,7 @@ class JZGK:
         # ── 补偿闭包 ──
         async def bb_safe():
             bb = reg.get("BB")
-            if bb.state.value in ("RUNNING", "READY"):
+            if bb.dev_state in (tango.DevState.RUNNING, tango.DevState.ON):
                 await bb.emergency_stop("发次中止，安全停充")
 
         async def aq_safe_release():
@@ -257,12 +259,12 @@ class JZGK:
         # ── 补偿闭包 ──
         async def bb_safe():
             bb = reg.get("BB")
-            if bb.state.value in ("RUNNING", "READY", "CHARGING", "CHARGED"):
+            if bb.dev_state in (tango.DevState.RUNNING, tango.DevState.ON):
                 await bb.emergency_stop("发次中止，安全停充")
 
         async def kg_safe():
             kg = reg.get("KG")
-            if kg.state.value in ("RUNNING", "READY", "CHARGING", "CHARGED"):
+            if kg.dev_state in (tango.DevState.RUNNING, tango.DevState.ON):
                 await kg.reset()
 
         _CHARGE = ["bb_charge", "kg_charge", "plz_crystal", "wlzd_arm"]

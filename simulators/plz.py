@@ -1,94 +1,104 @@
 """
-PLZ — 频率转换模拟器
+PLZ — 频率转换 Tango Device。
 
-职责：基频 → 三倍频（紫外），晶体位姿调整（B12），采样接入（B13）。
-
-状态序列：
-  STANDBY → MOVING（晶体调整）→ READY → SAMPLING → DATA_READY
+职责：用 KDP 晶体将 1053 nm 基频光转换为 351 nm 三倍频（紫外）光。
+晶体姿态需 μrad 级精密调整。
+  B 阶段：晶体调姿（SetCrystalPose），接收基频光（ReceiveFundamental）
 """
-import asyncio
+
 import logging
 import random
 
-from .base import BaseSimulator, SimState
+from tango import AttrWriteType, DevState
+from tango.server import attribute, command
+
+from ._base import SubsystemDevice
 
 logger = logging.getLogger(__name__)
 
 
-class PLZSimulator(BaseSimulator):
-    """频率转换子系统模拟器。"""
+class PLZDevice(SubsystemDevice):
+    """频率转换（三倍频）。"""
 
-    def __init__(self, sim_speed: float = 1.0):
-        super().__init__("PLZ", sim_speed)
-        self._crystal_pitch: float = 0.0    # mrad
-        self._crystal_yaw: float = 0.0      # mrad
-        self._conversion_efficiency: float = 0.0   # 0–1
-        self._uv_energy: float = 0.0        # J，三倍频输出能量
-        self._sampling_data: dict = {}
+    pitchAngle = attribute(
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit="mrad",
+        doc="晶体俯仰角",
+    )
+    yawAngle = attribute(
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit="mrad",
+        doc="晶体偏航角",
+    )
+    uvEnergy = attribute(
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit="J",
+        doc="最近一次三倍频（351 nm）输出能量",
+    )
+    conversionEfficiency = attribute(
+        dtype=float,
+        access=AttrWriteType.READ,
+        unit="%",
+        doc="基频→三倍频转换效率",
+    )
 
-    # ── 属性 ────────────────────────────────────────────────
+    async def init_device(self):
+        await super().init_device()
+        self._pitch: float = 0.0
+        self._yaw: float = 0.0
+        self._uv_energy: float = 0.0
+        self._efficiency: float = 0.0
+        self.set_change_event("uvEnergy", True, False)
 
-    @property
-    def crystal_pitch(self) -> float:
-        return self._crystal_pitch
+    async def read_pitchAngle(self) -> float:
+        return self._pitch
 
-    @property
-    def crystal_yaw(self) -> float:
-        return self._crystal_yaw
+    async def read_yawAngle(self) -> float:
+        return self._yaw
 
-    @property
-    def conversion_efficiency(self) -> float:
-        return self._conversion_efficiency
-
-    @property
-    def uv_energy(self) -> float:
+    async def read_uvEnergy(self) -> float:
         return self._uv_energy
 
-    # ── 命令 ────────────────────────────────────────────────
+    async def read_conversionEfficiency(self) -> float:
+        return self._efficiency
 
-    async def set_crystal_pose(self, pitch: float, yaw: float):
-        """
-        B12: 调整晶体位姿（角度匹配相位匹配条件）。
-        pitch, yaw 单位：mrad
-        """
-        await self._transition(SimState.MOVING, f"调整晶体位姿: pitch={pitch}, yaw={yaw}")
-        await self._delay(1.5)
-        self._crystal_pitch = pitch
-        self._crystal_yaw = yaw
-        # 简化模型：偏离最优位姿（0,0）越远，效率越低
-        deviation = (pitch ** 2 + yaw ** 2) ** 0.5
-        self._conversion_efficiency = max(0.0, 0.85 - deviation * 0.05)
-        await self._transition(SimState.READY, f"晶体就位，预估效率: {self._conversion_efficiency:.2%}")
+    @command(dtype_in=[float], doc_in="[pitch_mrad, yaw_mrad]")
+    async def SetCrystalPose(self, argin):
+        """B05: 晶体位姿设置（俯仰角 + 偏航角，mrad）。"""
+        if self.get_state() == DevState.FAULT:
+            raise Exception("PLZ 处于故障状态，请先 Reset")
+        if len(argin) < 2:
+            raise Exception("SetCrystalPose 需要 [pitch, yaw] 两个参数")
+        pitch, yaw = float(argin[0]), float(argin[1])
+        self.set_state(DevState.MOVING)
+        self.set_status(f"晶体调姿中：pitch={pitch:.3f} yaw={yaw:.3f} mrad")
+        await self._delay(0.3)
+        self._pitch = pitch
+        self._yaw = yaw
+        self.set_state(DevState.ON)
+        self.set_status(f"晶体就位，pitch={self._pitch:.3f} yaw={self._yaw:.3f} mrad")
+        logger.info("PLZ: 晶体调姿完成，pitch=%.3f yaw=%.3f mrad", pitch, yaw)
 
-    async def optimize_pose(self):
-        """自动寻优到最优位姿（用于发射后调整）。"""
-        await self._transition(SimState.MOVING, "晶体位姿自动寻优")
-        await self._delay(3.0)
-        self._crystal_pitch = random.uniform(-0.1, 0.1)
-        self._crystal_yaw = random.uniform(-0.1, 0.1)
-        self._conversion_efficiency = random.uniform(0.80, 0.88)
-        await self._transition(SimState.READY, f"寻优完成，效率: {self._conversion_efficiency:.2%}")
-
-    async def receive_fundamental(self, input_energy: float):
-        """
-        B05（时序触发后）: 接收基频激光，完成三倍频转换。
-        """
-        await self._transition(SimState.RUNNING, "频率转换中")
+    @command(dtype_in=float, dtype_out=float,
+             doc_in="基频光能量 (J)", doc_out="三倍频输出能量 (J)")
+    async def ReceiveFundamental(self, fundamental_energy: float) -> float:
+        """B: 接收基频光，完成频率转换，返回三倍频（UV）能量。"""
+        self.set_state(DevState.RUNNING)
+        self.set_status("频率转换中（1053→351 nm）")
         await self._delay(0.05)
-        self._uv_energy = input_energy * self._conversion_efficiency * random.uniform(0.97, 1.03)
-        await self._transition(SimState.READY, f"三倍频输出: {self._uv_energy:.2f} J")
-        await self._emit("uv_ready", self.name, self._uv_energy)
 
-    async def receive_sampling(self, sampling_config: dict):
-        """B13: 接收测量取样系统的采样触发。"""
-        self._sampling_data = {
-            "uv_energy": self._uv_energy,
-            "efficiency": self._conversion_efficiency,
-            "config": sampling_config,
-        }
-        logger.info("PLZ: 采样数据已记录")
-
-    async def reset(self):
-        self._uv_energy = 0.0
-        self._conversion_efficiency = 0.0
-        await super().reset()
+        # 转换效率与晶体角度相关，最佳角度附近最高
+        angle_penalty = 1.0 - abs(self._pitch - 0.05) * 0.1
+        self._efficiency = random.uniform(0.70, 0.80) * max(0.5, angle_penalty) * 100.0
+        self._uv_energy = fundamental_energy * self._efficiency / 100.0
+        self.set_state(DevState.ON)
+        self.set_status(f"频转完成，UV {self._uv_energy:.1f} J（效率 {self._efficiency:.1f}%）")
+        self.push_change_event("uvEnergy", self._uv_energy)
+        logger.info(
+            "PLZ: 频转完成，基频 %.1f J → UV %.1f J（%.1f%%）",
+            fundamental_energy, self._uv_energy, self._efficiency,
+        )
+        return self._uv_energy

@@ -1,122 +1,202 @@
 """
-JZT — 集中同步模拟器
+JZT — 集中同步 Tango Device。
 
-职责：全装置纳秒级时序同步。
-在软件层面，JZT 的职责是：
-  - 加载配方（A05 / B01）
-  - Arm：进入待触发状态
-  - Fire：广播时序触发信号给 ZZY/YF/DCF/PLZ/CLY
+职责：全装置纳秒级时序同步，66 路触发信号。
+  A 阶段：加载发次配方（LoadRecipe）
+  B 阶段：加载单次触发配方（LoadSingleShot）、就绪（Arm）、广播触发（Fire）
+  C 阶段：复位（Reset）
 
-注意：实际纳秒级时序由硬件承担，软件层只模拟"命令下发"和"状态反馈"。
-
-状态序列：
-  STANDBY → ARMED → TRIGGERED → STANDBY
+Fire() 触发后，各子系统在纳秒精度内同时出光（在仿真中以事件广播模拟）。
 """
-import asyncio
-import logging
-from dataclasses import dataclass, field
 
-from .base import BaseSimulator, SimState
+import json
+import logging
+
+from tango import AttrWriteType, DevState
+from tango.server import attribute, command
+
+from ._base import SubsystemDevice
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class TimingRecipe:
-    recipe_id: str
-    # 各通道延迟（ns），键为通道名，值为相对触发延迟
-    channels: dict[str, float] = field(default_factory=dict)
+class JZTDevice(SubsystemDevice):
+    """集中同步分系统。"""
 
-    @classmethod
-    def default(cls) -> "TimingRecipe":
-        """默认单发配方——各子系统的典型延迟。"""
-        return cls(
-            recipe_id="DEFAULT",
-            channels={
-                "ZZY": 0.0,
-                "YF": 50.0,
-                "DCF": 100.0,
-                "PLZ": 150.0,
-                "CLY": 200.0,
-            },
-        )
+    currentRecipe = attribute(
+        dtype=str,
+        access=AttrWriteType.READ,
+        doc="当前加载的配方 ID",
+    )
+    armed = attribute(
+        dtype=bool,
+        access=AttrWriteType.READ,
+        doc="True = 已就绪，等待 Fire 指令",
+    )
+    triggerCount = attribute(
+        dtype=int,
+        access=AttrWriteType.READ,
+        doc="累计触发次数",
+    )
 
-
-class JZTSimulator(BaseSimulator):
-    """集中同步子系统模拟器。"""
-
-    def __init__(self, sim_speed: float = 1.0):
-        super().__init__("JZT", sim_speed)
-        self._recipe: TimingRecipe = TimingRecipe.default()
+    async def init_device(self):
+        await super().init_device()
+        self._current_recipe: str = ""
+        self._timing_channels: dict = {}
         self._armed: bool = False
+        self._trigger_count: int = 0
+        self.set_change_event("armed", True, False)
 
-    # ── 属性 ────────────────────────────────────────────────
+    async def read_currentRecipe(self) -> str:
+        return self._current_recipe
 
-    @property
-    def recipe_id(self) -> str:
-        return self._recipe.recipe_id
-
-    @property
-    def armed(self) -> bool:
+    async def read_armed(self) -> bool:
         return self._armed
 
-    @property
-    def channels(self) -> dict[str, float]:
-        return dict(self._recipe.channels)
+    async def read_triggerCount(self) -> int:
+        return self._trigger_count
 
-    # ── 命令 ────────────────────────────────────────────────
-
-    async def load_recipe(self, recipe_id: str):
-        """
-        A05: 加载发射准备配方。
-        recipe_id 指定预存的时序方案。
-        """
-        if self._state == SimState.FAULT:
-            raise RuntimeError("JZT 处于故障状态，请先 reset")
-        await self._transition(SimState.RUNNING, f"加载配方 {recipe_id}")
-        await self._delay(0.3)
-        # 模拟：根据 recipe_id 选择配方，这里统一用 default + 修改 id
-        self._recipe = TimingRecipe.default()
-        self._recipe.recipe_id = recipe_id
-        self._armed = False
-        await self._transition(SimState.STANDBY, f"配方已加载: {recipe_id}")
-
-    async def load_single_shot(self, params: dict):
-        """
-        B01: 加载单发配方。params 是通道延迟字典，可覆盖默认值。
-        """
-        if self._state == SimState.FAULT:
-            raise RuntimeError("JZT 处于故障状态，请先 reset")
-        await self._transition(SimState.RUNNING, "加载单发配方")
+    @command(dtype_in=str, doc_in="配方 ID")
+    async def LoadRecipe(self, recipe_id: str):
+        """A05: 切换测量/预放重频配方。"""
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status(f"加载配方 {recipe_id}")
         await self._delay(0.2)
-        recipe = TimingRecipe.default()
-        recipe.recipe_id = "SINGLE_SHOT"
-        recipe.channels.update(params)
-        self._recipe = recipe
+        self._current_recipe = recipe_id
         self._armed = False
-        await self._transition(SimState.STANDBY, "单发配方已加载")
+        self.set_state(DevState.ON)
+        self.set_status(f"配方 {recipe_id} 已就绪")
+        logger.info("JZT: 配方 %s 加载完成", recipe_id)
 
-    async def arm(self):
-        """进入待触发状态。"""
-        if self._state != SimState.STANDBY:
-            raise RuntimeError(f"JZT 无法 Arm，当前状态: {self._state}")
-        await self._transition(SimState.READY, "已就绪，等待触发")
+    @command(dtype_in=str, doc_in="各通道延迟配置（JSON 编码）")
+    async def LoadSingleShot(self, channels_json: str):
+        """B01: 切换单次触发配方，写入各通道纳秒级延迟。"""
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        try:
+            self._timing_channels = json.loads(channels_json)
+        except json.JSONDecodeError:
+            self._timing_channels = {}
+        await self._delay(0.1)
+        self.set_state(DevState.ON)
+        self.set_status(f"单次配方已就绪（{len(self._timing_channels)} 路通道）")
+        logger.info("JZT: 单次配方加载，%d 路通道", len(self._timing_channels))
+
+    @command
+    async def Arm(self):
+        """B: 就绪（允许 Fire 指令）。"""
+        if self.get_state() != DevState.ON:
+            raise Exception(f"JZT 未就绪（当前 {self.get_state()}）")
         self._armed = True
+        self.push_change_event("armed", True)
+        self.set_status("已就绪，等待 Fire 指令")
+        logger.info("JZT: 已就绪（Arm）")
 
-    async def fire(self):
-        """
-        触发时序广播。
-        实际纳秒级时序由硬件完成；软件层模拟"已触发"状态变化。
-        """
+    @command
+    async def Fire(self):
+        """B: 广播纳秒级触发脉冲（同步触发全装置出光）。"""
         if not self._armed:
-            raise RuntimeError("JZT 尚未 Arm，无法触发")
-        await self._transition(SimState.RUNNING, "时序触发中")
-        await self._delay(0.05)  # 极短，模拟触发信号发出
+            raise Exception("JZT 未 Arm，无法 Fire")
+        self.set_state(DevState.RUNNING)
+        self.set_status("触发脉冲广播中")
+        await self._delay(0.01)  # 触发序列约 10 ms
+        self._trigger_count += 1
         self._armed = False
-        await self._transition(SimState.STANDBY, "触发完成，返回待机")
-        # 通知订阅者（集中管控可在此监听"fired"事件）
-        await self._emit("fired", self.name, self._recipe.recipe_id)
+        self.set_state(DevState.ON)
+        self.set_status(f"触发完成（累计 {self._trigger_count} 次）")
+        self.push_change_event("armed", False)
+        logger.info("JZT: 触发广播完成（第 %d 次）", self._trigger_count)
 
-    async def reset(self):
+    @command
+    async def Reset(self):
+        """C04: 同步系统复位。"""
         self._armed = False
-        await super().reset()
+        self._current_recipe = ""
+        self.set_state(DevState.STANDBY)
+        self.set_status("已复位，待机")
+        self.push_change_event("armed", False)
+        logger.info("JZT: 复位完成")
+
+    @command
+    async def LoadShotReadyRecipe(self):
+        """A阶段：加载发射准备配方。
+        加载用于发射准备阶段的时序配方，配置各通道在预检查阶段
+        所需的重频触发序列（如诊断仪器触发、能量监测采样等），
+        使全装置进入发射准备时序模式。
+        """
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status("加载发射准备配方中")
+        await self._delay(0.1)
+        self._current_recipe = "SHOT_READY"
+        self.set_state(DevState.ON)
+        self.set_status("发射准备配方已就绪")
+        logger.info("JZT: 发射准备配方加载完成")
+
+    @command
+    async def LoadMeasureRepRecipe(self):
+        """A阶段：加载测量重频配方。
+        加载测量系统重频时序配方，驱动测量仪器以重频模式工作，
+        用于 A 阶段光束参数在线测量（近场、远场、能量等）。
+        """
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status("加载测量重频配方中")
+        await self._delay(0.1)
+        self._current_recipe = "MEASURE_REP"
+        self.set_state(DevState.ON)
+        self.set_status("测量重频配方已就绪")
+        logger.info("JZT: 测量重频配方加载完成")
+
+    @command
+    async def LoadPreamplifierRepRecipe(self):
+        """A阶段：加载预放重频配方。
+        加载预放大链重频时序配方，使预放以重频模式出光，
+        用于 A 阶段能量闭环调节和光路准直验证。
+        """
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status("加载预放重频配方中")
+        await self._delay(0.1)
+        self._current_recipe = "PREAMPLIFIER_REP"
+        self.set_state(DevState.ON)
+        self.set_status("预放重频配方已就绪")
+        logger.info("JZT: 预放重频配方加载完成")
+
+    @command
+    async def LoadMeasureSingleRecipe(self):
+        """B阶段：加载测量单次配方。
+        加载测量系统单次时序配方，配置测量仪器在单次打靶模式下
+        的触发延迟和门宽参数，确保采集到完整的打靶脉冲数据。
+        """
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status("加载测量单次配方中")
+        await self._delay(0.05)
+        self._current_recipe = "MEASURE_SINGLE"
+        self.set_state(DevState.ON)
+        self.set_status("测量单次配方已就绪")
+        logger.info("JZT: 测量单次配方加载完成")
+
+    @command
+    async def LoadPreamplifierSingleRecipe(self):
+        """B阶段：加载预放单次配方。
+        加载预放大链单次时序配方，配置单次打靶时预放各级的
+        触发延迟，确保预放输出与主放同步，满足打靶时序要求。
+        """
+        if self.get_state() == DevState.FAULT:
+            raise Exception("JZT 处于故障状态，请先 Reset")
+        self.set_state(DevState.RUNNING)
+        self.set_status("加载预放单次配方中")
+        await self._delay(0.05)
+        self._current_recipe = "PREAMPLIFIER_SINGLE"
+        self.set_state(DevState.ON)
+        self.set_status("预放单次配方已就绪")
+        logger.info("JZT: 预放单次配方加载完成")

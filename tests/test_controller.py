@@ -4,6 +4,7 @@ tests/test_controller.py — JZGK 控制器集成测试
 运行：python3 -m unittest tests.test_controller -v
 """
 import asyncio
+import contextlib
 import sys
 import unittest
 from pathlib import Path
@@ -19,8 +20,14 @@ SIM_SPEED = 100.0
 
 class TestNormalShot(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.registry = SimulatorRegistry.build(sim_speed=SIM_SPEED)
+        self._ctx = contextlib.AsyncExitStack()
+        self.registry = await self._ctx.enter_async_context(
+            SimulatorRegistry.in_process(sim_speed=SIM_SPEED)
+        )
         self.jzgk = JZGK(self.registry)
+
+    async def asyncTearDown(self):
+        await self._ctx.aclose()
 
     async def test_shot_succeeds(self):
         record = await self.jzgk.start_shot(ShotRecipe(recipe_id="TEST_001"))
@@ -58,8 +65,14 @@ class TestNormalShot(unittest.IsolatedAsyncioTestCase):
 
 class TestPhaseAFault(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.registry = SimulatorRegistry.build(sim_speed=SIM_SPEED)
+        self._ctx = contextlib.AsyncExitStack()
+        self.registry = await self._ctx.enter_async_context(
+            SimulatorRegistry.in_process(sim_speed=SIM_SPEED)
+        )
         self.jzgk = JZGK(self.registry)
+
+    async def asyncTearDown(self):
+        await self._ctx.aclose()
 
     async def test_hard_fault_aborts_shot(self):
         # ZK 在抽真空前就已故障 → zk_evacuate 步骤失败
@@ -92,8 +105,14 @@ class TestPhaseAFault(unittest.IsolatedAsyncioTestCase):
 
 class TestSafetySignal(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.registry = SimulatorRegistry.build(sim_speed=SIM_SPEED)
+        self._ctx = contextlib.AsyncExitStack()
+        self.registry = await self._ctx.enter_async_context(
+            SimulatorRegistry.in_process(sim_speed=SIM_SPEED)
+        )
         self.jzgk = JZGK(self.registry)
+
+    async def asyncTearDown(self):
+        await self._ctx.aclose()
 
     def _schedule_s1_on_firing(self):
         """在 FIRING 阶段开始后立即注入 S1（用 on_phase_change 确保时机正确）。"""
@@ -122,16 +141,22 @@ class TestSafetySignal(unittest.IsolatedAsyncioTestCase):
         r1 = await self.jzgk.start_shot(ShotRecipe(recipe_id="S1_SHOT"))
         self.assertFalse(r1.success)
 
-        self.registry = SimulatorRegistry.build(sim_speed=SIM_SPEED)
-        self.jzgk = JZGK(self.registry)
-        r2 = await self.jzgk.start_shot(ShotRecipe(recipe_id="RECOVERY"))
+        async with SimulatorRegistry.in_process(sim_speed=SIM_SPEED) as registry:
+            jzgk = JZGK(registry)
+            r2 = await jzgk.start_shot(ShotRecipe(recipe_id="RECOVERY"))
         self.assertTrue(r2.success)
 
 
 class TestStateMachineFSM(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.registry = SimulatorRegistry.build(sim_speed=SIM_SPEED)
+        self._ctx = contextlib.AsyncExitStack()
+        self.registry = await self._ctx.enter_async_context(
+            SimulatorRegistry.in_process(sim_speed=SIM_SPEED)
+        )
         self.jzgk = JZGK(self.registry)
+
+    async def asyncTearDown(self):
+        await self._ctx.aclose()
 
     async def test_invalid_transition_raises(self):
         with self.assertRaises(RuntimeError, msg="非法转换应抛出 RuntimeError"):

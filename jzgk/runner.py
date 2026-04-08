@@ -1,8 +1,8 @@
 """
-runner.py — JZGK + 实时监控 TUI 的统一入口
+runner.py — JZGK 统一入口
 
 用法：
-    # 运行一发次，5 倍速，可视化
+    # 运行一发次，5 倍速
     python -m jzgk.runner
 
     # 多发次
@@ -19,55 +19,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from rich.console import Console
-from rich.live import Live
-from rich.logging import RichHandler
-from rich.text import Text
-
 from simulators import SimulatorRegistry
-from simulators.monitor import MonitorUI
 from jzgk import JZGK, JZGKState, ShotRecipe
-
-console = Console()
-
-# JZGK 状态 → 监控 UI 阶段标签
-PHASE_LABEL = {
-    JZGKState.IDLE:            "待机",
-    JZGKState.PREPARING:       "A 发射准备",
-    JZGKState.FIRING:          "B 发射",
-    JZGKState.POST:            "C 后处理",
-    JZGKState.EMERGENCY_STOP:  "⚠ 紧急停机",
-}
 
 
 async def run(shots: int = 1, sim_speed: float = 5.0, inject_fault: bool = False):
-    # 静默日志（状态由 TUI 展示）
     logging.basicConfig(
-        level=logging.WARNING,
-        handlers=[RichHandler(console=console, show_path=False)],
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-7s %(name)s  %(message)s",
         force=True,
     )
-    logging.getLogger("jzgk").setLevel(logging.INFO)
 
-    registry = SimulatorRegistry.build(sim_speed=sim_speed)
-    ui = MonitorUI(registry)
-    jzgk = JZGK(registry)
+    async with SimulatorRegistry.in_process(sim_speed=sim_speed) as registry:
+        jzgk = JZGK(registry)
+        records: list = []
 
-    # JZGK 状态变化 → 更新 UI 阶段标签
-    def on_phase(old, new):
-        ui.set_phase(PHASE_LABEL.get(new, new.value))
-
-    jzgk.on_phase_change(on_phase)
-
-    records: list = []
-
-    async def shot_loop():
-        await asyncio.sleep(0.3)   # 等 UI 先渲染
         for i in range(shots):
             recipe = ShotRecipe(recipe_id=f"SHOT_{i + 1:03d}")
 
             if inject_fault and i == 0:
-                # 监听 FIRING 阶段开始后 0.5s 注入 S1（此时 AQ 已 ARMED）
                 def _schedule_intrusion(old, new):
                     if new == JZGKState.FIRING:
                         async def _do():
@@ -81,24 +51,14 @@ async def run(shots: int = 1, sim_speed: float = 5.0, inject_fault: bool = False
             if i < shots - 1:
                 await asyncio.sleep(0.5 / sim_speed)
 
-    with Live(ui.render(), refresh_per_second=10, screen=True, console=console) as live:
-        task = asyncio.create_task(shot_loop())
-        while not task.done():
-            live.update(ui.render())
-            await asyncio.sleep(0.1)
-        live.update(ui.render())
-        await asyncio.sleep(1.5)   # 停留让用户看到最终状态
-
-    # Live 结束后打印结果（screen=True 会清屏，必须在 with 块外打印）
-    await task   # 传播异常
     for record in records:
         _print_record(record)
-    _print_summary(jzgk)
+    _print_summary(records)
 
 
 def _print_record(record):
-    status = "[bold green]成功[/]" if record.success else "[bold red]中止[/]"
-    console.print(
+    status = "成功" if record.success else "中止"
+    print(
         f"\n发次 #{record.shot_id} {status}  "
         f"A={record.phase_a_elapsed:.1f}s "
         f"B={record.phase_b_elapsed:.1f}s "
@@ -107,14 +67,12 @@ def _print_record(record):
         f"中子={record.neutron_count}"
     )
     if not record.success:
-        console.print(f"  中止原因: [{record.abort_reason.value}] {record.abort_detail}", style="red")
+        print(f"  中止原因: [{record.abort_reason.value}] {record.abort_detail}")
     if record.step_timings:
         _print_step_timings(record.step_timings)
 
 
 def _print_step_timings(timings: dict[str, float]):
-    """按阶段分组打印每步耗时。"""
-    from itertools import groupby
     by_phase: dict[str, list[tuple[str, float]]] = {}
     for key, elapsed in timings.items():
         prefix, name = key.split(".", 1)
@@ -125,20 +83,18 @@ def _print_step_timings(timings: dict[str, float]):
         if not steps:
             continue
         parts = [f"{name}:{elapsed:.2f}s" for name, elapsed in steps]
-        console.print(f"  [{phase.upper()}] " + "  ".join(parts), style="dim")
+        print(f"  [{phase.upper()}] " + "  ".join(parts))
 
 
-def _print_summary(jzgk: JZGK):
-    history = jzgk.history
-    if not history:
+def _print_summary(records: list):
+    if not records:
         return
-    success = sum(1 for r in history if r.success)
-    console.rule("发次汇总")
-    console.print(f"总发次: {len(history)}  成功: {success}  中止: {len(history) - success}")
+    success = sum(1 for r in records if r.success)
+    print(f"\n总发次: {len(records)}  成功: {success}  中止: {len(records) - success}")
     if success:
-        avg_energy = sum(r.uv_energy_j for r in history if r.success) / success
-        avg_neutron = sum(r.neutron_count for r in history if r.success) / success
-        console.print(f"平均 UV 能量: {avg_energy:.0f} J  平均中子数: {avg_neutron:.0f}")
+        avg_energy = sum(r.uv_energy_j for r in records if r.success) / success
+        avg_neutron = sum(r.neutron_count for r in records if r.success) / success
+        print(f"平均 UV 能量: {avg_energy:.0f} J  平均中子数: {avg_neutron:.0f}")
 
 
 async def main():

@@ -15,6 +15,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import tango
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
@@ -98,12 +99,94 @@ _PHASE_DAGS = {
     },
 }
 
+
+def _dev_state_str(state: tango.DevState) -> str:
+    """将 tango.DevState 转换为字符串（如 'ON', 'FAULT', 'STANDBY'）。"""
+    return str(state).split(".")[-1]
+
+
 # ── FastAPI 应用 ─────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await startup()
-    yield
+    global _broadcaster, _registry, _jzgk, _queue
+
+    _broadcaster = EventBroadcaster()
+
+    async with SimulatorRegistry.in_process(sim_speed=_sim_speed) as registry:
+        _registry = registry
+        _jzgk = JZGK(_registry)
+        _queue = ShotQueue(_jzgk, _broadcaster)
+
+        # ── 挂载事件钩子 ────────────────────────────────────────
+
+        def on_state_changed(name: str, state: tango.DevState):
+            asyncio.create_task(_broadcaster.broadcast("subsystem_state", {
+                "name": name,
+                "state": _dev_state_str(state),
+            }))
+
+        def on_safety(name: str, signal_id: str, message: str):
+            asyncio.create_task(_broadcaster.broadcast("safety", {
+                "signal": signal_id,
+                "source": name,
+                "msg": message,
+                "ts": time.time(),
+            }))
+
+        def on_phase_change(old, new):
+            asyncio.create_task(_broadcaster.broadcast("jzgk_state", {
+                "old": old.value,
+                "new": new.value,
+            }))
+
+        def on_step_start(phase_name: str, step_name: str):
+            phase = phase_name.replace("phase_", "")
+            asyncio.create_task(_broadcaster.broadcast("step_start", {
+                "phase": phase,
+                "name": step_name,
+            }))
+
+        def on_step_done(phase_name: str, result):
+            phase = phase_name.replace("phase_", "")
+            asyncio.create_task(_broadcaster.broadcast("step_done", {
+                "phase": phase,
+                "name": result.name,
+                "elapsed": result.elapsed,
+                "success": result.success,
+                "soft": _PHASE_DAGS.get(phase, {}).get("steps") and any(
+                    s["name"] == result.name and s["soft"]
+                    for s in _PHASE_DAGS[phase]["steps"]
+                ),
+            }))
+
+        _registry.on_state_changed(on_state_changed)
+        _registry.on_safety(on_safety)
+        _jzgk.on_phase_change(on_phase_change)
+        _jzgk.set_step_callbacks(on_step_start, on_step_done)
+
+        # ── 日志桥接 ────────────────────────────────────────────
+        handler = SSELogHandler(_broadcaster)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        class _NoSSEFilter(logging.Filter):
+            def filter(self, record):
+                return not record.name.startswith(("sse_starlette", "uvicorn"))
+        handler.addFilter(_NoSSEFilter())
+        logging.getLogger().addHandler(handler)
+        logging.getLogger().setLevel(logging.DEBUG)
+        logging.getLogger("sse_starlette").setLevel(logging.WARNING)
+        logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
+        # ── 启动发次工作循环 ─────────────────────────────────────
+        asyncio.create_task(_queue.run_loop())
+
+        logging.getLogger(__name__).info(
+            "JZGK Web 控制台启动，仿真速度 %.1fx，访问 http://localhost:8000",
+            _sim_speed,
+        )
+
+        yield
+
 
 app = FastAPI(title="JZGK Web 控制台", lifespan=lifespan)
 
@@ -121,87 +204,6 @@ async def no_cache_static(request: Request, call_next):
     return response
 
 
-# ── 启动逻辑 ─────────────────────────────────────────────────
-
-async def startup():
-    global _broadcaster, _registry, _jzgk, _queue
-
-    _broadcaster = EventBroadcaster()
-    _registry = SimulatorRegistry.build(sim_speed=_sim_speed)
-    _jzgk = JZGK(_registry)
-    _queue = ShotQueue(_jzgk, _broadcaster)
-
-    # ── 挂载事件钩子 ────────────────────────────────────────
-
-    def on_state_changed(name, old_state, new_state, message):
-        asyncio.create_task(_broadcaster.broadcast("subsystem_state", {
-            "name": name,
-            "state": new_state.value,
-            "status": message,
-        }))
-
-    def on_safety(name, signal_id, message):
-        asyncio.create_task(_broadcaster.broadcast("safety", {
-            "signal": signal_id,
-            "source": name,
-            "msg": message,
-            "ts": time.time(),
-        }))
-
-    def on_phase_change(old, new):
-        asyncio.create_task(_broadcaster.broadcast("jzgk_state", {
-            "old": old.value,
-            "new": new.value,
-        }))
-
-    def on_step_start(phase_name: str, step_name: str):
-        # phase_name: "phase_a" → "a"
-        phase = phase_name.replace("phase_", "")
-        asyncio.create_task(_broadcaster.broadcast("step_start", {
-            "phase": phase,
-            "name": step_name,
-        }))
-
-    def on_step_done(phase_name: str, result):
-        phase = phase_name.replace("phase_", "")
-        asyncio.create_task(_broadcaster.broadcast("step_done", {
-            "phase": phase,
-            "name": result.name,
-            "elapsed": result.elapsed,
-            "success": result.success,
-            "soft": _PHASE_DAGS.get(phase, {}).get("steps") and any(
-                s["name"] == result.name and s["soft"]
-                for s in _PHASE_DAGS[phase]["steps"]
-            ),
-        }))
-
-    _registry.on_state_changed(on_state_changed)
-    _registry.on_safety(on_safety)
-    _jzgk.on_phase_change(on_phase_change)
-    _jzgk.set_step_callbacks(on_step_start, on_step_done)
-
-    # ── 日志桥接 ────────────────────────────────────────────
-    handler = SSELogHandler(_broadcaster)
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    # 过滤器：避免 sse_starlette/uvicorn 内部日志产生反馈循环
-    class _NoSSEFilter(logging.Filter):
-        def filter(self, record):
-            return not record.name.startswith(("sse_starlette", "uvicorn"))
-    handler.addFilter(_NoSSEFilter())
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.getLogger("sse_starlette").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn").setLevel(logging.WARNING)
-
-    # ── 启动发次工作循环 ─────────────────────────────────────
-    asyncio.create_task(_queue.run_loop())
-
-    logging.getLogger(__name__).info(
-        "JZGK Web 控制台启动，仿真速度 %.1fx，访问 http://localhost:8000",
-        _sim_speed,
-    )
-
-
 # ── 路由 ─────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -217,8 +219,7 @@ async def get_state():
     for name, sim in _registry.all().items():
         subsystems.append({
             "name": name,
-            "state": sim.state.value,
-            "status": sim.status,
+            "state": _dev_state_str(sim.dev_state),
             "metrics": _get_metrics(name, sim),
         })
     return {
@@ -288,9 +289,7 @@ async def cancel_shot(recipe_id: str):
 
 @app.post("/api/emergency-stop")
 async def emergency_stop():
-    from jzgk.recipe import AbortReason, ShotAborted
     if _jzgk.state != JZGKState.IDLE:
-        # 注入 S1 信号触发中止
         await _registry.get("AQ").simulate_intrusion()
         return {"ok": True, "action": "s1_injected"}
     return {"ok": False, "reason": "already_idle"}
@@ -300,8 +299,9 @@ async def emergency_stop():
 async def inject_fault(body: dict):
     subsystem = body.get("subsystem", "")
     reason = body.get("reason", "Web UI 手动注入故障")
-    sim = _registry.get(subsystem)
-    if sim is None:
+    try:
+        sim = _registry.get(subsystem)
+    except KeyError:
         raise HTTPException(404, f"子系统 {subsystem} 不存在")
     await sim.inject_fault(reason)
     return {"ok": True}
@@ -310,30 +310,30 @@ async def inject_fault(body: dict):
 @app.post("/api/subsystem/{name}/reset")
 async def reset_subsystem(name: str):
     """将指定子系统从 FAULT 状态复位到 STANDBY。"""
-    sim = _registry.get(name)
-    if sim is None:
+    try:
+        sim = _registry.get(name)
+    except KeyError:
         raise HTTPException(404, f"子系统 {name} 不存在")
     if not sim.is_fault:
-        return {"ok": False, "reason": "not_in_fault", "state": sim.state.value}
+        return {"ok": False, "reason": "not_in_fault", "state": _dev_state_str(sim.dev_state)}
     await sim.reset()
-    return {"ok": True, "state": sim.state.value}
+    return {"ok": True, "state": _dev_state_str(sim.dev_state)}
 
 
 @app.post("/api/subsystem/reset-all")
 async def reset_all_faults():
     """将所有处于 FAULT 状态的子系统并发复位。"""
-    import asyncio as _asyncio
     faulted = [name for name, sim in _registry.all().items() if sim.is_fault]
     if not faulted:
         return {"ok": True, "reset": []}
-    await _asyncio.gather(*[_registry.get(n).reset() for n in faulted], return_exceptions=True)
+    await asyncio.gather(*[_registry.get(n).reset() for n in faulted], return_exceptions=True)
     return {"ok": True, "reset": faulted}
 
 
 @app.post("/api/inject-s1")
 async def inject_s1():
     """直接触发 S1 紧急停机：AQ 进入 FAULT，需操作员手动复位。"""
-    await _registry.get("AQ").emergency_stop("Web UI 手动注入 S1")
+    await _registry.get("AQ").simulate_intrusion()
     return {"ok": True}
 
 
@@ -347,8 +347,7 @@ async def set_config(body: dict):
         if speed <= 0:
             raise HTTPException(400, "sim_speed 必须 > 0")
         _sim_speed = speed
-        for sim in _registry.all().values():
-            sim.sim_speed = speed
+        await _registry.set_sim_speed(speed)
         await _broadcaster.broadcast("config_update", {"sim_speed": speed})
         logging.getLogger(__name__).info("仿真速度已调整为 %.1fx", speed)
     return {"ok": True, "sim_speed": _sim_speed}
@@ -356,13 +355,13 @@ async def set_config(body: dict):
 
 @app.get("/api/subsystem/{name}/metrics")
 async def get_subsystem_metrics(name: str):
-    sim = _registry.get(name)
-    if sim is None:
+    try:
+        sim = _registry.get(name)
+    except KeyError:
         raise HTTPException(404, f"子系统 {name} 不存在")
     return {
         "name": name,
-        "state": sim.state.value,
-        "status": sim.status,
+        "state": _dev_state_str(sim.dev_state),
         "metrics": _get_metrics(name, sim),
     }
 
@@ -432,7 +431,7 @@ def main():
         host=args.host,
         port=args.port,
         reload=False,
-        log_level="warning",  # 抑制 uvicorn 自身日志，让 JZGK 日志主导
+        log_level="warning",
     )
 
 
