@@ -74,7 +74,7 @@ class AQDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("AQ 处于故障（S1）状态，需操作员手动复位")
         self.set_state(DevState.RUNNING)
-        self.set_status("清场中，等待人员撤离")
+        self.set_status("Clearing area, waiting for evacuation")
 
         # 模拟人员逐步撤离（3 步）
         for i in range(3, 0, -1):
@@ -84,7 +84,7 @@ class AQDevice(SubsystemDevice):
 
         self._area_cleared = True
         self.set_state(DevState.ON)
-        self.set_status("清场完成，RFID 确认无人")
+        self.set_status("Area cleared, RFID confirmed empty")
         logger.info("AQ: 清场完成")
 
     @command
@@ -94,7 +94,7 @@ class AQDevice(SubsystemDevice):
             raise Exception("AQ: 未完成清场，无法锁定")
         self._locked_down = True
         self.set_state(DevState.ON)
-        self.set_status("⚠ 安全联锁激活，屏蔽门已锁")
+        self.set_status("Safety interlock activated, door locked")
         logger.info("AQ: 安全联锁激活")
 
     @command
@@ -106,7 +106,7 @@ class AQDevice(SubsystemDevice):
         self._locked_down = False
         self._area_cleared = False
         self.set_state(DevState.STANDBY)
-        self.set_status("联锁已释放，警灯熄灭")
+        self.set_status("Interlock released, lights off")
         logger.info("AQ: 安全联锁释放")
 
     @command
@@ -121,7 +121,7 @@ class AQDevice(SubsystemDevice):
         self._safety_signal = "S1"
         self._locked_down = False
         self.set_state(DevState.FAULT)
-        self.set_status(f"⚠ S1 紧急停机: {message}")
+        self.set_status(f"S1 EMERGENCY STOP: {message}")
         await self._emit_safety("S1", message)
         logger.critical("AQ: S1 紧急停机 — %s", message)
 
@@ -144,9 +144,9 @@ class AQDevice(SubsystemDevice):
         - 2：闪烁（系统预备状态、人员撤离提示）。
         B 阶段联锁激活后应置为常亮，C 阶段联锁释放后关闭。
         """
-        modes = {0: "关闭", 1: "常亮", 2: "闪烁"}
+        modes = {0: "OFF", 1: "ON", 2: "FLASH"}
         mode_str = modes.get(mode, f"未知({mode})")
-        self.set_status(f"警灯状态: {mode_str}")
+        self.set_status(f"Warning light: {mode_str}")
         logger.info("AQ: 警灯设置为 %s（mode=%d）", mode_str, mode)
 
     @command(dtype_in=int, doc_in="警示音控制：0=关闭，1=开启")
@@ -157,8 +157,8 @@ class AQDevice(SubsystemDevice):
         - 1：开启警示音（联锁激活前提示人员撤离）。
         通常在 ClearArea() 时开启，LockDown() 完成后可根据需要关闭。
         """
-        mode_str = "开启" if mode else "关闭"
-        self.set_status(f"警示音: {mode_str}")
+        mode_str = "ON" if mode else "OFF"
+        self.set_status(f"Alarm sound: {mode_str}")
         logger.info("AQ: 警示音设置为 %s（mode=%d）", mode_str, mode)
 
     @command(dtype_in=int, doc_in="屏蔽门控制：0=开门，1=关门，2=锁定")
@@ -170,17 +170,17 @@ class AQDevice(SubsystemDevice):
         - 2：锁定（屏蔽门关闭并电磁锁定，与联锁激活联动）。
         A 阶段清场后应执行关门（1）再锁定（2）操作。
         """
-        actions = {0: "开门", 1: "关门", 2: "锁定"}
+        actions = {0: "Open", 1: "Close", 2: "Lock"}
         action_str = actions.get(action, f"未知({action})")
         self.set_state(DevState.RUNNING)
-        self.set_status(f"屏蔽门{action_str}中")
+        self.set_status(f"Shield door {action_str}")
         await self._delay(1.0)  # 模拟门动作时间
         if action == 2:
             self._locked_down = True
         elif action == 0:
             self._locked_down = False
         self.set_state(DevState.ON if action in (1, 2) else DevState.STANDBY)
-        self.set_status(f"屏蔽门{action_str}完成")
+        self.set_status(f"Shield door {action_str} done")
         logger.info("AQ: 屏蔽门 %s（action=%d）", action_str, action)
 
     @command(dtype_in=int, doc_in="安全管控状态：0=释放，1=预备，2=联锁激活，3=紧急停机")
@@ -193,7 +193,7 @@ class AQDevice(SubsystemDevice):
         - 3：紧急停机（触发 S1，进入 FAULT，等待人工复位）。
         A 阶段末尾置为 2，C 阶段结束后置为 0。
         """
-        states = {0: "释放", 1: "预备", 2: "联锁激活", 3: "紧急停机"}
+        states = {0: "Released", 1: "Standby", 2: "Interlock active", 3: "Emergency stop"}
         state_str = states.get(state, f"未知({state})")
         if state == 3:
             await self._trigger_s1("SetSafetyState(3) 触发紧急停机")
@@ -203,5 +203,5 @@ class AQDevice(SubsystemDevice):
             self._area_cleared = False
         elif state == 2:
             self._locked_down = True
-        self.set_status(f"安全管控状态: {state_str}")
+        self.set_status(f"Safety state: {state_str}")
         logger.info("AQ: 安全管控状态设置为 %s（state=%d）", state_str, state)

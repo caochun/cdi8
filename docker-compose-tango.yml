@@ -1,0 +1,28 @@
+services:
+  tango-db:
+    image: tangocs/mysql:latest
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: tango
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tango", "-ptango"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  tango-cs:
+    image: tangocs/tango-cs:latest
+    platform: linux/amd64
+    depends_on:
+      tango-db:
+        condition: service_healthy
+    environment:
+      TANGO_HOST: tango-cs:10000
+      MYSQL_HOST: tango-db
+      MYSQL_USER: tango
+      MYSQL_PASSWORD: tango
+      MYSQL_DATABASE: tango
+    ports:
+      - "10000:10000"

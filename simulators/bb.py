@@ -10,6 +10,7 @@ BB — 泵浦分系统 Tango Device。
 充电故障模型：每步 0.2% 概率触发 S2，约 2% 每发次。
 """
 
+import json
 import logging
 import random
 
@@ -86,10 +87,10 @@ class BBDevice(SubsystemDevice):
             raise Exception("BB 处于故障状态，请先 Reset")
         self._target_energy = target_energy
         self.set_state(DevState.RUNNING)
-        self.set_status(f"泵浦准备中，目标 {target_energy:.0f} J")
+        self.set_status(f"Pump preparing, target {target_energy:.0f} J")
         await self._delay(0.5)
         self.set_state(DevState.ON)
-        self.set_status(f"泵浦就绪，目标 {target_energy:.0f} J")
+        self.set_status(f"Pump ready, target {target_energy:.0f} J")
         logger.info("BB: 泵浦准备完成，目标能量 %.0f J", target_energy)
 
     @command
@@ -98,7 +99,7 @@ class BBDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("BB 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("充电中")
+        self.set_status("Charging")
         self._charge_progress = 0.0
 
         for step in range(10):
@@ -112,7 +113,7 @@ class BBDevice(SubsystemDevice):
                 return
 
         self.set_state(DevState.ON)
-        self.set_status(f"充电完成，{self._charge_progress:.0f}%，电压 {self._charge_voltage:.0f} V")
+        self.set_status(f"Charged {self._charge_progress:.0f}%, {self._charge_voltage:.0f} V")
         logger.info("BB: 充电完成，电压 %.0f V", self._charge_voltage)
 
     @command
@@ -121,13 +122,13 @@ class BBDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"BB 未就绪（当前 {self.get_state()}）")
         self.set_state(DevState.RUNNING)
-        self.set_status("放电触发中")
+        self.set_status("Discharge triggering")
         await self._delay(0.05)
         self._actual_energy = self._target_energy * random.uniform(0.97, 1.03)
         self._charge_progress = 0.0
         self._charge_voltage = 0.0
         self.set_state(DevState.ON)
-        self.set_status(f"放电完成，实际能量 {self._actual_energy:.1f} J")
+        self.set_status(f"Discharged, actual {self._actual_energy:.1f} J")
         self.push_change_event("chargeProgress", 0.0)
         logger.info("BB: 放电完成，实际能量 %.1f J（目标 %.1f J）",
                     self._actual_energy, self._target_energy)
@@ -143,7 +144,7 @@ class BBDevice(SubsystemDevice):
         self._charge_progress = 0.0
         self._charge_voltage = 0.0
         self.set_state(DevState.FAULT)
-        self.set_status(f"紧急停充: {message}")
+        self.set_status(f"Emergency stop: {message}")
         await self._emit_safety("S2", message)
         logger.critical("BB: S2 紧急停充 — %s", message)
 
@@ -167,7 +168,7 @@ class BBDevice(SubsystemDevice):
             raise Exception("BB 处于故障状态，请先 Reset")
         if self.get_state() != DevState.ON:
             raise Exception(f"BB 未就绪（当前 {self.get_state()}），请先执行 Prepare")
-        self.set_status("发射充电准备完成，可执行充电")
+        self.set_status("Charge-ready check passed")
         logger.info("BB: 发射充电准备完成，目标能量 %.0f J", self._target_energy)
 
     @command
@@ -178,7 +179,7 @@ class BBDevice(SubsystemDevice):
         """
         if self.get_state() != DevState.ON:
             raise Exception(f"BB 未就绪（当前 {self.get_state()}），请先完成充电")
-        self.set_status("泵浦触发准备完成，等待 Trigger 指令")
+        self.set_status("Pump trigger ready, awaiting Trigger")
         logger.info("BB: 触发准备完成，电压 %.0f V", self._charge_voltage)
 
     @command
@@ -189,7 +190,7 @@ class BBDevice(SubsystemDevice):
         """
         if self.get_state() == DevState.FAULT:
             raise Exception("BB 处于故障状态，请先 Reset")
-        self.set_status("预电离发射准备完成")
+        self.set_status("Preionization ready")
         logger.info("BB: 预电离发射准备完成")
 
     @command
@@ -201,10 +202,10 @@ class BBDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("BB 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("预电离回路充电中")
+        self.set_status("Preionization charging")
         await self._delay(0.3)
         self.set_state(DevState.ON)
-        self.set_status("预电离充电完成")
+        self.set_status("Preionization charge done")
         logger.info("BB: 预电离充电完成")
 
     @command(dtype_out=str, doc_out="泵浦数据（JSON 编码）")
@@ -238,7 +239,7 @@ class BBDevice(SubsystemDevice):
         self._actual_energy = 0.0
         self._safety_signal = ""
         self.set_state(DevState.STANDBY)
-        self.set_status("泵浦分系统已关机复位")
+        self.set_status("Pump system power-off reset")
         self.push_change_event("chargeProgress", 0.0)
         logger.info("BB: 关机复位完成")
 
@@ -250,6 +251,6 @@ class BBDevice(SubsystemDevice):
         """
         self._charge_progress = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("泵浦分系统待机中")
+        self.set_status("Pump system standby")
         self.push_change_event("chargeProgress", 0.0)
         logger.info("BB: 切换待机状态")

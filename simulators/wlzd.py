@@ -65,11 +65,11 @@ class WLZDDevice(SubsystemDevice):
         except json.JSONDecodeError:
             config = {}
         self.set_state(DevState.RUNNING)
-        self.set_status("探测器配置中")
+        self.set_status("Configuring detectors")
         await self._delay(0.5)  # 高压加载需要时间
         self._detector_count = config.get("detector_count", 8)
         self.set_state(DevState.ON)
-        self.set_status(f"{self._detector_count} 台探测器配置完成")
+        self.set_status(f"{self._detector_count} detectors configured")
         logger.info("WLZD: %d 台探测器配置完成", self._detector_count)
 
     @command
@@ -78,7 +78,7 @@ class WLZDDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"WLZD 未就绪（当前 {self.get_state()}）")
         self._armed = True
-        self.set_status("探测器已就绪，等待触发")
+        self.set_status("Detectors armed, awaiting trigger")
         self.push_change_event("armed", True)
         logger.info("WLZD: 探测器已就绪（Arm）")
 
@@ -86,11 +86,11 @@ class WLZDDevice(SubsystemDevice):
     async def Acquire(self):
         """C07: 触发采集（通知探测器从缓冲区读取本次触发数据）。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("触发后数据采集中")
+        self.set_status("Post-trigger acquisition")
         await self._delay(0.3)
         self._armed = False
         self.set_state(DevState.ON)
-        self.set_status("采集完成，数据就绪")
+        self.set_status("Acquisition done, data ready")
         self.push_change_event("armed", False)
         logger.info("WLZD: 触发后采集完成")
 
@@ -98,7 +98,7 @@ class WLZDDevice(SubsystemDevice):
     async def ReadResults(self) -> str:
         """C07: 读取物理信号（X 射线、中子产额、γ 信号）。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("读取诊断数据中")
+        self.set_status("Reading diagnostic data")
         await self._delay(0.5)
 
         self._last_results = {
@@ -109,7 +109,7 @@ class WLZDDevice(SubsystemDevice):
             "dim_position_ok": True,
         }
         self.set_state(DevState.ON)
-        self.set_status("诊断数据读取完成")
+        self.set_status("Diagnostic data read")
         result_json = json.dumps(self._last_results, ensure_ascii=False)
         logger.info("WLZD: 诊断完成，中子产额 %d", self._last_results["neutron_count"])
         return result_json
@@ -127,10 +127,10 @@ class WLZDDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception(f"WLZD 处于故障状态，无法执行动作 {action}")
         self.set_state(DevState.MOVING)
-        self.set_status(f"执行诊断设备动作: {action}")
+        self.set_status(f"Executing device action: {action}")
         await self._delay(0.5)
         self.set_state(DevState.ON)
-        self.set_status(f"诊断设备动作完成: {action}")
+        self.set_status(f"Device action done: {action}")
         logger.info("WLZD: 诊断设备动作 '%s' 完成", action)
 
     @command
@@ -143,10 +143,10 @@ class WLZDDevice(SubsystemDevice):
         确保靶室内诊断设备在后续操作前处于安全状态。
         """
         self.set_state(DevState.MOVING)
-        self.set_status("发射后处理：退高压/收回/下电")
+        self.set_status("Post-shot: HV off / retract / power down")
         await self._delay(1.0)
         self._armed = False
         self.set_state(DevState.STANDBY)
-        self.set_status("发射后处理完成，设备已收回")
+        self.set_status("Post-shot done, devices retracted")
         self.push_change_event("armed", False)
         logger.info("WLZD: 发射后处理完成")

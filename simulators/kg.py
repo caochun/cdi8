@@ -65,7 +65,7 @@ class KGDevice(SubsystemDevice):
             raise Exception("KG 处于故障状态，请先 Reset")
         self._target_voltage = target_voltage
         self.set_state(DevState.RUNNING)
-        self.set_status(f"充电中，目标 {target_voltage:.1f} kV")
+        self.set_status(f"Charging, target {target_voltage:.1f} kV")
 
         for step in range(8):
             await self._delay(0.3)
@@ -75,7 +75,7 @@ class KGDevice(SubsystemDevice):
             self.push_change_event("actualVoltage", self._actual_voltage)
 
         self.set_state(DevState.ON)
-        self.set_status(f"充电完成，电压 {self._actual_voltage:.2f} kV")
+        self.set_status(f"Charged, {self._actual_voltage:.2f} kV")
         logger.info("KG: 充电完成，%.2f kV", self._actual_voltage)
 
     @command
@@ -84,13 +84,13 @@ class KGDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"KG 未就绪（当前 {self.get_state()}）")
         self.set_state(DevState.RUNNING)
-        self.set_status("开关触发中")
+        self.set_status("Switch triggering")
         await self._delay(0.02)
         # 触发后电压放电到零
         self._actual_voltage *= random.uniform(0.0, 0.05)  # 残压
         self._charge_progress = 0.0
         self.set_state(DevState.ON)
-        self.set_status("开关触发完成")
+        self.set_status("Switch trigger done")
         self.push_change_event("chargeProgress", 0.0)
         logger.info("KG: 开关触发完成")
 
@@ -100,7 +100,7 @@ class KGDevice(SubsystemDevice):
         self._actual_voltage = 0.0
         self._charge_progress = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("已复位，待机")
+        self.set_status("Reset, standby")
         self.push_change_event("chargeProgress", 0.0)
         self.push_change_event("actualVoltage", 0.0)
         logger.info("KG: 已复位")
@@ -114,7 +114,7 @@ class KGDevice(SubsystemDevice):
         """
         if self.get_state() != DevState.ON:
             raise Exception(f"KG 未就绪（当前 {self.get_state()}），请先完成充电（Charge）")
-        self.set_status("触发准备完成，等待 Trigger 指令")
+        self.set_status("Trigger ready, awaiting Trigger")
         logger.info("KG: 触发准备完成，电压 %.2f kV", self._actual_voltage)
 
     @command(dtype_out=str, doc_out="放电波形数据（JSON 编码）")
@@ -142,7 +142,7 @@ class KGDevice(SubsystemDevice):
         self._actual_voltage = 0.0
         self._charge_progress = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("开关驱动源待机")
+        self.set_status("Switch driver standby")
         self.push_change_event("chargeProgress", 0.0)
         self.push_change_event("actualVoltage", 0.0)
         logger.info("KG: 切换待机状态")

@@ -62,12 +62,12 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status(f"加载配方 {recipe_id}")
+        self.set_status(f"Loading recipe {recipe_id}")
         await self._delay(0.2)
         self._current_recipe = recipe_id
         self._armed = False
         self.set_state(DevState.ON)
-        self.set_status(f"配方 {recipe_id} 已就绪")
+        self.set_status(f"Recipe {recipe_id} ready")
         logger.info("JZT: 配方 %s 加载完成", recipe_id)
 
     @command(dtype_in=str, doc_in="各通道延迟配置（JSON 编码）")
@@ -82,7 +82,7 @@ class JZTDevice(SubsystemDevice):
             self._timing_channels = {}
         await self._delay(0.1)
         self.set_state(DevState.ON)
-        self.set_status(f"单次配方已就绪（{len(self._timing_channels)} 路通道）")
+        self.set_status(f"Single-shot ready ({len(self._timing_channels)} ch)")
         logger.info("JZT: 单次配方加载，%d 路通道", len(self._timing_channels))
 
     @command
@@ -92,7 +92,7 @@ class JZTDevice(SubsystemDevice):
             raise Exception(f"JZT 未就绪（当前 {self.get_state()}）")
         self._armed = True
         self.push_change_event("armed", True)
-        self.set_status("已就绪，等待 Fire 指令")
+        self.set_status("Armed, awaiting Fire")
         logger.info("JZT: 已就绪（Arm）")
 
     @command
@@ -101,12 +101,12 @@ class JZTDevice(SubsystemDevice):
         if not self._armed:
             raise Exception("JZT 未 Arm，无法 Fire")
         self.set_state(DevState.RUNNING)
-        self.set_status("触发脉冲广播中")
+        self.set_status("Trigger broadcasting")
         await self._delay(0.01)  # 触发序列约 10 ms
         self._trigger_count += 1
         self._armed = False
         self.set_state(DevState.ON)
-        self.set_status(f"触发完成（累计 {self._trigger_count} 次）")
+        self.set_status(f"Trigger done (total {self._trigger_count})")
         self.push_change_event("armed", False)
         logger.info("JZT: 触发广播完成（第 %d 次）", self._trigger_count)
 
@@ -116,7 +116,7 @@ class JZTDevice(SubsystemDevice):
         self._armed = False
         self._current_recipe = ""
         self.set_state(DevState.STANDBY)
-        self.set_status("已复位，待机")
+        self.set_status("Reset, standby")
         self.push_change_event("armed", False)
         logger.info("JZT: 复位完成")
 
@@ -130,11 +130,11 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("加载发射准备配方中")
+        self.set_status("Loading shot-ready recipe")
         await self._delay(0.1)
         self._current_recipe = "SHOT_READY"
         self.set_state(DevState.ON)
-        self.set_status("发射准备配方已就绪")
+        self.set_status("Shot-ready recipe loaded")
         logger.info("JZT: 发射准备配方加载完成")
 
     @command
@@ -146,11 +146,11 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("加载测量重频配方中")
+        self.set_status("Loading measure-rep recipe")
         await self._delay(0.1)
         self._current_recipe = "MEASURE_REP"
         self.set_state(DevState.ON)
-        self.set_status("测量重频配方已就绪")
+        self.set_status("Measure-rep recipe loaded")
         logger.info("JZT: 测量重频配方加载完成")
 
     @command
@@ -162,11 +162,11 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("加载预放重频配方中")
+        self.set_status("Loading preamp-rep recipe")
         await self._delay(0.1)
         self._current_recipe = "PREAMPLIFIER_REP"
         self.set_state(DevState.ON)
-        self.set_status("预放重频配方已就绪")
+        self.set_status("Preamp-rep recipe loaded")
         logger.info("JZT: 预放重频配方加载完成")
 
     @command
@@ -178,11 +178,11 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("加载测量单次配方中")
+        self.set_status("Loading measure-single recipe")
         await self._delay(0.05)
         self._current_recipe = "MEASURE_SINGLE"
         self.set_state(DevState.ON)
-        self.set_status("测量单次配方已就绪")
+        self.set_status("Measure-single recipe loaded")
         logger.info("JZT: 测量单次配方加载完成")
 
     @command
@@ -194,9 +194,9 @@ class JZTDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("JZT 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("加载预放单次配方中")
+        self.set_status("Loading preamp-single recipe")
         await self._delay(0.05)
         self._current_recipe = "PREAMPLIFIER_SINGLE"
         self.set_state(DevState.ON)
-        self.set_status("预放单次配方已就绪")
+        self.set_status("Preamp-single recipe loaded")
         logger.info("JZT: 预放单次配方加载完成")

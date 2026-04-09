@@ -42,6 +42,7 @@ class ShotRecipe:
 
     # 靶参数
     target_id: str = "TARGET_001"
+    use_ld_target: bool = False           # True = 使用液氘靶（LDB 开罩/收靶）
 
     # 测量配置
     sampling_config: dict = field(default_factory=lambda: {
@@ -92,6 +93,9 @@ class ShotRecord:
 
     # 步骤级耗时（key: "a.步骤名" / "b.步骤名" / "c.步骤名"）
     step_timings: dict[str, float] = field(default_factory=dict)
+
+    # C 阶段各子系统采集数据（key: "zzy"/"epj"/"yf"/"bb"/"kg"/"bm"/"cly"/"wlzd"）
+    subsystem_data: dict[str, dict] = field(default_factory=dict)
 
     def finalize(self, success: bool, exc: ShotAborted | None = None):
         self.end_time = datetime.now()

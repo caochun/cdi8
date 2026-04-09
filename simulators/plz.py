@@ -74,12 +74,12 @@ class PLZDevice(SubsystemDevice):
             raise Exception("SetCrystalPose 需要 [pitch, yaw] 两个参数")
         pitch, yaw = float(argin[0]), float(argin[1])
         self.set_state(DevState.MOVING)
-        self.set_status(f"晶体调姿中：pitch={pitch:.3f} yaw={yaw:.3f} mrad")
+        self.set_status(f"Crystal adjusting: pitch={pitch:.3f} yaw={yaw:.3f} mrad")
         await self._delay(0.3)
         self._pitch = pitch
         self._yaw = yaw
         self.set_state(DevState.ON)
-        self.set_status(f"晶体就位，pitch={self._pitch:.3f} yaw={self._yaw:.3f} mrad")
+        self.set_status(f"Crystal positioned, pitch={self._pitch:.3f} yaw={self._yaw:.3f} mrad")
         logger.info("PLZ: 晶体调姿完成，pitch=%.3f yaw=%.3f mrad", pitch, yaw)
 
     @command(dtype_in=float, dtype_out=float,
@@ -87,7 +87,7 @@ class PLZDevice(SubsystemDevice):
     async def ReceiveFundamental(self, fundamental_energy: float) -> float:
         """B: 接收基频光，完成频率转换，返回三倍频（UV）能量。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("频率转换中（1053→351 nm）")
+        self.set_status("Frequency conversion (1053->351 nm)")
         await self._delay(0.05)
 
         # 转换效率与晶体角度相关，最佳角度附近最高
@@ -95,7 +95,7 @@ class PLZDevice(SubsystemDevice):
         self._efficiency = random.uniform(0.70, 0.80) * max(0.5, angle_penalty) * 100.0
         self._uv_energy = fundamental_energy * self._efficiency / 100.0
         self.set_state(DevState.ON)
-        self.set_status(f"频转完成，UV {self._uv_energy:.1f} J（效率 {self._efficiency:.1f}%）")
+        self.set_status(f"Conversion done, UV {self._uv_energy:.1f} J (eff {self._efficiency:.1f}%)")
         self.push_change_event("uvEnergy", self._uv_energy)
         logger.info(
             "PLZ: 频转完成，基频 %.1f J → UV %.1f J（%.1f%%）",

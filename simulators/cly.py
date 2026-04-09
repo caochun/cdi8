@@ -59,7 +59,7 @@ class CLYDevice(SubsystemDevice):
         # 模拟通道数（实际有 62 路，这里用配置数或默认值）
         self._channel_count = self._sampling_config.get("channels", 62)
         self.set_state(DevState.ON)
-        self.set_status(f"采样配置完成，{self._channel_count} 路通道")
+        self.set_status(f"Sampling configured, {self._channel_count} channels")
         logger.info("CLY: 采样配置完成，%d 路", self._channel_count)
 
     @command
@@ -68,17 +68,17 @@ class CLYDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("CLY 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("采样中")
+        self.set_status("Sampling")
         await self._delay(0.1)
         self.set_state(DevState.ON)
-        self.set_status("采样就绪，等待触发")
+        self.set_status("Sampling ready, awaiting trigger")
         logger.info("CLY: 采样就绪")
 
     @command(dtype_out=str, doc_out="激光参数测量结果（JSON 编码）")
     async def ReadResults(self) -> str:
         """C08: 采集激光参数（能量/波形/近场/远场）。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("读取测量数据中")
+        self.set_status("Reading measurement data")
         await self._delay(0.5)
 
         self._last_results = {
@@ -89,7 +89,7 @@ class CLYDevice(SubsystemDevice):
             "wavefront_rms_lambda": round(random.uniform(0.05, 0.15), 3),
         }
         self.set_state(DevState.ON)
-        self.set_status("测量数据采集完成")
+        self.set_status("Measurement data acquired")
         result_json = json.dumps(self._last_results, ensure_ascii=False)
         logger.info("CLY: 测量完成，能量 %.4f kJ", self._last_results["energy_kj"])
         return result_json
@@ -104,10 +104,10 @@ class CLYDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("CLY 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("测量靶瞄准备中")
+        self.set_status("Measure target-align preparing")
         await self._delay(0.2)
         self.set_state(DevState.ON)
-        self.set_status("测量靶瞄准备完成")
+        self.set_status("Measure target-align ready")
         logger.info("CLY: 测量靶瞄准备完成")
 
     @command
@@ -120,10 +120,10 @@ class CLYDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("CLY 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("测量打靶运动准备中")
+        self.set_status("Measure shot-motion preparing")
         await self._delay(0.2)
         self.set_state(DevState.ON)
-        self.set_status("测量打靶运动准备完成")
+        self.set_status("Measure shot-motion ready")
         logger.info("CLY: 测量打靶运动准备完成")
 
     @command
@@ -136,10 +136,10 @@ class CLYDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("CLY 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("打靶测量准备中")
+        self.set_status("Shot measurement preparing")
         await self._delay(0.1)
         self.set_state(DevState.ON)
-        self.set_status("打靶测量准备完成，等待触发")
+        self.set_status("Shot measurement ready, awaiting trigger")
         logger.info("CLY: 打靶测量准备完成")
 
     @command
@@ -149,5 +149,5 @@ class CLYDevice(SubsystemDevice):
         保存本次测量数据，关闭高压门控，等待下一发次指令。
         """
         self.set_state(DevState.STANDBY)
-        self.set_status("测量组件待机中")
+        self.set_status("Measurement standby")
         logger.info("CLY: 切换待机状态")

@@ -78,7 +78,7 @@ class BMDevice(SubsystemDevice):
             raise Exception("BM 处于故障状态，请先 Reset")
         self._target_id = target_id
         self.set_state(DevState.MOVING)
-        self.set_status(f"靶 {target_id} 预定位中")
+        self.set_status(f"Target {target_id} pre-positioning")
 
         # 模拟三轴运动（2 步，每步 0.5s）
         for step in range(2):
@@ -90,9 +90,9 @@ class BMDevice(SubsystemDevice):
         self._pointing_error = abs(random.gauss(0, 1.5))  # μm 级指向误差
         self.set_state(DevState.ON)
         self.set_status(
-            f"靶 {target_id} 就位，"
-            f"XYZ=({self._pos_x:.1f},{self._pos_y:.1f},{self._pos_z:.1f}) μm，"
-            f"指向误差 {self._pointing_error:.2f} μm"
+            f"Target {target_id} positioned, "
+            f"XYZ=({self._pos_x:.1f},{self._pos_y:.1f},{self._pos_z:.1f}) um, "
+            f"pointing error {self._pointing_error:.2f} um"
         )
         logger.info(
             "BM: 靶 %s 预定位完成，指向误差 %.2f μm", target_id, self._pointing_error
@@ -102,11 +102,11 @@ class BMDevice(SubsystemDevice):
     async def CollectTarget(self):
         """C06: 靶瞄收靶（发射后复位）。"""
         self.set_state(DevState.MOVING)
-        self.set_status("收靶中")
+        self.set_status("Collecting target")
         await self._delay(1.0)
         self._target_id = ""
         self.set_state(DevState.STANDBY)
-        self.set_status("收靶完成，待机")
+        self.set_status("Target collected, standby")
         logger.info("BM: 收靶完成")
 
     @command(dtype_in=str, doc_in="靶标编号")
@@ -123,7 +123,7 @@ class BMDevice(SubsystemDevice):
         self._pos_z = 0.0
         self._pointing_error = 0.0
         self.set_state(DevState.ON)
-        self.set_status(f"模拟靶 {target_id} 定位完成（仿真）")
+        self.set_status(f"Simulated target {target_id} positioned")
         logger.info("BM: 模拟靶定位完成，target_id=%s", target_id)
 
     @command
@@ -135,11 +135,11 @@ class BMDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"BM 未就绪（当前 {self.get_state()}）")
         self.set_state(DevState.MOVING)
-        self.set_status("光束引导中")
+        self.set_status("Beam guiding")
         await self._delay(0.5)
         self._pointing_error = abs(random.gauss(0, 0.5))  # 引导后误差更小
         self.set_state(DevState.ON)
-        self.set_status(f"光束引导完成，指向误差 {self._pointing_error:.2f} μm")
+        self.set_status(f"Beam guide done, error {self._pointing_error:.2f} um")
         logger.info("BM: 光束引导完成，指向误差 %.2f μm", self._pointing_error)
 
     @command
@@ -149,14 +149,14 @@ class BMDevice(SubsystemDevice):
         在发次中止后将靶室恢复至安全状态。
         """
         self.set_state(DevState.MOVING)
-        self.set_status("实验靶复位中")
+        self.set_status("Target resetting")
         await self._delay(1.0)
         self._target_id = ""
         self._pos_x = 0.0
         self._pos_y = 0.0
         self._pos_z = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("实验靶已复位")
+        self.set_status("Target reset")
         logger.info("BM: 实验靶复位完成")
 
     @command

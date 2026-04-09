@@ -50,7 +50,7 @@ class LKDevice(SubsystemDevice):
         self._purging = True
         self._flow_rate = 150.0  # L/min
         self.set_state(DevState.RUNNING)
-        self.set_status(f"吹扫气流已开启，流量 {self._flow_rate:.0f} L/min")
+        self.set_status(f"Purge flow started, {self._flow_rate:.0f} L/min")
         self.push_change_event("purging", True)
         logger.info("LK: 吹扫气流开启")
 
@@ -60,7 +60,7 @@ class LKDevice(SubsystemDevice):
         self._purging = False
         self._flow_rate = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("吹扫气流已关闭")
+        self.set_status("Purge flow stopped")
         self.push_change_event("purging", False)
         logger.info("LK: 吹扫气流关闭")
 
@@ -83,7 +83,7 @@ class LKDevice(SubsystemDevice):
             self._purging = False
             self._flow_rate = 0.0
             self.set_state(DevState.STANDBY)
-            self.set_status("冷空系统已关机")
+            self.set_status("Cooling system shut down")
             self.push_change_event("purging", False)
             logger.info("LK: 冷空系统已关机")
         else:

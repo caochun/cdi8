@@ -64,7 +64,7 @@ class MXDevice(SubsystemDevice):
             shot_data = {}
 
         self.set_state(DevState.RUNNING)
-        self.set_status("模型校准中")
+        self.set_status("Model calibrating")
         await self._delay(1.0)  # 校准计算耗时
 
         # 模拟校准因子更新
@@ -83,8 +83,8 @@ class MXDevice(SubsystemDevice):
 
         self.set_state(DevState.ON)
         self.set_status(
-            f"校准完成，模型 v{self._model_version}，"
-            f"质量 {self._calibration_quality:.1f}%"
+            f"Calibration done, model v{self._model_version}, "
+            f"quality {self._calibration_quality:.1f}%"
         )
         logger.info(
             "MX: 模型校准完成，v%d，质量 %.1f%%",

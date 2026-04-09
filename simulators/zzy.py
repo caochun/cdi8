@@ -41,11 +41,11 @@ class ZZYDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("ZZY 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("种子光输出中")
+        self.set_status("Seed output active")
         await self._delay(0.5)
         self._output_power = 50.0  # mW 级种子光
         self.set_state(DevState.ON)
-        self.set_status(f"出光正常，功率: {self._output_power:.1f} mW")
+        self.set_status(f"Output OK, power: {self._output_power:.1f} mW")
         self.push_change_event("outputPower", self._output_power)
         logger.info("ZZY: 种子源出光，功率 %.1f mW", self._output_power)
 
@@ -54,7 +54,7 @@ class ZZYDevice(SubsystemDevice):
         """C01: 禁光/待机。"""
         self._output_power = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("已禁光，待机")
+        self.set_status("Output disabled, standby")
         self.push_change_event("outputPower", self._output_power)
         logger.info("ZZY: 种子源禁光")
 
@@ -82,6 +82,6 @@ class ZZYDevice(SubsystemDevice):
         """
         self._output_power = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("种子源待机中")
+        self.set_status("Seed standby")
         self.push_change_event("outputPower", self._output_power)
         logger.info("ZZY: 切换待机状态")

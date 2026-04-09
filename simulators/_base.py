@@ -84,7 +84,7 @@ class SubsystemDevice(Device):
         self._sim_speed: float = 1.0
 
         self.set_state(DevState.STANDBY)
-        self.set_status("初始化完成")
+        self.set_status("Initialized")
 
         # 注册变更事件（客户端可订阅）
         self.set_change_event("State", True, False)
@@ -134,9 +134,9 @@ class SubsystemDevice(Device):
             logger.debug("%s: Reset 忽略（非 FAULT，当前 %s）", self.get_name(), self.get_state())
             return
         self._health_state = 0
-        self._health_status = "已复位"
+        self._health_status = "Reset done"
         self.set_state(DevState.STANDBY)
-        self.set_status("就绪")
+        self.set_status("Ready")
         self.push_change_event("healthState", self._health_state)
         self.push_change_event("healthStatus", self._health_status)
         self.push_change_event("State", DevState.STANDBY)
@@ -146,9 +146,9 @@ class SubsystemDevice(Device):
     async def InjectFault(self, reason: str):
         """注入测试故障（仅供测试用途）。"""
         self._health_state = 2
-        self._health_status = f"注入故障: {reason}"
+        self._health_status = f"Fault injected: {reason}"
         self.set_state(DevState.FAULT)
-        self.set_status(f"故障: {reason}")
+        self.set_status(f"Fault: {reason}")
         self.push_change_event("healthState", self._health_state)
         self.push_change_event("healthStatus", self._health_status)
         self.push_change_event("State", DevState.FAULT)
@@ -158,10 +158,10 @@ class SubsystemDevice(Device):
     async def SelfCheck(self):
         """执行自检流程（约 1 秒/仿真速度）。"""
         self._self_check_state = 1
-        self._self_check_status = "自检中..."
+        self._self_check_status = "Self-checking..."
         await self._delay(1.0)
         self._self_check_state = 2
-        self._self_check_status = "自检通过"
+        self._self_check_status = "Self-check passed"
         logger.info("%s: 自检通过", self.get_name())
 
     # ── 内部工具 ─────────────────────────────────────────────

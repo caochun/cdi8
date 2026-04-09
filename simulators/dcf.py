@@ -64,7 +64,7 @@ class DCFDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("DCF 处于故障状态，请先 Reset")
         self.set_state(DevState.MOVING)
-        self.set_status("光路准直中")
+        self.set_status("Beam alignment in progress")
         self._aligned = False
 
         error = 5.0  # 初始基准误差 μrad
@@ -82,14 +82,14 @@ class DCFDevice(SubsystemDevice):
 
         if self._alignment_error >= 10.0:
             self.set_state(DevState.FAULT)
-            self.set_status(f"准直失败，误差 {self._alignment_error:.1f} μrad（阈值 10 μrad）")
+            self.set_status(f"Alignment failed, error {self._alignment_error:.1f} urad (threshold 10)")
             raise Exception(f"DCF 准直失败，最终误差 {self._alignment_error:.1f} μrad")
 
         self._aligned = True
         self.set_state(DevState.ON)
         self.set_status(
-            f"准直完成，误差 {self._alignment_error:.2f} μrad，"
-            f"用时 {self._alignment_steps} 步"
+            f"Aligned, error {self._alignment_error:.2f} urad, "
+            f"{self._alignment_steps} steps"
         )
         logger.info("DCF: 准直完成，误差 %.2f μrad，%d 步", self._alignment_error, self._alignment_steps)
 
@@ -107,14 +107,14 @@ class DCFDevice(SubsystemDevice):
         if not self._aligned:
             raise Exception("DCF 未完成准直，无法放大")
         self.set_state(DevState.RUNNING)
-        self.set_status("主放大进行中")
+        self.set_status("Main amplification in progress")
         await self._delay(0.15)
 
         # 简化增益模型（片放小信号增益 ~3，饱和效应 + 噪声）
         gain = 3.0 * random.uniform(0.95, 1.05)
         self._output_energy = pump_energy * 0.7 * gain  # 70% 泵浦分配给主放
         self.set_state(DevState.ON)
-        self.set_status(f"主放完成，输出 {self._output_energy:.1f} J")
+        self.set_status(f"Main amplification done, output {self._output_energy:.1f} J")
         self.push_change_event("outputEnergy", self._output_energy)
         logger.info("DCF: 主放完成，泵浦 %.1f J → 输出 %.1f J", pump_energy, self._output_energy)
         return self._output_energy

@@ -448,6 +448,10 @@ class BMProxy(SubsystemProxy):
         result_json = await self._cmd("AnalyzeData")
         return json.loads(result_json) if result_json else {}
 
+    async def collect_target(self):
+        """C阶段：靶瞄收靶。"""
+        await self._cmd("CollectTarget")
+
 
 class ZKProxy(SubsystemProxy):
     @property
@@ -592,6 +596,10 @@ class LDBProxy(SubsystemProxy):
         await self._cmd("Reset")
         self._cached_state = tango.DevState.STANDBY
 
+    async def close_cover(self):
+        """C阶段：LD 靶收靶。"""
+        await self._cmd("CloseCover")
+
 
 # ── 名称 → Proxy 类映射 ──────────────────────────────────────────
 _PROXY_CLASSES: dict[str, type[SubsystemProxy]] = {
@@ -684,22 +692,22 @@ class SimulatorRegistry:
         from .zzy import ZZYDevice
 
         device_info = [
-            (ZZYDevice,  {"sim/zzy/1": {}}),
-            (EPJDevice,  {"sim/epj/1": {}}),
-            (YFDevice,   {"sim/yf/1": {}}),
-            (DCFDevice,  {"sim/dcf/1": {}}),
-            (PLZDevice,  {"sim/plz/1": {}}),
-            (BBDevice,   {"sim/bb/1": {}}),
-            (KGDevice,   {"sim/kg/1": {}}),
-            (JZTDevice,  {"sim/jzt/1": {}}),
-            (BMDevice,   {"sim/bm/1": {}}),
-            (ZKDevice,   {"sim/zk/1": {}}),
-            (CLYDevice,  {"sim/cly/1": {}}),
-            (WLZDDevice, {"sim/wlzd/1": {}}),
-            (AQDevice,   {"sim/aq/1": {}}),
-            (LKDevice,   {"sim/lk/1": {}}),
-            (MXDevice,   {"sim/mx/1": {}}),
-            (LDBDevice,  {"sim/ldb/1": {}}),
+            {"class": ZZYDevice,  "devices": [{"name": "sim/zzy/1"}]},
+            {"class": EPJDevice,  "devices": [{"name": "sim/epj/1"}]},
+            {"class": YFDevice,   "devices": [{"name": "sim/yf/1"}]},
+            {"class": DCFDevice,  "devices": [{"name": "sim/dcf/1"}]},
+            {"class": PLZDevice,  "devices": [{"name": "sim/plz/1"}]},
+            {"class": BBDevice,   "devices": [{"name": "sim/bb/1"}]},
+            {"class": KGDevice,   "devices": [{"name": "sim/kg/1"}]},
+            {"class": JZTDevice,  "devices": [{"name": "sim/jzt/1"}]},
+            {"class": BMDevice,   "devices": [{"name": "sim/bm/1"}]},
+            {"class": ZKDevice,   "devices": [{"name": "sim/zk/1"}]},
+            {"class": CLYDevice,  "devices": [{"name": "sim/cly/1"}]},
+            {"class": WLZDDevice, "devices": [{"name": "sim/wlzd/1"}]},
+            {"class": AQDevice,   "devices": [{"name": "sim/aq/1"}]},
+            {"class": LKDevice,   "devices": [{"name": "sim/lk/1"}]},
+            {"class": MXDevice,   "devices": [{"name": "sim/mx/1"}]},
+            {"class": LDBDevice,  "devices": [{"name": "sim/ldb/1"}]},
         ]
 
         with MultiDeviceTestContext(device_info, process=False) as ctx:

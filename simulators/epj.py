@@ -51,11 +51,11 @@ class EPJDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("EPJ 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("二倍频注入光输出中")
+        self.set_status("2w injection active")
         await self._delay(0.5)
         self._output_power = 30.0  # mW 级
         self.set_state(DevState.ON)
-        self.set_status(f"注入出光正常，功率: {self._output_power:.1f} mW")
+        self.set_status(f"Injection OK, power: {self._output_power:.1f} mW")
         self.push_change_event("outputPower", self._output_power)
         logger.info("EPJ: 二倍频注入出光，功率 %.1f mW", self._output_power)
 
@@ -64,7 +64,7 @@ class EPJDevice(SubsystemDevice):
         """C02: 禁光/待机。"""
         self._output_power = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("已禁光，待机")
+        self.set_status("Output disabled, standby")
         self.push_change_event("outputPower", self._output_power)
         logger.info("EPJ: 二倍频注入禁光")
 
@@ -93,6 +93,6 @@ class EPJDevice(SubsystemDevice):
         """
         self._output_power = 0.0
         self.set_state(DevState.STANDBY)
-        self.set_status("二倍频注入待机中")
+        self.set_status("2w injection standby")
         self.push_change_event("outputPower", self._output_power)
         logger.info("EPJ: 切换待机状态")

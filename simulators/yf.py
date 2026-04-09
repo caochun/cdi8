@@ -77,14 +77,14 @@ class YFDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("YF 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("预放预热中")
+        self.set_status("Preamplifier warming up")
         # 模拟预热：温度从室温升至工作温度（约 41°C）
         for step in range(6):
             await self._delay(0.5)
             self._temperature = 20.0 + step * 3.5
             self.push_change_event("temperature", self._temperature)
         self.set_state(DevState.ON)
-        self.set_status(f"预放就绪，温度 {self._temperature:.1f}°C")
+        self.set_status(f"Preamplifier ready, temp {self._temperature:.1f}C")
         logger.info("YF: 预热完成，温度 %.1f°C", self._temperature)
 
     @command(dtype_in=float, dtype_out=float,
@@ -92,7 +92,7 @@ class YFDevice(SubsystemDevice):
     async def ReceivePumpEnergy(self, pump_energy: float) -> float:
         """B07/B11: 接收泵浦能量，执行放大，返回输出能量。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("接收泵浦能量，放大中")
+        self.set_status("Receiving pump energy, amplifying")
         await self._delay(0.1)
 
         gain = 0.15
@@ -102,7 +102,7 @@ class YFDevice(SubsystemDevice):
             self._measured_energy = self._energy_setpoint * random.uniform(0.98, 1.02)
 
         self.set_state(DevState.ON)
-        self.set_status(f"放大完成，输出 {self._measured_energy:.3f} J")
+        self.set_status(f"Amplification done, output {self._measured_energy:.3f} J")
         self.push_change_event("measuredEnergy", self._measured_energy)
         logger.info("YF: 放大完成，泵浦 %.1f J → 输出 %.3f J", pump_energy, self._measured_energy)
         return self._measured_energy
@@ -119,12 +119,12 @@ class YFDevice(SubsystemDevice):
     async def AcceptPurge(self):
         """C03/C10: 接受冷空吹扫，片放冷却。"""
         self.set_state(DevState.RUNNING)
-        self.set_status("片放吹扫冷却中")
+        self.set_status("Slab purge cooling")
         await self._delay(2.0)
         self._temperature = max(20.0, self._temperature - 5.0)
         self._loop_closed = False
         self.set_state(DevState.STANDBY)
-        self.set_status(f"吹扫完成，温度 {self._temperature:.1f}°C")
+        self.set_status(f"Purge done, temp {self._temperature:.1f}C")
         self.push_change_event("temperature", self._temperature)
         logger.info("YF: 吹扫完成，温度降至 %.1f°C", self._temperature)
 
@@ -144,11 +144,11 @@ class YFDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"YF 未就绪（当前 {self.get_state()}），请先 WakeUp")
         self.set_state(DevState.RUNNING)
-        self.set_status("预放出打靶光中")
+        self.set_status("Preamplifier shot output")
         await self._delay(0.1)
         self._measured_energy = self._energy_setpoint * 0.5 if self._energy_setpoint > 0 else 0.1
         self.set_state(DevState.ON)
-        self.set_status("打靶光输出完成")
+        self.set_status("Shot output done")
         self.push_change_event("measuredEnergy", self._measured_energy)
         logger.info("YF: 预放出打靶光，能量 %.3f J", self._measured_energy)
 
@@ -161,13 +161,13 @@ class YFDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"YF 未就绪（当前 {self.get_state()}）")
         self.set_state(DevState.RUNNING)
-        self.set_status("能量粗闭环调节中")
+        self.set_status("Coarse energy loop adjusting")
         await self._delay(0.5)
         if self._energy_setpoint > 0:
             self._measured_energy = self._energy_setpoint * random.uniform(0.95, 1.05)
         self._loop_closed = True
         self.set_state(DevState.ON)
-        self.set_status(f"粗闭环完成，能量 {self._measured_energy:.3f} J")
+        self.set_status(f"Coarse loop done, energy {self._measured_energy:.3f} J")
         self.push_change_event("measuredEnergy", self._measured_energy)
         logger.info("YF: 能量粗闭环完成，%.3f J", self._measured_energy)
 
@@ -180,13 +180,13 @@ class YFDevice(SubsystemDevice):
         if self.get_state() != DevState.ON:
             raise Exception(f"YF 未就绪（当前 {self.get_state()}）")
         self.set_state(DevState.RUNNING)
-        self.set_status("能量精闭环调节中")
+        self.set_status("Fine energy loop adjusting")
         await self._delay(0.8)
         if self._energy_setpoint > 0:
             self._measured_energy = self._energy_setpoint * random.uniform(0.99, 1.01)
         self._loop_closed = True
         self.set_state(DevState.ON)
-        self.set_status(f"精闭环完成，能量 {self._measured_energy:.3f} J")
+        self.set_status(f"Fine loop done, energy {self._measured_energy:.3f} J")
         self.push_change_event("measuredEnergy", self._measured_energy)
         logger.info("YF: 能量精闭环完成，%.3f J（目标 %.3f J）",
                     self._measured_energy, self._energy_setpoint)
@@ -228,5 +228,5 @@ class YFDevice(SubsystemDevice):
         """
         self._loop_closed = False
         self.set_state(DevState.STANDBY)
-        self.set_status("预放组件待机中")
+        self.set_status("Preamplifier standby")
         logger.info("YF: 切换待机状态")

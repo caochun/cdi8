@@ -69,7 +69,7 @@ class ZKDevice(SubsystemDevice):
         if self._monitoring_task is not None and not self._monitoring_task.done():
             return  # 已在监控中
         self._monitoring_task = asyncio.create_task(self._monitor_loop())
-        self.set_status("真空监控已启动")
+        self.set_status("Vacuum monitoring started")
         logger.info("ZK: 后台真空监控启动")
 
     @command
@@ -90,7 +90,7 @@ class ZKDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("ZK 处于故障状态，请先 Reset")
         self.set_state(DevState.RUNNING)
-        self.set_status("抽真空中")
+        self.set_status("Evacuating")
         self._evacuated = False
         self._pressure = 1.013e5  # 从大气压开始
 
@@ -104,12 +104,12 @@ class ZKDevice(SubsystemDevice):
 
         if self._pressure >= VACUUM_THRESHOLD:
             self.set_state(DevState.FAULT)
-            self.set_status(f"抽真空失败，压强 {self._pressure:.2e} Pa")
+            self.set_status(f"Evacuation failed, pressure {self._pressure:.2e} Pa")
             raise Exception(f"ZK 抽真空失败，{self._pressure:.2e} Pa > {VACUUM_THRESHOLD:.2e} Pa")
 
         self._evacuated = True
         self.set_state(DevState.ON)
-        self.set_status(f"真空就绪，{self._pressure:.2e} Pa")
+        self.set_status(f"Vacuum ready, {self._pressure:.2e} Pa")
         logger.info("ZK: 抽真空完成，压强 %.2e Pa", self._pressure)
 
     async def _monitor_loop(self):

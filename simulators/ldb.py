@@ -47,22 +47,22 @@ class LDBDevice(SubsystemDevice):
         if self.get_state() == DevState.FAULT:
             raise Exception("LDB 处于故障状态，请先 Reset")
         self.set_state(DevState.MOVING)
-        self.set_status("LD 靶开罩中")
+        self.set_status("LD target opening")
         await self._delay(1.5)
         self._cover_open = True
         self.set_state(DevState.ON)
-        self.set_status(f"靶丸已就位，温度 {self._target_temperature:.1f} K")
+        self.set_status(f"Target positioned, temp {self._target_temperature:.1f} K")
         logger.info("LDB: LD 靶开罩完成，温度 %.1f K", self._target_temperature)
 
     @command
     async def CloseCover(self):
         """C: LD 靶收靶（复位）。"""
         self.set_state(DevState.MOVING)
-        self.set_status("LD 靶收靶中")
+        self.set_status("LD target retracting")
         await self._delay(1.0)
         self._cover_open = False
         self.set_state(DevState.STANDBY)
-        self.set_status("LD 靶已收回，待机")
+        self.set_status("LD target retracted, standby")
         logger.info("LDB: LD 靶收靶完成")
 
     @command
@@ -74,7 +74,7 @@ class LDBDevice(SubsystemDevice):
         """
         self._cover_open = True
         self.set_state(DevState.ON)
-        self.set_status("LD 靶开罩（仿真）完成")
+        self.set_status("LD target opened (simulated)")
         logger.info("LDB: 模拟 LD 靶开罩完成")
 
     @command
