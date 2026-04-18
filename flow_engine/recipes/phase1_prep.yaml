@@ -1,0 +1,167 @@
+phase: 发射准备阶段
+phase_id: 1
+
+stages:
+  - id: T01
+    name: 发射任务创建
+    steps:
+      - name: 发射任务创建
+        device: gxlf/flow_ctrl/01
+        command: CreateShotTask
+        timeout: 30
+        critical: true
+
+  - id: T02
+    name: 参数反演生成配方参数
+    steps:
+      - name: 参数反演生成配方参数
+        device: gxlf/model_calibration/01
+        command: ModelParamCalc
+        timeout: 60
+        critical: true
+
+  - id: T03
+    name: 实验任务参数下发
+    steps:
+      - name: 实验任务参数下发
+        device: gxlf/flow_ctrl/01
+        command: DispatchShotParams
+        timeout: 30
+        critical: true
+
+  - id: T04
+    name: 同步配方下发
+    steps:
+      - name: 测量重频配方
+        device: gxlf/timing_sync/01
+        command: ShotReadyRecipe
+        timeout: 30
+        critical: true
+      - name: 预放重频配方
+        device: gxlf/timing_sync/01
+        command: ShotReadyRecipe
+        timeout: 30
+        critical: true
+
+  - id: T05
+    name: 各分系统并行准备
+    steps:
+      - name: 种子源出光
+        device: gxlf/seed_source/01
+        command: SeedLaserOn
+        timeout: 60
+        critical: true
+      - name: 二倍频出光
+        device: gxlf/shg_injection/01
+        command: SHGLaserOn
+        timeout: 60
+        critical: false       # 至少一路出光即可
+      - name: 预放唤醒
+        device: gxlf/preamplifier/01
+        command: PreampWakeup
+        timeout: 120
+        critical: true
+      - name: 清场
+        device: gxlf/safety_interlock/01
+        command: AreaClear
+        timeout: 300
+        critical: true
+      - name: 测量靶瞄准备
+        device: gxlf/measurement_sample/01
+        command: MeasTargetAlignReady
+        timeout: 60
+        critical: true
+      - name: 实验靶预定位
+        device: gxlf/target_alignment/01
+        command: ExpTargetPrePosition
+        timeout: 120
+        critical: true
+      - name: 泵浦发射准备
+        device: gxlf/pump_laser/01
+        command: PumpShotReady
+        timeout: 300
+        critical: true
+
+  - id: T06
+    name: 进入安全管控
+    steps:
+      - name: 门关闭
+        device: gxlf/safety_interlock/01
+        command: DoorLock
+        timeout: 60
+        critical: true
+      - name: 风淋门锁住
+        device: gxlf/safety_interlock/01
+        command: AirShowerLock
+        timeout: 60
+        critical: true
+
+  - id: T07
+    name: 能量闭环与光路准备
+    steps:
+      - name: 能量粗闭环
+        device: gxlf/preamplifier/01
+        command: EnergyCoarseLoop
+        timeout: 120
+        critical: true
+      - name: 片放吹扫
+        device: gxlf/cooling_air/01
+        command: SlabPurge
+        timeout: 60
+        critical: false
+      - name: 模拟靶定位
+        device: gxlf/target_alignment/01
+        command: SimTargetPosition
+        timeout: 120
+        critical: true
+
+  - id: T08
+    name: 诊断确认与光路准直
+    steps:
+      - name: 诊断设备状态确认
+        device: gxlf/diag_system/01
+        command: DiagStatusConfirm
+        timeout: 60
+        critical: true
+      - name: 光路准直
+        device: gxlf/main_amplifier/01
+        command: BeamlineAlign
+        timeout: 300
+        critical: true
+
+  - id: T09
+    name: 能量精闭环与重频光状态
+    steps:
+      - name: 能量精闭环
+        device: gxlf/preamplifier/01
+        command: EnergyFineLoop
+        timeout: 120
+        critical: true
+      - name: 进入重频光状态
+        device: gxlf/main_amplifier/01
+        command: EnterRepRateMode
+        timeout: 60
+        critical: true
+
+  - id: T10
+    name: 光束引导
+    steps:
+      - name: 光束引导
+        device: gxlf/target_alignment/01
+        command: BeamGuiding
+        timeout: 120
+        critical: true
+
+  - id: T11
+    name: 打靶状态确认
+    steps:
+      - name: 进入打靶状态
+        device: gxlf/main_amplifier/01
+        command: EnterShotMode
+        timeout: 60
+        critical: true
+      - name: 测量打靶运动准备
+        device: gxlf/measurement_sample/01
+        command: MeasShotMotionReady
+        timeout: 60
+        critical: true
