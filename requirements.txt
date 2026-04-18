@@ -1,7 +1,0 @@
-pytango
-itango
-python-docx
-rich
-fastapi
-uvicorn[standard]
-sse-starlette
