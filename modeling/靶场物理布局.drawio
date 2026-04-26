@@ -31,7 +31,7 @@
           <mxGeometry x="740" y="500" width="120" height="100" as="geometry"/>
         </mxCell>
 
-        <!-- DIM搭载平台 ×3（从靶室壁伸向靶球） -->
+        <!-- DIM搭载平台 ×3 -->
         <mxCell id="dim1" value="DIM搭载平台 #1&#xa;(通用搭载模块)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="420" y="340" width="150" height="50" as="geometry"/>
         </mxCell>
@@ -58,7 +58,7 @@
           <mxGeometry x="420" y="395" width="160" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- 光学诊断组件（靶室法兰上，靶球左上方） -->
+        <!-- 光学诊断组件 -->
         <mxCell id="optical-group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="430" y="460" width="230" height="180" as="geometry"/>
         </mxCell>
@@ -72,7 +72,7 @@
           <mxGeometry x="440" y="555" width="200" height="50" as="geometry"/>
         </mxCell>
 
-        <!-- X射线成像组件（靶室法兰上，靶球右上方） -->
+        <!-- X射线成像组件 -->
         <mxCell id="xray-group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="930" y="460" width="230" height="200" as="geometry"/>
         </mxCell>
@@ -93,25 +93,22 @@
         <mxCell id="nuclear-top" value="核诊断：中子产额测量 ×1&#xa;示波器×1 高压电源×1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="200" y="160" width="180" height="50" as="geometry"/>
         </mxCell>
-
         <mxCell id="nuclear-right" value="核诊断：离子温度测量 ×3&#xa;示波器×1 高压电源×1 (每模块)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="1230" y="550" width="210" height="50" as="geometry"/>
         </mxCell>
-
         <mxCell id="nuclear-bottom" value="核诊断：中子Bangtime测量 ×1&#xa;示波器×1 高压电源×1 BT运动控制×1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="200" y="850" width="240" height="50" as="geometry"/>
         </mxCell>
-
         <mxCell id="nuclear-note" value="核诊断组件分布在靶场区四周&#xa;针对中子信号开展测量" style="text;html=1;fontSize=9;fontStyle=2;fontColor=#b85450;align=center;" vertex="1" parent="1">
           <mxGeometry x="1230" y="605" width="210" height="30" as="geometry"/>
         </mxCell>
 
         <!-- 闸板阀 -->
-        <mxCell id="gate-valve1" value="闸板阀" style="shape=mxgraph.pid2valves.valve;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="350" y="540" width="40" height="40" as="geometry"/>
+        <mxCell id="gate-valve1" value="闸板阀" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="530" width="50" height="40" as="geometry"/>
         </mxCell>
-        <mxCell id="gate-valve2" value="闸板阀" style="shape=mxgraph.pid2valves.valve;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="440" width="40" height="40" as="geometry"/>
+        <mxCell id="gate-valve2" value="闸板阀" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="430" width="50" height="40" as="geometry"/>
         </mxCell>
 
         <!-- 真空机组 -->
@@ -119,17 +116,23 @@
           <mxGeometry x="550" y="810" width="120" height="50" as="geometry"/>
         </mxCell>
 
-        <!-- 屏蔽门标注 -->
-        <mxCell id="shield-door1" value="屏蔽门" style="shape=mxgraph.floorplan.wall;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontSize=9;" vertex="1" parent="1">
+        <!-- 屏蔽门 -->
+        <mxCell id="shield-door1" value="屏蔽门" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="100" y="550" width="20" height="100" as="geometry"/>
         </mxCell>
-        <mxCell id="shield-door2" value="屏蔽门" style="shape=mxgraph.floorplan.wall;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontSize=9;" vertex="1" parent="1">
+        <mxCell id="shield-door2" value="屏蔽门" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;fontSize=9;" vertex="1" parent="1">
           <mxGeometry x="1480" y="550" width="20" height="100" as="geometry"/>
         </mxCell>
 
         <!-- 激光入射方向 -->
-        <mxCell id="laser-in" value="激光束入射&#xa;(61束)" style="shape=mxgraph.arrows2.arrow;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;dy=0.6;dx=40;notch=0;" vertex="1" parent="1">
-          <mxGeometry x="130" y="250" width="200" height="60" as="geometry"/>
+        <mxCell id="laser-in" value="激光束入射&#xa;(61束)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="130" y="250" width="120" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="laser-in-arrow" style="endArrow=block;endFill=1;strokeColor=#6c8ebf;strokeWidth=3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="275" as="sourcePoint"/>
+            <mxPoint x="400" y="400" as="targetPoint"/>
+          </mxGeometry>
         </mxCell>
 
         <!-- 紧急停机开关 -->

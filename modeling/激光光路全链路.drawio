@@ -1,6 +1,6 @@
 <mxfile host="embed.diagrams.net" agent="Claude" pages="2">
   <diagram id="laser-chain" name="激光光路全链路">
-    <mxGraphModel dx="2076" dy="1031" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1400" math="0" shadow="0">
+    <mxGraphModel dx="2227" dy="1890" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1400" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -151,8 +151,13 @@
         <mxCell id="measure-note" parent="1" style="text;html=1;fontSize=8;fontColor=#9673a6;align=center;" value="激光链路关键位置取样&#xa;实时监控+事后分析" vertex="1">
           <mxGeometry height="30" width="200" x="1110" y="535" as="geometry" />
         </mxCell>
+        <mxCell id="2" edge="1" parent="1" source="cooling" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1070" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
         <mxCell id="cooling" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=1;fontSize=10;" value="冷却/管路分系统 ×2&#xa;(片放吹扫 ~15min)" vertex="1">
-          <mxGeometry height="45" width="180" x="880" y="580" as="geometry" />
+          <mxGeometry height="45" width="180" x="830" y="630" as="geometry" />
         </mxCell>
         <mxCell id="cooling-conn" edge="1" parent="1" source="cooling" style="endArrow=none;dashed=1;strokeColor=#9673a6;" target="mainamp">
           <mxGeometry relative="1" as="geometry" />
