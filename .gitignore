@@ -30,6 +30,10 @@ env/
 # macOS
 .DS_Store
 
+# Node
+node_modules/
+dist/
+
 # Tango
 *.tango_db
 tangodb/
