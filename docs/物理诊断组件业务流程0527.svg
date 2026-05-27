@@ -1,0 +1,2627 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- 由 Microsoft Visio, SVG Export 生成 物理诊断组件业务流程0527.svg 页-1 -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events"
+		xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/" width="69.7337in" height="9.9841in"
+		viewBox="0 0 5020.82 718.855" xml:space="preserve" color-interpolation-filters="sRGB" class="st40">
+	<v:documentProperties v:langID="2052" v:metric="true" v:viewMarkup="false">
+		<v:userDefs>
+			<v:ud v:nameU="msvConvertTheme"/>
+		</v:userDefs>
+	</v:documentProperties>
+
+	<style type="text/css">
+	<![CDATA[
+		.st1 {marker-end:url(#mrkr5-11);marker-start:url(#mrkr5-9);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st2 {fill:#404040;fill-opacity:1;stroke:#404040;stroke-opacity:1;stroke-width:0.28409090909091}
+		.st3 {fill:#ffffff;stroke:none;stroke-linecap:butt;stroke-width:7.2}
+		.st4 {fill:#000000;font-family:宋体;font-size:1.00001em;font-weight:bold}
+		.st5 {visibility:visible}
+		.st6 {fill:#cdcdcd;fill-opacity:0.5;stroke:#cdcdcd;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.5}
+		.st7 {fill:url(#grad0-6);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st8 {fill:#000000;font-family:宋体;font-size:0.666664em}
+		.st9 {fill:url(#grad0-25);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st10 {marker-end:url(#mrkr5-11);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st11 {fill:url(#grad0-38);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st12 {fill:url(#grad0-45);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st13 {fill:url(#grad0-64);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st14 {font-size:1em}
+		.st15 {fill:url(#grad0-90);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st16 {fill:none;stroke:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st17 {fill:#000000;font-family:宋体;font-size:1.99999em;font-weight:bold}
+		.st18 {fill:url(#grad0-130);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st19 {font-family:Calibri;font-size:1em}
+		.st20 {fill:url(#grad0-162);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st21 {font-size:1em;font-weight:bold}
+		.st22 {fill:url(#grad0-262);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:1}
+		.st23 {fill:#c00000;font-family:宋体;font-size:0.666664em;font-weight:bold}
+		.st24 {font-family:Segoe UI Emoji;font-size:1em}
+		.st25 {fill:#000000;font-family:宋体;font-size:1.16666em;font-weight:bold}
+		.st26 {fill:none;stroke:#cdcdcd;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:0.5}
+		.st27 {fill:#cdcdcd;font-family:宋体;font-size:1.16666em;font-weight:bold;opacity:0.498039}
+		.st28 {font-family:Calibri;font-size:0.714294em}
+		.st29 {font-size:0.714294em}
+		.st30 {fill:none;stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st31 {fill:#ff0000;font-family:宋体;font-size:1.16666em;font-weight:bold}
+		.st32 {fill:#000000;font-family:宋体;font-size:0.666664em;font-weight:bold}
+		.st33 {font-size:1em;font-weight:normal}
+		.st34 {font-family:Calibri;font-size:1em;font-weight:normal}
+		.st35 {fill:#000000;font-family:Calibri;font-size:0.666664em}
+		.st36 {font-family:宋体;font-size:1em}
+		.st37 {fill:url(#grad0-64);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st38 {fill:url(#grad0-1699);stroke:#404040;stroke-linecap:round;stroke-linejoin:round;stroke-width:0.25}
+		.st39 {font-size:1.74999em}
+		.st40 {fill:none;fill-rule:evenodd;font-size:12px;overflow:visible;stroke-linecap:square;stroke-miterlimit:3}
+	]]>
+	</style>
+
+	<defs id="Patterns_And_Gradients">
+		<linearGradient id="grad0-6" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#f0f0f0" stop-opacity="1"/>
+			<stop offset="1" stop-color="#ffffff" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-25" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#e1a900" stop-opacity="1"/>
+			<stop offset="1" stop-color="#ffc000" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-38" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#91b5d5" stop-opacity="1"/>
+			<stop offset="1" stop-color="#a6c3dd" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-45" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#c6d09f" stop-opacity="1"/>
+			<stop offset="1" stop-color="#d1dab4" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-64" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#a899c1" stop-opacity="1"/>
+			<stop offset="1" stop-color="#b8accd" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-90" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#85ca39" stop-opacity="1"/>
+			<stop offset="1" stop-color="#92d050" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-130" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#f7dbc1" stop-opacity="1"/>
+			<stop offset="1" stop-color="#faeadc" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-162" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#ef927a" stop-opacity="1"/>
+			<stop offset="1" stop-color="#f2a895" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-262" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#ffe89f" stop-opacity="1"/>
+			<stop offset="1" stop-color="#ffefbd" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-1624" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(90 0.5 0.5)">
+			<stop offset="0" stop-color="#f0f0f0" stop-opacity="1"/>
+			<stop offset="1" stop-color="#ffffff" stop-opacity="1"/>
+		</linearGradient>
+		<linearGradient id="grad0-1699" x1="0" y1="0" x2="1" y2="0" gradientTransform="rotate(270 0.5 0.5)">
+			<stop offset="0" stop-color="#beb6d1" stop-opacity="1"/>
+			<stop offset="1" stop-color="#cfc8dd" stop-opacity="1"/>
+		</linearGradient>
+	</defs>
+	<defs id="Markers">
+		<g id="lend5">
+			<path d="M 2 1 L 0 0 L 1.98117 -0.993387 C 1.67173 -0.364515 1.67301 0.372641 1.98465 1.00043 " style="stroke:none"/>
+		</g>
+		<marker id="mrkr5-9" class="st2" v:arrowType="5" v:arrowSize="2" v:setback="5.8" refX="5.8" orient="auto"
+				markerUnits="strokeWidth" overflow="visible">
+			<use xlink:href="#lend5" transform="scale(3.52) "/>
+		</marker>
+		<marker id="mrkr5-11" class="st2" v:arrowType="5" v:arrowSize="2" v:setback="6.16" refX="-6.16" orient="auto"
+				markerUnits="strokeWidth" overflow="visible">
+			<use xlink:href="#lend5" transform="scale(-3.52,-3.52) "/>
+		</marker>
+	</defs>
+	<g v:mID="0" v:index="1" v:groupContext="foregroundPage">
+		<title>页-1</title>
+		<v:pageProperties v:drawingScale="0.0393701" v:pageScale="0.0393701" v:drawingUnits="24" v:shadowOffsetX="8.50394"
+				v:shadowOffsetY="-8.50394"/>
+		<v:layer v:name="连接线" v:index="0"/>
+		<v:layer v:name="流程图" v:index="1"/>
+		<g id="shape12-1" v:mID="12" v:groupContext="shape" v:layerMember="0" transform="translate(320.833,-565.659)">
+			<title>动态连接线.12</title>
+			<desc>诊断设备准备实验零前20分钟</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="1162.2" cy="725.942" width="194.81" height="22.4037"/>
+			<path d="M5.8 721.71 L6.16 721.71 L2318.25 730.17" class="st1"/>
+			<rect v:rectContext="textBkgnd" x="1071.83" y="718.742" width="180.753" height="14.4001" class="st3"/>
+			<text x="1071.83" y="729.54" class="st4" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备准备（实验零前20分钟）</text>		</g>
+		<g id="shape57-14" v:mID="57" v:groupContext="shape" transform="translate(310.557,-421.093)">
+			<title>圆形.57</title>
+			<desc>开始</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="19.311" cy="699.544" width="33.8" height="28.9665"/>
+			<g id="shadow57-15" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 699.54 A19.311 19.311 0 0 1 38.62 699.54 A19.311 19.311 0 1 1 0 699.54 Z" class="st6"/>
+			</g>
+			<path d="M0 699.54 A19.311 19.311 0 0 1 38.62 699.54 A19.311 19.311 0 1 1 0 699.54 Z" class="st7"/>
+			<text x="11.31" y="702.21" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>开始</text>		</g>
+		<g id="shape58-20" v:mID="58" v:groupContext="shape" transform="translate(895.58,-426.23)">
+			<title>矩形.58</title>
+			<desc>诊断设备进入靶室</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="38.6109" cy="704.682" width="77.23" height="28.3465"/>
+			<g id="shadow58-21" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="77.2218" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="77.2218" height="28.3465" class="st9"/>
+			<text x="6.61" y="707.19" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备进入靶室</text>		</g>
+		<g id="shape60-27" v:mID="60" v:groupContext="shape" v:layerMember="0" transform="translate(972.801,-433.317)">
+			<title>动态连接线.159</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L124.23 711.77" class="st10"/>
+		</g>
+		<g id="shape62-33" v:mID="62" v:groupContext="shape" transform="translate(1903.27,-466.589)">
+			<title>矩形.172</title>
+			<desc>示波器预采集</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="33.3071" cy="704.682" width="66.62" height="28.3465"/>
+			<g id="shadow62-34" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="66.6142" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="66.6142" height="28.3465" class="st11"/>
+			<text x="9.31" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器预采集</text>		</g>
+		<g id="shape63-40" v:mID="63" v:groupContext="shape" transform="translate(1903.27,-424.069)">
+			<title>矩形.173</title>
+			<desc>图像预采集</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="32.315" cy="704.682" width="64.63" height="28.3465"/>
+			<g id="shadow63-41" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="64.63" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="64.63" height="28.3465" class="st12"/>
+			<text x="12.32" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>图像预采集</text>		</g>
+		<g id="shape64-47" v:mID="64" v:groupContext="shape" v:layerMember="0" transform="translate(1794.85,-438.242)">
+			<title>动态连接线.174</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L45.97 718.86 L45.97 676.34 L102.27 676.34" class="st10"/>
+		</g>
+		<g id="shape65-53" v:mID="65" v:groupContext="shape" v:layerMember="0" transform="translate(1794.85,-445.329)">
+			<title>动态连接线.65</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 725.94 L102.27 725.94" class="st10"/>
+		</g>
+		<g id="shape66-59" v:mID="66" v:groupContext="shape" v:layerMember="1" transform="translate(2064.14,-415.742)">
+			<title>判定.176</title>
+			<desc>准备状态是否 正常确认</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(14):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="41.9882" cy="696.05" width="69.99" height="34.2078"/>
+			<g id="shadow66-60" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 696.05 L41.99 673.24 L83.98 696.05 L41.99 718.86 L0 696.05 Z" class="st6"/>
+			</g>
+			<path d="M0 696.05 L41.99 673.24 L83.98 696.05 L41.99 718.86 L0 696.05 Z" class="st13"/>
+			<text x="17.99" y="693.65" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>准备状态是否<v:newlineChar/><tspan
+						x="21.99" dy="1.2em" class="st14">正常确认</tspan>？</text>		</g>
+		<g id="shape69-67" v:mID="69" v:groupContext="shape" v:layerMember="0" transform="translate(1969.89,-480.762)">
+			<title>动态连接线.69</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L40.39 718.86 L40.39 761.07 L88.09 761.07" class="st10"/>
+		</g>
+		<g id="shape70-73" v:mID="70" v:groupContext="shape" v:layerMember="0" transform="translate(1967.9,-431.308)">
+			<title>动态连接线.70</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.92 L90.08 711.64" class="st10"/>
+		</g>
+		<g id="shape76-79" v:mID="76" v:groupContext="shape" transform="translate(1520.95,-466.589)">
+			<title>矩形.161</title>
+			<desc>示波器采集准备</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="37.7362" cy="704.682" width="75.48" height="28.3465"/>
+			<g id="shadow76-80" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st11"/>
+			<text x="9.74" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器采集准备</text>		</g>
+		<g id="shape77-85" v:mID="77" v:groupContext="shape" transform="translate(1520.95,-424.069)">
+			<title>矩形.117</title>
+			<desc>图像采集准备</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="37.7362" cy="704.682" width="75.48" height="28.3465"/>
+			<g id="shadow77-86" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st15"/>
+			<text x="13.74" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>图像采集准备</text>		</g>
+		<g id="shape79-92" v:mID="79" v:groupContext="shape" v:layerMember="0" transform="translate(1596.42,-480.762)">
+			<title>动态连接线.191</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L45.97 718.86 L45.97 761.38 L134.73 761.38" class="st10"/>
+		</g>
+		<g id="shape80-98" v:mID="80" v:groupContext="shape" v:layerMember="0" transform="translate(1596.42,-431.156)">
+			<title>动态连接线.118</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L134.73 711.77" class="st10"/>
+		</g>
+		<g id="shape81-104" v:mID="81" v:groupContext="shape" transform="translate(1302.23,-424.585)">
+			<title>矩形.156</title>
+			<desc>诊断搭载机械手打靶准备</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="51.0034" cy="704.682" width="102.01" height="28.3465"/>
+			<g id="shadow81-105" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="102.007" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="102.007" height="28.3465" class="st9"/>
+			<text x="7" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断搭载机械手打靶准备</text>		</g>
+		<g id="shape82-110" v:mID="82" v:groupContext="shape" v:layerMember="0" transform="translate(1404.23,-438.758)">
+			<title>动态连接线.82</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L50.46 718.86 L50.46 676.85 L110.56 676.85" class="st10"/>
+		</g>
+		<g id="shape83-116" v:mID="83" v:groupContext="shape" v:layerMember="0" transform="translate(1404.23,-445.587)">
+			<title>动态连接线.83</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 725.68 L110.56 726.17" class="st10"/>
+		</g>
+		<g id="shape115-122" v:mID="115" v:groupContext="shape" transform="translate(346.676,-680.108)">
+			<title>工作表.115</title>
+			<desc>诊断集中管控组件控制流程图</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="173.622" cy="699.544" width="347.25" height="38.622"/>
+			<rect x="0" y="680.233" width="347.244" height="38.622" class="st16"/>
+			<text x="17.01" y="707.53" class="st17" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断集中管控组件控制流程图</text>		</g>
+		<g id="shape119-125" v:mID="119" v:groupContext="shape" v:layerMember="1" transform="translate(872.858,-212.645)">
+			<title>文档.276</title>
+			<desc>对接设备服务对接及数量诊断搭载机械手系统服务3套、核诊断组件中子测量模块BT运动控制服务1套 控制指令DIM伸出、BT运动...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.4409448818898):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="71.2316" cy="626.095" width="142.47" height="138.032"/>
+			<g id="shadow119-126" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.98 L0 557.08 L142.46 557.08 L142.46 706.98 A59.3597 59.3597 -180 0 0 71.23 706.98 A59.3597 59.3597
+							 0 0 1 -0 706.98 Z" class="st6"/>
+			</g>
+			<path d="M0 706.98 L0 557.08 L142.46 557.08 L142.46 706.98 A59.3597 59.3597 -180 0 0 71.23 706.98 A59.3597 59.3597 0
+						 0 1 -0 706.98 Z" class="st18"/>
+			<text x="2" y="569.92" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：诊断搭载机<tspan
+						x="2" dy="1.298em" class="st14">械手系统服务</tspan>（<tspan class="st19">3</tspan>套）、核诊断组件中<tspan x="2"
+						dy="1.331em" class="st14">子测量模块</tspan>（<tspan class="st19">BT</tspan>运动控制服务<tspan class="st19">1</tspan>套）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：<tspan class="st19">DIM</tspan>伸出、<tspan class="st19">BT</tspan>运动控制<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号、设备编号、时长<v:newlineChar/><v:paragraph/><tspan x="2"
+						dy="1.233em" class="st14">输出参数</tspan>：任务编号、执行结果码、返<tspan x="2" dy="1.298em" class="st14">回时间</tspan>、伸出状态<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、诊断搭载平台设备已上电<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">2</tspan>、诊断搭载机械手系统服务、核诊断<tspan
+						x="2" dy="1.331em" class="st14">设备服务状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">执行时长</tspan>：<tspan
+						class="st19">2min</tspan></text>		</g>
+		<g id="shape169-150" v:mID="169" v:groupContext="shape" transform="translate(2434.62,-424.374)">
+			<title>矩形.169</title>
+			<desc>示波器接地软件</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="26.3751" cy="704.682" width="52.76" height="28.3465"/>
+			<g id="shadow169-151" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="52.7503" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="52.7503" height="28.3465" class="st11"/>
+			<text x="6.38" y="701.76" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器接地<tspan x="10.38"
+						dy="1.298em" class="st14">（</tspan>软件）</text>		</g>
+		<g id="shape170-157" v:mID="170" v:groupContext="shape" transform="translate(2620.84,-424.374)">
+			<title>矩形.170</title>
+			<desc>高压加载</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="26.3751" cy="704.682" width="52.76" height="28.3465"/>
+			<g id="shadow170-158" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="52.7503" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="52.7503" height="28.3465" class="st20"/>
+			<text x="10.38" y="707.19" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>高压加载</text>		</g>
+		<g id="shape172-164" v:mID="172" v:groupContext="shape" v:layerMember="0" transform="translate(2487.37,-431.461)">
+			<title>动态连接线.172</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L127.31 711.77" class="st10"/>
+		</g>
+		<g id="shape189-170" v:mID="189" v:groupContext="shape" v:layerMember="1" transform="translate(1274.41,-194.321)">
+			<title>文档.189</title>
+			<desc>对接系统服务对接及数量诊断搭载机械手系统服务3套 控制指令DIM打靶前准备 输入参数任务编号 输出参数任务编号、执行结果 ...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.2047244094488):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="83.0551" cy="612.25" width="166.12" height="157.84"/>
+			<g id="shadow189-171" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 705.01 L0 533.33 L166.11 533.33 L166.11 705.01 A69.2126 69.2126 -180 0 0 83.06 705.01 A69.2126 69.2126
+							 0 0 1 0 705.01 Z" class="st6"/>
+			</g>
+			<path d="M0 705.01 L0 533.33 L166.11 533.33 L166.11 705.01 A69.2126 69.2126 -180 0 0 83.06 705.01 A69.2126 69.2126 0
+						 0 1 0 705.01 Z" class="st18"/>
+			<text x="2" y="556.07" class="st8" v:langID="2052"><v:paragraph/><v:tabList/>对接系统服务对接及数量：诊断搭载机械手系<tspan x="2"
+						dy="1.298em" class="st14">统服务</tspan>（<tspan class="st19">3</tspan>套）<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st14">控制指令</tspan>：<tspan class="st19">DIM</tspan>打靶前准备<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输出参数</tspan>：任务编号、执行结果<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、诊断搭载机械手系统服务设备定位瞄准完<tspan x="2" dy="1.331em" class="st14">成</tspan>、诊断搭载机械手系统服务正常<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">执行时长</tspan>：<tspan class="st19">5s<v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="1.331em" class="st14">情况说明</tspan>：<v:lf/><tspan x="2" dy="1.331em" class="st19">1</tspan>、诊断搭载机械手设备下电、跟踪仪退出</text>		</g>
+		<g id="shape221-190" v:mID="221" v:groupContext="shape" v:layerMember="1" transform="translate(1039.78,-52.5886)">
+			<title>文档.188</title>
+			<desc>对接系统服务对接及数量诊断搭载机械手系统服务3套、核诊断组件-BT运动控制服务1套 控制指令设备定位瞄准 输入参数任务编号...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.7637795275591):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="99.9399" cy="539.207" width="199.88" height="292.671"/>
+			<g id="shadow221-191" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 702.2 L0 392.87 L199.88 392.87 L199.88 702.2 A83.2833 83.2833 -180 0 0 99.94 702.2 A83.2833 83.2833 0
+							 0 1 0 702.2 Z" class="st6"/>
+			</g>
+			<path d="M0 702.2 L0 392.87 L199.88 392.87 L199.88 702.2 A83.2833 83.2833 -180 0 0 99.94 702.2 A83.2833 83.2833 0 0 1
+						 0 702.2 Z" class="st18"/>
+			<text x="2" y="404.21" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接系统服务对接及数量：诊断搭载机械手系统服务<tspan
+						x="2" dy="1.298em" class="st14">（</tspan><tspan class="st19">3</tspan>套）、核诊断组件<tspan class="st19">-</tspan><tspan
+						class="st19">BT</tspan>运动控制服务<tspan class="st19">1</tspan>套<v:newlineChar/><v:paragraph/><tspan x="2"
+						dy="1.331em" class="st14">控制指令</tspan>：设备定位瞄准<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号、设备编号、时长<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st14">输出参数</tspan>：任务编号、执行结果码、返回时间、定位瞄<tspan x="2" dy="1.298em" class="st14">准状态<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、诊断设备已进入靶室<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">2</tspan>、<tspan
+						class="st19">BT</tspan>运动控制服务状态正常<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">执行时长</tspan>：<tspan
+						class="st19">1min<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">对接设备服务对接及数量</tspan>：<tspan
+						class="st19">X</tspan>射线和核诊断设备服务<tspan x="2" dy="1.331em" class="st14">（</tspan><tspan class="st19">CCD</tspan>瞄准服务<tspan
+						class="st19">16</tspan>套）<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">控制指令</tspan>：<tspan
+						class="st19">CCD</tspan>设备瞄准<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号、设备编号、时长<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st14">输出参数</tspan>：任务编号、执行结果码、返回时间、执行结<tspan x="2" dy="1.298em" class="st14">果</tspan>（<tspan
+						class="st21">采样图像</tspan><tspan class="st21">、</tspan><tspan class="st21">电控测距等信息</tspan>）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：同步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、<tspan class="st19">CCD</tspan>相机设备服务正常<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">2</tspan>、诊断设备已进入靶室<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">逻辑判断</tspan>：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、获取<tspan class="st19">CCD</tspan>采集信息、判断<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">2</tspan>、控制电机按照目标参数调整诊断搭载机械手位置<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st19">3</tspan>、循环过程<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">由操作人员通过获取</tspan><tspan
+						class="st19" v:langID="1033">ccd</tspan>采集信息来判断设备位置是否正<tspan x="2" dy="1.233em" class="st14">确</tspan>，通过配置移动参数来调整控制诊断搭载机械手位<tspan
+						x="2" dy="1.298em" class="st14">置</tspan>，进行多次调整直到设备到达正确位置。</text>		</g>
+		<g id="shape222-239" v:mID="222" v:groupContext="shape" v:layerMember="1" transform="translate(1703.7,-222.667)">
+			<title>文档.222</title>
+			<desc>对接系统服务对接及数量集中同步分系统系统服务60套 控制指令同步触发 输入参数任务编号 输出参数任务编号、执行结果 调用方...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(1.9685039370079):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="62.8051" cy="630.435" width="125.62" height="134.97"/>
+			<g id="shadow222-240" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 708.39 L0 562.95 L125.61 562.95 L125.61 708.39 A52.3376 52.3376 -180 0 0 62.81 708.39 A52.3376 52.3376
+							 0 0 1 0 708.39 Z" class="st6"/>
+			</g>
+			<path d="M0 708.39 L0 562.95 L125.61 562.95 L125.61 708.39 A52.3376 52.3376 -180 0 0 62.81 708.39 A52.3376 52.3376 0
+						 0 1 0 708.39 Z" class="st18"/>
+			<text x="2" y="580.11" class="st8" v:langID="2052"><v:paragraph/><v:tabList/>对接系统服务对接及数量：集中同<tspan x="2" dy="1.298em"
+						class="st14">步分系统系统服务</tspan>（<tspan class="st19">60</tspan>套）<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">控制指令</tspan>：同步触发<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：任务编号、执行结果<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：同步<v:newlineChar/><tspan x="2" dy="1.233em" class="st14">节点状态及判断依据</tspan>（连线规<tspan
+						x="2" dy="1.298em" class="st14">则</tspan>）：<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">1</tspan>、采集准备完成、诊断搭载机械<tspan
+						x="2" dy="1.331em" class="st14">手系统服务正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">执行时长</tspan>：<tspan
+						class="st19">5s</tspan></text>		</g>
+		<g id="shape223-257" v:mID="223" v:groupContext="shape" transform="translate(1737.31,-423.36)">
+			<title>矩形.223</title>
+			<desc>触发⚡ 集中同步</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.7691" cy="703.973" width="57.54" height="29.7638"/>
+			<g id="shadow223-258" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="689.092" width="57.5383" height="29.7638" class="st6"/>
+			</g>
+			<rect x="0" y="689.092" width="57.5383" height="29.7638" class="st22"/>
+			<text x="15.35" y="701.77" class="st23" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>触发<tspan
+						class="st24">⚡<v:newlineChar/></tspan><tspan x="4.68" dy="1.225em" class="st14">（</tspan>集中同步）</text>		</g>
+		<g id="shape235-266" v:mID="235" v:groupContext="shape" v:layerMember="0" transform="translate(972.801,-433.317)">
+			<title>动态连接线.235</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L124.23 711.77" class="st10"/>
+		</g>
+		<g id="shape239-272" v:mID="239" v:groupContext="shape" transform="translate(344.597,-624.567)">
+			<title>工作表.239</title>
+			<desc>图例说明</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="47.3464" cy="709.48" width="94.7" height="18.7504"/>
+			<rect x="0" y="700.105" width="94.6927" height="18.7504" class="st16"/>
+			<text x="12.21" y="714.14" class="st25" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>图例说明：</text>		</g>
+		<g id="shape240-275" v:mID="240" v:groupContext="shape" transform="translate(436.235,-602.426)">
+			<title>矩形.240</title>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<g id="shadow240-276" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="704.36" width="67.2013" height="14.495" class="st6"/>
+			</g>
+			<rect x="0" y="704.36" width="67.2013" height="14.495" class="st18"/>
+		</g>
+		<g id="shape241-280" v:mID="241" v:groupContext="shape" v:layerMember="1" transform="translate(436.235,-628.823)">
+			<title>流程.241</title>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<g id="shadow241-281" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="704.36" width="67.2013" height="14.495" class="st6"/>
+			</g>
+			<rect x="0" y="704.36" width="67.2013" height="14.495" class="st7"/>
+		</g>
+		<g id="shape242-285" v:mID="242" v:groupContext="shape" transform="translate(506.491,-628.823)">
+			<title>工作表.242</title>
+			<desc>分系统内部流程节点</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="77.4151" cy="711.608" width="154.84" height="14.495"/>
+			<rect x="0" y="704.36" width="154.83" height="14.495" class="st16"/>
+			<text x="14.17" y="716.27" class="st25" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>分系统内部流程节点</text>		</g>
+		<g id="shape243-288" v:mID="243" v:groupContext="shape" transform="translate(500.502,-604.104)">
+			<title>工作表.243</title>
+			<desc>流程控制节点说明描述</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="93.1654" cy="711.608" width="186.34" height="14.495"/>
+			<rect x="0" y="704.36" width="186.331" height="14.495" class="st16"/>
+			<text x="22.89" y="716.27" class="st25" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>流程控制节点说明描述</text>		</g>
+		<g id="shape266-291" v:mID="266" v:groupContext="shape" v:layerMember="1" transform="translate(4.99986,-416.486)">
+			<title>圆角矩形.266</title>
+			<desc>控制规则说明 1、全部控制节点均使用tango进行数据交互 2、预约机制每次配方流程执行前需要预约各分系统的系统服务避免与...</desc>
+			<v:userDefs>
+				<v:ud v:nameU="CTypeTopLeftSnip" v:prompt="" v:val="VT0(0):5"/>
+				<v:ud v:nameU="CTypeTopRightSnip" v:prompt="" v:val="VT0(0):5"/>
+				<v:ud v:nameU="CTypeBotLeftSnip" v:prompt="" v:val="VT0(0):5"/>
+				<v:ud v:nameU="CTypeBotRightSnip" v:prompt="" v:val="VT0(0):5"/>
+				<v:ud v:nameU="CornerLockHoriz" v:prompt="" v:val="VT0(1):5"/>
+				<v:ud v:nameU="CornerLockVert" v:prompt="" v:val="VT0(1):5"/>
+				<v:ud v:nameU="CornerLockDiag" v:prompt="" v:val="VT0(0):5"/>
+				<v:ud v:nameU="TopLeftOffset" v:prompt="" v:val="VT0(0.15748031496063):24"/>
+				<v:ud v:nameU="TopRightOffset" v:prompt="" v:val="VT0(0.15748031496063):24"/>
+				<v:ud v:nameU="BotLeftOffset" v:prompt="" v:val="VT0(0.15748031496063):24"/>
+				<v:ud v:nameU="BotRightOffset" v:prompt="" v:val="VT0(0.15748031496063):24"/>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="TopLeftOffset" v:prompt="" v:val="VT0(0.36550336677007):1"/>
+				<v:ud v:nameU="TopRightOffset" v:prompt="" v:val="VT0(0.36550336677007):1"/>
+				<v:ud v:nameU="BotLeftOffset" v:prompt="" v:val="VT0(0.36550336677007):1"/>
+				<v:ud v:nameU="BotRightOffset" v:prompt="" v:val="VT0(0.36550336677007):1"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="131.581" cy="600.863" width="263.17" height="235.984"/>
+			<g id="shadow266-292" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M26.32 718.86 L236.85 718.86 A26.3158 26.3158 -180 0 0 263.16 692.54 L263.16 509.19 A26.3158 26.3158 -180
+							 0 0 236.85 482.87 L26.32 482.87 A26.3158 26.3158 -180 0 0 -0 509.19 L0 692.54 A26.3158 26.3158 -180
+							 0 0 26.32 718.86 Z" class="st26"/>
+				<text x="2" y="505" class="st27" v:langID="2052"><v:paragraph/><v:tabList/>控制规则说明：<v:newlineChar/><tspan x="2"
+							dy="1.464em" class="st28">1</tspan><tspan class="st29">、</tspan><tspan class="st29">全部控制节点均使用</tspan><tspan
+							class="st28" v:langID="1033">tango</tspan><tspan class="st29">进行数据交互</tspan><tspan class="st29">；<v:newlineChar/></tspan><tspan
+							x="2" dy="1.331em" class="st28">2</tspan><tspan class="st29">、</tspan><tspan class="st29">预约机制</tspan><tspan
+							class="st29">：</tspan><tspan class="st29">每次配方流程执行前</tspan><tspan class="st29">，</tspan><tspan
+							class="st29">需要预约各分系统的</tspan><tspan x="2" dy="1.331em" class="st29">系统服务</tspan><tspan class="st29">，</tspan><tspan
+							class="st29">避免与其它分系统产生权限冲突</tspan><tspan class="st29">。<v:newlineChar/></tspan><tspan x="2"
+							dy="1.331em" class="st28">3</tspan><tspan class="st29">、</tspan><tspan class="st29">响应超时</tspan><tspan
+							class="st29">：</tspan><tspan class="st29">每个流程节点增加判断规则</tspan><tspan class="st29">，</tspan><tspan
+							class="st29">超出响应时间</tspan><tspan x="2" dy="1.331em" class="st29">判定为执行失败</tspan><tspan class="st29">。<v:newlineChar/></tspan><tspan
+							x="2" dy="1.331em" class="st28">4</tspan><tspan class="st29">、</tspan><tspan class="st29">流程规则</tspan><tspan
+							class="st29">：</tspan><tspan class="st29">支持流程节点并行及分支执行</tspan><tspan class="st29">；<v:newlineChar/></tspan><tspan
+							x="2" dy="1.331em" class="st28">5</tspan><tspan class="st29">、</tspan><tspan class="st29">异常处理场景说明</tspan><tspan
+							class="st29">：</tspan><tspan class="st29">紧急触发</tspan><tspan class="st29">、</tspan><tspan class="st29">紧急停止</tspan><tspan
+							class="st29">、</tspan><tspan class="st29">紧急泄放等<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+							class="st28">6</tspan><tspan class="st29">、</tspan><tspan class="st29">全部控制节点执行的公共前提条件</tspan><tspan
+							class="st29">：<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st29">①</tspan><tspan
+							class="st29">检查对接的系统服务和设备服务状态和工作状态是否处</tspan><tspan x="2" dy="1.298em" class="st29">于应该具备的状态</tspan><tspan
+							class="st29">；<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st29">②</tspan><tspan
+							class="st29">获取真空靶室系统的真空度达标</tspan><tspan class="st29">；<v:newlineChar/><v:paragraph/></tspan><tspan
+							x="2" dy="1.233em" class="st29">③</tspan><tspan class="st29">安全联锁</tspan><tspan class="st29">；</tspan><tspan
+							class="st29">判断当前是否存在安全联锁事件</tspan><tspan class="st29">（</tspan><tspan class="st29">与真空靶</tspan><tspan
+							x="2" dy="1.2em" class="st29">室分系统交互获取实时靶室内的真空度数据</tspan><tspan class="st29">，</tspan><tspan
+							class="st29">与靶瞄准定</tspan><tspan x="2" dy="1.253em" class="st29">位系统交互获取靶室内靶瞄设备的实时位置</tspan><tspan
+							class="st29">）</tspan><v:newlineChar/><v:newlineChar/></text>			</g>
+			<path d="M26.32 718.86 L236.85 718.86 A26.3158 26.3158 -180 0 0 263.16 692.54 L263.16 509.19 A26.3158 26.3158 -180 0
+						 0 236.85 482.87 L26.32 482.87 A26.3158 26.3158 -180 0 0 -0 509.19 L0 692.54 A26.3158 26.3158 -180 0 0 26.32
+						 718.86 Z" class="st30"/>
+			<text x="2" y="505" class="st31" v:langID="2052"><v:paragraph/><v:tabList/>控制规则说明：<v:newlineChar/><tspan x="2"
+						dy="1.464em" class="st28">1</tspan><tspan class="st29">、</tspan><tspan class="st29">全部控制节点均使用</tspan><tspan
+						class="st28" v:langID="1033">tango</tspan><tspan class="st29">进行数据交互</tspan><tspan class="st29">；<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st28">2</tspan><tspan class="st29">、</tspan><tspan class="st29">预约机制</tspan><tspan
+						class="st29">：</tspan><tspan class="st29">每次配方流程执行前</tspan><tspan class="st29">，</tspan><tspan class="st29">需要预约各分系统的</tspan><tspan
+						x="2" dy="1.331em" class="st29">系统服务</tspan><tspan class="st29">，</tspan><tspan class="st29">避免与其它分系统产生权限冲突</tspan><tspan
+						class="st29">。<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st28">3</tspan><tspan class="st29">、</tspan><tspan
+						class="st29">响应超时</tspan><tspan class="st29">：</tspan><tspan class="st29">每个流程节点增加判断规则</tspan><tspan
+						class="st29">，</tspan><tspan class="st29">超出响应时间</tspan><tspan x="2" dy="1.331em" class="st29">判定为执行失败</tspan><tspan
+						class="st29">。<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st28">4</tspan><tspan class="st29">、</tspan><tspan
+						class="st29">流程规则</tspan><tspan class="st29">：</tspan><tspan class="st29">支持流程节点并行及分支执行</tspan><tspan
+						class="st29">；<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st28">5</tspan><tspan class="st29">、</tspan><tspan
+						class="st29">异常处理场景说明</tspan><tspan class="st29">：</tspan><tspan class="st29">紧急触发</tspan><tspan
+						class="st29">、</tspan><tspan class="st29">紧急停止</tspan><tspan class="st29">、</tspan><tspan class="st29">紧急泄放等<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st28">6</tspan><tspan class="st29">、</tspan><tspan class="st29">全部控制节点执行的公共前提条件</tspan><tspan
+						class="st29">：<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st29">①</tspan><tspan class="st29">检查对接的系统服务和设备服务状态和工作状态是否处</tspan><tspan
+						x="2" dy="1.298em" class="st29">于应该具备的状态</tspan><tspan class="st29">；<v:newlineChar/></tspan><tspan x="2"
+						dy="1.331em" class="st29">②</tspan><tspan class="st29">获取真空靶室系统的真空度达标</tspan><tspan class="st29">；<v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="1.233em" class="st29">③</tspan><tspan class="st29">安全联锁</tspan><tspan class="st29">；</tspan><tspan
+						class="st29">判断当前是否存在安全联锁事件</tspan><tspan class="st29">（</tspan><tspan class="st29">与真空靶</tspan><tspan
+						x="2" dy="1.2em" class="st29">室分系统交互获取实时靶室内的真空度数据</tspan><tspan class="st29">，</tspan><tspan class="st29">与靶瞄准定</tspan><tspan
+						x="2" dy="1.253em" class="st29">位系统交互获取靶室内靶瞄设备的实时位置</tspan><tspan class="st29">）</tspan><v:newlineChar/><v:newlineChar/></text>		</g>
+		<g id="shape261-423" v:mID="261" v:groupContext="shape" v:layerMember="1" transform="translate(1481.62,-52.5886)">
+			<title>文档.259</title>
+			<desc>示波器采集准备 对接设备服务对接及数量光学诊断组件和核诊断组件示波器服务11套 涉及设备光学诊断示波器(3个)、分幅成像示...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.3307086614173):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="99.9213" cy="538.881" width="199.85" height="293.334"/>
+			<g id="shadow261-424" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 702.2 L0 392.21 L199.84 392.21 L199.84 702.2 A83.2677 83.2677 -180 0 0 99.92 702.2 A83.2677 83.2677 0
+							 0 1 0 702.2 Z" class="st6"/>
+			</g>
+			<path d="M0 702.2 L0 392.21 L199.84 392.21 L199.84 702.2 A83.2677 83.2677 -180 0 0 99.92 702.2 A83.2677 83.2677 0 0 1
+						 0 702.2 Z" class="st18"/>
+			<text x="2" y="409.99" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>示波器采集准备<v:newlineChar/><tspan x="2"
+						dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件</tspan><tspan
+						x="2" dy="1.298em" class="st33">（</tspan><tspan class="st33">示波器服务</tspan><tspan class="st34">11</tspan><tspan
+						class="st33">套</tspan><tspan class="st33">）<v:newlineChar/><v:paragraph/></tspan><tspan x="2" dy="1.331em"
+						class="st33">涉</tspan><tspan class="st33">及设备</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断示波器</tspan><tspan
+						class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">分幅成像示波器</tspan><tspan class="st34">(3</tspan><tspan x="2" dy="1.331em" class="st33">个</tspan><tspan
+						class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st33">核诊断组件示波器</tspan><tspan class="st33">（</tspan><tspan
+						class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：示波器采集准备（将设备切换待触发状态）<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">通道索引</tspan><tspan class="st33">、</tspan><tspan class="st33">触发状态</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">时长<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">输出参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan class="st33">、</tspan><tspan class="st33">状态反</tspan><tspan
+						x="2" dy="1.298em" class="st33">馈<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">调用方式</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan
+						class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan class="st33">）：<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan class="st33">示波器状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">图像采集准备<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">涉及设</tspan><tspan class="st33">备</tspan><tspan class="st33">：</tspan><tspan class="st33">条纹相机</tspan><tspan
+						class="st34">(2</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">门控相机</tspan><tspan class="st33">（</tspan><tspan class="st34">8</tspan><tspan class="st33">个</tspan><tspan
+						class="st33">）、</tspan><tspan class="st33">静态成</tspan><tspan x="2" dy="1.331em" class="st33">像</tspan><tspan
+						class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan class="st34">(2</tspan><tspan class="st33">个</tspan><tspan
+						class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st33">分幅成像</tspan><tspan class="st34">CMOS</tspan><tspan
+						class="st33">相机</tspan><tspan class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan
+						class="st33">、</tspan><tspan class="st34">KB</tspan><tspan class="st33">成像</tspan><tspan x="2" dy="1.331em"
+						class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan class="st34">(3</tspan><tspan class="st33">个</tspan><tspan
+						class="st34">)<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">控制指令</tspan>：图像采集准备（设备切换到待触发状态）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">触发状态</tspan><tspan class="st33">、</tspan><tspan class="st33">时长<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">状态反</tspan><tspan x="2" dy="1.298em" class="st33">馈<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">光学诊断组件和核诊断组件设备服务正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">2</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">诊断搭载机械手打靶准备完成</tspan><tspan class="st33">；<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">时长</tspan><tspan class="st33">：</tspan><tspan class="st34">5s</tspan></text>		</g>
+		<g id="shape276-559" v:mID="276" v:groupContext="shape" transform="translate(1103.2,-426.23)">
+			<title>矩形.276</title>
+			<desc>设备定位瞄准</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="43.937" cy="704.682" width="87.88" height="28.3465"/>
+			<g id="shadow276-560" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="87.874" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="87.874" height="28.3465" class="st9"/>
+			<text x="19.94" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>设备定位瞄准</text>		</g>
+		<g id="shape285-565" v:mID="285" v:groupContext="shape" v:layerMember="0" transform="translate(1191.07,-446.667)">
+			<title>动态连接线.285</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 725.12 L10.63 726.76 L105 726.76" class="st10"/>
+		</g>
+		<g id="shape301-571" v:mID="301" v:groupContext="shape" v:layerMember="1" transform="translate(1851.54,-44.3532)">
+			<title>文档.301</title>
+			<desc>示波器预采集 对接设备服务对接及数量光学诊断组件和核诊断组件示波器预采集服务11套 涉及设备光学诊断示波器(3个)、分幅成...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.7244094488189):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="99.9213" cy="535.092" width="199.85" height="300.913"/>
+			<g id="shadow301-572" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 702.2 L0 384.64 L199.84 384.64 L199.84 702.2 A83.2677 83.2677 -180 0 0 99.92 702.2 A83.2677 83.2677 0
+							 0 1 0 702.2 Z" class="st6"/>
+			</g>
+			<path d="M0 702.2 L0 384.64 L199.84 384.64 L199.84 702.2 A83.2677 83.2677 -180 0 0 99.92 702.2 A83.2677 83.2677 0 0 1
+						 0 702.2 Z" class="st18"/>
+			<text x="2" y="391.8" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>示波器预采集<v:newlineChar/><tspan x="2"
+						dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件</tspan><tspan
+						x="2" dy="1.298em" class="st33">（</tspan><tspan class="st33">示波器预采集服务</tspan><tspan class="st34">11</tspan><tspan
+						class="st33">套</tspan><tspan class="st33">）<v:newlineChar/><v:paragraph/></tspan><tspan x="2" dy="1.331em"
+						class="st33">涉</tspan><tspan class="st33">及设备</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断示波器</tspan><tspan
+						class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">分幅成像示波器</tspan><tspan class="st34">(3</tspan><tspan x="2" dy="1.331em" class="st33">个</tspan><tspan
+						class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st33">核诊断组件示波器</tspan><tspan class="st33">（</tspan><tspan
+						class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">示波器采集准备</tspan><tspan
+						class="st33">（</tspan><tspan class="st33">示波器参数配置校验</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">通道索引</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">预采集模</tspan><tspan x="2" dy="1.298em" class="st33">式</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">时长<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">输出参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan class="st33">、</tspan><tspan class="st33">接收状</tspan><tspan
+						x="2" dy="1.298em" class="st33">态</tspan><tspan class="st33">、</tspan><tspan class="st33">预采集状态<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">示波器设备就位</tspan><tspan class="st33">、</tspan><tspan class="st33">状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">图像预采集<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件</tspan><tspan x="2" dy="1.298em" class="st33">（</tspan><tspan
+						class="st33">图像预采集服务</tspan><tspan class="st34">18</tspan><tspan class="st33">套</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">涉及设</tspan><tspan class="st33">备</tspan><tspan class="st33">：</tspan><tspan
+						class="st33">条纹相机</tspan><tspan class="st34">(2</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">门控相机</tspan><tspan class="st33">（</tspan><tspan class="st34">8</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）、</tspan><tspan class="st33">静态成</tspan><tspan x="2"
+						dy="1.331em" class="st33">像</tspan><tspan class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan
+						class="st34">(2</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">分幅成像</tspan><tspan class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan class="st34">(3</tspan><tspan
+						class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st34">KB</tspan><tspan
+						class="st33">成像</tspan><tspan x="2" dy="1.331em" class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan
+						class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">图像采集准备</tspan><tspan
+						class="st33">（</tspan><tspan class="st33">图像参数配置校验</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">采集模式</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">时长<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">输出参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan class="st33">、</tspan><tspan class="st33">预采集</tspan><tspan
+						x="2" dy="1.298em" class="st33">结果</tspan><tspan class="st33">、</tspan><tspan class="st33">预采集状态<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">图像相机设备就位</tspan><tspan class="st33">、</tspan><tspan class="st33">状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3min<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">说明</tspan><tspan class="st33">：</tspan><tspan class="st33">预采集阶段不加高压</tspan><tspan
+						class="st33">，</tspan><tspan class="st33">只是测试设备可用性</tspan><tspan class="st33">；</tspan><tspan class="st33">能</tspan><tspan
+						x="2" dy="1.298em" class="st33">获取数据即可</tspan><tspan class="st33">（</tspan><tspan class="st33">无需人工确认</tspan><tspan
+						class="st33">）</tspan></text>		</g>
+		<g id="shape331-742" v:mID="331" v:groupContext="shape" v:layerMember="0" transform="translate(3391.62,-544.907)">
+			<title>动态连接线.693</title>
+			<desc>发射后处理数据采集10分钟</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="796.103" cy="711.769" width="182.76" height="22.4037"/>
+			<path d="M5.8 712.67 L6.16 712.67 L1586.05 710.87" class="st1"/>
+			<rect v:rectContext="textBkgnd" x="711.75" y="704.569" width="168.706" height="14.4001" class="st3"/>
+			<text x="711.75" y="715.37" class="st4" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>发射后处理（数据采集10分钟）</text>		</g>
+		<g id="shape335-752" v:mID="335" v:groupContext="shape" transform="translate(2858.9,-461.309)">
+			<title>矩形.701</title>
+			<desc>示波器参数配置</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="38.4449" cy="704.682" width="76.89" height="28.3465"/>
+			<g id="shadow335-753" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="76.8898" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="76.8898" height="28.3465" class="st11"/>
+			<text x="10.44" y="707.08" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器参数配置</text>		</g>
+		<g id="shape338-758" v:mID="338" v:groupContext="shape" transform="translate(2978.31,-461.309)">
+			<title>矩形.195</title>
+			<desc>示波器DC耦合</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="38.4449" cy="704.682" width="76.89" height="28.3465"/>
+			<g id="shadow338-759" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="76.8898" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="76.8898" height="28.3465" class="st11"/>
+			<text x="14.44" y="707.08" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器DC耦合</text>		</g>
+		<g id="shape339-764" v:mID="339" v:groupContext="shape" v:layerMember="0" transform="translate(2935.79,-482.569)">
+			<title>动态连接线.86</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 725.94 L36.36 725.94" class="st10"/>
+		</g>
+		<g id="shape341-770" v:mID="341" v:groupContext="shape" transform="translate(2896.88,-398.947)">
+			<title>矩形.224</title>
+			<desc>相机设备采集参数配置</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="31.8249" cy="704.682" width="63.65" height="28.3465"/>
+			<g id="shadow341-771" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="63.6498" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="63.6498" height="28.3465" class="st12"/>
+			<text x="7.83" y="701.76" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>相机设备采集<tspan x="15.82"
+						dy="1.298em" class="st14">参数配置</tspan></text>		</g>
+		<g id="shape347-777" v:mID="347" v:groupContext="shape" v:layerMember="1" transform="translate(3098.79,-86.7237)">
+			<title>文档.281</title>
+			<desc>示波器DC耦合 1、对接设备服务对接及数量核诊断组件设备服务示波器5个、X射线成像诊断组件分幅成像示波器3个 控制指令示波...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.2913385826772):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="562.611" width="145.85" height="263.872"/>
+			<g id="shadow347-778" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 430.67 L145.85 430.67 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 430.67 L145.85 430.67 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="441.15" class="st32" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>示波器<tspan class="st19">DC</tspan>耦合<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">核诊断组</tspan><tspan x="2" dy="1.331em" class="st33">件设备服务示波器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）、</tspan><tspan
+						class="st34">X</tspan><tspan class="st33">射线成像</tspan><tspan x="2" dy="1.331em" class="st33">诊断组件分幅成像示波器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">3</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">示波器</tspan><tspan
+						class="st34">DC</tspan><tspan class="st33">耦合<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">输入参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">指令</tspan><tspan x="2" dy="1.298em" class="st33">时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">通道索引</tspan><tspan class="st33">、</tspan><tspan class="st33">模式序号<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执</tspan><tspan
+						x="2" dy="1.298em" class="st33">行结果说明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当前输入模式<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">发</tspan><tspan x="2" dy="1.298em" class="st33">射准备完成</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">示波器设备服务状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">2s<v:newlineChar/><v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="2.531em" class="st34">2</tspan><tspan class="st33">、</tspan><tspan class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断</tspan><tspan x="2" dy="1.331em" class="st33">组件示波器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">3</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">设置通道耦合方式<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">通道</tspan><tspan
+						x="2" dy="1.298em" class="st33">耦合方式<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">输出参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果说明<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">发</tspan><tspan x="2" dy="1.298em" class="st33">射准备完成</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">示波器设备服务状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3s</tspan><v:newlineChar/><v:newlineChar/></text>		</g>
+		<g id="shape349-884" v:mID="349" v:groupContext="shape" v:layerMember="1" transform="translate(2928.71,-151.801)">
+			<title>文档.283</title>
+			<desc>示波器采集配置 对接设备服务对接及数量核诊断组件设备服务示波器5个、X射线成像诊断组件分幅成像示波器3个、光学诊断组件示波...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(3.2283464566929):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="596.15" width="145.85" height="196.794"/>
+			<g id="shadow349-885" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 497.75 L145.85 497.75 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 497.75 L145.85 497.75 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="511.96" class="st32" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>示波器采集配置<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan class="st33">：</tspan><tspan class="st33">核诊断组件</tspan><tspan
+						x="2" dy="1.298em" class="st33">设备服务示波器</tspan><tspan class="st33">（</tspan><tspan class="st34">5</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）、</tspan><tspan class="st34">X</tspan><tspan class="st33">射线成像诊</tspan><tspan
+						x="2" dy="1.331em" class="st33">断组件分幅成像示波器</tspan><tspan class="st33">（</tspan><tspan class="st34">3</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）、</tspan><tspan class="st33">光学诊</tspan><tspan x="2"
+						dy="1.331em" class="st33">断组件示波器</tspan><tspan class="st33">（</tspan><tspan class="st34">3</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">控制指令</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">示波器采集配置<v:newlineChar/><v:paragraph/></tspan><tspan x="2"
+						dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令</tspan><tspan
+						x="2" dy="1.2em" class="st33">时间</tspan><tspan class="st33">、</tspan><tspan class="st33">通道索引</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">输入耦合模式</tspan><tspan class="st33">、</tspan><tspan class="st33">水平</tspan><tspan
+						x="2" dy="1.298em" class="st33">设置</tspan><tspan class="st33">、</tspan><tspan class="st33">垂直设置</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">触发设置<v:newlineChar/></tspan><tspan x="2" dy="1.233em"
+						class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">执行结果说</tspan><tspan x="2" dy="1.298em" class="st33">明</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">返回时间</tspan><tspan class="st33">、</tspan><tspan class="st33">接收状态<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">同步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">高</tspan><tspan x="2" dy="1.298em" class="st33">压加载完成</tspan><tspan
+						class="st33">，</tspan><tspan class="st33">设备属性</tspan><tspan class="st33">（</tspan><tspan class="st33">高压</tspan><tspan
+						class="st34">/</tspan><tspan class="st33">电流</tspan><tspan class="st33">）</tspan><tspan class="st33">调</tspan><tspan
+						x="2" dy="1.331em" class="st33">整完成</tspan><tspan class="st33">、</tspan><tspan class="st33">示波器设备服务状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3s</tspan><v:newlineChar/><v:newlineChar/><v:newlineChar/></text>		</g>
+		<g id="shape351-966" v:mID="351" v:groupContext="shape" v:layerMember="1" transform="translate(2764.95,-134.838)">
+			<title>文档.309</title>
+			<desc>相机设备采集配置 对接设备服务对接及数量光学诊断组件条纹相机2个门控相机6个、 核诊断组件静态成像CMOS相机2个分幅成像...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(3.503937007874):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="587.646" width="145.85" height="213.802"/>
+			<g id="shadow351-967" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 480.75 L145.85 480.75 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 480.75 L145.85 480.75 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="493.86" class="st32" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>相机设备采集配置<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断组</tspan><tspan
+						x="2" dy="1.298em" class="st33">件条纹相机</tspan><tspan class="st33">（</tspan><tspan class="st34">2</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）</tspan><tspan class="st33">门控相机</tspan><tspan class="st33">（</tspan><tspan
+						class="st34">6</tspan><tspan class="st33">个</tspan><tspan class="st33">）、<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">核诊断组件静态成像</tspan><tspan class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">2</tspan><tspan class="st33">个</tspan><tspan class="st33">）</tspan><tspan
+						x="2" dy="1.331em" class="st33">分幅成像相机</tspan><tspan class="st33">（</tspan><tspan class="st34">3</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）</tspan><tspan class="st34">KB</tspan><tspan class="st33">成像</tspan><tspan
+						class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan x="2" dy="1.331em" class="st33">（</tspan><tspan
+						class="st34">3</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">图像采集配置<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令</tspan><tspan
+						x="2" dy="1.2em" class="st33">时间</tspan><tspan class="st33">、</tspan><tspan class="st33">曝光时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">曝光时间单位</tspan><tspan class="st33">、</tspan><tspan class="st33">增益</tspan><tspan
+						x="2" dy="1.298em" class="st33">值</tspan><tspan class="st33">、</tspan><tspan class="st33">增益模式<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">请求标识</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执</tspan><tspan
+						x="2" dy="1.2em" class="st33">行结果说明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">参数设置结</tspan><tspan x="2" dy="1.2em" class="st33">果</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当前曝光时间</tspan><tspan class="st33">、</tspan><tspan class="st33">参数校验结果</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当</tspan><tspan x="2" dy="1.298em" class="st33">前增益值<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">同步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">发</tspan><tspan x="2" dy="1.298em" class="st33">射准备完成</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">相机设备服务状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3S</tspan><v:newlineChar/><v:newlineChar/><v:newlineChar/></text>		</g>
+		<g id="shape369-1059" v:mID="369" v:groupContext="shape" v:layerMember="1" transform="translate(2375.95,-60.0099)">
+			<title>文档.265</title>
+			<desc>示波器接地 1、对接系统服务对接及数量核诊断组件示波器5个、X射线成像诊断组件分幅成像示波器3个 控制指令示波器接地 输入...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.0944881889764):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="90.6042" cy="546.767" width="181.21" height="283.775"/>
+			<g id="shadow369-1060" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 703.75 L0 404.88 L181.21 404.88 L181.21 703.75 A75.5035 75.5035 -180 0 0 90.6 703.75 A75.5035 75.5035
+							 0 0 1 0 703.75 Z" class="st6"/>
+			</g>
+			<path d="M0 703.75 L0 404.88 L181.21 404.88 L181.21 703.75 A75.5035 75.5035 -180 0 0 90.6 703.75 A75.5035 75.5035 0 0
+						 1 0 703.75 Z" class="st18"/>
+			<text x="2" y="425.3" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>示波器接地<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan class="st33">对接系统服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">核诊断组件示波器</tspan><tspan x="2" dy="1.331em" class="st33">（</tspan><tspan
+						class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）、</tspan><tspan class="st34">X</tspan><tspan
+						class="st33">射线成像诊断组件分幅成像示波器</tspan><tspan class="st33">（</tspan><tspan class="st34">3</tspan><tspan x="2"
+						dy="1.331em" class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">示波器接地<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">通道</tspan><tspan x="2" dy="1.298em" class="st33">索引</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">模式序号<v:newlineChar/></tspan><tspan x="2" dy="1.233em"
+						class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果说</tspan><tspan x="2"
+						dy="1.298em" class="st33">明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当前输入模式<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">示波器设备服</tspan><tspan x="2" dy="1.298em" class="st33">务状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">2s<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st34">2</tspan><tspan class="st33">、</tspan><tspan class="st33">对接系统服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断组件示波</tspan><tspan x="2" dy="1.331em" class="st33">器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">3</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">设置通道耦合方式<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">通道</tspan><tspan x="2" dy="1.298em" class="st33">耦合方式<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果说</tspan><tspan
+						x="2" dy="1.298em" class="st33">明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当前输入模式<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">示波器设备服</tspan><tspan x="2" dy="1.298em" class="st33">务状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">1min</tspan><v:newlineChar/></text>		</g>
+		<g id="shape370-1166" v:mID="370" v:groupContext="shape" v:layerMember="1" transform="translate(2587.27,-77.734)">
+			<title>文档.307</title>
+			<desc>高压加载 1、对接系统服务对接及数量核诊断组件高压电源4个 控制指令探测器高压加载 输入参数任务编号、设备编号、指令时间、...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(3.8582677165354):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="558.933" width="145.85" height="271.228"/>
+			<g id="shadow370-1167" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 423.32 L145.85 423.32 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 423.32 L145.85 423.32 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="442.8" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>高压加载<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan class="st33">对接系统服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">核诊断组</tspan><tspan x="2" dy="1.331em" class="st33">件高压电源</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">4</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">探测器高压加载<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令</tspan><tspan
+						x="2" dy="1.298em" class="st33">时间</tspan><tspan class="st33">、</tspan><tspan class="st33">启停指令<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执</tspan><tspan
+						x="2" dy="1.298em" class="st33">行结果说明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">输出状态<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/><v:paragraph/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">示</tspan><tspan x="2" dy="1.2em" class="st33">波器接地执行完成</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">示波器设备服务状</tspan><tspan x="2" dy="1.298em" class="st33">态正常</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">高压电源设备服务状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3min<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st34">2</tspan><tspan class="st33">、</tspan><tspan class="st33">对接系统服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断</tspan><tspan x="2" dy="1.331em" class="st33">组件光电管高压电源</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">6</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">高压启停<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令</tspan><tspan
+						x="2" dy="1.298em" class="st33">时间</tspan><tspan class="st33">、</tspan><tspan class="st33">启停指令<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执</tspan><tspan
+						x="2" dy="1.298em" class="st33">行结果说明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">输出状态<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：</tspan><tspan class="st33">光</tspan><tspan x="2" dy="1.298em" class="st33">电管设备服务状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3min</tspan></text>		</g>
+		<g id="shape375-1271" v:mID="375" v:groupContext="shape" v:layerMember="0" transform="translate(2673.59,-438.547)">
+			<title>动态连接线.375</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L85.04 718.86 L85.04 744.28 L217.13 744.28" class="st10"/>
+		</g>
+		<g id="shape381-1277" v:mID="381" v:groupContext="shape" v:layerMember="0" transform="translate(2673.59,-438.547)">
+			<title>动态连接线.381</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L85.04 718.86 L85.04 681.92 L179.15 681.92" class="st10"/>
+		</g>
+		<g id="shape390-1283" v:mID="390" v:groupContext="shape" v:layerMember="1" transform="translate(3603.74,-491.959)">
+			<title>流程.62</title>
+			<desc>示波器数据采集</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow390-1284" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st11"/>
+			<text x="7.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器数据采集</text>		</g>
+		<g id="shape392-1289" v:mID="392" v:groupContext="shape" v:layerMember="1" transform="translate(3564.44,-1.56498)">
+			<title>文档.392</title>
+			<desc>对接设备服务对接及数量光学诊断组件条纹相机2台、光学诊断组件门控相机8台、X射线成像诊断组件静态成像CMOS相机2台、X射...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(3.3464566929134):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="598.985" width="145.85" height="191.125"/>
+			<g id="shadow392-1290" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 503.42 L145.85 503.42 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 503.42 L145.85 503.42 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="510.86" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：光学诊断组<tspan
+						x="2" dy="1.298em" class="st14">件条纹相机</tspan>（<tspan class="st19">2</tspan>台）、光学诊断组件门控<tspan x="2"
+						dy="1.331em" class="st14">相机</tspan>（<tspan class="st19">8</tspan>台）、<tspan class="st19">X</tspan>射线成像诊断组件静态<tspan
+						x="2" dy="1.331em" class="st14">成像</tspan><tspan class="st19">CMOS</tspan>相机（<tspan class="st19">2</tspan>台）、<tspan
+						class="st19">X</tspan>射线成像诊断<tspan x="2" dy="1.331em" class="st14">组件分幅成像</tspan><tspan class="st19">CMOS</tspan>相机（<tspan
+						class="st19">3</tspan>台）、<tspan class="st19">X</tspan>射线<tspan x="2" dy="1.331em" class="st14">成像诊断组件</tspan><tspan
+						class="st19">KB</tspan>成像<tspan class="st19">CMOS</tspan>相机（<tspan class="st19">3</tspan>台）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：开始采集<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号、<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st14">输出参数</tspan>：执行状态、任务编号、图像<tspan x="2" dy="1.298em" class="st14">数据<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、收到集中管控系统同步触发指令<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st19">2</tspan>、确认各相机设备运行状态正常<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">3</tspan>、确认各相机设备运行参数与实验参数<tspan
+						x="2" dy="1.331em" class="st14">配置一致<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st19">4</tspan>、光学诊断组件相机设备需确认光电管<tspan
+						x="2" dy="1.331em" class="st14">高压电源处于正常工作状态<v:newlineChar/><v:paragraph/></tspan><tspan x="2" dy="1.331em"
+						class="st14">时长</tspan>：<tspan class="st19">1min</tspan></text>		</g>
+		<g id="shape393-1326" v:mID="393" v:groupContext="shape" v:layerMember="1" transform="translate(3603.74,-227.451)">
+			<title>流程.20</title>
+			<desc>相机设备数据采集</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow393-1327" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st12"/>
+			<text x="3.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>相机设备数据采集</text>		</g>
+		<g id="shape395-1332" v:mID="395" v:groupContext="shape" v:layerMember="1" transform="translate(3572.46,-270.856)">
+			<title>文档.31</title>
+			<desc>对接设备服务对接及数量光学诊断组件示波器3台、核诊断组件示波器5台 控制指令开始采集 输入参数任务编号 输出参数执行状态、...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(3.3464566929134):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="598.985" width="145.85" height="191.125"/>
+			<g id="shadow395-1333" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 503.42 L145.85 503.42 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 503.42 L145.85 503.42 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="510.86" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：光学诊断组<tspan
+						x="2" dy="1.298em" class="st14">件示波器</tspan>（<tspan class="st19">3</tspan>台）、核诊断组件示波器<tspan x="2"
+						dy="1.331em" class="st14">（</tspan><tspan class="st19">5</tspan>台）<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">控制指令</tspan>：开始采集<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st14">输出参数</tspan>：执行状态、任务编号、二位<tspan x="2" dy="1.298em" class="st14">数组数据</tspan>、波形图图像数据<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、收到集中管控系统同步触发指令<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st19">2</tspan>、确认示波器设备运行状态正常<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">3</tspan>、确认示波器运行参数与实验参数配置<tspan
+						x="2" dy="1.331em" class="st14">一致<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st19">4</tspan>、光学诊断组件示波器需确认光电管高<tspan
+						x="2" dy="1.331em" class="st14">压电源处于正常工作状态<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st19">5</tspan>、核诊断组件示波器设备需确认高压电<tspan
+						x="2" dy="1.331em" class="st14">源已加载<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st19">6</tspan>核诊断组件示波器设备需确认已接地<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">时长</tspan>：<tspan class="st19">3min</tspan></text>		</g>
+		<g id="shape397-1359" v:mID="397" v:groupContext="shape" v:layerMember="0" transform="translate(3674.61,-506.132)">
+			<title>动态连接线.33</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L185.43 711.77" class="st10"/>
+		</g>
+		<g id="shape403-1365" v:mID="403" v:groupContext="shape" v:layerMember="1" transform="translate(3866.2,-491.959)">
+			<title>流程.44</title>
+			<desc>示波器接地</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow403-1366" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st11"/>
+			<text x="15.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器接地</text>		</g>
+		<g id="shape404-1371" v:mID="404" v:groupContext="shape" v:layerMember="1" transform="translate(3833.73,-306.006)">
+			<title>文档.46</title>
+			<desc>示波器接地 1、对接设备服务对接及数量核诊断组件示波器5个、X射线成像诊断组件分幅成像示波器3个 控制指令示波器接地 输入...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.4409448818898):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="619.961" width="145.85" height="149.172"/>
+			<g id="shadow404-1372" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 545.38 L145.85 545.38 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 545.38 L145.85 545.38 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="554.45" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>示波器接地<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">核诊断组</tspan><tspan x="2" dy="1.331em" class="st33">件示波器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）、</tspan><tspan
+						class="st34">X</tspan><tspan class="st33">射线成像诊断组件</tspan><tspan x="2" dy="1.331em" class="st33">分幅成像示波器</tspan><tspan
+						class="st33">（</tspan><tspan class="st34">3</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">控制指令</tspan><tspan class="st33">：</tspan><tspan class="st33">示波器接地<v:newlineChar/></tspan><tspan
+						x="2" dy="1.233em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">设备编号</tspan><tspan class="st33">、</tspan><tspan class="st33">指令</tspan><tspan
+						x="2" dy="1.298em" class="st33">时间</tspan><tspan class="st33">、</tspan><tspan class="st33">通道索引</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">模式序号<v:newlineChar/></tspan><tspan x="2" dy="1.233em"
+						class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">请求标识</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">执</tspan><tspan x="2"
+						dy="1.298em" class="st33">行结果说明</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">当前输入模式<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">判断示波器运行状态正常<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">2</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">采集数据已上传<v:newlineChar/><v:paragraph/></tspan><tspan x="2"
+						dy="1.331em" class="st33">执行时长</tspan><tspan class="st33">：</tspan><tspan class="st34">2s</tspan></text>		</g>
+		<g id="shape405-1437" v:mID="405" v:groupContext="shape" v:layerMember="1" transform="translate(4112.99,-492.667)">
+			<title>流程.47</title>
+			<desc>高压卸载</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow405-1438" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st20"/>
+			<text x="19.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>高压卸载</text>		</g>
+		<g id="shape406-1443" v:mID="406" v:groupContext="shape" v:layerMember="1" transform="translate(3899.57,-227.451)">
+			<title>流程.50</title>
+			<desc>CCD相机回温</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow406-1444" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st12"/>
+			<text x="12.71" y="700.26" class="st35" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>CCD<tspan
+						class="st36">相机回温</tspan></text>		</g>
+		<g id="shape407-1450" v:mID="407" v:groupContext="shape" v:layerMember="1" transform="translate(3876.25,-39.124)">
+			<title>文档.53</title>
+			<desc>对接设备服务对接及数量光学诊断组件条纹相机2台、光学诊断组件门控相机8台、X射线成像诊断组件静态成像CMOS相机2台、X射...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.4409448818898):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="618.827" width="145.85" height="151.44"/>
+			<g id="shadow407-1451" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 543.11 L145.85 543.11 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 543.11 L145.85 543.11 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="562.13" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：光学诊断组<tspan
+						x="2" dy="1.298em" class="st14">件条纹相机</tspan>（<tspan class="st19">2</tspan>台）、光学诊断组件门控<tspan x="2"
+						dy="1.331em" class="st14">相机</tspan>（<tspan class="st19">8</tspan>台）、<tspan class="st19">X</tspan>射线成像诊断组件静态<tspan
+						x="2" dy="1.331em" class="st14">成像</tspan><tspan class="st19">CMOS</tspan>相机（<tspan class="st19">2</tspan>台）、<tspan
+						class="st19">X</tspan>射线成像诊断<tspan x="2" dy="1.331em" class="st14">组件分幅成像</tspan><tspan class="st19">CMOS</tspan>相机（<tspan
+						class="st19">3</tspan>台）、<tspan class="st19">X</tspan>射线<tspan x="2" dy="1.331em" class="st14">成像诊断组件</tspan><tspan
+						class="st19">KB</tspan>成像<tspan class="st19">CMOS</tspan>相机（<tspan class="st19">3</tspan>台）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：相机回温<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：执行状态、任务编号<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、相机运行状态正常<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">2</tspan>、相机采集数据已上传</text>		</g>
+		<g id="shape415-1480" v:mID="415" v:groupContext="shape" v:layerMember="0" transform="translate(3937.07,-506.841)">
+			<title>动态连接线.48</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L169.77 711.77" class="st10"/>
+		</g>
+		<g id="shape416-1486" v:mID="416" v:groupContext="shape" v:layerMember="1" transform="translate(4076.74,-344.139)">
+			<title>文档.70</title>
+			<desc>对接设备服务对接及数量核诊断组件高压电源5台 控制指令高压卸载 输入参数任务编号 输出参数执行状态、任务编号 调用方式异步...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(1.8503937007874):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="639.878" width="145.85" height="109.338"/>
+			<g id="shadow416-1487" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 585.21 L145.85 585.21 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 585.21 L145.85 585.21 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="604.48" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：核诊断组件<tspan
+						x="2" dy="1.298em" class="st14">高压电源</tspan>（<tspan class="st19">5</tspan>台）<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st14">控制指令</tspan>：高压卸载<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：执行状态、任务编号<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、高压电源处于高压状态<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">2</tspan>、示波器状态为已接地</text>		</g>
+		<g id="shape417-1501" v:mID="417" v:groupContext="shape" v:layerMember="0" transform="translate(3970.44,-241.624)">
+			<title>动态连接线.73</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L411.95 711.77" class="st10"/>
+		</g>
+		<g id="shape418-1507" v:mID="418" v:groupContext="shape" v:layerMember="0" transform="translate(4183.86,-513.927)">
+			<title>动态连接线.74</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L96.98 718.86 L96.98 984.07 L198.53 984.07" class="st10"/>
+		</g>
+		<g id="shape420-1513" v:mID="420" v:groupContext="shape" v:layerMember="1" transform="translate(4388.55,-227.451)">
+			<title>流程.76</title>
+			<desc>诊断设备复位</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow420-1514" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st9"/>
+			<text x="11.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备复位</text>		</g>
+		<g id="shape421-1519" v:mID="421" v:groupContext="shape" v:layerMember="1" transform="translate(4341.91,-22.8248)">
+			<title>文档.78</title>
+			<desc>对接设备服务对接及数量光学诊断组件运动控制模块1台、X射线成像诊断组件静态成像运动控制模块2台、核诊断组件BT运动控制模块...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.4409448818898):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="611.741" width="145.85" height="165.613"/>
+			<g id="shadow421-1520" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 528.93 L145.85 528.93 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 528.93 L145.85 528.93 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="555.04" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：光学诊断组<tspan
+						x="2" dy="1.298em" class="st14">件运动控制模块</tspan>（<tspan class="st19">1</tspan>台）、<tspan class="st19">X</tspan>射线成像诊<tspan
+						x="2" dy="1.331em" class="st14">断组件静态成像运动控制模块</tspan>（<tspan class="st19">2</tspan>台）、<tspan x="2"
+						dy="1.331em" class="st14">核诊断组件</tspan><tspan class="st19">BT</tspan>运动控制模块（<tspan class="st19">1</tspan>台）、<tspan
+						x="2" dy="1.331em" class="st19">DIM</tspan>诊断搭载机器人（<tspan class="st19">3</tspan>台）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：设备复位<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：执行状态、任务编号<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、运动控制模块搭载设备保护动作已结<tspan x="2" dy="1.331em" class="st14">束<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st19">2</tspan>、各运动控制模块系统服务正常运行</text>		</g>
+		<g id="shape422-1543" v:mID="422" v:groupContext="shape" v:layerMember="1" transform="translate(4586.97,-227.451)">
+			<title>流程.79</title>
+			<desc>诊断设备下电</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow422-1544" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st9"/>
+			<text x="11.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备下电</text>		</g>
+		<g id="shape423-1549" v:mID="423" v:groupContext="shape" v:layerMember="0" transform="translate(4459.42,-241.624)">
+			<title>动态连接线.80</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L121.4 711.77" class="st10"/>
+		</g>
+		<g id="shape424-1555" v:mID="424" v:groupContext="shape" v:layerMember="1" transform="translate(4554.51,-61.0329)">
+			<title>文档.81</title>
+			<desc>对接设备服务对接及数量所有设备 控制指令设备下电 输入参数任务编号 输出参数执行状态、任务编号 调用方式异步 节点状态及判...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(1.8897637795276):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="630.106" width="145.85" height="128.882"/>
+			<g id="shadow424-1556" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 565.67 L145.85 565.67 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 565.67 L145.85 565.67 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="594.97" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：所有设备<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：设备下电<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：执行状态、任务编号<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、各设备服务正常运行<v:newlineChar/><v:paragraph/><tspan x="2" dy="1.331em"
+						class="st19">2</tspan>、若连接运动控制模块，需判断运动控<tspan x="2" dy="1.331em" class="st14">制模块是否已停止动作</tspan></text>		</g>
+		<g id="shape425-1569" v:mID="425" v:groupContext="shape" v:layerMember="1" transform="translate(4780.37,-227.451)">
+			<title>流程.82</title>
+			<desc>执行结果反馈</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="697.596" width="70.87" height="42.5197"/>
+			<g id="shadow425-1570" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st6"/>
+			</g>
+			<rect x="0" y="676.336" width="70.8661" height="42.5197" class="st37"/>
+			<text x="11.43" y="700.26" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>执行结果反馈</text>		</g>
+		<g id="shape426-1575" v:mID="426" v:groupContext="shape" v:layerMember="0" transform="translate(4657.84,-241.624)">
+			<title>动态连接线.85</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L116.37 711.77" class="st10"/>
+		</g>
+		<g id="shape427-1581" v:mID="427" v:groupContext="shape" v:layerMember="1" transform="translate(4767.11,-61.9429)">
+			<title>文档.89</title>
+			<desc>对接设备服务对接及数量集中管控系统服务 调用接口执行状态返回 输入参数任务编号、实验表示、数据采集执行结果 输出参数无 调...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.007874015748):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="72.925" cy="630.606" width="145.85" height="127.882"/>
+			<g id="shadow427-1582" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.7 L0 566.66 L145.85 566.66 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0
+							 0 1 -0 706.7 Z" class="st6"/>
+			</g>
+			<path d="M0 706.7 L0 566.66 L145.85 566.66 L145.85 706.7 A60.7708 60.7708 -180 0 0 72.92 706.7 A60.7708 60.7708 0 0 1
+						 -0 706.7 Z" class="st18"/>
+			<text x="2" y="590.41" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接设备服务对接及数量：集中管控系<tspan
+						x="2" dy="1.298em" class="st14">统服务<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">调用接口</tspan>：执行状态返回<v:newlineChar/><tspan
+						x="2" dy="1.233em" class="st14">输入参数</tspan>：任务编号、实验表示、数据<tspan x="2" dy="1.298em" class="st14">采集执行结果<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：无<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st19">1</tspan>、所有采集设备数据已获取完成<v:newlineChar/><v:paragraph/><tspan x="2" dy="1.331em" class="st19">2</tspan>、设备保护、复位、下电等操作已完成</text>		</g>
+		<g id="shape428-1596" v:mID="428" v:groupContext="shape" v:layerMember="1" transform="translate(4948.39,-213.278)">
+			<title>流程(圆形).67</title>
+			<desc>结束</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:type="7" v:format="@" v:langID="2052"/>
+				<v:cp v:nameU="Duration" v:lbl="持续时间" v:type="2" v:langID="2052"/>
+				<v:cp v:nameU="Resources" v:lbl="资源" v:langID="2052"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="35.4331" cy="683.422" width="70.87" height="70.8661"/>
+			<g id="shadow428-1597" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 683.42 A35.4331 35.4331 0 0 1 70.87 683.42 A35.4331 35.4331 0 1 1 0 683.42 Z" class="st6"/>
+			</g>
+			<path d="M0 683.42 A35.4331 35.4331 0 0 1 70.87 683.42 A35.4331 35.4331 0 1 1 0 683.42 Z" class="st7"/>
+			<text x="27.43" y="686.08" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>结束</text>		</g>
+		<g id="shape429-1602" v:mID="429" v:groupContext="shape" v:layerMember="0" transform="translate(4851.24,-241.624)">
+			<title>动态连接线.91</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L90.99 711.77" class="st10"/>
+		</g>
+		<g id="shape457-1608" v:mID="457" v:groupContext="shape" transform="translate(2234.22,-398.734)">
+			<title>矩形.457</title>
+			<desc>图像采集准备</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="37.7362" cy="704.682" width="75.48" height="28.3465"/>
+			<g id="shadow457-1609" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st12"/>
+			<text x="13.74" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>图像采集准备</text>		</g>
+		<g id="shape458-1614" v:mID="458" v:groupContext="shape" transform="translate(2235.99,-461.096)">
+			<title>矩形.458</title>
+			<desc>示波器采集准备</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="37.7362" cy="704.682" width="75.48" height="28.3465"/>
+			<g id="shadow458-1615" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="75.4724" height="28.3465" class="st11"/>
+			<text x="9.74" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>示波器采集准备</text>		</g>
+		<g id="shape462-1620" v:mID="462" v:groupContext="shape" v:layerMember="0" transform="translate(2148.12,-438.547)">
+			<title>动态连接线.462</title>
+			<desc>是</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="33.1244" cy="689.682" width="40" height="18.6536"/>
+			<path d="M0 718.86 L33.12 718.86 L33.12 682.13 L81.71 682.13" class="st10"/>
+			<rect v:rectContext="textBkgnd" x="29.1244" y="684.357" width="7.99997" height="10.6501" class="st3"/>
+			<text x="29.12" y="692.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>是</text>		</g>
+		<g id="shape463-1629" v:mID="463" v:groupContext="shape" v:layerMember="0" transform="translate(2148.12,-438.547)">
+			<title>动态连接线</title>
+			<desc>是</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="32.7514" cy="741.975" width="40" height="18.6536"/>
+			<path d="M0 718.86 L32.75 718.86 L32.75 744.5 L79.94 744.5" class="st10"/>
+			<rect v:rectContext="textBkgnd" x="28.7514" y="736.65" width="7.99997" height="10.6501" class="st3"/>
+			<text x="28.75" y="744.64" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>是</text>		</g>
+		<g id="shape464-1637" v:mID="464" v:groupContext="shape" v:layerMember="0" transform="translate(2311.46,-475.27)">
+			<title>动态连接线.464</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L50.03 718.86 L50.03 755.58 L116.99 755.58" class="st10"/>
+		</g>
+		<g id="shape465-1643" v:mID="465" v:groupContext="shape" v:layerMember="0" transform="translate(2309.69,-412.908)">
+			<title>动态连接线.465</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L51.52 718.86 L51.52 693.22 L118.76 693.22" class="st10"/>
+		</g>
+		<g id="shape469-1649" v:mID="469" v:groupContext="shape" v:layerMember="1" transform="translate(3272.76,-219.833)">
+			<title>文档.469</title>
+			<desc>对接系统服务对接及数量集中同步分系统系统服务60套 控制指令同步触发 输入参数任务编号 输出参数任务编号、执行结果 调用方...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(1.9685039370079):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="60.6969" cy="632.062" width="121.4" height="133.122"/>
+			<g id="shadow469-1650" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 708.74 L0 565.5 L121.39 565.5 L121.39 708.74 A50.5807 50.5807 -180 0 0 60.7 708.74 A50.5807 50.5807 0
+							 0 1 0 708.74 Z" class="st6"/>
+			</g>
+			<path d="M0 708.74 L0 565.5 L121.39 565.5 L121.39 708.74 A50.5807 50.5807 -180 0 0 60.7 708.74 A50.5807 50.5807 0 0 1
+						 0 708.74 Z" class="st18"/>
+			<text x="2" y="581.74" class="st8" v:langID="2052"><v:paragraph/><v:tabList/>对接系统服务对接及数量：集中<tspan x="2" dy="1.298em"
+						class="st14">同步分系统系统服务</tspan>（<tspan class="st19">60</tspan>套）<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">控制指令</tspan>：同步触发<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输入参数</tspan>：任务编号<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">输出参数</tspan>：任务编号、执行结果<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">调用方式</tspan>：同步<v:newlineChar/><tspan x="2" dy="1.233em" class="st14">节点状态及判断依据</tspan>（连线规<tspan
+						x="2" dy="1.298em" class="st14">则</tspan>）：<v:newlineChar/><tspan x="2" dy="1.331em" class="st19">1</tspan>、采集准备完成、诊断搭载机械<tspan
+						x="2" dy="1.331em" class="st14">手系统服务正常<v:newlineChar/><v:paragraph v:horizAlign="1"/></tspan><tspan
+						x="37.1" dy="1.331em" class="st14">执行时长</tspan>：<tspan class="st19">5s</tspan></text>		</g>
+		<g id="shape471-1667" v:mID="471" v:groupContext="shape" transform="translate(737.526,-426.23)">
+			<title>矩形.471</title>
+			<desc>诊断设备上电</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="32.5984" cy="704.682" width="65.2" height="28.3465"/>
+			<g id="shadow471-1668" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="65.1969" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="65.1969" height="28.3465" class="st9"/>
+			<text x="8.6" y="707.19" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备上电</text>		</g>
+		<g id="shape472-1673" v:mID="472" v:groupContext="shape" v:layerMember="1" transform="translate(698.274,-198.573)">
+			<title>文档.472</title>
+			<desc>对接设备服务对接及数量诊断搭载机械手组件、核诊断组件、X射线成像诊断组件、光学诊断组件四个组件中参与本次实验的设备 控制指...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.4015748031496):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="71.2316" cy="619.059" width="142.47" height="152.105"/>
+			<g id="shadow472-1674" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 706.98 L0 543.01 L142.46 543.01 L142.46 706.98 A59.3597 59.3597 -180 0 0 71.23 706.98 A59.3597 59.3597
+							 0 0 1 -0 706.98 Z" class="st6"/>
+			</g>
+			<path d="M0 706.98 L0 543.01 L142.46 543.01 L142.46 706.98 A59.3597 59.3597 -180 0 0 71.23 706.98 A59.3597 59.3597 0
+						 0 1 -0 706.98 Z" class="st18"/>
+			<text x="2" y="553.81" class="st8" v:langID="2052"><v:paragraph/><v:tabList/>对接设备服务对接及数量：诊断搭载机<tspan x="2" dy="1.298em"
+						class="st14">械手组件</tspan>、核诊断组件、<tspan class="st19" v:langID="1033">X</tspan>射线成像诊<tspan x="2" dy="1.233em"
+						class="st14">断组件</tspan>、光学诊断组件四个组件中参与<tspan x="2" dy="1.298em" class="st14">本次实验的设备<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：开机自检、功能检查<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st14">输入参数</tspan>：任务编号、设备编号、时长<v:newlineChar/><tspan x="2" dy="1.233em" class="st14">输出参数</tspan>：任务编号、执行结果码、返<tspan
+						x="2" dy="1.298em" class="st14">回时间<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">调用方式</tspan>：异步<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st19">1</tspan>、收到集中管控系统“诊断设备状态<tspan x="2" dy="1.331em" class="st14">准备</tspan>”指令<v:newlineChar/><v:newlineChar/><tspan
+						x="2" dy="2.531em" class="st14">执行时长</tspan>：<tspan class="st19">2</tspan><tspan class="st19"
+						v:langID="1033">min</tspan></text>		</g>
+		<g id="shape473-1694" v:mID="473" v:groupContext="shape" transform="translate(401.87,-426.23)">
+			<title>矩形.473</title>
+			<desc>实验参数获取</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="51.6073" cy="704.682" width="103.22" height="28.3465"/>
+			<g id="shadow473-1695" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="103.215" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="103.215" height="28.3465" class="st38"/>
+			<text x="27.61" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>实验参数获取</text>		</g>
+		<g id="shape474-1701" v:mID="474" v:groupContext="shape" transform="translate(561.778,-426.23)">
+			<title>矩形.474</title>
+			<desc>诊断设备配置</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="51.6073" cy="704.682" width="103.22" height="28.3465"/>
+			<g id="shadow474-1702" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="690.509" width="103.215" height="28.3465" class="st6"/>
+			</g>
+			<rect x="0" y="690.509" width="103.215" height="28.3465" class="st38"/>
+			<text x="27.61" y="707.34" class="st8" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>诊断设备配置</text>		</g>
+		<g id="shape475-1707" v:mID="475" v:groupContext="shape" v:layerMember="1" transform="translate(377.526,-240.182)">
+			<title>文档.475</title>
+			<desc>对接系统服务对接及数量集中管控控制系统1套 控制指令参数配置 输入参数任务编号、发次编号、阶段编号、束线编号、设备编号、单...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.0866141732283):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="67.5018" cy="638.41" width="135.01" height="115.89"/>
+			<g id="shadow475-1708" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 707.61 L0 580.46 L135 580.46 L135 707.61 A56.2515 56.2515 -180 0 0 67.5 707.61 A56.2515 56.2515 0 0 1
+							 0 707.61 Z" class="st6"/>
+			</g>
+			<path d="M0 707.61 L0 580.46 L135 580.46 L135 707.61 A56.2515 56.2515 -180 0 0 67.5 707.61 A56.2515 56.2515 0 0 1 0 707.61
+						 Z" class="st18"/>
+			<text x="2" y="593.41" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>对接系统服务对接及数量：集中管控<tspan
+						x="2" dy="1.298em" class="st14">控制系统</tspan>（<tspan class="st19">1</tspan>套）<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st14">控制指令</tspan>：参数配置<v:newlineChar/><v:paragraph/><tspan x="2" dy="1.233em"
+						class="st14">输入参数</tspan>：任务编号、发次编号、阶<tspan x="2" dy="1.2em" class="st14">段编号</tspan>、束线编号、设备编号、单束<tspan
+						x="2" dy="1.298em" class="st14">能量</tspan>、总能量等；<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">输出参数</tspan>：接收状态、返回信息<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st14">调用方式</tspan>：同步<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">节点状态及判断依据</tspan>（连线规则）：<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st19">1</tspan>、接收控制指令<v:newlineChar/><tspan x="2" dy="1.331em" class="st14">执行时长</tspan>：<tspan
+						class="st19">1min</tspan></text>		</g>
+		<g id="shape476-1725" v:mID="476" v:groupContext="shape" v:layerMember="1" transform="translate(539.384,-194.321)">
+			<title>文档.476</title>
+			<desc>说明诊断值班长根据实验任务参数提前配置完成配置项包括诊断设备诊断设备下诊断单元选择、诊断单元参数配置 执行时长发射准备前 ...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(2.6771653543307):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="70.8587" cy="615.391" width="141.72" height="159.69"/>
+			<g id="shadow476-1726" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 707.05 L0 535.55 L141.72 535.55 L141.72 707.05 A59.0489 59.0489 -180 0 0 70.86 707.05 A59.0489 59.0489
+							 0 0 1 -0 707.05 Z" class="st6"/>
+			</g>
+			<path d="M0 707.05 L0 535.55 L141.72 535.55 L141.72 707.05 A59.0489 59.0489 -180 0 0 70.86 707.05 A59.0489 59.0489 0
+						 0 1 -0 707.05 Z" class="st18"/>
+			<text x="2" y="550.37" class="st8" v:langID="2052"><v:paragraph/><v:tabList/><v:newlineChar/>说明：诊断值班长根据实验任务参数提<tspan
+						x="2" dy="1.2em" class="st14">前配置完成</tspan>，配置项包括诊断设备（诊<tspan x="2" dy="1.2em" class="st14">断设备下诊断单元选择</tspan>、诊断单元参数<tspan
+						x="2" dy="1.298em" class="st14">配置<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">执行时长</tspan>：发射准备前<v:newlineChar/><tspan
+						x="2" dy="1.908em" class="st14">诊断单元参数配置举例</tspan>：<tspan class="st39" v:langID="1033"> </tspan><tspan
+						x="2" dy="1.523em" class="st19">1</tspan>、<tspan class="st19">CMOS</tspan>相机<v:newlineChar/><tspan x="2"
+						dy="1.233em" class="st14">制冷温度</tspan>、监控温度、曝光时间、门控<tspan x="2" dy="1.2em" class="st14">时间</tspan>、增益、触发模式（内触发、外触<tspan
+						x="2" dy="1.298em" class="st14">发</tspan><tspan class="st19">-</tspan>采集准备）<v:newlineChar/><tspan x="2"
+						dy="1.331em" class="st19">2</tspan>、示波器<v:newlineChar/><v:paragraph/><tspan x="2" dy="1.233em" class="st14">触发模式</tspan>、触发通道、时基、幅值、基<tspan
+						x="2" dy="1.875em" class="st14">线</tspan>、带宽、耦合模式<v:newlineChar/></text>		</g>
+		<g id="shape477-1746" v:mID="477" v:groupContext="shape" v:layerMember="0" transform="translate(349.179,-433.317)">
+			<title>动态连接线.477</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L46.53 711.77" class="st10"/>
+		</g>
+		<g id="shape478-1752" v:mID="478" v:groupContext="shape" v:layerMember="0" transform="translate(505.085,-447.49)">
+			<title>动态连接线.478</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 725.94 L50.53 725.94" class="st10"/>
+		</g>
+		<g id="shape479-1758" v:mID="479" v:groupContext="shape" v:layerMember="0" transform="translate(664.992,-433.317)">
+			<title>动态连接线.479</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L66.37 711.77" class="st10"/>
+		</g>
+		<g id="shape480-1764" v:mID="480" v:groupContext="shape" v:layerMember="0" transform="translate(802.723,-433.317)">
+			<title>动态连接线.480</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L86.7 711.77" class="st10"/>
+		</g>
+		<g id="shape481-1770" v:mID="481" v:groupContext="shape" transform="translate(3296.37,-420.384)">
+			<title>矩形.481</title>
+			<desc>触发⚡ 集中同步</desc>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:val="VT0(14):26"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="28.7691" cy="703.973" width="57.54" height="29.7638"/>
+			<g id="shadow481-1771" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<rect x="0" y="689.092" width="57.5383" height="29.7638" class="st6"/>
+			</g>
+			<rect x="0" y="689.092" width="57.5383" height="29.7638" class="st22"/>
+			<text x="15.35" y="701.77" class="st23" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>触发<tspan
+						class="st24">⚡<v:newlineChar/></tspan><tspan x="4.68" dy="1.225em" class="st14">（</tspan>集中同步）</text>		</g>
+		<g id="shape483-1778" v:mID="483" v:groupContext="shape" v:layerMember="0" transform="translate(2960.53,-413.12)">
+			<title>动态连接线.483</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L170.89 718.86 L170.89 696.71 L329.67 696.71" class="st10"/>
+		</g>
+		<g id="shape484-1784" v:mID="484" v:groupContext="shape" v:layerMember="0" transform="translate(3055.2,-475.482)">
+			<title>动态连接线.484</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L76.77 718.86 L76.77 759.07 L235 759.07" class="st10"/>
+		</g>
+		<g id="shape485-1790" v:mID="485" v:groupContext="shape" v:layerMember="0" transform="translate(3353.9,-435.266)">
+			<title>动态连接线.485</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L79.8 718.86 L79.8 640.9 L243.68 640.9" class="st10"/>
+		</g>
+		<g id="shape486-1796" v:mID="486" v:groupContext="shape" v:layerMember="0" transform="translate(3353.9,-435.266)">
+			<title>动态连接线.486</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 718.86 L79.06 718.86 L79.06 905.41 L243.68 905.41" class="st10"/>
+		</g>
+		<g id="shape487-1802" v:mID="487" v:groupContext="shape" v:layerMember="0" transform="translate(3674.61,-241.624)">
+			<title>动态连接线.487</title>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<path d="M0 711.77 L218.81 711.77" class="st10"/>
+		</g>
+		<g id="shape488-1808" v:mID="488" v:groupContext="shape" v:layerMember="1" transform="translate(2138.72,-66.7618)">
+			<title>文档.488</title>
+			<desc>示波器采集准备 对接设备服务对接及数量光学诊断组件和核诊断组件示波器服务11套 涉及设备光学诊断示波器(3个)、分幅成像示...</desc>
+			<v:custProps>
+				<v:cp v:nameU="Cost" v:lbl="成本" v:prompt="" v:type="7" v:format="@" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="ProcessNumber" v:lbl="进程编号" v:prompt="" v:type="2" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Owner" v:lbl="所有者" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Function" v:lbl="函数" v:prompt="" v:type="0" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0" v:val="VT4()"/>
+				<v:cp v:nameU="StartDate" v:lbl="开始日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false"
+						v:ask="false" v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="EndDate" v:lbl="结束日期" v:prompt="" v:type="5" v:format="" v:sortKey="" v:invis="false" v:ask="false"
+						v:langID="2052" v:cal="0"/>
+				<v:cp v:nameU="Status" v:lbl="状态" v:prompt="" v:type="4" v:format=";未开始;进行中;已完成;已推迟;正在等待输入" v:sortKey=""
+						v:invis="false" v:ask="false" v:langID="2052" v:cal="0" v:val="VT4()"/>
+			</v:custProps>
+			<v:userDefs>
+				<v:ud v:nameU="visVersion" v:prompt="" v:val="VT0(15):26"/>
+				<v:ud v:nameU="DefaultWidth" v:prompt="" v:val="VT0(0.98425196850394):24"/>
+				<v:ud v:nameU="DefaultHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(0.59055118110236):24"/>
+				<v:ud v:nameU="ResizeTxtHeight" v:prompt="" v:val="VT0(4.0944881889764):24"/>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(2,2,2,2)" v:tabSpace="42.5197"/>
+			<v:textRect cx="104.442" cy="547.341" width="208.89" height="273.402"/>
+			<g id="shadow488-1809" v:groupContext="shadow" v:shadowOffsetX="1.44" v:shadowOffsetY="-1.44" v:shadowType="1"
+					transform="matrix(1,0,0,1,1.44,1.44)" class="st5">
+				<path d="M0 701.45 L0 410.64 L208.88 410.64 L208.88 701.45 A87.0348 87.0348 -180 0 0 104.44 701.45 A87.0348 87.0348
+							 0 0 1 0 701.45 Z" class="st6"/>
+			</g>
+			<path d="M0 701.45 L0 410.64 L208.88 410.64 L208.88 701.45 A87.0348 87.0348 -180 0 0 104.44 701.45 A87.0348 87.0348 0
+						 0 1 0 701.45 Z" class="st18"/>
+			<text x="2" y="428.58" class="st32" v:langID="2052"><v:paragraph/><v:tabList/>示波器采集准备<v:newlineChar/><tspan x="2"
+						dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件</tspan><tspan
+						x="2" dy="1.298em" class="st33">（</tspan><tspan class="st33">示波器服务</tspan><tspan class="st34">11</tspan><tspan
+						class="st33">套</tspan><tspan class="st33">）<v:newlineChar/><v:paragraph/></tspan><tspan x="2" dy="1.331em"
+						class="st33">涉</tspan><tspan class="st33">及设备</tspan><tspan class="st33">：</tspan><tspan class="st33">光学诊断示波器</tspan><tspan
+						class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">分幅成像示波器</tspan><tspan class="st34">(3</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan
+						class="st33">、</tspan><tspan x="2" dy="1.331em" class="st33">核诊断组件示波器</tspan><tspan class="st33">（</tspan><tspan
+						class="st34">5</tspan><tspan class="st33">个</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">控制指令</tspan>：示波器采集准备（将设备切换待触发状态）<v:newlineChar/><tspan x="2" dy="1.331em"
+						class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">通道索引</tspan><tspan class="st33">、</tspan><tspan class="st33">触发状态</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">时长<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st33">输出参数</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan class="st33">、</tspan><tspan class="st33">状态反馈<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">预采集完成</tspan><tspan class="st33">、</tspan><tspan class="st33">示波器状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st14">图像采集准备<v:newlineChar/></tspan><tspan x="2" dy="1.233em" class="st33">对接设备服务对接及数量</tspan><tspan
+						class="st33">：</tspan><tspan class="st33">光学诊断组件和核诊断组件</tspan><tspan x="2" dy="1.298em" class="st33">（</tspan><tspan
+						class="st33">图像采集准备服务</tspan><tspan class="st34">18</tspan><tspan class="st33">套</tspan><tspan class="st33">）<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">涉及设</tspan><tspan class="st33">备</tspan><tspan class="st33">：</tspan><tspan
+						class="st33">条纹相机</tspan><tspan class="st34">(2</tspan><tspan class="st33">个</tspan><tspan class="st34">)</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">门控相机</tspan><tspan class="st33">（</tspan><tspan class="st34">8</tspan><tspan
+						class="st33">个</tspan><tspan class="st33">）、</tspan><tspan class="st33">静态成像</tspan><tspan x="2"
+						dy="1.331em" class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan class="st34">(2</tspan><tspan
+						class="st33">个</tspan><tspan class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st33">分幅成像</tspan><tspan
+						class="st34">CMOS</tspan><tspan class="st33">相机</tspan><tspan class="st34">(3</tspan><tspan class="st33">个</tspan><tspan
+						class="st34">)</tspan><tspan class="st33">、</tspan><tspan class="st34">KB</tspan><tspan class="st33">成像</tspan><tspan
+						class="st34">CMOS</tspan><tspan x="2" dy="1.331em" class="st33">相机</tspan><tspan class="st34">(3</tspan><tspan
+						class="st33">个</tspan><tspan class="st34">)<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st14">控制指令</tspan>：图像采集准备（设备切换到待触发状态）<v:newlineChar/><tspan
+						x="2" dy="1.331em" class="st33">输入参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">触发状态</tspan><tspan class="st33">、</tspan><tspan class="st33">时长<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">输出参数</tspan><tspan class="st33">：</tspan><tspan class="st33">任务编号</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">执行结果码</tspan><tspan class="st33">、</tspan><tspan class="st33">返回时间</tspan><tspan
+						class="st33">、</tspan><tspan class="st33">状态反馈<v:newlineChar/></tspan><tspan x="2" dy="1.331em"
+						class="st33">调用方式</tspan><tspan class="st33">：</tspan><tspan class="st33">异步<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">节点状态及判断依据</tspan><tspan class="st33">（</tspan><tspan class="st33">连线规则</tspan><tspan
+						class="st33">）：<v:newlineChar/></tspan><tspan x="2" dy="1.331em" class="st34">1</tspan><tspan class="st33">、</tspan><tspan
+						class="st33">预采集完成</tspan><tspan class="st33">，</tspan><tspan class="st33">相机设备状态正常<v:newlineChar/></tspan><tspan
+						x="2" dy="1.331em" class="st33">时长</tspan><tspan class="st33">：</tspan><tspan class="st34">3s</tspan></text>		</g>
+		<g id="shape489-1946" v:mID="489" v:groupContext="shape" v:layerMember="0" transform="translate(2673.59,-541.565)">
+			<title>动态连接线.489</title>
+			<desc>正式发射阶段数据采集1分钟</desc>
+			<v:userDefs>
+				<v:ud v:nameU="msvThemeColors" v:val="VT0(36):26"/>
+				<v:ud v:nameU="msvThemeEffects" v:val="VT0(16):26"/>
+			</v:userDefs>
+			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197"/>
+			<v:textRect cx="350.079" cy="711.769" width="188.8" height="23.9788"/>
+			<path d="M5.8 711.77 L6.16 711.77 L694 711.77" class="st1"/>
+			<rect v:rectContext="textBkgnd" x="262.708" y="703.781" width="174.741" height="15.9752" class="st3"/>
+			<text x="262.71" y="715.76" class="st4" v:langID="2052"><v:paragraph v:horizAlign="1"/><v:tabList/>正式发射阶段（数据采集<tspan
+						class="st19">1</tspan>分钟）</text>		</g>
+	</g>
+</svg>

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GXLF 激光装置逻辑结构图</title>
+<style>
+  :root { --bg: #1a1a2e; --card: #16213e; --border: #0f3460; --text: #e0e0e0; --accent: #e94560; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  h1 { text-align: center; color: #fff; margin: 20px 0 8px; font-size: 28px; }
+  h1 small { font-size: 14px; color: #888; font-weight: normal; }
+  h2 { color: var(--accent); margin: 30px 0 12px; padding-left: 12px; border-left: 4px solid var(--accent); font-size: 20px; }
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 16px 0; overflow-x: auto; }
+  .diagram-card .mermaid { display: flex; justify-content: center; }
+  .diagram-card .mermaid svg { max-width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 13px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .note { font-size: 13px; color: #999; margin: 8px 0 0 16px; line-height: 1.8; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  th { background: rgba(233,69,96,0.15); color: var(--accent); }
+  td { background: var(--card); }
+</style>
+</head>
+<body>
+
+<h1>GXLF 激光装置逻辑结构图<br><small>基于《集中管控系统控制流程业务说明》还原 · 2026-05-27</small></h1>
+
+<!-- ============================================================ -->
+<h2>一、装置总体逻辑架构</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card">
+<pre class="mermaid">
+graph TB
+  subgraph CTRL["🖥️ 总控系统"]
+    MC["总控调度中心<br/>流程配方加载 · 参数下发 · 流程编排"]
+  end
+
+  subgraph LASER["🔴 激光主光路 — 束线扇出 1→10→60"]
+    direction LR
+    SS["光纤种子源(1)<br/>60束种子光"]
+    DF["二倍频注入(1)<br/>8束可切换"]
+    PA["再生与双程放大(10)<br/>预放大器·每台管6束"]
+    MA["多程放大系统(60)<br/>主放大器·每束1台"]
+    FC["频率转换(60)<br/>KDP晶体·IR→UV"]
+  end
+
+  subgraph DRIVE["⚡ 驱动与时序"]
+    PP["泵浦分系统(1)<br/>氙灯阵列·电容充电"]
+    SW["开关驱动源(1)<br/>等离子体电极开关"]
+    SYNC["集中同步(60)<br/>纳秒级时序控制"]
+  end
+
+  subgraph TARGET["🎯 靶场系统"]
+    TA["靶瞄准定位(1)<br/>靶丸定位·光束引导"]
+    MS["测量取样(60)<br/>每束1套"]
+    DG["物理诊断(1)<br/>中子/X射线/光谱"]
+    TC["真空靶室(1)<br/>60束汇聚点"]
+    SD["中子屏蔽门(1)"]
+  end
+
+  subgraph AUX["🛡️ 辅助与安全"]
+    CL["冷却分系统(1)<br/>片放吹扫"]
+    ENV["控制环境(1)<br/>广播·警灯·警音"]
+    PC["人员计数(1)"]
+    SL["⚠️ 安全联锁<br/>全局守卫"]
+  end
+
+  MC -->|Tango| SS
+  MC -->|Tango| DF
+  MC -->|Tango| PA
+  MC -->|Tango| MA
+  MC -->|Tango| FC
+  MC -->|Tango| PP
+  MC -->|Tango| SW
+  MC -->|Tango| SYNC
+  MC -->|Tango| TA
+  MC -->|Tango| MS
+  MC -->|Tango| DG
+  MC -->|Tango| TC
+  MC -->|接口待定| SD
+  MC -->|HTTP| ENV
+  MC -->|接口待定| PC
+
+  SS --> PA
+  DF --> PA
+  PA --> MA
+  MA --> FC
+  FC --> TC
+
+  PP -.->|光泵浦| MA
+  SW -.->|高压脉冲| MA
+  SYNC -.->|触发时序| PA
+  SYNC -.->|触发时序| PP
+  SYNC -.->|触发时序| SW
+
+  SL -.->|联锁监测| TC
+  SL -.->|联锁监测| SD
+  SL -.->|联锁监测| PC
+  CL -.->|吹扫| MA
+
+  style CTRL fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+  style LASER fill:#1a1a2e,stroke:#e94560,color:#fff
+  style DRIVE fill:#1a1a2e,stroke:#f5a623,color:#fff
+  style TARGET fill:#1a1a2e,stroke:#00b894,color:#fff
+  style AUX fill:#1a1a2e,stroke:#6c5ce7,color:#fff
+  style MC fill:#e94560,color:#fff
+  style SL fill:#c0392b,color:#fff
+</pre>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e94560"></div>总控 / 激光主光路</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div>驱动与时序系统</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#00b894"></div>靶场系统</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6c5ce7"></div>辅助与安全</div>
+  <div class="legend-item">── 实线: 光路/控制链路</div>
+  <div class="legend-item">┈┈ 虚线: 能量注入/时序同步/监测</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>二、激光主光路 — 束线扇出链路</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card">
+<pre class="mermaid">
+graph LR
+  subgraph SEED["前端种子源"]
+    S1["光纤种子源<br/>×1套"]
+    S2["二倍频宽带注入<br/>×1套"]
+  end
+
+  subgraph PREAMP["预放大级"]
+    PA1["再生与双程放大 #1"]
+    PA2["再生与双程放大 #2"]
+    PA3["..."]
+    PA10["再生与双程放大 #10"]
+  end
+
+  subgraph MAINAMP["主放大级"]
+    MA_G["多程放大系统<br/>×60套<br/>每束1台"]
+  end
+
+  subgraph FREQ["频率转换"]
+    FC_G["频率转换分系统<br/>×60套<br/>KDP晶体"]
+  end
+
+  subgraph TGT["靶室"]
+    T["真空靶室<br/>60束 → 靶心"]
+  end
+
+  S1 -->|"52束<br/>种子光"| PA1
+  S1 --> PA2
+  S1 --> PA3
+  S1 --> PA10
+  S2 -->|"8束可选<br/>二倍频光"| PA1
+
+  PA1 -->|"6束/台"| MA_G
+  PA2 -->|"6束/台"| MA_G
+  PA3 -->|"6束/台"| MA_G
+  PA10 -->|"6束/台"| MA_G
+
+  MA_G -->|"60束"| FC_G
+  FC_G -->|"60束 3ω紫外"| T
+
+  style SEED fill:#2d1b69,stroke:#a29bfe,color:#fff
+  style PREAMP fill:#1e3a5f,stroke:#74b9ff,color:#fff
+  style MAINAMP fill:#1e3a5f,stroke:#74b9ff,color:#fff
+  style FREQ fill:#2d3436,stroke:#fdcb6e,color:#fff
+  style TGT fill:#4a1a2e,stroke:#e94560,color:#fff
+  style T fill:#e94560,color:#fff
+</pre>
+</div>
+
+<div class="note">
+  扇出比：1 → 10 → 60<br/>
+  种子源(1套)产生60束种子光 → 预放大器(10套)每台管6束完成能量闭环 → 主放大器(60套)逐束放大到终态能量 → 频率转换(60套)IR转UV → 靶室汇聚
+</div>
+
+<!-- ============================================================ -->
+<h2>三、驱动与同步触发时序</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card">
+<pre class="mermaid">
+sequenceDiagram
+  participant MC as 总控
+  participant SYNC as 集中同步(60)
+  participant PP as 泵浦分系统(1)
+  participant SW as 开关驱动源(1)
+  participant ENV as 控制环境(1)
+
+  Note over MC,ENV: ─── 发射充电阶段 ───
+  MC->>PP: 发射充电指令
+  MC->>ENV: 警灯+警示音乐开启
+  PP-->>MC: 充电完成(75s±3s)
+  ENV-->>MC: 音乐停止，警灯继续
+
+  Note over MC,ENV: ─── 同步触发阶段(5秒) ───
+  MC->>SYNC: T+0s 同步触发指令
+  MC->>PP: T+0s 泵浦触发准备
+  MC->>SW: T+0s 开关触发准备
+
+  Note over SYNC: T+0s 倒计时开始 5...4...3...
+
+  PP-->>SYNC: T+3s 泵浦触发就绪 ✅
+  SW-->>SYNC: T+3s 开关触发就绪 ✅
+
+  Note over SYNC: T+3s ...2...1...
+
+  SYNC->>SYNC: T+5s 正式触发! 60束同步
+  SYNC-->>MC: 触发完成
+
+  Note over MC,ENV: ─── 预电离阶段(后处理中) ───
+  MC->>PP: 预电离发射准备
+  MC->>PP: 预电离发射充电(75s±3s)
+  MC->>ENV: 警示音乐再次开启
+  MC->>SYNC: 同步触发(预电离)
+  MC->>PP: 泵浦触发准备(预电离)
+  SYNC-->>MC: 预电离触发完成
+</pre>
+</div>
+
+<div class="note">
+  关键约束：泵浦充电完成后不能长时间保持(安全风险)，必须尽快进入触发<br/>
+  T+3s 是硬约束：泵浦和开关必须在第3秒瞬间完成触发准备<br/>
+  异常处理：紧急停车 / 紧急触发 / 紧急泄放 / 紧急停充
+</div>
+
+<!-- ============================================================ -->
+<h2>四、靶场系统内部结构</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card">
+<pre class="mermaid">
+graph TB
+  subgraph CHAMBER["真空靶室"]
+    TARGET["靶丸<br/>(微米级)"]
+    VAC["真空靶室分系统(1)<br/>靶室真空度维持"]
+  end
+
+  subgraph ALIGN["靶瞄准定位系统(1)"]
+    A1["实验靶预定位"]
+    A2["模拟靶定位"]
+    A3["光束引导"]
+    A4["实验靶复位"]
+    A5["靶瞄进入打靶状态"]
+    A6["靶瞄数据分析"]
+    A7["靶瞄收靶"]
+  end
+
+  subgraph MEAS["测量取样组件(60套)"]
+    M1["测量靶瞄准备<br/>(授权切换)"]
+    M2["测量打靶运动准备"]
+    M3["打靶测量准备"]
+    M4["激光参数采集"]
+  end
+
+  subgraph DIAG["物理实验诊断分系统(1)"]
+    D1["诊断设备发射准备"]
+    D2["诊断采集设置"]
+    D3["物理诊断后处理<br/>数据入库·高压退电·DIM复位"]
+  end
+
+  subgraph DOOR["靶场边界"]
+    SD1["中子屏蔽门(1)<br/>开启/关闭/锁定"]
+    FD["风淋门(待定)"]
+    PC["人员进出计数(1)"]
+  end
+
+  A1 --> A2
+  A2 --> A3
+  A3 --> A4
+  A4 --> A5
+  A3 --> M2
+  A6 --> A7
+
+  M1 --> A2
+  M4 --> A6
+
+  A2 --> D1
+  D1 --> D2
+
+  PC -->|"人员归零"| SD1
+  SD1 -->|"锁闭"| SL["⚠️ 安全联锁"]
+  VAC -->|"真空度"| SL
+
+  60束激光 --> TARGET
+
+  style CHAMBER fill:#4a1a2e,stroke:#e94560,color:#fff
+  style ALIGN fill:#1a3a2e,stroke:#00b894,color:#fff
+  style MEAS fill:#1a2a3e,stroke:#0984e3,color:#fff
+  style DIAG fill:#2a1a3e,stroke:#a29bfe,color:#fff
+  style DOOR fill:#2d3436,stroke:#fdcb6e,color:#fff
+  style SL fill:#c0392b,color:#fff
+  style TARGET fill:#e94560,color:#fff
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2>五、安全联锁体系</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card">
+<pre class="mermaid">
+graph LR
+  subgraph ENTER["进入条件(AND)"]
+    E1["中子屏蔽门锁闭"]
+    E2["人员计数归零"]
+    E3["靶室真空度正常"]
+  end
+
+  SL["⚠️ 安全联锁<br/>全局生效"]
+
+  subgraph TRIGGER["触发源(OR)"]
+    T1["🚨 人员被困<br/>人工紧急停机"]
+    T2["🚨 真空度异常<br/>钛泵/靶室"]
+    T3["🚨 监控发现<br/>重大安全隐患"]
+  end
+
+  subgraph ACTION["触发动作"]
+    A1["向所有分系统<br/>下发流程终止"]
+    A2["中子屏蔽门<br/>解除锁定"]
+    A3["警灯警报<br/>触发"]
+  end
+
+  subgraph RELEASE["解除条件(AND)"]
+    R1["屏蔽门解除锁闭"]
+    R2["警灯/警报解除"]
+    R3["语音播报<br/>本次实验结束"]
+  end
+
+  E1 --> SL
+  E2 --> SL
+  E3 --> SL
+
+  T1 --> SL
+  T2 --> SL
+  T3 --> SL
+
+  SL --> A1
+  SL --> A2
+  SL --> A3
+
+  A1 --> RELEASE
+  A2 --> RELEASE
+  A3 --> RELEASE
+
+  style SL fill:#c0392b,stroke:#e74c3c,stroke-width:3px,color:#fff
+  style ENTER fill:#1a3a2e,stroke:#00b894,color:#fff
+  style TRIGGER fill:#4a1a2e,stroke:#e94560,color:#fff
+  style ACTION fill:#3a2a1e,stroke:#f39c12,color:#fff
+  style RELEASE fill:#1a2a3e,stroke:#0984e3,color:#fff
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2>六、完整发射流程状态机</h2>
+<!-- ============================================================ -->
+
+<div class="diagram-card" style="overflow-x:auto;">
+<pre class="mermaid">
+graph LR
+  START(("开始"))
+
+  PD["参数下发<br/>2s"]
+
+  subgraph PREP["发射准备 ~31.5min"]
+    direction TB
+
+    SYP["同步预放重频"]
+    SYM["同步测量重频"]
+    OUT["种子源/二倍频出光<br/>10min"]
+    PW["预放唤醒<br/>8min"]
+    EC["能量粗闭环<br/>2min"]
+    EF1["能量精闭环①<br/>2min"]
+
+    CL["清场语音<br/>5min"]
+    DOOR_C["屏蔽门关闭<br/>5min"]
+    WIND["风淋门锁住?"]
+    LR_A["光路准直<br/>10min"]
+
+    ETP["实验靶预定位<br/>5min"]
+    MTP["测量靶瞄准备<br/>5min"]
+    SIM["模拟靶定位<br/>5min"]
+    BG["光束引导<br/>3min"]
+    ETR["实验靶复位"]
+    TAS["靶瞄打靶状态"]
+    MMP["测量打靶运动准备"]
+    SMP["打靶运动准备"]
+
+    DIAG_P["诊断设备发射准备<br/>10min"]
+    PUMP_P["泵浦发射准备<br/>15s"]
+  end
+
+  AND{"发射准备<br/>全部完成<br/>(AND)"}
+
+  subgraph FIRE["正式发射 ~3.5min"]
+    direction TB
+
+    DC["诊断采集设置<br/>1min"]
+    CP["晶体位姿设置<br/>10s"]
+    FCP["发射充电准备<br/>15s"]
+    EF2["能量精闭环②<br/>2min"]
+    PSC["预放单次配方"]
+    EZ["能量计清零"]
+    MSC["测量单次配方"]
+    TMP["打靶测量准备<br/>1min"]
+    SC["开关充电<br/>15s"]
+    WL["警灯/警示音乐"]
+
+    CHG["发射充电<br/>75s±3s"]
+
+    ST["同步触发<br/>5s倒计时"]
+    PT["泵浦触发准备<br/>T+3s"]
+    KT["开关触发准备<br/>T+3s"]
+  end
+
+  DONE["正式发射完成"]
+
+  subgraph POST["发射后处理 ~25min"]
+    direction TB
+
+    PDP["物理诊断后处理<br/>10min"]
+    SLC["种子源/二倍频<br/>参数采集 3min"]
+    EDC["能量数据采集<br/>3min"]
+    PSB["预放待机"]
+    PDC1["泵浦数据采集<br/>60s"]
+    PST1["泵浦待机"]
+
+    subgraph PREION["预电离子流程"]
+      PIP["预电离发射准备"]
+      PIC["预电离充电<br/>75s±3s"]
+      PIST["同步触发(预)"]
+      PIPT["泵浦触发准备(预)"]
+      PIDC["泵浦数据采集(预)"]
+      PIST2["泵浦待机(预)"]
+    end
+
+    MLC["测量激光参数采集<br/>2min"]
+    TDA["靶瞄数据分析<br/>5min"]
+    TR["靶瞄收靶<br/>5min"]
+    DWC["放电波形采集<br/>5s"]
+    KSB["开关待机"]
+    BLOW["片放吹扫<br/>40min"]
+    LIGHT_OFF["警灯关闭"]
+  end
+
+  DOOR_O["屏蔽门打开"]
+  FINISH(("结束"))
+
+  START --> PD
+
+  PD --> SYP
+  PD --> SYM
+  PD --> OUT
+  PD --> CL
+  PD --> ETP
+  PD --> PUMP_P
+
+  SYP --> PW
+  OUT --> EC
+  PW --> EC
+  EC --> EF1
+  EF1 --> AND
+
+  SYM --> MTP
+  MTP --> SIM
+  ETP --> SIM
+  SIM --> BG
+  SIM --> DIAG_P
+  DIAG_P --> AND
+
+  CL --> DOOR_C
+  CL --> WIND
+  DOOR_C --> LR_A
+  WIND --> LR_A
+  OUT --> LR_A
+  PW --> LR_A
+  LR_A --> BG
+
+  BG --> ETR
+  ETR --> TAS
+  TAS --> AND
+  BG --> MMP
+  MMP --> AND
+  BG --> SMP
+  SMP --> AND
+  PUMP_P --> AND
+
+  AND --> DC
+  AND --> CP
+  AND --> FCP
+  AND --> EF2
+  AND --> MSC
+  AND --> SC
+
+  EF2 --> PSC --> EZ
+  MSC --> TMP
+  FCP --> WL
+
+  DC --> CHG
+  CP --> CHG
+  FCP --> CHG
+  EZ --> CHG
+  TMP --> CHG
+  SC --> CHG
+
+  CHG --> ST
+  CHG --> PT
+  CHG --> KT
+  WL --> ST
+  ST --> DONE
+  PT --> DONE
+  KT --> DONE
+
+  DONE --> PDP
+  DONE --> SLC
+  DONE --> EDC
+  DONE --> PDC1
+  DONE --> MLC
+  DONE --> TR
+  DONE --> DWC
+  DONE --> BLOW
+
+  EDC --> PSB
+  PDC1 --> PST1
+  PST1 --> PIP
+  PIP --> PIC
+  PIC --> PIST
+  PIC --> PIPT
+  PIST --> PIDC
+  PIPT --> PIDC
+  PIDC --> PIST2
+  PIDC --> LIGHT_OFF
+  MLC --> TDA
+  DWC --> KSB
+
+  PDP --> DOOR_O
+  SLC --> DOOR_O
+  PSB --> DOOR_O
+  PIST2 --> DOOR_O
+  LIGHT_OFF --> DOOR_O
+  TDA --> DOOR_O
+  TR --> DOOR_O
+  KSB --> DOOR_O
+  BLOW --> DOOR_O
+
+  DOOR_O --> FINISH
+
+  style START fill:#00b894,color:#fff
+  style FINISH fill:#00b894,color:#fff
+  style AND fill:#0984e3,color:#fff
+  style DONE fill:#e94560,color:#fff
+  style CHG fill:#d63031,color:#fff
+  style ST fill:#d63031,color:#fff
+  style PREP fill:#1a2a1e,stroke:#00b894,color:#fff
+  style FIRE fill:#2a1a1e,stroke:#e94560,color:#fff
+  style POST fill:#1a1a2e,stroke:#6c5ce7,color:#fff
+  style PREION fill:#2a1a3e,stroke:#a29bfe,color:#fff
+</pre>
+</div>
+
+<!-- ============================================================ -->
+<h2>七、分系统清单汇总</h2>
+<!-- ============================================================ -->
+
+<table>
+<tr><th>类别</th><th>分系统/组件</th><th>数量</th><th>接口</th><th>关键职责</th></tr>
+<tr><td rowspan="3">激光主光路</td><td>光纤种子源组件</td><td>1</td><td>Tango</td><td>60束种子光产生</td></tr>
+<tr><td>二倍频宽带激光注入组件</td><td>1</td><td>Tango</td><td>8束可选二倍频光</td></tr>
+<tr><td>再生与双程放大组件</td><td>10</td><td>Tango</td><td>预放大·能量闭环·每台6束</td></tr>
+<tr><td rowspan="2">主放大与转换</td><td>多程放大系统</td><td>60</td><td>Tango</td><td>主放大·光路准直</td></tr>
+<tr><td>频率转换分系统</td><td>60</td><td>Tango</td><td>晶体位姿·IR→UV</td></tr>
+<tr><td rowspan="3">驱动与时序</td><td>泵浦分系统</td><td>1</td><td>Tango</td><td>氙灯泵浦·充电·预电离</td></tr>
+<tr><td>开关驱动源组件</td><td>1</td><td>Tango</td><td>Pockels cell驱动·纳秒开关</td></tr>
+<tr><td>集中同步分系统</td><td>60</td><td>Tango</td><td>时序同步·触发倒计时</td></tr>
+<tr><td rowspan="4">靶场系统</td><td>靶瞄准定位系统</td><td>1</td><td>Tango</td><td>靶丸定位·光束引导·收靶</td></tr>
+<tr><td>测量取样组件</td><td>60</td><td>Tango</td><td>测量靶瞄·激光参数采集</td></tr>
+<tr><td>物理实验诊断分系统</td><td>1</td><td>Tango</td><td>中子/X射线/光谱诊断</td></tr>
+<tr><td>真空靶室分系统</td><td>1</td><td>Tango</td><td>靶室真空·联锁监测</td></tr>
+<tr><td rowspan="4">辅助与安全</td><td>冷却分系统</td><td>1</td><td>Tango</td><td>片放吹扫(40min)</td></tr>
+<tr><td>控制环境组件</td><td>1</td><td>HTTP</td><td>广播·警灯·警音</td></tr>
+<tr><td>屏蔽门控制接口</td><td>1</td><td>待定</td><td>中子屏蔽门开/关/锁</td></tr>
+<tr><td>人员进出计数接口</td><td>1</td><td>待定</td><td>人员归零判断</td></tr>
+</table>
+
+<div class="note" style="margin:24px 0; text-align:center; color:#666;">
+  15类分系统 · 380+套实体服务 · 60束线 · 扇出比 1→10→60
+</div>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#0f3460',
+    primaryTextColor: '#e0e0e0',
+    primaryBorderColor: '#e94560',
+    lineColor: '#636e72',
+    secondaryColor: '#16213e',
+    tertiaryColor: '#1a1a2e',
+    fontSize: '13px'
+  },
+  flowchart: { curve: 'basis', htmlLabels: true, nodeSpacing: 30, rankSpacing: 40 },
+  sequence: { mirrorActors: false, messageAlign: 'center' }
+});
+</script>
+
+</body>
+</html>

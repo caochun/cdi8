@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gxlf.example/flow-definition.schema.json",
+  "title": "GXLF Flow Definition",
+  "description": "激光发射控制流程 DSL 校验规则",
+  "type": "object",
+  "required": ["flow", "systems", "global_guards", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "flow": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+
+    "systems": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/system"
+      }
+    },
+
+    "global_guards": {
+      "type": "object",
+      "properties": {
+        "safety_interlock": { "$ref": "#/$defs/safety_interlock" },
+        "emergencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/emergency" }
+        }
+      }
+    },
+
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/template"
+      }
+    },
+
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
+    }
+  },
+
+  "$defs": {
+    "system": {
+      "type": "object",
+      "required": ["instances", "protocol"],
+      "properties": {
+        "instances": { "type": "integer", "minimum": 1 },
+        "protocol": { "type": "string", "enum": ["tango", "http", "tbd"] },
+        "fan_out": { "type": "string", "enum": ["by_beam_line", "by_beam_group", "broadcast"] },
+        "description": { "type": "string" }
+      }
+    },
+
+    "safety_interlock": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "enter_conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "check"],
+            "properties": {
+              "source": { "type": "string" },
+              "check": { "type": "string" },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "trigger_sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["manual", "auto"] },
+              "source": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "on_trigger": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["command", "target"],
+            "properties": {
+              "command": { "type": "string" },
+              "target": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "release_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "emergency": {
+      "type": "object",
+      "required": ["name", "action"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "window": { "type": "array", "items": { "type": "string" } },
+        "window_after": { "type": "array", "items": { "type": "string" } },
+        "window_during": { "type": "array", "items": { "type": "string" } },
+        "condition": { "type": "string" },
+        "action": {
+          "type": "object",
+          "required": ["command", "target"],
+          "properties": {
+            "command": { "type": "string" },
+            "target": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "template": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "params": { "type": "array", "items": { "type": "string" } },
+        "timed_sequence": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "parallel": { "type": "array" },
+              "require": { "type": "array" },
+              "action": { "type": "string" }
+            }
+          }
+        },
+        "on_timeout": { "type": "string" },
+        "total_duration": { "type": "string" }
+      }
+    },
+
+    "timeout_duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?(s|min)$",
+      "description": "时长格式：数字+单位(s或min)，如 2s, 10min, 1.5min"
+    },
+
+    "on_failure": {
+      "type": "object",
+      "required": ["strategy"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["retry", "pause", "abort", "skip", "emergency"]
+        },
+        "max_retries": { "type": "integer", "minimum": 0 },
+        "retry_interval": { "$ref": "#/$defs/timeout_duration" },
+        "on_max_retries": {
+          "type": "string",
+          "enum": ["pause", "abort", "skip", "emergency"]
+        },
+        "notify": { "type": "array", "items": { "type": "string" } },
+        "action": {
+          "type": "object",
+          "properties": {
+            "command": { "type": "string" },
+            "target": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "runtime_guard": {
+      "type": "object",
+      "properties": {
+        "service": { "type": "string" },
+        "node": { "type": "string" },
+        "interlock": { "type": "string" },
+        "check": { "type": "string" }
+      },
+      "required": ["check"]
+    },
+
+    "input_param": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["string", "number", "enum", "boolean", "object"] },
+        "values": { "type": "array" },
+        "mapping": { "type": "object" }
+      }
+    },
+
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^N[0-9]{2}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["action", "join", "timed_sequence"]
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "system": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            },
+            "fan_out": {
+              "type": "string",
+              "enum": ["broadcast", "by_beam_line", "by_beam_group"]
+            },
+            "completion": {
+              "type": "string",
+              "enum": ["all_success", "any_success", "majority"]
+            }
+          }
+        },
+        "command": { "type": "string" },
+        "call_mode": {
+          "type": "string",
+          "enum": ["sync", "async"]
+        },
+        "timeout": { "$ref": "#/$defs/timeout_duration" },
+        "input": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/input_param" }
+        },
+        "output": { "type": "object" },
+        "depends": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "runtime_guards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runtime_guard" }
+        },
+        "on_failure": { "$ref": "#/$defs/on_failure" },
+        "template": { "type": "string" },
+        "args": { "type": "object" },
+        "description": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "action" } } },
+          "then": { "required": ["id", "type", "target", "command", "call_mode", "timeout", "depends"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "join" } } },
+          "then": { "required": ["id", "type", "depends"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "timed_sequence" } } },
+          "then": { "required": ["id", "type", "depends"] }
+        }
+      ]
+    }
+  }
+}
