@@ -3,7 +3,7 @@ version: "0.2"
 status: draft_for_review
 language: zh-CN
 source:
-  flow_definition: "./gxlf-firing-flow.yaml"
+  flow_definition: "../gxlf-firing-flow.yaml"
   state_machine_model: "./service-state-machines.yaml"
   requirements_doc: "../../流程需求.docx"
   design_date: "2026-06-03"
@@ -121,7 +121,7 @@ status_callback_interface:
     - { name: beam_group_no, type: integer, required: false }
     - { name: service_health_state, type: string, required: true, enum: [unknown, offline, starting, running, busy, fault, maintenance, no_permission] }
     - { name: business_state, type: string, required: true }
-    - { name: task_state, type: string, required: true, enum: [accepted, executing, succeeded, failed, timeout, skipped, cancelled] }
+    - { name: task_state, type: string, required: true, enum: [accepted, executing, succeeded, failed, timeout, skipped, cancelled, rejected] }
     - { name: progress, type: number, required: false, range: "0..100" }
     - { name: result_code, type: integer, required: true }
     - { name: result_status, type: string, required: true, enum: [success, failed, no_permission, timeout, rejected, cancelled] }

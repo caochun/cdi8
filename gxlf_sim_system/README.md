@@ -36,6 +36,20 @@ Run the whole flow:
 python3 -m gxlf_sim_system run
 ```
 
+Write device lifecycle events to JSONL for timeline rendering:
+
+```bash
+python3 -m gxlf_sim_system run --lifecycle-log gxlf_sim_system/output/lifecycle.jsonl
+```
+
+Render the lifecycle log as an interactive HTML timeline:
+
+```bash
+python3 -m gxlf_sim_system timeline \
+  --input gxlf_sim_system/output/lifecycle.jsonl \
+  --output gxlf_sim_system/output/timeline.html
+```
+
 Validate the three model files against the simulator indexes:
 
 ```bash
@@ -54,6 +68,7 @@ Implemented:
 - Simulates synchronous and asynchronous command completion callbacks.
 - Executes the GXLF DAG with `all_success` aggregation.
 - Tracks per-instance `health_state`, `business_state`, and task history.
+- Writes per-device lifecycle events as JSONL for later timeline rendering.
 
 ## Runtime Compatibility Notes
 

@@ -88,6 +88,76 @@ class ServiceInstance:
 
 
 @dataclass
+class LifecycleEvent:
+    seq: int
+    timestamp: str
+    event_type: str
+    flow_instance_id: str = ""
+    shot_id: str = ""
+    stage_id: str = ""
+    node_id: str = ""
+    node_name: str = ""
+    command: str = ""
+    task_id: str = ""
+    system_name: str = ""
+    service_type: str = ""
+    service_id: str = ""
+    tango_fqdn: str = ""
+    instance_code: str = ""
+    beam_line_no: int | None = None
+    beam_group_no: int | None = None
+    health_state_before: str | None = None
+    health_state_after: str | None = None
+    business_state_before: str | None = None
+    business_state_after: str | None = None
+    task_state_before: str | None = None
+    task_state_after: str | None = None
+    result_status: str | None = None
+    sim_expected_duration_ms: int | None = None
+    sim_delay_seconds: float | None = None
+    sim_node_delay_seconds: float | None = None
+    sim_business_countdown_seconds: float | None = None
+    message: str = ""
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = {
+            "seq": self.seq,
+            "timestamp": self.timestamp,
+            "event_type": self.event_type,
+            "flow_instance_id": self.flow_instance_id,
+            "shot_id": self.shot_id,
+            "stage_id": self.stage_id,
+            "node_id": self.node_id,
+            "node_name": self.node_name,
+            "command": self.command,
+            "task_id": self.task_id,
+            "system_name": self.system_name,
+            "service_type": self.service_type,
+            "service_id": self.service_id,
+            "tango_fqdn": self.tango_fqdn,
+            "instance_code": self.instance_code,
+            "message": self.message,
+        }
+        optional = {
+            "beam_line_no": self.beam_line_no,
+            "beam_group_no": self.beam_group_no,
+            "health_state_before": self.health_state_before,
+            "health_state_after": self.health_state_after,
+            "business_state_before": self.business_state_before,
+            "business_state_after": self.business_state_after,
+            "task_state_before": self.task_state_before,
+            "task_state_after": self.task_state_after,
+            "result_status": self.result_status,
+            "sim_expected_duration_ms": self.sim_expected_duration_ms,
+            "sim_delay_seconds": self.sim_delay_seconds,
+            "sim_node_delay_seconds": self.sim_node_delay_seconds,
+            "sim_business_countdown_seconds": self.sim_business_countdown_seconds,
+        }
+        payload.update({key: value for key, value in optional.items() if value is not None})
+        return payload
+
+
+@dataclass
 class CommandRequest:
     shot_id: str
     stage_id: str
@@ -107,6 +177,7 @@ class CommandRequest:
     params: dict[str, Any] = field(default_factory=dict)
     issued_at: str = ""
     timeout_ms: int | None = None
+    sim_expected_duration_ms: int | None = None
 
     def to_payload(self) -> dict[str, Any]:
         payload = {
@@ -134,6 +205,8 @@ class CommandRequest:
             payload["selected_beam_groups"] = self.selected_beam_groups
         if self.timeout_ms is not None:
             payload["timeout_ms"] = self.timeout_ms
+        if self.sim_expected_duration_ms is not None:
+            payload["sim_expected_duration_ms"] = self.sim_expected_duration_ms
         return payload
 
 
@@ -193,4 +266,3 @@ class TaskCallback:
         if self.payload is not None:
             payload["payload"] = self.payload
         return payload
-

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from .models import CommandRequest, FlowNode, FlowStatus, NodeStatus, ServiceTarget
+from .models import CommandRequest, FlowNode, FlowStatus, NodeStatus, ServiceTarget, parse_duration
 from .service_sim import ModelConsistencyError, SimServiceRegistry, TangoSimAdapter
 
 
@@ -162,6 +162,11 @@ class FlowEngine:
         contract = self.node_contracts_by_id.get(node.node_id, {})
         selected_lines = sorted({t.beam_line_no for t in all_targets if t.beam_line_no is not None}) or None
         selected_groups = sorted({t.beam_group_no for t in all_targets if t.beam_group_no is not None}) or None
+        fanout_count = max(len(all_targets), 1)
+        params = self._default_params(contract)
+        params["_sim_fanout_count"] = fanout_count
+        if node.command == "SyncTrigger":
+            params["_sim_business_countdown_seconds"] = 5.0
         return CommandRequest(
             shot_id=self.shot_id,
             stage_id=node.stage,
@@ -178,10 +183,34 @@ class FlowEngine:
             beam_group_no=target.beam_group_no,
             selected_beam_lines=selected_lines,
             selected_beam_groups=selected_groups,
-            params=self._default_params(contract),
+            params=params,
             issued_at=utc_now(),
             timeout_ms=int(node.timeout_seconds * 1000) if node.timeout_seconds else None,
+            sim_expected_duration_ms=self._sim_expected_duration_ms(node),
         )
+
+    def _sim_expected_duration_ms(self, node: FlowNode) -> int | None:
+        timing = node.raw.get("timing") if isinstance(node.raw.get("timing"), dict) else {}
+        expected = parse_duration(timing.get("expected_duration"))
+        if expected <= 0:
+            expected = self._duration_from_timeout(node)
+        return int(expected * 1000) if expected > 0 else None
+
+    def _duration_from_timeout(self, node: FlowNode) -> float:
+        if node.timeout_seconds <= 0:
+            return 0.0
+        if node.call_mode == "sync":
+            return min(node.timeout_seconds * 0.25, 2.0)
+        return min(node.timeout_seconds * 0.5, 60.0)
+
+    def estimated_critical_path_duration_seconds(self) -> float:
+        durations: dict[str, float] = {}
+        for node in sorted(self.nodes.values(), key=lambda item: item.node_id):
+            own = self._sim_expected_duration_ms(node)
+            own_seconds = (own or 0) / 1000
+            dependency_seconds = max((durations.get(dep, 0.0) for dep in node.depends), default=0.0)
+            durations[node.name] = dependency_seconds + own_seconds
+        return max(durations.values(), default=0.0)
 
     def _default_params(self, contract: dict[str, Any]) -> dict[str, Any]:
         params: dict[str, Any] = {}

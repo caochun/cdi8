@@ -1,0 +1,26 @@
+diff --git a/node_modules/@react-three/fiber/dist/events-b389eeca.esm.js b/node_modules/@react-three/fiber/dist/events-b389eeca.esm.js
+index 76f308c..f60c7e1 100644
+--- a/node_modules/@react-three/fiber/dist/events-b389eeca.esm.js
++++ b/node_modules/@react-three/fiber/dist/events-b389eeca.esm.js
+@@ -13438,7 +13438,7 @@ Check the render method of %s.`, G(di) || "Unknown")), i = zo(n), i.payload = {
+           console.error(e);
+         },
+         Xm = Object.prototype.hasOwnProperty,
+-        Me = typeof console < "u" && typeof console.timeStamp == "function" && typeof performance < "u" && typeof performance.measure == "function",
++        Me = false,
+         fe = "Blocking",
+         yl = !1,
+         si = {
+diff --git a/node_modules/@react-three/fiber/dist/events-f19bcc32.cjs.dev.js b/node_modules/@react-three/fiber/dist/events-f19bcc32.cjs.dev.js
+index 07d45d4..ff4da84 100644
+--- a/node_modules/@react-three/fiber/dist/events-f19bcc32.cjs.dev.js
++++ b/node_modules/@react-three/fiber/dist/events-f19bcc32.cjs.dev.js
+@@ -13463,7 +13463,7 @@ Check the render method of %s.`, G(di) || "Unknown")), i = zo(n), i.payload = {
+           console.error(e);
+         },
+         Xm = Object.prototype.hasOwnProperty,
+-        Me = typeof console < "u" && typeof console.timeStamp == "function" && typeof performance < "u" && typeof performance.measure == "function",
++        Me = false,
+         fe = "Blocking",
+         yl = !1,
+         si = {

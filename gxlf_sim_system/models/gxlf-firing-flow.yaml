@@ -17,7 +17,7 @@ flow:
       - 光纤种子源组件
       - 二倍频宽带激光注入组件
       - 再生与双程放大组件
-      - 多程放大系统
+      - 多程放大组件
       - 泵浦分系统
       - 测量取样组件
       - 频率转换分系统
@@ -43,8 +43,38 @@ flow:
       expected_duration: 25min
       node_range: N38-N59
 
-  # [待确认] 60束线扇出(by_beam_line)部分失败时是否允许"降束发射"?
-  # 当前所有 by_beam_line 节点均采用 completion: all_success (最保守策略)。
+  # 分阶段异常处理策略（阶段默认 + 节点覆盖两层）
+  failure_handling:
+    stages:
+      - name: 发射准备
+        default_strategy: pause_no_compensation
+        description: >
+          准备阶段异常不触发补偿链。流程暂停，操作员选择终止或跳过继续。
+        operator_options: [abort, skip]
+        compensation_on_abort: false
+      - name: 正式发射
+        default_strategy: pause_with_options
+        description: >
+          正式发射阶段异常先暂停，由操作员人工选择重试或终止。
+          开关、泵浦发射充电异常不再直接终止流程。
+        operator_options: [abort, skip, retry]
+        critical_nodes:
+          strategy: terminate_with_compensation
+          release_interlock_after_compensation: true
+          nodes: [开关充电, 发射充电, 主发射同步触发, 主发射泵浦触发准备, 主发射开关触发准备]
+      - name: 发射后处理
+        default_strategy: retry_then_skip
+        description: >
+          后处理阶段数据采集类节点异常先暂停，操作员可选择跳过当前节点、
+          重试或终止。预电离发射充电异常暂停后可跳过整个预电离下游链路。
+        special_nodes:
+          - node: 预电离发射充电
+            strategy: pause_then_skip_downstream
+            immediate_action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+            skip_downstream: [预电离同步触发, 预电离泵浦触发准备, 预电离泵浦数据采集, 预电离泵浦待机]
+
+  # [待确认] 束线扇出(by_beam_line)部分失败时是否允许"降束发射"?
+  # 当前所有 by_beam_line/by_beam_group 节点均采用 completion: all_success (最保守策略)。
   # 若业务允许部分束线失败仍继续发射, 需改为 completion: partial_success + min_success_ratio。
 
   # [待确认] 安全联锁 release 阶段的"实验结束语音播报"缺少执行触发机制建模。
@@ -59,12 +89,8 @@ flow:
       continue - 确认继续执行（用于人工确认点或失败后重试）
       pause - 暂停流程等待进一步指示
       abort - 终止流程并触发补偿链
-    pause_timeout:
-      duration: 2min
-      on_timeout: abort
-      escalation:
-        - { at: 30s, level: warning, notify: [总控操作员], message: 暂停已持续30秒 }
-        - { at: 90s, level: critical, notify: [总控操作员, 值班主任], message: 暂停已持续90秒即将自动终止 }
+    decision_mode: manual
+    pause_timeout: null
 
   # 补偿策略（流程终止时的安全回退动作）
   compensation_policy:
@@ -156,11 +182,11 @@ systems:
     fan_out: by_beam_group
     description: 预放唤醒、能量闭环、能量数据采集、预放待机; 每台管6束
 
-  多程放大系统:
-    instances: 60
+  多程放大组件:
+    instances: 10
     protocol: tango
-    fan_out: by_beam_line
-    description: 光路准直; 每束1台
+    fan_out: by_beam_group
+    description: 光路准直、进入打靶状态; 共10台组件, 每台管6束
 
   泵浦分系统:
     instances: 1
@@ -171,7 +197,7 @@ systems:
     instances: 60
     protocol: tango
     fan_out: by_beam_line
-    description: 测量靶瞄准备、测量打靶运动准备、激光参数采集
+    description: 测量靶瞄准备、激光参数采集
 
   频率转换分系统:
     instances: 60
@@ -235,10 +261,10 @@ global_guards:
     enter_conditions:
       - { source: 中子屏蔽门, check: locked }
       - { source: 人员计数, check: zero }
-      - { source: 靶室真空度, check: normal, detail: 多程放大系统钛泵/靶室真空度 }
+      - { source: 靶室真空度, check: normal, detail: 多程放大组件钛泵/靶室真空度 }
     trigger_sources:
       - { name: 人员被困, type: manual, description: 人工触发紧急停机 }
-      - { name: 真空度异常, type: auto, source: 多程放大系统钛泵/靶室真空度 }
+      - { name: 真空度异常, type: auto, source: 多程放大组件钛泵/靶室真空度 }
       - { name: 监控发现隐患, type: manual, description: 语音视频监控发现重大安全隐患 }
     on_trigger:
       - command: FlowTerminate
@@ -494,7 +520,7 @@ nodes:
         - 光纤种子源组件
         - 二倍频宽带激光注入组件
         - 再生与双程放大组件
-        - 多程放大系统
+        - 多程放大组件
         - 泵浦分系统
         - 测量取样组件
         - 频率转换分系统
@@ -524,7 +550,8 @@ nodes:
       strategy: pause                # pause=暂停等人工; abort=直接中止
       notify: [总控操作员]            # 通知谁
     on_failure:                      # ── 节点执行失败策略 ──
-      strategy: pause                # pause/retry/emergency/skip
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:           # ── 人工干预选项(UI 上展示给操作员) ──
       allowed_actions: [continue, pause, abort]  # 可选动作
@@ -568,7 +595,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -610,7 +638,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -651,7 +680,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -695,7 +725,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -739,7 +770,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -783,7 +815,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -819,7 +852,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -859,7 +893,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -893,7 +928,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -933,7 +969,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -976,7 +1013,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1019,7 +1057,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1032,7 +1071,7 @@ nodes:
   # -- 6.14 光路准直 --------------------------------------------------------
   # [修正A2] 补充 depends: 靶场中子屏蔽门关闭、风淋门锁住(原文card遗漏, 链路清单有)
   # [修正] 原图card控制指令写成"模拟靶定位", 已确认修正为"光路准直"
-  # [修正] 原图card对接系统写成"多程放大组件(10)", 建模按多程放大系统(60)
+  # [修正] 业务确认对接系统为"多程放大组件(10)", 不再按60束线建模。
   光路准直:
     id: N14
     type: action
@@ -1040,8 +1079,8 @@ nodes:
     safety_scope: under_interlock
     dependency_policy: all_success
     target:
-      system: [多程放大系统]
-      fan_out: by_beam_line
+      system: [多程放大组件]
+      fan_out: by_beam_group
       completion: all_success
     command: BeamlineAlign
     call_mode: async
@@ -1057,10 +1096,11 @@ nodes:
       success_condition: "output.接收状态 == 1"
       aggregate: all_success
       allow_partial: false
-    depends: [靶场中子屏蔽门关闭, 风淋门锁住, 光纤种子源出光, 预放唤醒]
+    depends: [靶场中子屏蔽门关闭, 风淋门锁住, 光纤种子源出光, 预放唤醒, 能量粗闭环]
     runtime_guards:
       - { node: 预放唤醒, check: completed }
-      - { service: 多程放大系统, check: running }
+      - { node: 能量粗闭环, check: completed }
+      - { service: 多程放大组件, check: running }
       - { check: 片放吹扫停止 }
       - { node: 光纤种子源出光, check: completed }
       - { interlock: safety, check: normal }
@@ -1068,7 +1108,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1111,7 +1152,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1152,7 +1194,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1192,16 +1235,63 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 1s
-      on_max_retries: pause
+      on_max_retries: pause_no_compensation
+      pause_options: [abort, skip]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
       confirm_required: false
     description: 总控系统下发"靶瞄进入打靶状态"指令。
 
-  # -- 6.18 测量打靶运动准备 ------------------------------------------------
-  测量打靶运动准备:
+  # -- 6.18 进入打靶状态 ----------------------------------------------------
+  进入打靶状态:
     id: N18
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [多程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnterShotState
+    call_mode: async
+    timeout: 3s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [光束引导]
+    runtime_guards:
+      - { node: 光束引导, check: completed }
+      - { service: 多程放大组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause_no_compensation
+      options: [abort, skip]
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"进入打靶状态"指令, 多程放大组件接收并反馈。
+      该节点与"打靶运动准备"同依赖光束引导, 在发射准备阶段并行执行。
+
+  # -- 6.19 打靶运动准备 ----------------------------------------------------
+  # [业务确认] 对接测量取样组件(60), 控制指令为"测量打靶运动准备"。
+  打靶运动准备:
+    id: N19
     type: action
     stage: 发射准备
     safety_scope: under_interlock
@@ -1219,7 +1309,10 @@ nodes:
       - { name: 流程任务编号, type: string }
       - { name: 节点编号, type: string }
     output:
-      接收状态: { type: enum, values: [0, 1, 2] }
+      接收状态:
+        type: enum
+        values: [0, 1, 2]
+        mapping: { 0: 失败, 1: 收到, 2: 无服务权限 }
     completion_criteria:
       success_condition: "output.接收状态 == 1"
       aggregate: all_success
@@ -1233,56 +1326,15 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
-      notify: [总控操作员]
-    operator_intervention:
-      allowed_actions: [continue, pause, abort]
-      default_action: continue
-      confirm_required: false
-    description: 总控系统下发"测量打靶运动准备"指令, 测量取样组件接收并反馈。
-
-  # -- 6.19 打靶运动准备 ----------------------------------------------------
-  # [修正D3] 文档确认为独立节点但缺少card, 基于测量打靶运动准备构造, 标注待确认
-  打靶运动准备:
-    id: N19
-    type: action
-    stage: 发射准备
-    safety_scope: under_interlock
-    dependency_policy: all_success
-    target:
-      system: [测量取样组件]    # 待确认: 可能是独立系统
-      fan_out: by_beam_line
-      completion: all_success
-    command: ShotMotionReady     # 待确认
-    call_mode: async
-    timeout: 1.5min             # 待确认
-    input:
-      - { name: 发次编号, type: string }
-      - { name: 阶段编号, type: string }
-      - { name: 流程任务编号, type: string }
-      - { name: 节点编号, type: string }
-    output:
-      接收状态: { type: enum, values: [0, 1, 2] }
-    completion_criteria:
-      success_condition: "output.接收状态 == 1"
-      aggregate: all_success
-      allow_partial: false
-    depends: [光束引导]
-    runtime_guards:
-      - { node: 光束引导, check: completed }
-      - { interlock: safety, check: normal }
-    guard_failure_policy:
-      strategy: pause
-      notify: [总控操作员]
-    on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
       confirm_required: false
     description: >
-      [待确认] 文档第1章和第4章确认为独立结果链路, 但第6章缺少独立card。
-      当前基于"测量打靶运动准备"构造, 对接系统和参数需后续确认。
+      总控系统下发"测量打靶运动准备"指令, 测量取样组件接收并反馈。
+      依据发次编号、阶段编号、流程任务编号、节点编号返回接收状态。
 
   # -- 6.20 诊断设备发射准备 ------------------------------------------------
   # [修正B3] 补充 interlock guard(原文card遗漏)
@@ -1317,7 +1369,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1356,7 +1409,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1379,7 +1433,7 @@ nodes:
       - 能量精闭环_1
       - 诊断设备发射准备
       - 靶瞄进入打靶状态
-      - 测量打靶运动准备
+      - 进入打靶状态
       - 打靶运动准备
       - 光纤种子源出光
       - 泵浦发射准备
@@ -1391,15 +1445,16 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_no_compensation
+      options: [abort, skip]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
       confirm_required: true
     description: >
       AND汇合点, 不下发控制指令。所有准备链路完成后通过。
-      readiness: 诊断设备发射准备完成、测量进入打靶运动准备、靶瞄进入打靶状态、
-      多程放大系统光路准直完成(隐含于光束引导->靶瞄打靶状态链路)、种子源或二倍频出光、
+      readiness: 诊断设备发射准备完成、打靶运动准备、靶瞄进入打靶状态、进入打靶状态、
+      多程放大组件光路准直完成(隐含于光束引导->靶瞄打靶状态链路)、种子源或二倍频出光、
       再生与双程放大唤醒及能量闭环完成、各系统服务运行状态正常、安全联锁状态正常、
       泵浦发射准备状态正常。
 
@@ -1440,7 +1495,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_with_options
+      options: [abort, skip, retry]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1484,7 +1540,8 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 2s
-      on_max_retries: pause
+      on_max_retries: pause_with_options
+      pause_options: [abort, skip, retry]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1523,7 +1580,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_with_options
+      options: [abort, skip, retry]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1566,7 +1624,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_with_options
+      options: [abort, skip, retry]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1612,7 +1671,8 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 2s
-      on_max_retries: pause
+      on_max_retries: pause_with_options
+      pause_options: [abort, skip, retry]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1657,7 +1717,8 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 1s
-      on_max_retries: pause
+      on_max_retries: pause_with_options
+      pause_options: [abort, skip, retry]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1700,7 +1761,8 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 2s
-      on_max_retries: pause
+      on_max_retries: pause_with_options
+      pause_options: [abort, skip, retry]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1742,7 +1804,8 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_with_options
+      options: [abort, skip, retry]
       notify: [总控操作员]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
@@ -1781,8 +1844,10 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: pause
+      strategy: pause_with_options
+      options: [retry, abort]
       notify: [总控操作员]
+    release_interlock_after_compensation: true
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1828,7 +1893,8 @@ nodes:
       strategy: retry
       max_retries: 3
       retry_interval: 1s
-      on_max_retries: pause
+      on_max_retries: pause_with_options
+      pause_options: [abort, skip, retry]
     operator_intervention:
       allowed_actions: [continue, pause, abort]
       default_action: continue
@@ -1858,8 +1924,8 @@ nodes:
     command: PumpCharge
     call_mode: async
     timing:                          # ── 精确时间约束(安全关键节点专用) ──
-      expected_duration: 75s         # 预期执行时长
-      tolerance: 3s                  # 允许偏差(75±3s)
+      expected_duration: 78s         # 预期执行时长
+      tolerance: 3s                  # 允许偏差(78±3s)
       hard_deadline: true            # true=超时即触发紧急处理, 不等重试
     input:
       - { name: 发次编号, type: string }
@@ -1877,17 +1943,19 @@ nodes:
       - { service: 泵浦分系统, check: running }
       - { interlock: safety, check: normal }
     guard_failure_policy:
-      strategy: abort                # 充电前守卫失败直接中止(不暂停等待)
+      strategy: pause                # 充电前守卫失败暂停等待人工决策
       notify: [总控操作员]
     on_failure:
-      strategy: emergency            # emergency=触发紧急处理动作
-      action: { command: EmergencyStopCharge, target: 泵浦分系统 }  # 紧急停充
+      strategy: pause_with_options   # 充电异常先暂停, 由操作员选择重试或终止
+      options: [retry, abort]
+      notify: [总控操作员]
+    release_interlock_after_compensation: true
     safety_critical: true            # ── 标记为安全关键节点 ──
     hold_constraint:                 # ── 完成后保持时间约束(充电态不可久持) ──
       max_hold_time: 30s             # [待确认] 30s数值无文档来源, 需业务方确认
       on_hold_exceeded: emergency_discharge  # 超时则紧急泄放
     description: >
-      泵浦充电完成无法长时间保持, 且具有安全风险。执行时长75s+-3s。
+      泵浦充电完成无法长时间保持, 且具有安全风险。执行时长78s+-3s。
 
   # -- 6.34 主发射同步触发 -------------------------------------------------------
   主发射同步触发:
@@ -1931,6 +1999,7 @@ nodes:
       default_action: abort
       confirm_required: true
     safety_critical: true
+    release_interlock_after_compensation: true
     description: >
       同步系统接收触发指令后, 控制音响装置进行倒计时5秒, 在第五秒完成触发。
       依据束线编号识别需要控制的系统服务。
@@ -1976,6 +2045,7 @@ nodes:
       default_action: abort
       confirm_required: true
     safety_critical: true
+    release_interlock_after_compensation: true
     description: >
       与同步同时接收指令, 在同步倒计时第三秒时完成触发准备。
       依据束线编号识别需要控制的系统服务。
@@ -2022,6 +2092,7 @@ nodes:
       default_action: abort
       confirm_required: true
     safety_critical: true
+    release_interlock_after_compensation: true
     description: >
       与同步同时接收指令, 在同步倒计时第三秒时完成触发准备。
 
@@ -2080,9 +2151,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
     description: 数据采集入库, 高压电源退电、DIM的复位。
 
   # -- 6.39 种子源/二倍频激光参数采集 ----------------------------------------
@@ -2116,9 +2187,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.40 能量数据采集 ----------------------------------------------------
   能量数据采集:
@@ -2151,9 +2222,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
     description: 根据束线编号调用对应再生与双程放大系统服务。
 
   # -- 6.41 预放待机 --------------------------------------------------------
@@ -2182,15 +2253,14 @@ nodes:
       allow_partial: true
     depends: [能量数据采集]
     runtime_guards:
-      - { node: 能量数据采集, check: completed }
       - { service: 再生与双程放大组件, check: running }
     guard_failure_policy:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.42 主发射后泵浦数据采集 --------------------------------------------
   # [修正D1] 加前缀"主发射"区分
@@ -2223,9 +2293,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.43 主发射后泵浦待机 ------------------------------------------------
   主发射泵浦待机:
@@ -2251,7 +2321,6 @@ nodes:
       allow_partial: true
     depends: [主发射泵浦数据采集]
     runtime_guards:
-      - { node: 主发射泵浦数据采集, check: completed }
       - { service: 泵浦分系统, check: running }
     guard_failure_policy:
       strategy: pause
@@ -2314,7 +2383,7 @@ nodes:
     command: PreIonCharge
     call_mode: async
     timing:
-      expected_duration: 75s
+      expected_duration: 78s
       tolerance: 3s
       hard_deadline: true
     input:
@@ -2335,8 +2404,10 @@ nodes:
       strategy: abort
       notify: [总控操作员]
     on_failure:
-      strategy: emergency
-      action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+      strategy: pause_then_skip_downstream
+      immediate_action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+      skip_nodes: [预电离同步触发, 预电离泵浦触发准备, 预电离泵浦数据采集, 预电离泵浦待机]
+      notify: [总控操作员]
     safety_critical: true
     hold_constraint:
       max_hold_time: 30s             # [待确认] 30s数值无文档来源, 需业务方确认
@@ -2345,7 +2416,7 @@ nodes:
       music_auto_stop:
         trigger: { node: 预电离发射充电, event: completed }
         action: stop_music
-    description: 充电完成后, 音乐停止。执行时长75s+-3s。
+    description: 充电完成后, 音乐停止。执行时长78s+-3s。
 
   # -- 6.46 预电离警示音乐开启 ----------------------------------------------
   预电离警示音乐开启:
@@ -2505,9 +2576,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.50 预电离后泵浦待机 ------------------------------------------------
   预电离泵浦待机:
@@ -2534,7 +2605,6 @@ nodes:
       allow_partial: true
     depends: [预电离泵浦数据采集]
     runtime_guards:
-      - { node: 预电离泵浦数据采集, check: completed }
       - { service: 泵浦分系统, check: running }
     guard_failure_policy:
       strategy: pause
@@ -2568,7 +2638,6 @@ nodes:
       allow_partial: true
     depends: [预电离泵浦数据采集]
     runtime_guards:
-      - { node: 预电离泵浦数据采集, check: completed }
       - { interlock: safety, check: normal }
       - { service: 控制环境组件, check: running }
     guard_failure_policy:
@@ -2610,9 +2679,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.53 靶瞄数据分析 ----------------------------------------------------
   靶瞄数据分析:
@@ -2636,18 +2705,17 @@ nodes:
     completion_criteria:
       success_condition: "output.接收状态 == 1"
       allow_partial: true
-    depends: [激光参数采集]
+    depends: [激光参数采集, 靶瞄收靶]  # v0.2修: 数据分析在收靶(N54)之后,且需激光参数采集数据
     runtime_guards:
-      - { node: 激光参数采集, check: completed }
       - { interlock: safety, check: normal }
       - { service: 靶瞄准定位系统, check: running }
     guard_failure_policy:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.54 靶瞄收靶 --------------------------------------------------------
   靶瞄收靶:
@@ -2711,9 +2779,9 @@ nodes:
       strategy: pause
       notify: [总控操作员]
     on_failure:
-      strategy: retry
-      max_retries: 2
-      on_max_retries: skip
+      strategy: pause_with_options
+      options: [skip, retry, abort]
+      notify: [总控操作员]
 
   # -- 6.56 开关待机 --------------------------------------------------------
   开关待机:
@@ -2739,7 +2807,6 @@ nodes:
       allow_partial: true
     depends: [放电波形采集]
     runtime_guards:
-      - { node: 放电波形采集, check: completed }
       - { service: 开关驱动源组件, check: running }
     guard_failure_policy:
       strategy: pause
@@ -2762,7 +2829,7 @@ nodes:
       completion: all_success
     command: SlabPurge
     call_mode: async
-    timeout: 40min
+    timeout: 2s
     input:
       - { name: 发次编号, type: string }
       - { name: 阶段编号, type: string }

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from .contracts import ContractError, ContractValidator, make_error
+from .lifecycle import LifecycleLogger
 from .models import ServiceInstance, ServiceTarget, TaskCallback
 
 SYSTEM_ALIASES = {
@@ -22,6 +25,13 @@ def utc_now() -> str:
 
 class ModelConsistencyError(ValueError):
     pass
+
+
+@dataclass(frozen=True)
+class SimTimingConfig:
+    time_scale: float = 0.0
+    min_delay_seconds: float = 0.0
+    max_delay_seconds: float = 5.0
 
 
 class SimServiceRegistry:
@@ -156,11 +166,15 @@ class TangoSimAdapter:
         registry: SimServiceRegistry,
         state_machine_model: dict[str, Any],
         validator: ContractValidator,
+        lifecycle_logger: LifecycleLogger | None = None,
+        timing: SimTimingConfig | None = None,
     ):
         self.registry = registry
         self.state_machine_model = state_machine_model
         self.validator = validator
         self.templates = state_machine_model.get("service_type_templates") or {}
+        self.lifecycle_logger = lifecycle_logger
+        self.timing = timing or SimTimingConfig()
 
     def command_inout(self, command_name: str, dev_string_json: str) -> tuple[str, list[dict[str, Any]]]:
         payload = json.loads(dev_string_json)
@@ -192,11 +206,13 @@ class TangoSimAdapter:
         payload: dict[str, Any],
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         if instance.health_state != "running":
+            self._log_rejected(instance, payload, command_name, "service is not running")
             return self._accept_rejected(payload, command_name, "SERVICE_NOT_RUNNING", "service is not running"), []
 
         template = self.templates[instance.service_type]
         command_def = (template.get("commands") or {}).get(command_name)
         if not command_def:
+            self._log_rejected(instance, payload, command_name, f"{instance.service_type}.{command_name} is not defined")
             return self._accept_rejected(
                 payload,
                 command_name,
@@ -212,6 +228,7 @@ class TangoSimAdapter:
             and instance.business_state not in allowed_from
             and not self._is_compatible_transition(instance, command_name)
         ):
+            self._log_rejected(instance, payload, command_name, f"{instance.business_state} cannot accept {command_name}")
             return self._accept_rejected(
                 payload,
                 command_name,
@@ -219,12 +236,41 @@ class TangoSimAdapter:
                 f"{instance.business_state} cannot accept {command_name}",
             ), []
 
+        payload["sim_node_delay_seconds"] = self._sim_node_delay_seconds(payload, command_def)
+        payload["sim_delay_seconds"] = self._sim_delay_seconds(payload, command_def)
+        payload["sim_business_countdown_seconds"] = self._sim_business_countdown_seconds(payload, command_name)
         instance.task_seq += 1
         task_id = f"{payload['shot_id']}.{payload['node_id']}.{instance.instance_code}.{instance.task_seq}"
         instance.current_task_id = task_id
+        health_before = instance.health_state
+        business_before = instance.business_state
+        self._log(
+            "command_received",
+            instance,
+            payload,
+            task_id,
+            health_before=health_before,
+            health_after=instance.health_state,
+            business_before=business_before,
+            business_after=instance.business_state,
+            task_before=None,
+            task_after="created",
+        )
         instance.health_state = "busy"
         next_business_state = transition.get("to", instance.business_state)
         instance.business_state = next_business_state
+        self._log(
+            "state_transition",
+            instance,
+            payload,
+            task_id,
+            health_before=health_before,
+            health_after=instance.health_state,
+            business_before=business_before,
+            business_after=instance.business_state,
+            task_before="created",
+            task_after="accepted",
+        )
 
         accept = {
             "accepted": True,
@@ -240,14 +286,45 @@ class TangoSimAdapter:
         task_mode = command_def.get("task_mode", payload.get("call_mode", "sync"))
         callbacks: list[dict[str, Any]] = []
         callbacks.append(self._callback(payload, instance, task_id, command_name, "accepted", "success", 1, 0))
+        self._log("task_state_changed", instance, payload, task_id, task_before="created", task_after="accepted", result_status="success")
         if task_mode == "async":
             callbacks.append(self._callback(payload, instance, task_id, command_name, "executing", "success", 1, 50))
+            self._log("task_state_changed", instance, payload, task_id, task_before="accepted", task_after="executing", result_status="success")
+            self._sleep_for_command(payload, command_def)
 
+        completion_business_before = instance.business_state
         completion_transition = command_def.get("completion_transition")
         if completion_transition:
             instance.business_state = completion_transition.get("to", instance.business_state)
+            self._log(
+                "state_transition",
+                instance,
+                payload,
+                task_id,
+                health_before=instance.health_state,
+                health_after=instance.health_state,
+                business_before=completion_business_before,
+                business_after=instance.business_state,
+                task_before="executing" if task_mode == "async" else "accepted",
+                task_after="executing" if task_mode == "async" else "accepted",
+                message="completion_transition",
+            )
+        final_health_before = instance.health_state
         instance.health_state = "running"
         callbacks.append(self._callback(payload, instance, task_id, command_name, "succeeded", "success", 0, 100))
+        self._log(
+            "task_state_changed",
+            instance,
+            payload,
+            task_id,
+            health_before=final_health_before,
+            health_after=instance.health_state,
+            business_before=instance.business_state,
+            business_after=instance.business_state,
+            task_before="executing" if task_mode == "async" else "accepted",
+            task_after="succeeded",
+            result_status="success",
+        )
         instance.current_task_id = None
         instance.history.append(
             {
@@ -260,6 +337,113 @@ class TangoSimAdapter:
             }
         )
         return accept, callbacks
+
+    def _sleep_for_command(self, payload: dict[str, Any], command_def: dict[str, Any]) -> None:
+        delay = float(payload.get("sim_delay_seconds") or 0)
+        if delay > 0:
+            time.sleep(delay)
+
+    def _sim_delay_seconds(self, payload: dict[str, Any], command_def: dict[str, Any]) -> float:
+        raw_duration = self._command_sim_duration(command_def)
+        if raw_duration <= 0:
+            raw_duration = float(payload.get("sim_expected_duration_ms") or 0) / 1000
+        if raw_duration <= 0 or self.timing.time_scale <= 0:
+            return 0.0
+        fanout_count = self._sim_fanout_count(payload)
+        delay = self._sim_node_delay_seconds(payload, command_def) / fanout_count
+        delay = max(delay, self.timing.min_delay_seconds)
+        return min(delay, self.timing.max_delay_seconds)
+
+    def _sim_node_delay_seconds(self, payload: dict[str, Any], command_def: dict[str, Any]) -> float:
+        raw_duration = self._command_sim_duration(command_def)
+        if raw_duration <= 0:
+            raw_duration = float(payload.get("sim_expected_duration_ms") or 0) / 1000
+        if raw_duration <= 0 or self.timing.time_scale <= 0:
+            return 0.0
+        delay = raw_duration * self.timing.time_scale
+        return min(delay, self.timing.max_delay_seconds)
+
+    def _sim_fanout_count(self, payload: dict[str, Any]) -> int:
+        params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+        try:
+            return max(1, int(params.get("_sim_fanout_count") or 1))
+        except (TypeError, ValueError):
+            return 1
+
+    def _sim_business_countdown_seconds(self, payload: dict[str, Any], command_name: str) -> float | None:
+        if command_name != "SyncTrigger":
+            return None
+        params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
+        try:
+            return float(params.get("_sim_business_countdown_seconds") or 5.0)
+        except (TypeError, ValueError):
+            return 5.0
+
+    def _command_sim_duration(self, command_def: dict[str, Any]) -> float:
+        sim_timing = command_def.get("sim_timing")
+        if isinstance(sim_timing, dict):
+            for key in ("compressed_duration", "duration", "expected_duration"):
+                value = sim_timing.get(key)
+                if value is not None:
+                    from .models import parse_duration
+
+                    return parse_duration(value)
+        timeout = command_def.get("timeout")
+        if timeout:
+            from .models import parse_duration
+
+            return parse_duration(timeout)
+        return 0.0
+
+    def _log(
+        self,
+        event_type: str,
+        instance: ServiceInstance,
+        payload: dict[str, Any],
+        task_id: str = "",
+        health_before: str | None = None,
+        health_after: str | None = None,
+        business_before: str | None = None,
+        business_after: str | None = None,
+        task_before: str | None = None,
+        task_after: str | None = None,
+        result_status: str | None = None,
+        message: str = "",
+    ) -> None:
+        if not self.lifecycle_logger:
+            return
+        self.lifecycle_logger.emit(
+            event_type,
+            instance,
+            payload,
+            task_id=task_id,
+            health_before=health_before,
+            health_after=health_after,
+            business_before=business_before,
+            business_after=business_after,
+            task_before=task_before,
+            task_after=task_after,
+            result_status=result_status,
+            message=message,
+        )
+
+    def _log_rejected(self, instance: ServiceInstance, payload: dict[str, Any], command_name: str, message: str) -> None:
+        payload = dict(payload)
+        payload["command"] = command_name
+        self._log(
+            "command_rejected",
+            instance,
+            payload,
+            task_id=payload.get("flow_task_id", ""),
+            health_before=instance.health_state,
+            health_after=instance.health_state,
+            business_before=instance.business_state,
+            business_after=instance.business_state,
+            task_before="created",
+            task_after="rejected",
+            result_status="rejected",
+            message=message,
+        )
 
     def _is_compatible_transition(self, instance: ServiceInstance, command_name: str) -> bool:
         if instance.service_type == "sync":

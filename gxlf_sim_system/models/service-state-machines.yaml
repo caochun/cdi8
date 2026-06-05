@@ -3,7 +3,7 @@ version: "0.2"
 status: draft_for_review
 language: zh-CN
 source:
-  flow_definition: "./gxlf-firing-flow.yaml"
+  flow_definition: "../gxlf-firing-flow.yaml"
   requirements_doc: "../../流程需求.docx"
   design_date: "2026-06-03"
   design_scope:
@@ -572,7 +572,8 @@ service_type_templates:
     commands:
       ParamDispatch:
         # v0.2 P0 多发次: 接受上一发稳定终态 retracted/safe_returned 重入
-        transition: { from: [idle, parameterized, retracted, safe_returned], to: parameterized }
+        # v0.2修(多发次): 靶瞄一发终态 analysing,允许重入下一发
+        transition: { from: [idle, parameterized, retracted, safe_returned, analysing], to: parameterized }
         task_mode: sync
         idempotent: true
       ExpTargetPrePosition:
@@ -592,7 +593,8 @@ service_type_templates:
         transition: { from: [exp_target_reset], to: shot_mode }
         task_mode: async
       TargetDataAnalysis:
-        transition: { from: [shot_mode, beam_guided], to: analysing }
+        # v0.2修: 靶瞄数据分析在收靶(retracted)之后进行(用户确认)
+        transition: { from: [shot_mode, beam_guided, retracted], to: analysing }
         task_mode: async
         idempotent: true
         on_exception: "pause; operator may skip current data collection/analysis node"
@@ -678,16 +680,20 @@ service_type_templates:
         transition: { from: [parameterized, preamp_reprate_loaded], to: preamp_reprate_loaded }
         task_mode: sync
       SyncMeasRepRateRecipe:
-        transition: { from: [parameterized, meas_reprate_loaded], to: meas_reprate_loaded }
+        # v0.2修: 预放重频已加载后再加载测量重频(配方链衔接)
+        transition: { from: [parameterized, preamp_reprate_loaded, meas_reprate_loaded], to: meas_reprate_loaded }
         task_mode: sync
       PreampSingleShotRecipe:
-        transition: { from: [preamp_reprate_loaded, parameterized], to: preamp_single_loaded }
+        # v0.2修: 两个重频配方加载后再加载预放单次(配方链衔接)
+        transition: { from: [preamp_reprate_loaded, meas_reprate_loaded, meas_single_loaded, parameterized], to: preamp_single_loaded }
         task_mode: sync
       MeasSingleShotRecipe:
-        transition: { from: [meas_reprate_loaded, parameterized], to: meas_single_loaded }
+        # v0.2修: 预放单次后再加载测量单次(配方链衔接)
+        transition: { from: [meas_reprate_loaded, preamp_single_loaded, parameterized], to: meas_single_loaded }
         task_mode: sync
       SyncTrigger:
-        transition: { from: [preamp_single_loaded, meas_single_loaded, parameterized], to: trigger_countdown }
+        # v0.2修: 主发射triggered后预电离阶段可再触发(用户确认选a)
+        transition: { from: [preamp_single_loaded, meas_single_loaded, parameterized, triggered], to: trigger_countdown }
         completion_transition: { from: trigger_countdown, to: triggered }
         task_mode: async
         idempotent: false   # v0.2 P1: 触发非幂等
@@ -767,14 +773,16 @@ service_type_templates:
     business_states: [idle, clearing, warning_active, music_active, warning_off, alarm_active, fault]
     commands:
       AreaClearAnnounce:
-        transition: { from: [idle], to: clearing }
+        # v0.2修(多发次): 环境控制一发终态 warning_off,下一发清场可重入
+        transition: { from: [idle, warning_off], to: clearing }
         task_mode: async
       WarningLightAndMusic:
         transition: { from: [idle, clearing, warning_off], to: music_active }
         completion_transition: { from: music_active, to: warning_active }
         task_mode: async
       WarningMusicOn:
-        transition: { from: [warning_off, idle], to: music_active }
+        # v0.2修: 主发射警示音乐已激活后,预电离阶段再开警示音乐
+        transition: { from: [warning_off, idle, warning_active], to: music_active }
         completion_transition: { from: music_active, to: warning_active }
         task_mode: sync
       WarningLightOff:

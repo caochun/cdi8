@@ -20,6 +20,7 @@ env/
 
 # 日志
 *.log
+gxlf_sim_system/output/
 
 # IDE
 .idea/
