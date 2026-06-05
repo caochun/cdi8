@@ -1,0 +1,1507 @@
+kind: GXLFInterfaceContractTable
+version: "0.2"
+status: draft_for_review
+language: zh-CN
+source:
+  flow_definition: "./gxlf-firing-flow.yaml"
+  state_machine_model: "./service-state-machines.yaml"
+  requirements_doc: "../../流程需求.docx"
+  design_date: "2026-06-03"
+  architecture_boundary:
+    interaction_chain:
+      - "集中管控系统通过 Tango 向系统服务实例下发 command。"
+      - "系统服务实例接收 command，并由系统服务自行控制其背后的真实物理设备。"
+      - "系统服务实例通过集中管控系统注册的状态返回接口反馈执行状态、服务健康状态和对外业务状态。"
+      - "集中管控系统根据状态返回更新流程节点状态、服务状态仓库和 pending 人工决策。"
+    in_scope:
+      - "集中管控系统与 Tango 系统服务实例之间的 command 契约。"
+      - "系统服务实例调用集中管控注册状态返回接口的字段契约。"
+      - "服务实例健康状态、任务状态、对外业务状态、错误码和 pending 策略。"
+    out_of_scope:
+      - "系统服务实例到真实物理设备的控制协议、内部状态机和物理设备状态。"
+  current_confirmed_scope:
+    - "接口名称、实例数量、扇出方式优先采用当前确认口径和 flow/gxlf-firing-flow.yaml。"
+    - "需求文档中的中文接口名保留为 business_instruction；真实 Tango/API 方法名由本文件 command 统一定义。"
+    - "每个 fan-out 目标实例都必须 success，节点才算完成。"
+    - "所有异常先进入 pending，由人工决策；数据采集类节点允许 skip 当前节点。"
+    - "v0.2: 发次完全串行——一发走到 N59(结束) 才能开下一发；能量计清零与各数据采集均归属当前发。"
+
+contract_conventions:
+  tango_method_signature:
+    argin_type: DevString
+    argin_encoding: JSON
+    argout_type: DevString
+    argout_encoding: JSON
+    rule: "每个 command 的 Tango 方法名使用本表 command 字段；入参统一为单个 JSON 字符串，避免多语言/多参数顺序不一致。"
+    adapter_projection: "如真实 Tango 系统服务已有固定多参数方法，adapter_method 可覆盖 command，并由适配层按本契约 JSON 字段展开。"
+  instance_selection:
+    broadcast:
+      rule: "对目标系统选择全部配置实例；单实例系统为 svc01，多实例系统可由适配层优化为系统级广播，但完成判据仍按全部实例 success 聚合。"
+    by_beam_line:
+      rule: "默认选择 bl01-bl60；如流程配方指定束线子集，则 selected_beam_lines 必须显式传入。"
+      instance_count: 60
+    by_beam_group:
+      rule: "默认选择 bg01-bg10；如流程配方指定束组子集，则 selected_beam_groups 必须显式传入。"
+      instance_count: 10
+  completion_policy:
+    aggregate: all_success
+    partial_success: "不作为节点完成；任一实例失败/拒绝/无权限/超时都进入 pending。"
+  pending_policy:
+    timeout_countdown: null
+    ui_state: pending
+    decision_source: operator
+  command_result_codes:
+    "0": failed
+    "1": received
+    "2": no_permission
+
+standard_command_request:
+  description: "所有流程 command 的标准 JSON 入参；node_contracts.extra_inputs 定义节点专用字段。"
+  ordered_fields:
+    - { name: shot_id, zh_name: 发次编号, type: string, required: true }
+    - { name: stage_id, zh_name: 阶段编号, type: string, required: true }
+    - { name: flow_task_id, zh_name: 流程任务编号, type: string, required: true }
+    - { name: node_id, zh_name: 节点编号, type: string, required: true }
+    - { name: node_name, zh_name: 节点名称, type: string, required: true }
+    - { name: command, zh_name: 控制指令英文名, type: string, required: true }
+    - { name: business_instruction, zh_name: 控制指令中文名, type: string, required: true }
+    - { name: caller, zh_name: 调用方, type: string, required: true, default: gxlf.flow_engine }
+    - { name: flow_instance_id, zh_name: 流程实例编号, type: string, required: true }
+    - { name: target_service_id, zh_name: 目标系统服务实例唯一标识, type: string, required: true }
+    - { name: target_instance_code, zh_name: 目标实例编号, type: string, required: true }
+    - { name: beam_line_no, zh_name: 束线编号, type: integer, required: false }
+    - { name: beam_group_no, zh_name: 束组编号, type: integer, required: false }
+    - { name: selected_beam_lines, zh_name: 选中束线编号列表, type: "integer[]", required: false }
+    - { name: selected_beam_groups, zh_name: 选中束组编号列表, type: "integer[]", required: false }
+    - { name: params, zh_name: 节点专用参数, type: object, required: false }
+    - { name: issued_at, zh_name: 指令下发时间, type: datetime, required: true }
+    - { name: timeout_ms, zh_name: 节点超时时间毫秒, type: integer, required: false }
+
+standard_command_accept_response:
+  description: "Tango 系统服务实例收到 command 后立即返回的接收态；异步命令最终结果必须由集中管控注册的状态返回接口上报。"
+  fields:
+    - { name: accepted, type: boolean, required: true }
+    - { name: accept_code, type: integer, required: true, enum: [0, 1, 2] }
+    - { name: accept_status, type: string, required: true, enum: [failed, received, no_permission] }
+    - { name: task_id, type: string, required: true }
+    - { name: service_id, type: string, required: true }
+    - { name: instance_code, type: string, required: true }
+    - { name: command, type: string, required: true }
+    - { name: message, type: string, required: false }
+    - { name: error, type: object, required: false, ref: "#/standard_error_format" }
+  success_condition: "accept_code == 1"
+
+status_callback_interface:
+  callback_name: ReportTaskStatus
+  callback_event_name: GXLF.TaskStatusChanged
+  direction: system_service_to_central_control
+  registration_rule: "集中管控系统启动或配置加载时向系统服务实例注册状态返回接口；系统服务实例执行 command 后按 task_id 调用该接口回传状态。"
+  transport_options:
+    tango_event:
+      attribute: task_status
+      payload_type: DevString
+      payload_encoding: JSON
+    http_adapter:
+      method: POST
+      path: /api/service-callbacks/task-status
+      payload_encoding: JSON
+  required_fields:
+    - { name: flow_instance_id, type: string, required: true }
+    - { name: shot_id, type: string, required: true }
+    - { name: stage_id, type: string, required: true }
+    - { name: flow_task_id, type: string, required: true }
+    - { name: node_id, type: string, required: true }
+    - { name: node_name, type: string, required: true }
+    - { name: task_id, type: string, required: true }
+    - { name: command, type: string, required: true }
+    - { name: system_name, type: string, required: true }
+    - { name: service_id, type: string, required: true }
+    - { name: instance_code, type: string, required: true }
+    - { name: beam_line_no, type: integer, required: false }
+    - { name: beam_group_no, type: integer, required: false }
+    - { name: service_health_state, type: string, required: true, enum: [unknown, offline, starting, running, busy, fault, maintenance, no_permission] }
+    - { name: business_state, type: string, required: true }
+    - { name: task_state, type: string, required: true, enum: [accepted, executing, succeeded, failed, timeout, skipped, cancelled] }
+    - { name: progress, type: number, required: false, range: "0..100" }
+    - { name: result_code, type: integer, required: true }
+    - { name: result_status, type: string, required: true, enum: [success, failed, no_permission, timeout, rejected, cancelled] }
+    - { name: error, type: object, required: false, ref: "#/standard_error_format" }
+    - { name: started_at, type: datetime, required: false }
+    - { name: updated_at, type: datetime, required: true }
+    - { name: finished_at, type: datetime, required: false }
+    - { name: payload, type: object, required: false }
+    - { name: raw, type: object, required: false }
+
+health_report_contract:
+  name: ReportServiceHealth
+  direction: system_service_to_central_control
+  payload_fields:
+    - { name: service_id, type: string, required: true }
+    - { name: system_name, type: string, required: true }
+    - { name: instance_code, type: string, required: true }
+    - { name: protocol, type: string, required: true, enum: [tango, http, tbd] }
+    - { name: service_health_state, type: string, required: true }
+    - { name: business_state, type: string, required: false }
+    - { name: current_task_id, type: string, required: false }
+    - { name: heartbeat_at, type: datetime, required: true }
+    - { name: error, type: object, required: false, ref: "#/standard_error_format" }
+
+permission_contract:
+  name: CheckServicePermission
+  source: "流程需求.docx permission interface table + current design"
+  request:
+    - { name: serviceList, type: "DevVarStringArray", required: true, description: "待检查服务 service_id 列表" }
+    - { name: caller, type: DevString, required: true, description: "调用者标识，例如 gxlf.flow_engine" }
+    - { name: operation, type: DevString, required: true, description: "command 名称或权限操作名" }
+  response:
+    - { name: results, type: DevString, encoding: JSON, required: true }
+    - { name: allAllowed, type: DevBoolean, required: true }
+    - { name: errorMessage, type: DevString, required: false }
+  denied_behavior: "allAllowed=false 时节点进入 pending，人工选择 retry/skip/abort；不直接终止流程。"
+
+standard_error_format:
+  fields:
+    - { name: code, type: string, required: true }
+    - { name: message, type: string, required: true }
+    - { name: severity, type: string, required: true, enum: [info, warning, error, critical] }
+    - { name: retriable, type: boolean, required: true }
+    - { name: source, type: string, required: true, enum: [flow_engine, permission_service, health_repository, adapter, system_service, operator] }
+    - { name: service_id, type: string, required: false }
+    - { name: command, type: string, required: false }
+    - { name: node_id, type: string, required: false }
+    - { name: detail, type: object, required: false }
+    - { name: raw_code, type: string, required: false }
+    - { name: raw_message, type: string, required: false }
+  error_codes:
+    OK: { severity: info, retriable: false, description: "成功。" }
+    RECEIVED: { severity: info, retriable: false, description: "命令已收到。" }
+    INVALID_SERVICE_LIST: { severity: error, retriable: false, description: "权限检查服务列表非法。" }
+    INVALID_CALLER: { severity: error, retriable: false, description: "调用方非法。" }
+    INVALID_SERVICE_NAME: { severity: error, retriable: false, description: "服务名或 service_id 不存在。" }
+    PERMISSION_DENIED: { severity: warning, retriable: false, description: "无服务权限。" }
+    NO_SERVICE_PERMISSION: { severity: warning, retriable: false, description: "系统服务实例返回接收状态 2。" }
+    SYSTEM_ERROR: { severity: error, retriable: true, description: "权限或系统内部异常。" }
+    SERVICE_NOT_RUNNING: { severity: warning, retriable: true, description: "服务健康状态不是 running。" }
+    DEVICE_BUSY: { severity: warning, retriable: true, description: "系统服务实例忙且 command 不可重入。" }
+    INVALID_STATE: { severity: warning, retriable: true, description: "系统服务实例对外业务状态不满足 command 前置状态。" }
+    COMMAND_NOT_SUPPORTED: { severity: error, retriable: false, description: "系统服务实例不支持该 command。" }
+    INVALID_ARGUMENT: { severity: error, retriable: false, description: "入参字段缺失、类型错误或范围非法。" }
+    TIMEOUT: { severity: warning, retriable: true, description: "节点或系统服务实例任务超时。" }
+    EXECUTION_FAILED: { severity: error, retriable: true, description: "系统服务实例任务执行失败。" }
+    PARTIAL_FAILED: { severity: error, retriable: true, description: "fan-out 中部分实例失败；按当前口径节点失败并 pending。" }
+    CALLBACK_LOST: { severity: warning, retriable: true, description: "异步任务未收到状态回调。" }
+    INTERLOCK_NOT_NORMAL: { severity: critical, retriable: true, description: "安全联锁状态异常。" }
+    OPERATOR_ABORTED: { severity: warning, retriable: false, description: "操作员终止流程。" }
+    UNKNOWN_ERROR: { severity: error, retriable: true, description: "未分类异常。" }
+
+# ===================== v0.2 新增契约区块 =====================
+
+# v0.2 P0: 门控 / 风淋门输出契约（补 door_status_response 悬空定义）
+output_contracts:
+  door_status_response:
+    fields:
+      - { name: door_id, type: string, required: true }
+      - { name: door_status, type: string, enum: [open, closing, closed, locked, unlocking, fault], required: true }
+      - { name: personnel_count_state, type: string, enum: [unknown, zero, nonzero, fault], required: false }
+      - { name: updated_at, type: datetime, required: true }
+  air_shower_status_response:
+    fields:
+      - { name: air_shower_id, type: string, required: true }
+      - { name: air_shower_lock_state, type: string, enum: [unlocked, locking, locked, fault], required: true }
+      - { name: updated_at, type: datetime, required: true }
+
+# v0.2 P0: 依赖判定策略（补 dependency_policy 悬空定义）
+dependency_policy_definitions:
+  default: all_success
+  all_success:
+    description: "所有 required=true 的依赖节点必须 succeeded；required=false 的依赖不阻塞调度，但可作为 guard 或提示。"
+  required_optional_mixed:
+    description: "显式支持依赖项 required 字段；未声明 required 时默认 true。"
+  started:
+    description: "用于同步触发并行节点，依赖节点进入 started/executing 即满足（如 N35/N36 依赖 N34 started）。"
+
+# v0.2 P1: 异常处理策略词汇表（统一 on_failure.strategy 语义）
+failure_strategy_definitions:
+  pause_no_compensation:
+    enters_pending: true
+    compensation: false
+    allowed_options: [abort, skip]
+  pause_with_options:
+    enters_pending: true
+    compensation: false
+    allowed_options: [retry, skip, abort]
+  pause:
+    enters_pending: true
+    allowed_options: [continue, abort]
+  retry_then_pending:
+    auto_retry_allowed: true
+    after_retry_exhausted: pending
+    allowed_options_after_pending: [retry, skip, abort]
+  pause_then_skip_downstream:
+    enters_pending: true
+    allowed_options: [retry, skip, abort]
+    skip_scope: downstream_nodes
+  emergency:
+    enters_pending: false
+    action_required: true
+    note: "用于安全应急链，对应显式应急动作(EmergencyTrigger/EmergencyDischarge/EmergencyStopCharge)，见 safety_interlock_runtime。"
+  retry_then_skip:
+    status: deprecated
+    note: "v0.2 废弃自动 skip——与'所有异常先 pending、由人工决策'口径冲突。原 N43/N50/N51/N54/N56/N57 已改为 retry_then_pending。如确需自动跳过须单独评审并标注 auto_skip_exception: true。"
+
+# v0.2 P0: 安全联锁集中管控聚合契约（当前不含真空）
+safety_interlock_contract:
+  source_type: central_control_aggregate
+  current_scope:
+    include_vacuum_state: false
+  input_states:
+    personnel_count_state:
+      source_system: 人员进出计数接口
+      required_value: zero
+    neutron_shield_door_state:
+      source_system: 建安工程安防系统屏蔽门控制接口
+      required_values: [closed, locked]
+    air_shower_lock_state:
+      source_system: 建安工程安防系统屏蔽门控制接口
+      required_value: locked
+  output_state:
+    safety_interlock_state:
+      enum: [inactive, arming, normal, abnormal, released]
+  normal_condition: "personnel_count_state == zero and neutron_shield_door_state in [closed, locked] and air_shower_lock_state == locked"
+  abnormal_behavior:
+    before_armed: pending
+    after_armed: trigger_global_interlock
+
+# v0.2 P0: 安全联锁运行时监护 + 应急联动（补全原方案 trigger_global_interlock 悬空）
+safety_interlock_runtime:
+  precondition_check: "命令下发前校验 safety_interlock_state == normal（前置 guard）。"
+  runtime_watchdog:
+    applies_to_nodes: [N33, N34, N35, N36, N45, N47, N48]
+    rule: "节点执行期间持续断言 safety_interlock_state == normal；一旦 abnormal，立即触发应急联动并将节点置为 interlock_aborted。"
+  emergency_linkage:
+    trigger_global_interlock:
+      description: "联锁 armed 后被打破时的全局应急动作。"
+      dispatch:
+        - { target: 泵浦分系统, command: EmergencyDischarge, when: "business_state in [charged, preion_charged]" }
+        - { target: 泵浦分系统, command: EmergencyStopCharge, when: "business_state in [charging, preion_charging]" }
+        - { target: 开关驱动源组件, command: EmergencyDischargeSwitch, when: "business_state == charged" }
+        - { target: 集中同步分系统, command: EmergencyTrigger, when: "business_state == trigger_countdown" }
+      after_dispatch: "流程进入全局 pending，operator 决策 abort 或安全复位后重入。"
+
+# v0.2 P1: 状态注册接口契约（补全原方案 TODO）
+register_status_callback_contract:
+  name: RegisterStatusCallback
+  direction: central_control_to_system_service
+  purpose: "集中管控启动/配置加载时向系统服务实例注册状态返回接口；服务执行 command 后按 task_id 回调。"
+  transport_options:
+    tango_command: { method: RegisterStatusCallback, argin_type: DevString, argin_encoding: JSON }
+    http_config: { method: POST, path: /api/service-callbacks/register }
+  request_fields:
+    - { name: caller, type: string, required: true, default: gxlf.flow_engine }
+    - { name: callback_name, type: string, required: true, default: ReportTaskStatus }
+    - { name: callback_endpoint, type: string, required: true, description: "tango event 属性名或 http url" }
+    - { name: service_id, type: string, required: true }
+    - { name: heartbeat_interval_ms, type: integer, required: false, default: 2000 }
+  response_fields:
+    - { name: registered, type: boolean, required: true }
+    - { name: callback_token, type: string, required: false }
+    - { name: error, type: object, required: false, ref: "#/standard_error_format" }
+  decision: "按 system_instance_catalog.protocol 选择 tango/http 注册方式。"
+
+# v0.2 P1: 回调字段合法组合矩阵 + 业务态校验
+callback_state_consistency:
+  field_semantics:
+    task_state: "任务生命周期状态。"
+    result_status: "本次执行结果。"
+    result_code: "机器可读结果码，以 result_code_mapping.authoritative(error_code 字符串)为准。"
+    business_state: "系统服务对外业务状态，必须属于 service_type_templates[service_type].business_states。"
+  legal_combinations:
+    - { task_state: accepted,  result_status: success }
+    - { task_state: executing, result_status: success }
+    - { task_state: succeeded, result_status: success }
+    - { task_state: failed,    result_status: failed }
+    - { task_state: timeout,   result_status: timeout }
+    - { task_state: skipped,   result_status: cancelled }
+    - { task_state: cancelled, result_status: cancelled }
+  illegal_examples:
+    - { task_state: succeeded, result_status: failed }
+    - { task_state: failed,    result_status: success }
+  business_state_validation:
+    rule: "business_state 必须属于对应 service_type 的 business_states 枚举，否则该回调判为非法并丢弃 + 记审计。"
+
+# v0.2 P1: 回调投递策略——幂等/去重/乱序/task_id 唯一性
+callback_delivery_policy:
+  task_id_rule:
+    generator: central_control_flow_engine
+    uniqueness: "全局唯一，格式建议 {shot_id}.{node_id}.{instance_code}.{seq}，跨发次不复用。"
+  ordering: "以 (task_id, updated_at) 为序；updated_at 早于已记录值的回调直接丢弃。"
+  idempotency: "同一 task_id 同一 task_state 的重复回调幂等处理，不重复推进状态机。"
+  terminal_lock: "task 进入终态后迟到回调一律丢弃并记审计。"
+  callback_lost: "command accepted 后超过 node timeout 仍无终态回调 -> CALLBACK_LOST -> 节点 pending。"
+
+# v0.2 P0: fan-out 部分失败时的人工决策粒度
+fan_out_intervention_policy:
+  # v0.2 用户确认口径：
+  #  (1) retry 的作用域是「本节点」，不是整条流程——只重跑当前节点的调度，不回滚上游已完成节点。
+  #  (2) fan-out 节点 retry = 整组重发（例如 60 路全部重发），不是只补失败的那几路。
+  retry_target: current_node_only      # 重试仅限本节点，不重跑整条流程
+  default_scope: all_instances          # fan-out 节点重试 = 整组全部实例重发
+  retry:
+    scope: all_instances
+    rule: "对当前节点的全部目标实例整组重发（如 60 路全发），不区分上次成功/失败；保证整组配方/状态一致。"
+    requires_idempotent_or_reset: "命令非幂等(idempotent:false)时，整组实例 retry 前按 retry_dispatch_rule 各自复位到命令合法前置态，再整组重发。"
+    note: "整组重发要求该 command 在已成功实例上可安全重入；若某实例已处目标态，复位规则保证其能重新接受命令。"
+  continue: { scope: node_level, rule: "外部条件恢复后本节点整体继续，不回滚上游节点。" }
+  skip: { scope: node_level, rule: "跳过整个节点，所有实例标记 skipped；仅当节点允许 skip。" }
+  abort: { scope: flow_level, rule: "终止流程，按应急/补偿链处理。" }
+  partial_resend_override:
+    allowed: true
+    rule: "如个别节点确认可只补失败实例（命令幂等且无需整组一致），显式标注 retry_scope: failed_instances_only 覆盖默认整组重发。"
+
+# v0.2 P1: 结果码统一映射（废弃数字码，以 error_code 字符串为权威）
+result_code_mapping:
+  authoritative: error_code_string
+  table:
+    - { accept_code: 1,    task_state: accepted,  result_status: success,       error_code: RECEIVED }
+    - { accept_code: 1,    task_state: executing, result_status: success,       error_code: RECEIVED }
+    - { accept_code: 1,    task_state: succeeded, result_status: success,       error_code: OK }
+    - { accept_code: 0,    task_state: failed,    result_status: failed,        error_code: EXECUTION_FAILED }
+    - { accept_code: 2,    task_state: rejected,  result_status: no_permission, error_code: NO_SERVICE_PERMISSION }
+    - { accept_code: null, task_state: timeout,   result_status: timeout,       error_code: TIMEOUT }
+    - { accept_code: null, task_state: cancelled, result_status: cancelled,     error_code: OPERATOR_ABORTED }
+  note: "废弃原方案 4.8 的 100/110/200/500/504/499 数字码；callback 一致性以本表为准。"
+
+# v0.2 P2: 结构化 runtime_guards 示例（供后续解释器机读，逐步替换自由文本 guard）
+structured_guard_example:
+  runtime_guards:
+    - { type: service_health, system: 多程放大组件, expected: running }
+    - { type: node_completion, node_id: N06, node_name: 能量粗闭环, expected: completed }
+    - { type: interlock, name: safety_interlock, expected: normal }
+  note: "v0.2 暂保留各节点现有自由文本 guard 以便评审；定稿后按本结构批量转换。"
+
+
+node_contract_defaults:
+  request_ref: "#/standard_command_request"
+  accept_response_ref: "#/standard_command_accept_response"
+  status_callback_ref: "#/status_callback_interface"
+  register_callback_ref: "#/register_status_callback_contract"   # v0.2 P1
+  failure_strategy_ref: "#/failure_strategy_definitions"          # v0.2 P1
+  dependency_policy_ref: "#/dependency_policy_definitions"        # v0.2 P0
+  fan_out_intervention_ref: "#/fan_out_intervention_policy"       # v0.2 P0
+  callback_consistency_ref: "#/callback_state_consistency"        # v0.2 P1
+  completion: all_success
+  reentrant: false
+  on_guard_failed: pending
+  on_any_instance_failed: pending
+  on_timeout: pending
+
+node_contracts:
+  - node_id: N01
+    node_name: 参数下发
+    node_type: action
+    stage: 发射准备
+    business_instruction: 参数下发
+    command: ParamDispatch
+    adapter_method: ParamDispatch
+    call_mode: sync
+    timeout: 2s
+    target_systems: [光纤种子源组件, 二倍频宽带激光注入组件, 再生与双程放大组件, 多程放大组件, 泵浦分系统, 测量取样组件, 频率转换分系统, 靶瞄准定位系统, 真空靶室分系统, 物理实验诊断分系统, 集中同步分系统, 开关驱动源组件, 冷却分系统]
+    fan_out: broadcast
+    instance_scope: all_instances_for_target_systems
+    expected_instance_count: 208
+    depends: []
+    runtime_guards: ["流程配方加载成功", "总控服务状态正常"]
+    extra_inputs: []
+    state_transition_refs: ["*.commands.ParamDispatch"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N02
+    node_name: 同步预放重频配方
+    node_type: action
+    stage: 发射准备
+    business_instruction: 同步预放重频配方
+    command: SyncPreampRepRateRecipe
+    adapter_method: SyncPreampRepRateRecipe
+    call_mode: sync
+    timeout: 2s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [参数下发]
+    runtime_guards: ["集中同步分系统 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["sync.commands.SyncPreampRepRateRecipe"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N03
+    node_name: 同步测量重频配方
+    node_type: action
+    stage: 发射准备
+    business_instruction: 同步测量重频配方
+    command: SyncMeasRepRateRecipe
+    adapter_method: SyncMeasRepRateRecipe
+    call_mode: sync
+    timeout: 2s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [参数下发]
+    runtime_guards: ["集中同步分系统 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["sync.commands.SyncMeasRepRateRecipe"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N04
+    node_name: 光纤种子源出光
+    node_type: action
+    stage: 发射准备
+    business_instruction: 光纤种子源出光
+    command: LaserOn
+    adapter_method: LaserOn
+    call_mode: async
+    timeout: 10min
+    target_systems: [光纤种子源组件, 二倍频宽带激光注入组件]
+    fan_out: broadcast
+    expected_instance_count: 2
+    depends: [参数下发]
+    runtime_guards: ["光纤种子源组件 running", "二倍频宽带激光注入组件 running", "safety interlock normal"]
+    extra_inputs:
+      - { name: light_on_flag, zh_name: 出光标识, type: integer, enum: [0, 1], required: true }
+      - { name: selected_beam_lines, type: "integer[]", required: false }
+    state_transition_refs: ["laser_source.commands.LaserOn"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N05
+    node_name: 预放唤醒
+    node_type: action
+    stage: 发射准备
+    business_instruction: 预放唤醒
+    command: PreampWakeup
+    adapter_method: PreampWakeup
+    call_mode: async
+    timeout: 8min
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [同步预放重频配方]
+    runtime_guards: ["再生与双程放大组件 running", "同步预放重频配方 completed", "safety interlock normal"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["preamp.commands.PreampWakeup"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N06
+    node_name: 能量粗闭环
+    node_type: action
+    stage: 发射准备
+    business_instruction: 能量粗闭环
+    command: EnergyCoarseLoop
+    adapter_method: EnergyCoarseLoop
+    call_mode: async
+    timeout: 2min
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [预放唤醒, 光纤种子源出光]
+    runtime_guards: ["再生与双程放大组件 running", "光纤种子源出光 completed", "预放唤醒 completed", "safety interlock normal"]
+    extra_inputs:
+      - { name: beam_group_no, type: integer, required: true }
+      - { name: preamp_target_energy, zh_name: 预放目标能量, type: number, required: true }
+    state_transition_refs: ["preamp.commands.EnergyCoarseLoop"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N07
+    node_name: 能量精闭环_1
+    node_type: action
+    stage: 发射准备
+    business_instruction: 能量精闭环
+    command: EnergyFineLoop
+    adapter_method: EnergyFineLoop
+    call_mode: async
+    timeout: 2min
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [能量粗闭环]
+    runtime_guards: ["再生与双程放大组件 running", "光纤种子源出光 completed", "safety interlock normal"]
+    extra_inputs:
+      - { name: beam_group_no, type: integer, required: true }
+      - { name: preamp_target_energy, zh_name: 预放目标能量, type: number, required: true }
+    state_transition_refs: ["preamp.commands.EnergyFineLoop"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N08
+    node_name: 清场
+    node_type: action
+    stage: 发射准备
+    business_instruction: 清场
+    command: AreaClearAnnounce
+    adapter_method: AreaClearAnnounce
+    call_mode: async
+    timeout: 5min
+    target_systems: [控制环境组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [参数下发]
+    runtime_guards: ["控制环境组件 running"]
+    extra_inputs: [{ name: announce_command, zh_name: 命令, type: integer, enum: [0, 1], required: true }]
+    state_transition_refs: ["environment_control.commands.AreaClearAnnounce"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N09
+    node_name: 靶场中子屏蔽门关闭
+    node_type: action
+    stage: 发射准备
+    business_instruction: 靶场中子屏蔽门关闭
+    command: ShieldDoorClose
+    adapter_method: ShieldDoorClose
+    call_mode: async
+    timeout: 5min
+    target_systems: [建安工程安防系统屏蔽门控制接口, 人员进出计数接口]
+    fan_out: broadcast
+    expected_instance_count: 2
+    depends: [清场]
+    runtime_guards: ["门控服务运行状态正常", "人员计数归零"]
+    extra_inputs:
+      - { name: door_id, zh_name: 屏蔽门编号, type: string, required: true }
+      - { name: door_command, zh_name: 屏蔽门控制命令, type: string, enum: [开启, 关闭, 锁定], required: true }
+    output_contract: door_status_response
+    success_condition: "door_status == locked and personnel_count_state == zero"
+    state_transition_refs: ["shield_door.commands.ShieldDoorClose", "personnel_counter.commands.ShieldDoorClose"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N10
+    node_name: 风淋门锁住
+    node_type: action
+    stage: 发射准备
+    business_instruction: 风淋门锁住
+    command: AirShowerLock
+    adapter_method: AirShowerLock
+    call_mode: async
+    timeout: 5min
+    target_systems: [建安工程安防系统屏蔽门控制接口]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [清场]
+    runtime_guards: []
+    extra_inputs: []
+    state_transition_refs: ["shield_door.commands.AirShowerLock"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+    open_issue: "当前流程卡片信息不完整，后续需客户确认是否必须参与 AND 判断。"
+
+  - node_id: N11
+    node_name: 实验靶预定位
+    node_type: action
+    stage: 发射准备
+    business_instruction: 实验靶预定位
+    command: ExpTargetPrePosition
+    adapter_method: ExpTargetPrePosition
+    call_mode: async
+    timeout: 5min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [参数下发]
+    runtime_guards: ["靶瞄准定位系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.ExpTargetPrePosition"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N12
+    node_name: 测量靶瞄准备
+    node_type: action
+    stage: 发射准备
+    business_instruction: 测量靶瞄准备
+    command: MeasTargetAlignReady
+    adapter_method: MeasTargetAlignReady
+    call_mode: async
+    timeout: 5min
+    target_systems: [测量取样组件]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [同步测量重频配方]
+    runtime_guards: ["测量取样组件 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["measurement_sample.commands.MeasTargetAlignReady"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N13
+    node_name: 模拟靶定位
+    node_type: action
+    stage: 发射准备
+    business_instruction: 模拟靶定位
+    command: SimTargetPosition
+    adapter_method: SimTargetPosition
+    call_mode: async
+    timeout: 5min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends:
+      - { node: 测量靶瞄准备, required: true }
+      - { node: 实验靶预定位, required: false }
+    runtime_guards: ["靶瞄准定位系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.SimTargetPosition"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N14
+    node_name: 光路准直
+    node_type: action
+    stage: 发射准备
+    business_instruction: 光路准直
+    command: BeamlineAlign
+    adapter_method: BeamlineAlign
+    call_mode: async
+    timeout: 10min
+    target_systems: [多程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [靶场中子屏蔽门关闭, 风淋门锁住, 光纤种子源出光, 预放唤醒, 能量粗闭环]
+    runtime_guards: ["预放唤醒 completed", "能量粗闭环 completed", "多程放大组件 running", "片放吹扫停止", "光纤种子源出光 completed", "safety interlock normal"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["multipass_amp.commands.BeamlineAlign"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N15
+    node_name: 光束引导
+    node_type: action
+    stage: 发射准备
+    business_instruction: 光束引导
+    command: BeamGuiding
+    adapter_method: BeamGuiding
+    call_mode: async
+    timeout: 3min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [光路准直, 模拟靶定位]
+    runtime_guards: ["靶瞄准定位系统 running", "光纤种子源出光 completed", "光路准直 completed", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.BeamGuiding"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N16
+    node_name: 实验靶复位
+    node_type: action
+    stage: 发射准备
+    business_instruction: 实验靶复位
+    command: ExpTargetReset
+    adapter_method: ExpTargetReset
+    call_mode: async
+    timeout: 3min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [光束引导]
+    runtime_guards: ["靶瞄准定位系统 running", "光束引导 completed", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.ExpTargetReset"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N17
+    node_name: 靶瞄进入打靶状态
+    node_type: action
+    stage: 发射准备
+    business_instruction: 靶瞄进入打靶状态
+    command: TargetAlignShotMode
+    adapter_method: TargetAlignShotMode
+    call_mode: async
+    timeout: 3s
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [实验靶复位]
+    runtime_guards: ["靶瞄准定位系统 running", "实验靶复位 completed", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.TargetAlignShotMode"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip], max_retries: 3 }
+
+  - node_id: N18
+    node_name: 进入打靶状态
+    node_type: action
+    stage: 发射准备
+    business_instruction: 进入打靶状态
+    command: EnterShotState
+    adapter_method: EnterShotState
+    call_mode: async
+    timeout: 3s
+    target_systems: [多程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [光束引导]
+    runtime_guards: ["光束引导 completed", "多程放大组件 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["multipass_amp.commands.EnterShotState"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+    confirmed_note: "该节点与 N19 打靶运动准备并行，二者同依赖光束引导。"
+
+  - node_id: N19
+    node_name: 打靶运动准备
+    node_type: action
+    stage: 发射准备
+    business_instruction: 测量打靶运动准备
+    command: MeasShotMotionReady
+    adapter_method: MeasShotMotionReady
+    call_mode: async
+    timeout: 1.5min
+    target_systems: [测量取样组件]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [光束引导]
+    runtime_guards: ["测量取样组件 running", "光束引导 completed", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["measurement_sample.commands.MeasShotMotionReady"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+    confirmed_note: "对接测量取样组件 60 路；输入至少包含发次编号、阶段编号、流程任务编号、节点编号。"
+
+  - node_id: N20
+    node_name: 诊断设备发射准备
+    node_type: action
+    stage: 发射准备
+    business_instruction: 诊断设备发射准备
+    command: DiagStatusConfirm
+    adapter_method: DiagStatusConfirm
+    call_mode: async
+    timeout: 10min
+    target_systems: [物理实验诊断分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [模拟靶定位]
+    runtime_guards: ["模拟靶定位 completed", "物理实验诊断分系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["diagnostics.commands.DiagStatusConfirm"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N21
+    node_name: 泵浦发射准备
+    node_type: action
+    stage: 发射准备
+    business_instruction: 泵浦发射准备
+    command: PumpShotReady
+    adapter_method: PumpShotReady
+    call_mode: async
+    timeout: 15s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [参数下发]
+    runtime_guards: ["泵浦分系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["pump.commands.PumpShotReady"]
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N22
+    node_name: 发射准备全部完成
+    node_type: join
+    stage: 发射准备
+    business_instruction: 发射准备全部完成
+    command: null
+    call_mode: null
+    timeout: null
+    target_systems: []
+    fan_out: internal_join
+    expected_instance_count: 0
+    depends: [能量精闭环_1, 诊断设备发射准备, 靶瞄进入打靶状态, 进入打靶状态, 打靶运动准备, 光纤种子源出光, 泵浦发射准备]
+    runtime_guards: ["各系统服务运行状态正常", "safety interlock normal", "泵浦发射准备状态正常"]
+    extra_inputs: []
+    state_transition_refs: []
+    on_failure: { strategy: pause_no_compensation, options: [abort, skip] }
+
+  - node_id: N23
+    node_name: 诊断设备采集设置
+    node_type: action
+    stage: 正式发射
+    business_instruction: 诊断设备采集设置
+    command: DiagCollectSetup
+    adapter_method: DiagCollectSetup
+    call_mode: async
+    timeout: 1min
+    target_systems: [物理实验诊断分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射准备全部完成]
+    runtime_guards: ["诊断设备发射准备 completed", "物理实验诊断分系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["diagnostics.commands.DiagCollectSetup"]
+    on_failure: { strategy: pause_with_options, options: [abort, skip, retry] }
+
+  - node_id: N24
+    node_name: 晶体位姿设置
+    node_type: action
+    stage: 正式发射
+    business_instruction: 晶体位姿设置
+    command: CrystalPoseAdjust
+    adapter_method: CrystalPoseAdjust
+    call_mode: async
+    timeout: 10s
+    target_systems: [频率转换分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [发射准备全部完成]
+    runtime_guards: ["频率转换分系统 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["frequency_conversion.commands.CrystalPoseAdjust"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip, retry], max_retries: 3 }
+
+  - node_id: N25
+    node_name: 发射充电准备
+    node_type: action
+    stage: 正式发射
+    business_instruction: 发射充电准备
+    command: ChargeReady
+    adapter_method: ChargeReady
+    call_mode: async
+    timeout: 15s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射准备全部完成]
+    runtime_guards: ["泵浦分系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["pump.commands.ChargeReady"]
+    on_failure: { strategy: pause_with_options, options: [abort, skip, retry] }
+
+  - node_id: N26
+    node_name: 能量精闭环_2
+    node_type: action
+    stage: 正式发射
+    business_instruction: 能量精闭环
+    command: EnergyFineLoop
+    adapter_method: EnergyFineLoop
+    call_mode: async
+    timeout: 2min
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [发射准备全部完成]
+    runtime_guards: ["再生与双程放大组件 running", "光纤种子源出光 completed", "safety interlock normal"]
+    extra_inputs:
+      - { name: beam_group_no, type: integer, required: true }
+      - { name: preamp_target_energy, zh_name: 预放目标能量, type: number, required: true }
+    state_transition_refs: ["preamp.commands.EnergyFineLoop"]
+    on_failure: { strategy: pause_with_options, options: [abort, skip, retry] }
+
+  - node_id: N27
+    node_name: 预放单次配方
+    node_type: action
+    stage: 正式发射
+    business_instruction: 预放单次配方
+    command: PreampSingleShotRecipe
+    adapter_method: PreampSingleShotRecipe
+    call_mode: sync
+    timeout: 2s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [能量精闭环_2]
+    runtime_guards: ["能量精闭环_2 completed", "集中同步分系统 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["sync.commands.PreampSingleShotRecipe"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip, retry], max_retries: 3 }
+
+  - node_id: N28
+    node_name: 能量计清零
+    node_type: action
+    stage: 正式发射
+    business_instruction: 能量计清零
+    command: EnergyMeterReset
+    adapter_method: EnergyMeterReset
+    call_mode: sync
+    timeout: 1s
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [预放单次配方]
+    runtime_guards: ["预放单次配方 completed", "再生与双程放大组件 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["preamp.commands.EnergyMeterReset"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip, retry], max_retries: 3 }
+
+  - node_id: N29
+    node_name: 测量单次配方
+    node_type: action
+    stage: 正式发射
+    business_instruction: 测量单次配方
+    command: MeasSingleShotRecipe
+    adapter_method: MeasSingleShotRecipe
+    call_mode: sync
+    timeout: 2s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [发射准备全部完成]
+    runtime_guards: ["集中同步分系统 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["sync.commands.MeasSingleShotRecipe"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip, retry], max_retries: 3 }
+
+  - node_id: N30
+    node_name: 打靶测量准备
+    node_type: action
+    stage: 正式发射
+    business_instruction: 打靶测量准备
+    command: MeasShotReady
+    adapter_method: MeasShotReady
+    call_mode: async
+    timeout: 1min
+    target_systems: [测量取样组件]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [测量单次配方]
+    runtime_guards: ["测量单次配方 completed", "测量取样组件 running", "safety interlock normal"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["measurement_sample.commands.MeasShotReady"]
+    on_failure: { strategy: pause_with_options, options: [abort, skip, retry] }
+
+  - node_id: N31
+    node_name: 开关充电
+    node_type: action
+    stage: 正式发射
+    business_instruction: 开关充电
+    command: SwitchCharge
+    adapter_method: SwitchCharge
+    call_mode: async
+    timeout: 15s
+    target_systems: [开关驱动源组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射准备全部完成]
+    runtime_guards: ["开关驱动源组件 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["switch_driver.commands.SwitchCharge"]
+    on_failure: { strategy: pause_with_options, options: [retry, abort] }
+    confirmed_note: "充电异常先 pending，由人工决策，不直接终止流程。"
+
+  - node_id: N32
+    node_name: 警灯警示音乐开启
+    node_type: action
+    stage: 正式发射
+    business_instruction: 警灯警示音乐开启
+    command: WarningLightAndMusic
+    adapter_method: WarningLightAndMusic
+    call_mode: async
+    timeout: 1s
+    target_systems: [控制环境组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射充电准备]
+    runtime_guards: ["控制环境组件 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["environment_control.commands.WarningLightAndMusic"]
+    on_failure: { strategy: retry_then_pending, options: [abort, skip, retry], max_retries: 3 }
+
+  - node_id: N33
+    node_name: 发射充电
+    node_type: action
+    stage: 正式发射
+    business_instruction: 发射充电
+    command: PumpCharge
+    adapter_method: PumpCharge
+    call_mode: async
+    timeout: 90s          # v0.2 P1: 充电硬超时上限（期望 78s±3s），待确认 90s/120s
+    on_timeout: pending
+    timeout_options: [retry, abort]
+    expected_duration: "78s +/- 3s"
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [诊断设备采集设置, 晶体位姿设置, 发射充电准备, 能量计清零, 打靶测量准备, 开关充电]
+    runtime_guards: ["泵浦分系统 running", "safety interlock normal"]
+    extra_inputs: []
+    state_transition_refs: ["pump.commands.PumpCharge"]
+    on_failure: { strategy: pause_with_options, options: [retry, abort] }
+    confirmed_note: "泵浦发射充电异常先 pending，由人工决策，不直接终止流程。"
+
+  - node_id: N34
+    node_name: 主发射同步触发
+    node_type: action
+    stage: 正式发射
+    business_instruction: 主发射同步触发
+    command: SyncTrigger
+    adapter_method: SyncTrigger
+    call_mode: async
+    timeout: 10s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [发射充电, 警灯警示音乐开启]
+    runtime_guards: ["发射充电 completed", "警示音乐停止", "开关充电 completed", "safety interlock normal"]
+    extra_inputs:
+      - { name: beam_line_no, type: integer, required: true }
+      - { name: trigger_type, type: string, enum: [main, pre_ionization], required: true, default: main }
+    state_transition_refs: ["sync.commands.SyncTrigger"]
+    timing_contract: { t0: "同步开始倒计时", t3: "泵浦和开关触发准备完成", t5: "完成正式触发" }
+    on_failure: { strategy: emergency, action: EmergencyTrigger }
+
+  - node_id: N35
+    node_name: 主发射泵浦触发准备
+    node_type: action
+    stage: 正式发射
+    business_instruction: 主发射泵浦触发准备
+    command: PumpTriggerReady
+    adapter_method: PumpTriggerReady
+    call_mode: sync
+    timeout: 3s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射充电]
+    runtime_guards: ["发射充电 completed", "主发射同步触发 started", "safety interlock normal"]
+    extra_inputs: [{ name: trigger_type, type: string, enum: [main, pre_ionization], required: true, default: main }]
+    state_transition_refs: ["pump.commands.PumpTriggerReady"]
+    on_failure: { strategy: emergency, action: EmergencyDischarge }
+
+  - node_id: N36
+    node_name: 主发射开关触发准备
+    node_type: action
+    stage: 正式发射
+    business_instruction: 主发射开关触发准备
+    command: SwitchTriggerReady
+    adapter_method: SwitchTriggerReady
+    call_mode: sync
+    timeout: 3s
+    target_systems: [开关驱动源组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [发射充电]
+    runtime_guards: ["发射充电 completed", "主发射同步触发 started", "开关充电 completed", "safety interlock normal"]
+    extra_inputs: [{ name: trigger_type, type: string, enum: [main], required: true, default: main }]
+    state_transition_refs: ["switch_driver.commands.SwitchTriggerReady"]
+    on_failure: { strategy: emergency, action: EmergencyDischarge }
+
+  - node_id: N37
+    node_name: 正式发射完成
+    node_type: join
+    stage: 正式发射
+    business_instruction: 正式发射完成
+    command: null
+    call_mode: null
+    timeout: null
+    target_systems: []
+    fan_out: internal_join
+    expected_instance_count: 0
+    depends: [主发射同步触发, 主发射泵浦触发准备, 主发射开关触发准备]
+    runtime_guards: ["泵浦触发结果正常"]
+    extra_inputs: []
+    state_transition_refs: []
+    on_failure: { strategy: emergency, action: EmergencyDischarge }
+    open_issue: "最终完成判据是否只看集中同步总体成功，还是需要泵浦触发结果作为独立判据，后续仍需客户确认。"
+
+  - node_id: N38
+    node_name: 物理诊断后处理
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 物理诊断后处理
+    command: DiagShotPostProcess
+    adapter_method: DiagShotPostProcess
+    call_mode: async
+    timeout: 10min
+    target_systems: [物理实验诊断分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [正式发射完成]
+    runtime_guards: ["主发射同步触发 completed", "物理实验诊断分系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["diagnostics.commands.DiagShotPostProcess"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N39
+    node_name: 种子源二倍频参数采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 种子源二倍频参数采集
+    command: SeedSHGParamCollect
+    adapter_method: SeedSHGParamCollect
+    call_mode: async
+    timeout: 3min
+    target_systems: [光纤种子源组件, 二倍频宽带激光注入组件]
+    fan_out: broadcast
+    expected_instance_count: 2
+    depends: [正式发射完成]
+    runtime_guards: ["光纤种子源组件 running", "二倍频宽带激光注入组件 running"]
+    extra_inputs: []
+    state_transition_refs: ["laser_source.commands.SeedSHGParamCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N40
+    node_name: 能量数据采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 能量数据采集
+    command: EnergyDataCollect
+    adapter_method: EnergyDataCollect
+    call_mode: async
+    timeout: 3min
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [正式发射完成]
+    runtime_guards: ["再生与双程放大组件 running"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["preamp.commands.EnergyDataCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N41
+    node_name: 预放待机
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预放待机
+    command: PreampStandby
+    adapter_method: PreampStandby
+    call_mode: async
+    timeout: 10s
+    target_systems: [再生与双程放大组件]
+    fan_out: by_beam_group
+    expected_instance_count: 10
+    depends: [能量数据采集]
+    runtime_guards: ["再生与双程放大组件 running"]
+    extra_inputs: [{ name: beam_group_no, type: integer, required: true }]
+    state_transition_refs: ["preamp.commands.PreampStandby"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+
+  - node_id: N42
+    node_name: 主发射泵浦数据采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 主发射泵浦数据采集
+    command: PumpDataCollect
+    adapter_method: PumpDataCollect
+    call_mode: async
+    timeout: 60s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [正式发射完成]
+    runtime_guards: ["泵浦分系统 running"]
+    extra_inputs: [{ name: shot_phase, type: string, enum: [main, pre_ionization], required: true, default: main }]
+    state_transition_refs: ["pump.commands.PumpDataCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N43
+    node_name: 主发射泵浦待机
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 主发射泵浦待机
+    command: PumpStandby
+    adapter_method: PumpStandby
+    call_mode: async
+    timeout: 10s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [主发射泵浦数据采集]
+    runtime_guards: ["泵浦分系统 running"]
+    extra_inputs: [{ name: shot_phase, type: string, enum: [main, pre_ionization], required: true, default: main }]
+    state_transition_refs: ["pump.commands.PumpStandby"]
+    on_failure: { strategy: retry_then_pending, max_retries: 2, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+
+  - node_id: N44
+    node_name: 预电离发射准备
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离发射准备
+    command: PreIonShotReady
+    adapter_method: PreIonShotReady
+    call_mode: async
+    timeout: 15s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [主发射泵浦待机]
+    runtime_guards: ["主发射泵浦待机 completed", "safety interlock normal", "泵浦分系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["pump.commands.PreIonShotReady"]
+    on_failure: { strategy: pause, options: [continue, abort] }
+
+  - node_id: N45
+    node_name: 预电离发射充电
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离发射充电
+    command: PreIonCharge
+    adapter_method: PreIonCharge
+    call_mode: async
+    timeout: 90s          # v0.2 P1: 充电硬超时上限（期望 78s±3s），待确认 90s/120s
+    on_timeout: pending
+    timeout_options: [retry, abort]
+    expected_duration: "78s +/- 3s"
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离发射准备, 预电离警示音乐开启]
+    runtime_guards: ["预电离发射准备 completed", "safety interlock normal", "泵浦分系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["pump.commands.PreIonCharge"]
+    on_failure:
+      strategy: pause_then_skip_downstream
+      options: [retry, skip, abort]
+      immediate_action: EmergencyStopCharge
+      skip_nodes: [预电离同步触发, 预电离泵浦触发准备, 预电离泵浦数据采集, 预电离泵浦待机]
+    confirmed_note: "预电离充电异常先 pending，由人工决策；可跳过预电离下游链路。"
+
+  - node_id: N46
+    node_name: 预电离警示音乐开启
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离警示音乐开启
+    command: WarningMusicOn
+    adapter_method: WarningMusicOn
+    call_mode: sync
+    timeout: 1s
+    target_systems: [控制环境组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离发射准备]
+    runtime_guards: ["预电离发射准备 completed", "safety interlock normal", "控制环境组件 running"]
+    extra_inputs: []
+    state_transition_refs: ["environment_control.commands.WarningMusicOn"]
+    on_failure: { strategy: retry_then_pending, options: [continue, abort], max_retries: 3 }
+
+  - node_id: N47
+    node_name: 预电离同步触发
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离同步触发
+    command: SyncTrigger
+    adapter_method: SyncTrigger
+    call_mode: async
+    timeout: 10s
+    target_systems: [集中同步分系统]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [预电离发射充电, 预电离警示音乐开启]
+    runtime_guards: ["预电离发射充电 completed", "警示音乐停止", "safety interlock normal"]
+    extra_inputs:
+      - { name: beam_line_no, type: integer, required: true }
+      - { name: trigger_type, type: string, enum: [pre_ionization], required: true, default: pre_ionization }
+    state_transition_refs: ["sync.commands.SyncTrigger"]
+    timing_contract: { t0: "同步开始倒计时", t3: "泵浦触发准备完成", t5: "完成预电离触发" }
+    on_failure: { strategy: emergency, action: EmergencyTrigger }
+
+  - node_id: N48
+    node_name: 预电离泵浦触发准备
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离泵浦触发准备
+    command: PumpTriggerReady
+    adapter_method: PumpTriggerReady
+    call_mode: sync
+    timeout: 3s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离发射充电]
+    runtime_guards: ["预电离发射充电 completed", "预电离同步触发 started", "safety interlock normal"]
+    extra_inputs: [{ name: trigger_type, type: string, enum: [pre_ionization], required: true, default: pre_ionization }]
+    state_transition_refs: ["pump.commands.PumpTriggerReady"]
+    on_failure: { strategy: emergency, action: EmergencyDischarge }
+
+  - node_id: N49
+    node_name: 预电离泵浦数据采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离泵浦数据采集
+    command: PumpDataCollect
+    adapter_method: PumpDataCollect
+    call_mode: async
+    timeout: 60s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离同步触发, 预电离泵浦触发准备]
+    runtime_guards: ["泵浦分系统 running"]
+    extra_inputs: [{ name: shot_phase, type: string, enum: [pre_ionization], required: true, default: pre_ionization }]
+    state_transition_refs: ["pump.commands.PumpDataCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N50
+    node_name: 预电离泵浦待机
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 预电离泵浦待机
+    command: PumpStandby
+    adapter_method: PumpStandby
+    call_mode: async
+    timeout: 10s
+    target_systems: [泵浦分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离泵浦数据采集]
+    runtime_guards: ["泵浦分系统 running"]
+    extra_inputs: [{ name: shot_phase, type: string, enum: [pre_ionization], required: true, default: pre_ionization }]
+    state_transition_refs: ["pump.commands.PumpStandby"]
+    on_failure: { strategy: retry_then_pending, max_retries: 2, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+
+  - node_id: N51
+    node_name: 警灯关闭
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 警灯关闭
+    command: WarningLightOff
+    adapter_method: WarningLightOff
+    call_mode: sync
+    timeout: 1s
+    target_systems: [控制环境组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [预电离泵浦数据采集]
+    runtime_guards: ["safety interlock normal", "控制环境组件 running"]
+    extra_inputs: []
+    state_transition_refs: ["environment_control.commands.WarningLightOff"]
+    on_failure: { strategy: retry_then_pending, max_retries: 3, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+
+  - node_id: N52
+    node_name: 激光参数采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 激光参数采集
+    command: LaserParamCollect
+    adapter_method: LaserParamCollect
+    call_mode: async
+    timeout: 2min
+    target_systems: [测量取样组件]
+    fan_out: by_beam_line
+    expected_instance_count: 60
+    depends: [正式发射完成]
+    runtime_guards: ["测量取样组件 running"]
+    extra_inputs: [{ name: beam_line_no, type: integer, required: true }]
+    state_transition_refs: ["measurement_sample.commands.LaserParamCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N53
+    node_name: 靶瞄数据分析
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 靶瞄数据分析
+    command: TargetDataAnalysis
+    adapter_method: TargetDataAnalysis
+    call_mode: async
+    timeout: 5min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [激光参数采集]
+    runtime_guards: ["safety interlock normal", "靶瞄准定位系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.TargetDataAnalysis"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N54
+    node_name: 靶瞄收靶
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 靶瞄收靶
+    command: TargetRetract
+    adapter_method: TargetRetract
+    call_mode: async
+    timeout: 5min
+    target_systems: [靶瞄准定位系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [正式发射完成]
+    runtime_guards: ["靶瞄准定位系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["target_alignment.commands.TargetRetract"]
+    on_failure: { strategy: retry_then_pending, max_retries: 2, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+
+  - node_id: N55
+    node_name: 放电波形采集
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 放电波形采集
+    command: DischargeWaveCollect
+    adapter_method: DischargeWaveCollect
+    call_mode: async
+    timeout: 5s
+    target_systems: [开关驱动源组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [正式发射完成]
+    runtime_guards: ["开关驱动源组件 running"]
+    extra_inputs: []
+    state_transition_refs: ["switch_driver.commands.DischargeWaveCollect"]
+    on_failure: { strategy: pause_with_options, options: [skip, retry, abort] }
+    data_collection: true
+
+  - node_id: N56
+    node_name: 开关待机
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 开关待机
+    command: SwitchStandby
+    adapter_method: SwitchStandby
+    call_mode: async
+    timeout: 10s
+    target_systems: [开关驱动源组件]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [放电波形采集]
+    runtime_guards: ["开关驱动源组件 running"]
+    extra_inputs: []
+    state_transition_refs: ["switch_driver.commands.SwitchStandby"]
+    on_failure: { strategy: retry_then_pending, max_retries: 2, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+
+  - node_id: N57
+    node_name: 片放吹扫
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 片放吹扫
+    command: SlabPurge
+    adapter_method: SlabPurge
+    call_mode: async
+    timeout: 2s
+    target_systems: [冷却分系统]
+    fan_out: broadcast
+    expected_instance_count: 1
+    depends: [正式发射完成]
+    runtime_guards: ["冷却分系统 running"]
+    extra_inputs: []
+    state_transition_refs: ["cooling.commands.SlabPurge"]
+    on_failure: { strategy: retry_then_pending, max_retries: 2, pause_options: [skip, retry, abort] }   # v0.2 P1: 自动skip改为人工决策
+    confirmed_note: "片放吹扫 timeout 为 2s。"
+
+  - node_id: N58
+    node_name: 靶场中子屏蔽门打开
+    node_type: action
+    stage: 发射后处理
+    business_instruction: 靶场中子屏蔽门打开
+    command: ShieldDoorOpen
+    adapter_method: ShieldDoorOpen
+    call_mode: async
+    timeout: 5min
+    target_systems: [建安工程安防系统屏蔽门控制接口, 人员进出计数接口]
+    fan_out: broadcast
+    expected_instance_count: 2
+    depends: [物理诊断后处理, 种子源二倍频参数采集, 预放待机, 预电离泵浦待机, 警灯关闭, 靶瞄数据分析, 激光参数采集, 靶瞄收靶, 开关待机, 片放吹扫]
+    runtime_guards: ["门控服务运行状态正常"]
+    extra_inputs:
+      - { name: door_id, zh_name: 屏蔽门编号, type: string, required: true }
+    output_contract: door_status_response
+    success_condition: "door_status == open"
+    state_transition_refs: ["shield_door.commands.ShieldDoorOpen", "personnel_counter.commands.ShieldDoorOpen"]
+    on_failure: { strategy: pause, options: [continue, abort] }
+    open_issue: "当前按所有后处理链路汇入；用户曾提出可能只需泵浦待机链路进入此节点，待审批确认。"
+
+  - node_id: N59
+    node_name: 结束
+    node_type: join
+    stage: 发射后处理
+    business_instruction: 结束
+    command: null
+    call_mode: null
+    timeout: null
+    target_systems: []
+    fan_out: internal_join
+    expected_instance_count: 0
+    depends: [靶场中子屏蔽门打开]
+    runtime_guards: []
+    extra_inputs: []
+    state_transition_refs: []
+    on_failure: { strategy: pause, options: [continue, abort] }

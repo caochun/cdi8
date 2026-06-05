@@ -1,0 +1,2854 @@
+# ============================================================================
+# GXLF 激光发射控制流程定义
+# 依据: docs/集中管控系统控制流程业务说明.md (2026-05-27)
+# 本文件从"参数下发"到"结束"完整建模, 共59个节点
+# ============================================================================
+
+flow:
+  name: GXLF激光发射控制流程
+  version: "2.1"
+  description: >
+    从总控加载运行流程配方并进行参数下发后, 到靶场中子屏蔽门打开、流程结束的
+    完整发射运行链路。包含发射准备(~31.5min)、正式发射(~3.5min)、
+    发射后处理(~25min)三个阶段, 业务上是一条连续流程。
+  resource_lock:
+    scope: flow_instance
+    systems:
+      - 光纤种子源组件
+      - 二倍频宽带激光注入组件
+      - 再生与双程放大组件
+      - 多程放大系统
+      - 泵浦分系统
+      - 测量取样组件
+      - 频率转换分系统
+      - 靶瞄准定位系统
+      - 真空靶室分系统
+      - 物理实验诊断分系统
+      - 集中同步分系统
+      - 开关驱动源组件
+      - 冷却分系统
+      - 控制环境组件
+      - 建安工程安防系统屏蔽门控制接口
+    on_lock_failed: reject
+    on_conflict: reject_new_instance
+    max_wait: 30s
+  stages:
+    - name: 发射准备
+      expected_duration: 31.5min
+      node_range: N01-N22
+    - name: 正式发射
+      expected_duration: 3.5min
+      node_range: N23-N37
+    - name: 发射后处理
+      expected_duration: 25min
+      node_range: N38-N59
+
+  # [待确认] 60束线扇出(by_beam_line)部分失败时是否允许"降束发射"?
+  # 当前所有 by_beam_line 节点均采用 completion: all_success (最保守策略)。
+  # 若业务允许部分束线失败仍继续发射, 需改为 completion: partial_success + min_success_ratio。
+
+  # [待确认] 安全联锁 release 阶段的"实验结束语音播报"缺少执行触发机制建模。
+  # 当前 release_conditions 列出了"语音播报本次实验结束"作为解除条件,
+  # 但未建模谁/何时触发该播报动作(是自动还是人工)。
+
+  # 操作员干预策略（全局统一）
+  operator_intervention_policy:
+    options: [continue, pause, abort]
+    description: >
+      操作员在流程执行中可选择的三级干预动作：
+      continue - 确认继续执行（用于人工确认点或失败后重试）
+      pause - 暂停流程等待进一步指示
+      abort - 终止流程并触发补偿链
+    pause_timeout:
+      duration: 2min
+      on_timeout: abort
+      escalation:
+        - { at: 30s, level: warning, notify: [总控操作员], message: 暂停已持续30秒 }
+        - { at: 90s, level: critical, notify: [总控操作员, 值班主任], message: 暂停已持续90秒即将自动终止 }
+
+  # 补偿策略（流程终止时的安全回退动作）
+  compensation_policy:
+    description: >
+      流程 abort 时，根据各分系统当前状态执行对应补偿动作。
+      补偿链按 priority 从小到大串行执行，确保安全。
+      pause 状态不触发补偿，仅 abort 触发。
+    chains:
+      - name: 发射充电已完成紧急泄放
+        trigger_condition: { node: 发射充电, state: charged }
+        action: { command: EmergencyDischarge, target: 泵浦分系统 }
+        priority: 1
+        trigger_on: [abort, interlock_triggered]
+
+      - name: 发射充电过程中紧急停充
+        trigger_condition: { node: 发射充电, state: charging }
+        action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+        priority: 1
+        trigger_on: [abort, interlock_triggered]
+
+      - name: 预电离充电已完成紧急泄放
+        trigger_condition: { node: 预电离发射充电, state: charged }
+        action: { command: EmergencyDischarge, target: 泵浦分系统 }
+        priority: 1
+        trigger_on: [abort, interlock_triggered]
+
+      - name: 预电离充电过程中紧急停充
+        trigger_condition: { node: 预电离发射充电, state: charging }
+        action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+        priority: 1
+        trigger_on: [abort, interlock_triggered]
+
+      - name: 开关充电已完成紧急待机
+        trigger_condition: { node: 开关充电, state: charged }
+        action: { command: SwitchStandby, target: 开关驱动源组件 }
+        priority: 2
+        trigger_on: [abort, interlock_triggered]
+
+      - name: 预放唤醒后回退待机
+        trigger_condition: { node: 预放唤醒, state: active }
+        action: { command: PreampStandby, target: 再生与双程放大组件 }
+        priority: 3
+        trigger_on: [abort]
+
+      - name: 警灯关闭
+        trigger_condition: { node: 警灯警示音乐开启, state: active }
+        action: { command: WarningLightOff, target: 控制环境组件 }
+        priority: 4
+        trigger_on: [abort]
+
+      - name: 屏蔽门解除锁定
+        trigger_condition: { node: 靶场中子屏蔽门关闭, state: locked }
+        action: { command: DoorUnlock, target: 建安工程安防系统屏蔽门控制接口 }
+        priority: 5
+        trigger_on: [abort]
+
+      - name: 片放吹扫安全停止
+        trigger_condition: { node: 片放吹扫, state: purging }
+        action: { command: SlabPurgeStop, target: 冷却分系统 }
+        priority: 3
+        trigger_on: [abort, interlock_triggered]
+        description: 吹扫过程中abort时安全停止冷却系统, 防止无人值守下持续运行
+
+      - name: 靶瞄准定位系统归零位
+        trigger_condition: { node: 靶瞄进入打靶状态, state: positioned }
+        action: { command: TargetSafeReturn, target: 靶瞄准定位系统 }
+        priority: 4
+        trigger_on: [abort]
+        description: 靶瞄系统已进入打靶定位状态时abort, 需回退到安全零位避免机械干涉
+
+# ============================================================================
+# 分系统注册表 -- 15类分系统/组件
+# ============================================================================
+
+systems:
+  光纤种子源组件:
+    instances: 1
+    protocol: tango
+    description: 参数下发、出光、激光参数采集
+
+  二倍频宽带激光注入组件:
+    instances: 1
+    protocol: tango
+    description: 固定8条束线可选择种子源光或二倍频光
+
+  再生与双程放大组件:
+    instances: 10
+    protocol: tango
+    fan_out: by_beam_group
+    description: 预放唤醒、能量闭环、能量数据采集、预放待机; 每台管6束
+
+  多程放大系统:
+    instances: 60
+    protocol: tango
+    fan_out: by_beam_line
+    description: 光路准直; 每束1台
+
+  泵浦分系统:
+    instances: 1
+    protocol: tango
+    description: 泵浦发射准备、发射充电、泵浦数据采集、泵浦待机、预电离链路
+
+  测量取样组件:
+    instances: 60
+    protocol: tango
+    fan_out: by_beam_line
+    description: 测量靶瞄准备、测量打靶运动准备、激光参数采集
+
+  频率转换分系统:
+    instances: 60
+    protocol: tango
+    fan_out: by_beam_line
+    description: 晶体位姿设置
+
+  靶瞄准定位系统:
+    instances: 1
+    protocol: tango
+    description: 实验靶预定位、模拟靶定位、光束引导、实验靶复位、靶瞄状态、靶瞄分析、收靶
+
+  真空靶室分系统:
+    instances: 1
+    protocol: tango
+    description: 参数下发对接对象和安全联锁相关对象
+
+  物理实验诊断分系统:
+    instances: 1
+    protocol: tango
+    description: 诊断设备发射准备、诊断采集设置、物理诊断后处理
+
+  集中同步分系统:
+    instances: 60
+    protocol: tango
+    fan_out: by_beam_line
+    description: 预放/测量重频配方、单次配方、同步触发
+
+  开关驱动源组件:
+    instances: 1
+    protocol: tango
+    description: 开关充电、开关触发准备、放电波形采集、开关待机
+
+  冷却分系统:
+    instances: 1
+    protocol: tango
+    description: 片放吹扫
+
+  控制环境组件:
+    instances: 1
+    protocol: http
+    description: 清场语音、警灯/警示音乐、警灯关闭
+
+  建安工程安防系统屏蔽门控制接口:
+    instances: 1
+    protocol: tbd
+    description: 屏蔽门关闭/打开, 接口类型待定
+
+  人员进出计数接口:
+    instances: 1
+    protocol: tbd
+    description: 人员计数归零判断
+
+# ============================================================================
+# 全局守卫 -- 安全联锁 + 紧急处理
+# ============================================================================
+
+global_guards:
+  safety_interlock:
+    description: 安全联锁, 贯穿所有节点, 任一安全联锁事件触发时向所有分系统下发流程终止指令
+    enter_conditions:
+      - { source: 中子屏蔽门, check: locked }
+      - { source: 人员计数, check: zero }
+      - { source: 靶室真空度, check: normal, detail: 多程放大系统钛泵/靶室真空度 }
+    trigger_sources:
+      - { name: 人员被困, type: manual, description: 人工触发紧急停机 }
+      - { name: 真空度异常, type: auto, source: 多程放大系统钛泵/靶室真空度 }
+      - { name: 监控发现隐患, type: manual, description: 语音视频监控发现重大安全隐患 }
+    on_trigger:
+      - command: FlowTerminate
+        target: all_systems
+        priority: 0
+        description: 向所有分系统下发流程终止指令
+      - command: EmergencyStopCharge
+        target: 泵浦分系统
+        condition:
+          system: 泵浦分系统
+          state_in: [charging]
+        priority: 1
+        description: 充电中紧急停充
+      - command: EmergencyDischarge
+        target: 泵浦分系统
+        condition:
+          system: 泵浦分系统
+          state_in: [charged]
+        priority: 2
+        description: 充电完成态紧急泄放
+      - command: DoorUnlock
+        target: 建安工程安防系统屏蔽门控制接口
+        priority: 3
+        description: 中子屏蔽门解除锁定
+      - command: AlarmOn
+        target: 控制环境组件
+        priority: 3
+        description: 警灯警报触发
+    release_conditions:
+      - 屏蔽门解除锁闭
+      - 警灯警报解除
+      - 语音播报本次实验结束
+    lifecycle:
+      states: [inactive, armed, triggered, released]
+      transitions:
+        - { from: inactive, to: armed, event: interlock_enter_conditions_met }
+        - { from: armed, to: triggered, event: any_trigger_source_fired }
+        - { from: triggered, to: released, event: all_release_conditions_met }
+        - { from: released, to: inactive, event: flow_reset }
+      execution_semantics:
+        on_trigger: serial
+        description: 触发后 on_trigger 动作按 priority 串行执行，确保高优先级安全动作先完成
+
+  emergencies:
+    - name: 紧急停车
+      description: 同步触发5秒倒计时内突发异常时, 通过按钮向同步分系统下发紧急触发指令
+      trigger_type: manual
+      window: [主发射同步触发, 预电离同步触发]
+      action: { command: EmergencyTrigger, target: 集中同步分系统 }
+
+    - name: 紧急触发
+      description: 同步触发时未能触发时, 通过按钮向同步分系统下发紧急触发指令
+      trigger_type: manual
+      window: [主发射同步触发, 预电离同步触发]
+      condition:
+        event: trigger_timeout
+        detail: 同步系统在T+5s未完成正式触发
+      action: { command: EmergencyTrigger, target: 集中同步分系统 }
+
+    - name: 紧急泄放
+      description: 泵浦发射充电或预电离充电完成后未能触发时, 向泵浦分系统下发紧急泄放指令
+      trigger_type: auto_or_manual
+      window_after: [发射充电, 预电离发射充电]
+      condition:
+        event: trigger_timeout
+        system: 泵浦分系统
+        state_in: [charged]
+        detail: 充电完成后同步触发未成功
+      action: { command: EmergencyDischarge, target: 泵浦分系统 }
+
+    - name: 紧急停充
+      description: 泵浦发射充电或预电离充电过程中突发异常时, 向泵浦分系统下发紧急停充指令
+      trigger_type: manual
+      window_during: [发射充电, 预电离发射充电]
+      condition:
+        system: 泵浦分系统
+        state_in: [charging]
+      action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+
+# ============================================================================
+# 模板 -- 可复用子图
+# ============================================================================
+
+templates:
+  主发射触发序列:
+    # [已拆分] 此模板已拆分为独立节点 N34 主发射同步触发 / N35 主发射泵浦触发准备 / N36 主发射开关触发准备
+    # 保留作为时序约束的文档说明, 不再被节点引用
+    deprecated: true
+    description: >
+      主发射同步触发时序。T+0下发触发指令并开始倒计时, T+3泵浦和开关必须完成触发准备,
+      T+5同步系统完成正式触发。主发射涉及开关驱动源。
+    params: [触发类型]
+    involved_systems: [集中同步分系统, 泵浦分系统, 开关驱动源组件]
+    timed_sequence:
+      T+0s:
+        parallel:
+          - { command: SyncTrigger, target: 集中同步分系统, description: 同步系统接收触发指令并开始倒计时 }
+          - { command: PumpTriggerReady, target: 泵浦分系统, description: 泵浦触发准备 }
+          - { command: SwitchTriggerReady, target: 开关驱动源组件, description: 开关触发准备 }
+      T+3s:
+        require:
+          - { name: 泵浦触发准备完成, target: 泵浦分系统 }
+          - { name: 开关触发准备完成, target: 开关驱动源组件 }
+      T+5s:
+        action: 正式触发
+    on_timeout: EmergencyTrigger
+    total_duration: 10s
+
+  预电离触发序列:
+    # [已拆分] 此模板已拆分为独立节点 N47 预电离同步触发 / N48 预电离泵浦触发准备
+    # 保留作为时序约束的文档说明, 不再被节点引用
+    deprecated: true
+    description: >
+      预电离同步触发时序。T+0下发触发指令并开始倒计时, T+3泵浦必须完成触发准备,
+      T+5同步系统完成正式触发。预电离不涉及开关驱动源。
+    params: [触发类型]
+    involved_systems: [集中同步分系统, 泵浦分系统]
+    timed_sequence:
+      T+0s:
+        parallel:
+          - { command: SyncTrigger, target: 集中同步分系统, description: 同步系统接收触发指令并开始倒计时 }
+          - { command: PumpTriggerReady, target: 泵浦分系统, description: 泵浦触发准备 }
+      T+3s:
+        require:
+          - { name: 泵浦触发准备完成, target: 泵浦分系统 }
+      T+5s:
+        action: 正式触发
+    on_timeout: EmergencyTrigger
+    total_duration: 10s
+
+# ============================================================================
+# 节点定义 -- 发射准备阶段 (N01-N22)
+# ============================================================================
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │                    节点字段参考（Field Reference）                        │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │                                                                         │
+# │ ── 基础标识 ──                                                          │
+# │ id:                 节点唯一编号, N01-N59 顺序递增                        │
+# │ type:               节点类型, 三选一:                                    │
+# │                       action         → 向分系统发送控制指令并等待响应      │
+# │                       join           → AND 汇合点, 等所有 depends 完成    │
+# │                       timed_sequence → 硬实时时序子图(T+0/T+3/T+5)       │
+# │ stage:              所属阶段: 发射准备 | 正式发射 | 发射后处理              │
+# │                                                                         │
+# │ ── 安全域 ──                                                            │
+# │ safety_scope:       节点在安全联锁生命周期中的位置:                        │
+# │                       before_interlock  → 联锁生效前执行(清场/参数下发)    │
+# │                       interlock_control → 控制联锁本身(门锁/门开)          │
+# │                       under_interlock   → 联锁保护下执行(绝大多数节点)     │
+# │                                                                        │
+# │ ── 目标与指令（action 类型专用）──                                       │
+# │ target:             指令发送目标                                          │
+# │   system:           目标分系统名称(列表), 引用 systems 注册表              │
+# │   fan_out:          扇出策略:                                            │
+# │                       broadcast      → 单播/广播(1套设备)                 │
+# │                       by_beam_line   → 按束线扇出(60套)                   │
+# │                       by_beam_group  → 按束线组扇出(10台, 每台管6束)       │
+# │   completion:       扇出后的完成判定:                                     │
+# │                       all_success    → 全部成功才算完成                    │
+# │ command:            下发的控制指令名(英文 PascalCase)                      │
+# │                     join 类型显式写 command: null                         │
+# │ call_mode:          调用模式:                                            │
+# │                       sync  → 同步等待响应(短指令, 通常<2s)               │
+# │                       async → 异步等待回调(长流程, 可达数分钟)             │
+# │ timeout:            最大等待时长, 格式: 数字+单位(1s/2min/40min)           │
+# │ timing:             精确时间约束(仅安全关键节点):                          │
+# │   expected_duration:  预期执行时长                                        │
+# │   tolerance:          允许偏差                                            │
+# │   hard_deadline:      true=超时即触发紧急处理                             │
+# │                                                                         │
+# │ ── 输入输出 ──                                                          │
+# │ input:              输入参数列表, 每项含 name/type/values/mapping          │
+# │   name:             参数名(中文)                                          │
+# │   type:             数据类型: string | number | enum                      │
+# │   values:           enum 类型的可选值列表                                 │
+# │   mapping:          值到含义的映射(如 {0: 失败, 1: 成功})                 │
+# │ output:             输出字段定义, key=字段名, value=类型描述               │
+# │                                                                         │
+# │ ── 完成判定 ──                                                          │
+# │ completion_criteria: 节点成功的判定规则                                   │
+# │   success_condition:  布尔表达式, 引用 output 字段                        │
+# │   aggregate:          扇出场景的聚合策略: all_success                     │
+# │   allow_partial:      true=允许部分失败仍视为整体成功(后处理阶段常用)      │
+# │                                                                         │
+# │ ── DAG 依赖 ──                                                          │
+# │ depends:            前置节点列表(静态拓扑依赖, 决定调度顺序)              │
+# │                     简单形式: [节点名1, 节点名2]                           │
+# │                     结构化形式: [{node: 名, required: true/false}]        │
+# │                       required=false 表示"非必要前置条件"                 │
+# │ dependency_policy:  依赖满足策略: all_success(所有前置必须成功)            │
+# │                                                                         │
+# │ ── 运行时守卫 ──                                                        │
+# │ runtime_guards:     执行前的运行时检查(与 depends 不同, 这是动态评估):    │
+# │   service: X, check: running   → 检查分系统 X 服务在线                   │
+# │   node: X, check: completed    → 检查节点 X 已完成(冗余确认)             │
+# │   interlock: safety, check: normal → 检查安全联锁状态正常                │
+# │   check: 描述文本                → 自定义检查条件                         │
+# │ guard_failure_policy: 守卫检查失败时的处理:                               │
+# │   strategy:         pause(暂停等人工) | abort(直接中止)                   │
+# │   notify:           通知对象列表                                          │
+# │                                                                         │
+# │ ── 失败处理 ──                                                          │
+# │ on_failure:         节点执行失败时的处理策略:                              │
+# │   strategy:         pause    → 暂停等人工介入                             │
+# │                     retry    → 自动重试                                   │
+# │                     emergency → 触发紧急处理(安全关键节点)                │
+# │                     skip     → 跳过(仅后处理阶段允许)                     │
+# │   max_retries:      最大重试次数(strategy=retry 时)                       │
+# │   retry_interval:   重试间隔                                              │
+# │   on_max_retries:   重试耗尽后: pause | skip | abort                     │
+# │   action:           紧急处理动作(strategy=emergency 时)                   │
+# │   notify:           通知对象列表                                          │
+# │                                                                         │
+# │ ── 人工干预 ──                                                          │
+# │ operator_intervention: 操作员可执行的手动动作:                             │
+# │   allowed_actions:  可选动作列表: retry/skip/abort                        │
+# │   default_action:   默认推荐动作                                          │
+# │   confirm_required: true=执行前需二次确认(安全关键操作)                   │
+# │                                                                         │
+# │ ── v2.1 新增字段 ──                                                     │
+# │ safety_critical:    true=安全关键节点(充电类), 失败直接触发紧急处理        │
+# │ hold_constraint:    完成后的保持时间约束(充电完成不可久持):                │
+# │   max_hold_time:    最大保持时长                                          │
+# │   on_hold_exceeded: 超时动作: emergency_discharge                         │
+# │ linked_behavior:    关联行为(跨节点的联动效果):                           │
+# │   music_auto_stop:  音乐自动停止的触发条件和动作                          │
+# │   warning_light:    警灯持续到哪个节点                                    │
+# │ pipeline_overlap:   发次间流水线重叠配置:                                 │
+# │   next_instance_start_before_end: 下一发次提前启动的时间                  │
+# │                                                                         │
+# │ ── timed_sequence 类型专用 ──                                           │
+# │ template:           引用 templates 中定义的时序模板名                      │
+# │ args:               传递给模板的参数                                      │
+# │                                                                         │
+# │ ── 说明 ──                                                              │
+# │ description:        人类可读的业务说明(不影响解释器行为)                   │
+# │                                                                         │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+nodes:
+
+  # -- 6.1 参数下发 ----------------------------------------------------------
+  # ↓↓↓ 以下为带注释的标杆示例节点, 后续节点结构相同但省略注释 ↓↓↓
+  参数下发:
+    id: N01                          # 唯一编号, 用于 DAG 引用和日志追踪
+    type: action                     # action=向分系统发指令; join=汇合; timed_sequence=硬实时子图
+    stage: 发射准备                   # 所属阶段(对应 flow.stages 定义)
+    safety_scope: before_interlock   # 安全域: 此节点在联锁生效前执行
+    target:                          # ── 指令发送目标 ──
+      system:                        # 目标分系统(引用 systems 注册表中的名称)
+        - 光纤种子源组件
+        - 二倍频宽带激光注入组件
+        - 再生与双程放大组件
+        - 多程放大系统
+        - 泵浦分系统
+        - 测量取样组件
+        - 频率转换分系统
+        - 靶瞄准定位系统
+        - 真空靶室分系统
+        - 物理实验诊断分系统
+        - 集中同步分系统
+        - 开关驱动源组件
+        - 冷却分系统
+      fan_out: broadcast             # 扇出策略: broadcast=单播; by_beam_line=60路; by_beam_group=10路
+      completion: all_success        # 扇出完成判定: 全部成功才算通过
+    command: ParamDispatch           # 下发的控制指令名(PascalCase, 对应分系统 API)
+    call_mode: sync                  # sync=同步等响应(短); async=异步等回调(长)
+    timeout: 2s                      # 最大等待时长(超时进入 on_failure 流程)
+    input:                           # ── 输入参数(随指令下发给分系统) ──
+      - { name: 发次编号, type: string }    # 本次发射实验的唯一标识
+      - { name: 阶段编号, type: string }    # 当前阶段标识
+    output:                          # ── 输出字段(分系统返回) ──
+      接收状态: { type: enum, values: [0, 1, 2], mapping: {0: 失败, 1: 成功, 2: 无服务权限} }
+    completion_criteria:             # ── 成功判定规则 ──
+      success_condition: "output.接收状态 == 1"   # 布尔表达式, 引用 output 字段
+    depends: []                      # ── DAG 前置依赖(空=起始节点, 无前置) ──
+    runtime_guards:                  # ── 运行时守卫(执行前动态检查, 区别于静态 depends) ──
+      - { check: 流程配方加载成功 }   # 自定义检查: 配方必须已加载
+      - { check: 总控服务状态正常 }   # 自定义检查: 总控自身健康
+    guard_failure_policy:            # ── 守卫失败策略 ──
+      strategy: pause                # pause=暂停等人工; abort=直接中止
+      notify: [总控操作员]            # 通知谁
+    on_failure:                      # ── 节点执行失败策略 ──
+      strategy: pause                # pause/retry/emergency/skip
+      notify: [总控操作员]
+    operator_intervention:           # ── 人工干预选项(UI 上展示给操作员) ──
+      allowed_actions: [continue, pause, abort]  # 可选动作
+      default_action: continue         # 默认推荐
+      confirm_required: true           # true=需二次确认(防误操作)
+    description: >
+      总控系统下发"参数下发"指令, 所有分系统接收并反馈接收成功,
+      各分系统依据发次编号从数据库中直接获取关联参数, 并完成参数初始化。
+
+  # -- 6.2 同步预放重频配方 --------------------------------------------------
+  同步预放重频配方:
+    id: N02
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: SyncPreampRepRateRecipe
+    call_mode: sync
+    timeout: 2s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 集中同步分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 同步预放切换为重频模式。
+
+  # -- 6.3 同步测量重频配方 --------------------------------------------------
+  同步测量重频配方:
+    id: N03
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: SyncMeasRepRateRecipe
+    call_mode: sync
+    timeout: 2s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+     接收状态: { type: enum, values: [0, 1, 2], mapping: { 0: 失败, 1: 收到, 2: 无服务权限 } }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 集中同步分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 同步测量切换为重频模式。
+
+  # -- 6.4 光纤种子源/二倍频出光 --------------------------------------------
+  光纤种子源出光:
+    id: N04
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [光纤种子源组件, 二倍频宽带激光注入组件]
+      fan_out: broadcast
+      completion: all_success
+    command: LaserOn
+    call_mode: async
+    timeout: 10min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 出光标识, type: enum, values: [0, 1], mapping: { 0: 关光, 1: 出光 } }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2], mapping: { 0: 失败, 1: 收到, 2: 无服务权限 } }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 光纤种子源组件, check: running }
+      - { service: 二倍频宽带激光注入组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      固定8条束线可选择出种子源光或二倍频光, 其余束线仅可出种子源光,
+      出光可任意组合, 共60束。
+
+  # -- 6.5 预放唤醒 ----------------------------------------------------------
+  预放唤醒:
+    id: N05
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: PreampWakeup
+    call_mode: async
+    timeout: 8min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [同步预放重频配方]
+    runtime_guards:
+      - { service: 再生与双程放大组件, check: running }
+      - { node: 同步预放重频配方, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"预放唤醒"指令, 再生与双程放大组件接收并反馈,
+      依据发次编号束线编号返回接收状态。
+
+  # -- 6.6 能量粗闭环 --------------------------------------------------------
+  能量粗闭环:
+    id: N06
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnergyCoarseLoop
+    call_mode: async
+    timeout: 2min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 预放目标能量, type: number }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [预放唤醒, 光纤种子源出光]
+    runtime_guards:
+      - { service: 再生与双程放大组件, check: running }
+      - { node: 光纤种子源出光, check: completed }
+      - { node: 预放唤醒, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"能量粗闭环"指令, 再生与双程放大组件接收并反馈,
+      依据发次编号、束线编号、预放目标能量返回接收状态。
+
+  # -- 6.7 第一次能量精闭环 --------------------------------------------------
+  # [修正A5] 补充 depends: 能量粗闭环(原文card遗漏)
+  能量精闭环_1:
+    id: N07
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnergyFineLoop
+    call_mode: async
+    timeout: 2min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 预放目标能量, type: number }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [能量粗闭环]
+    runtime_guards:
+      - { service: 再生与双程放大组件, check: running }
+      - { node: 光纤种子源出光, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"能量精闭环"指令(第一次), 再生与双程放大组件接收并反馈。
+
+  # -- 6.8 清场(语音定时喊话) ------------------------------------------------
+  清场:
+    id: N08
+    type: action
+    stage: 发射准备
+    safety_scope: before_interlock
+    dependency_policy: all_success
+    target:
+      system: [控制环境组件]
+      fan_out: broadcast
+      completion: all_success
+    command: AreaClearAnnounce
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 命令, type: enum, values: [0, 1], mapping: { 0: 开启, 1: 关闭 } }
+    output:
+      接收状态: { type: enum, values: [0, 1], mapping: { 0: 失败, 1: 成功 } }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 控制环境组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: >
+      总控系统下发"清场"指令, 控制环境组件接收并反馈, 依据控制指令完成清场语音定时喊话。
+
+  # -- 6.9 靶场中子屏蔽门关闭 ------------------------------------------------
+  # [修正B2] 说明已修正, 不再是清场的复制
+  靶场中子屏蔽门关闭:
+    id: N09
+    type: action
+    stage: 发射准备
+    safety_scope: interlock_control
+    dependency_policy: all_success
+    target:
+      system: [建安工程安防系统屏蔽门控制接口, 人员进出计数接口]
+      fan_out: broadcast
+      completion: all_success
+    command: ShieldDoorClose
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 屏蔽门编号, type: string }
+      - { name: 屏蔽门控制命令, type: enum, values: [开启, 关闭, 锁定] }
+    output:
+      屏蔽门状态: { type: enum, values: [开启, 关闭, 锁定] }
+      人员动态清单: { type: object }
+    completion_criteria:
+      success_condition: "output.屏蔽门状态 == '锁定'"
+    depends: [清场]
+    runtime_guards:
+      - { check: 门控服务运行状态正常 }
+      - { check: 人员计数归零 }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: >
+      总控系统下发"屏蔽门关闭"指令, 建安工程安防系统接收并反馈,
+      依据控制指令完成屏蔽门关闭与锁定。
+
+  # -- 6.10 风淋门锁住(待定) ------------------------------------------------
+  风淋门锁住:
+    id: N10
+    type: action
+    stage: 发射准备
+    safety_scope: interlock_control
+    dependency_policy: all_success
+    target:
+      system: [建安工程安防系统屏蔽门控制接口]
+      fan_out: broadcast
+      completion: all_success
+    command: AirShowerLock
+    call_mode: async
+    timeout: 5min         # 待确认
+    input: []             # 待确认
+    output: {}            # 待确认
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [清场]
+    runtime_guards: []    # 待确认
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: >
+      [待确认] 图中存在该流程节点, 当前未抽取到完整card。
+      接口、控制指令、执行时长和是否必须参与AND判断需后续确认。
+
+  # -- 6.11 实验靶预定位 ----------------------------------------------------
+  实验靶预定位:
+    id: N11
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: ExpTargetPrePosition
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"实验靶预定位"指令, 靶瞄准定位组件接收并反馈。
+      [修正] 原图card控制指令写成"测量靶瞄准备", 已确认修正为"实验靶预定位"。
+
+  # -- 6.12 测量靶瞄准备 ----------------------------------------------------
+  测量靶瞄准备:
+    id: N12
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [测量取样组件]
+      fan_out: by_beam_line
+      completion: all_success
+    command: MeasTargetAlignReady
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [同步测量重频配方]
+    runtime_guards:
+      - { service: 测量取样组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 靶瞄借用测量设备, 更换授权, 由总控更换为靶瞄控制。
+
+  # -- 6.13 模拟靶定位 ------------------------------------------------------
+  # [修正A4] 补充 depends: 测量靶瞄准备(原文card遗漏)
+  模拟靶定位:
+    id: N13
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: SimTargetPosition
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 靶标识, type: enum, values: [0, 1], mapping: { 0: 主靶, 1: 副靶 } }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends:                         # ── 结构化 depends 示例(区分必要/非必要前置) ──
+      - { node: 测量靶瞄准备, required: true }           # 必要前置: 必须完成才能开始
+      - { node: 实验靶预定位, required: false, note: 非必要前置条件 }  # 非必要: 完成更好, 未完成也可执行
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"模拟靶定位"指令, 靶瞄准定位组件接收并反馈。
+      实验靶预定位为非必要前置条件(原文标注)。
+
+  # -- 6.14 光路准直 --------------------------------------------------------
+  # [修正A2] 补充 depends: 靶场中子屏蔽门关闭、风淋门锁住(原文card遗漏, 链路清单有)
+  # [修正] 原图card控制指令写成"模拟靶定位", 已确认修正为"光路准直"
+  # [修正] 原图card对接系统写成"多程放大组件(10)", 建模按多程放大系统(60)
+  光路准直:
+    id: N14
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [多程放大系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: BeamlineAlign
+    call_mode: async
+    timeout: 10min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [靶场中子屏蔽门关闭, 风淋门锁住, 光纤种子源出光, 预放唤醒]
+    runtime_guards:
+      - { node: 预放唤醒, check: completed }
+      - { service: 多程放大系统, check: running }
+      - { check: 片放吹扫停止 }
+      - { node: 光纤种子源出光, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      光路准直。片放吹扫停止指上一发次的吹扫已结束(发次间流水线重叠)。
+
+  # -- 6.15 光束引导 --------------------------------------------------------
+  # [修正A3] 补充 depends: 模拟靶定位(原文card遗漏, 链路清单有)
+  光束引导:
+    id: N15
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: BeamGuiding
+    call_mode: async
+    timeout: 3min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [光路准直, 模拟靶定位]
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+      - { node: 光纤种子源出光, check: completed }
+      - { node: 光路准直, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 总控系统下发"光束引导"指令, 靶瞄准定位组件接收并反馈。
+
+  # -- 6.16 实验靶复位 ------------------------------------------------------
+  实验靶复位:
+    id: N16
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: ExpTargetReset
+    call_mode: async
+    timeout: 3min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 靶标识, type: enum, values: [0, 1] }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [光束引导]
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+      - { node: 光束引导, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 总控系统下发"实验靶复位"指令, 靶瞄准定位组件接收并反馈。
+
+  # -- 6.17 靶瞄进入打靶状态 ------------------------------------------------
+  靶瞄进入打靶状态:
+    id: N17
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: TargetAlignShotMode
+    call_mode: async
+    timeout: 3s
+    input:
+      - { name: 发次编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [实验靶复位]
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+      - { node: 实验靶复位, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 1s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 总控系统下发"靶瞄进入打靶状态"指令。
+
+  # -- 6.18 测量打靶运动准备 ------------------------------------------------
+  测量打靶运动准备:
+    id: N18
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [测量取样组件]
+      fan_out: by_beam_line
+      completion: all_success
+    command: MeasShotMotionReady
+    call_mode: async
+    timeout: 1.5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [光束引导]
+    runtime_guards:
+      - { service: 测量取样组件, check: running }
+      - { node: 光束引导, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 总控系统下发"测量打靶运动准备"指令, 测量取样组件接收并反馈。
+
+  # -- 6.19 打靶运动准备 ----------------------------------------------------
+  # [修正D3] 文档确认为独立节点但缺少card, 基于测量打靶运动准备构造, 标注待确认
+  打靶运动准备:
+    id: N19
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [测量取样组件]    # 待确认: 可能是独立系统
+      fan_out: by_beam_line
+      completion: all_success
+    command: ShotMotionReady     # 待确认
+    call_mode: async
+    timeout: 1.5min             # 待确认
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [光束引导]
+    runtime_guards:
+      - { node: 光束引导, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      [待确认] 文档第1章和第4章确认为独立结果链路, 但第6章缺少独立card。
+      当前基于"测量打靶运动准备"构造, 对接系统和参数需后续确认。
+
+  # -- 6.20 诊断设备发射准备 ------------------------------------------------
+  # [修正B3] 补充 interlock guard(原文card遗漏)
+  诊断设备发射准备:
+    id: N20
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [物理实验诊断分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: DiagStatusConfirm
+    call_mode: async
+    timeout: 10min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [模拟靶定位]
+    runtime_guards:
+      - { node: 模拟靶定位, check: completed }
+      - { service: 物理实验诊断分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 诊断设备状态确认。
+
+  # -- 6.21 泵浦发射准备 ----------------------------------------------------
+  泵浦发射准备:
+    id: N21
+    type: action
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpShotReady
+    call_mode: async
+    timeout: 15s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [参数下发]
+    runtime_guards:
+      - { service: 泵浦分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: >
+      总控系统下发"泵浦发射准备"指令, 泵浦分系统组件接收并反馈。
+
+  # -- 6.22 发射准备全部完成 ------------------------------------------------
+  # [修正C1] readiness 补充"打靶运动准备"
+  # ↓↓↓ join 类型示例: 纯汇合点, 不下发指令, 等所有 depends 完成 ↓↓↓
+  发射准备全部完成:
+    id: N22
+    type: join                       # join=AND 汇合点, 所有 depends 完成才放行
+    stage: 发射准备
+    safety_scope: under_interlock
+    dependency_policy: all_success   # 所有前置必须成功(join 的核心语义)
+    command: null                    # join 不下发指令, 显式声明 null
+    depends:                         # 汇合的所有分支(缺一不可)
+      - 能量精闭环_1
+      - 诊断设备发射准备
+      - 靶瞄进入打靶状态
+      - 测量打靶运动准备
+      - 打靶运动准备
+      - 光纤种子源出光
+      - 泵浦发射准备
+    runtime_guards:
+      - { check: 各系统服务运行状态正常 }
+      - { interlock: safety, check: normal }
+      - { check: 泵浦发射准备状态正常 }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: >
+      AND汇合点, 不下发控制指令。所有准备链路完成后通过。
+      readiness: 诊断设备发射准备完成、测量进入打靶运动准备、靶瞄进入打靶状态、
+      多程放大系统光路准直完成(隐含于光束引导->靶瞄打靶状态链路)、种子源或二倍频出光、
+      再生与双程放大唤醒及能量闭环完成、各系统服务运行状态正常、安全联锁状态正常、
+      泵浦发射准备状态正常。
+
+  # ========================================================================
+  # 节点定义 -- 正式发射阶段 (N23-N37)
+  # ========================================================================
+
+  # -- 6.23 诊断设备采集设置 ------------------------------------------------
+  诊断设备采集设置:
+    id: N23
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [物理实验诊断分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: DiagCollectSetup
+    call_mode: async
+    timeout: 1min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { node: 诊断设备发射准备, check: completed }
+      - { service: 物理实验诊断分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+
+  # -- 6.24 晶体位姿设置 ----------------------------------------------------
+  晶体位姿设置:
+    id: N24
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [频率转换分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: CrystalPoseAdjust
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { service: 频率转换分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 2s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 依据束线编号识别需要控制的系统服务。
+
+  # -- 6.25 发射充电准备 ----------------------------------------------------
+  发射充电准备:
+    id: N25
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: ChargeReady
+    call_mode: async
+    timeout: 15s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { service: 泵浦分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+
+  # -- 6.26 第二次能量精闭环 ------------------------------------------------
+  能量精闭环_2:
+    id: N26
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnergyFineLoop
+    call_mode: async
+    timeout: 2min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 预放目标能量, type: number }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { service: 再生与双程放大组件, check: running }
+      - { node: 光纤种子源出光, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 每次发射进行两次能量精闭环, 此为第二次。
+
+  # -- 6.27 预放单次配方 ----------------------------------------------------
+  预放单次配方:
+    id: N27
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: PreampSingleShotRecipe
+    call_mode: sync
+    timeout: 2s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [能量精闭环_2]
+    runtime_guards:
+      - { node: 能量精闭环_2, check: completed }
+      - { service: 集中同步分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 2s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 同步预放切换为单次模式。
+
+  # -- 6.28 能量计清零 ------------------------------------------------------
+  能量计清零:
+    id: N28
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnergyMeterReset
+    call_mode: sync
+    timeout: 1s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [预放单次配方]
+    runtime_guards:
+      - { node: 预放单次配方, check: completed }
+      - { service: 再生与双程放大组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 1s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+
+  # -- 6.29 测量(靶瞄部分)单次配方 ------------------------------------------
+  测量单次配方:
+    id: N29
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: MeasSingleShotRecipe
+    call_mode: sync
+    timeout: 2s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { service: 集中同步分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 2s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    description: 同步测量切换为单次模式。
+
+  # -- 6.30 打靶测量准备 ----------------------------------------------------
+  打靶测量准备:
+    id: N30
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [测量取样组件]
+      fan_out: by_beam_line
+      completion: all_success
+    command: MeasShotReady
+    call_mode: async
+    timeout: 1min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: false
+    depends: [测量单次配方]
+    runtime_guards:
+      - { node: 测量单次配方, check: completed }
+      - { service: 测量取样组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+
+  # -- 6.31 开关充电 --------------------------------------------------------
+  开关充电:
+    id: N31
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [开关驱动源组件]
+      fan_out: broadcast
+      completion: all_success
+    command: SwitchCharge
+    call_mode: async
+    timeout: 15s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [发射准备全部完成]
+    runtime_guards:
+      - { service: 开关驱动源组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    safety_critical: true
+    hold_constraint:
+      max_hold_time: 5min            # [待确认] 原值60s导致仿真中并行依赖链(打靶测量准备~72s)超时abort；改为5min待业务方确认实际安全界限
+      on_hold_exceeded: switch_standby
+
+  # -- 6.32 警灯/警示音乐开启 ----------------------------------------------
+  # [注释A6] 链路清单5.2#4写depends为发射充电准备, card写前置条件为"发射充电开始"。
+  # 此处按链路清单取depends=发射充电准备, 两者有歧义待业务方确认。
+  警灯警示音乐开启:
+    id: N32
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [控制环境组件]
+      fan_out: broadcast
+      completion: all_success
+    command: WarningLightAndMusic
+    call_mode: async
+    timeout: 1s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [发射充电准备]
+    runtime_guards:
+      - { service: 控制环境组件, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 1s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+    linked_behavior:                 # ── 关联行为(跨节点联动, 解释器需处理) ──
+      music_auto_stop:               # 音乐自动停止规则
+        trigger: { node: 发射充电, event: completed }  # 触发条件: 发射充电完成时
+        action: stop_music           # 动作: 停止音乐播放
+      warning_light:                 # 警灯持续规则
+        keep_active_until: [警灯关闭]  # 警灯保持到"警灯关闭"节点执行
+    description: >
+      泵浦充电开始, 打开警灯、音响, 并播放提前设定音乐。
+      充电结束音乐停止, 警灯继续警示。
+
+  # -- 6.33 发射充电 --------------------------------------------------------
+  # ↓↓↓ 安全关键节点示例: safety_critical + hold_constraint + timing ↓↓↓
+  发射充电:
+    id: N33
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpCharge
+    call_mode: async
+    timing:                          # ── 精确时间约束(安全关键节点专用) ──
+      expected_duration: 75s         # 预期执行时长
+      tolerance: 3s                  # 允许偏差(75±3s)
+      hard_deadline: true            # true=超时即触发紧急处理, 不等重试
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 发射充电指令标识, type: enum, values: [主, 预] }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [诊断设备采集设置, 晶体位姿设置, 发射充电准备, 能量计清零, 打靶测量准备, 开关充电]
+    runtime_guards:
+      - { service: 泵浦分系统, check: running }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort                # 充电前守卫失败直接中止(不暂停等待)
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency            # emergency=触发紧急处理动作
+      action: { command: EmergencyStopCharge, target: 泵浦分系统 }  # 紧急停充
+    safety_critical: true            # ── 标记为安全关键节点 ──
+    hold_constraint:                 # ── 完成后保持时间约束(充电态不可久持) ──
+      max_hold_time: 30s             # [待确认] 30s数值无文档来源, 需业务方确认
+      on_hold_exceeded: emergency_discharge  # 超时则紧急泄放
+    description: >
+      泵浦充电完成无法长时间保持, 且具有安全风险。执行时长75s+-3s。
+
+  # -- 6.34 主发射同步触发 -------------------------------------------------------
+  主发射同步触发:
+    id: N34
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: SyncTrigger
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: false
+    depends: [发射充电, 警灯警示音乐开启]
+    runtime_guards:
+      - { node: 发射充电, check: completed }
+      - { check: 警示音乐停止 }
+      - { node: 开关充电, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyTrigger, target: 集中同步分系统 }
+    operator_intervention:
+      allowed_actions: [pause, abort]
+      default_action: abort
+      confirm_required: true
+    safety_critical: true
+    description: >
+      同步系统接收触发指令后, 控制音响装置进行倒计时5秒, 在第五秒完成触发。
+      依据束线编号识别需要控制的系统服务。
+
+  # -- 6.35 主发射泵浦触发准备 ---------------------------------------------------
+  主发射泵浦触发准备:
+    id: N35
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpTriggerReady
+    call_mode: sync
+    timeout: 3s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: false
+    depends: [发射充电]
+    runtime_guards:
+      - { node: 发射充电, check: completed }
+      - { node: 主发射同步触发, check: started }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyDischarge, target: 泵浦分系统 }
+    operator_intervention:
+      allowed_actions: [pause, abort]
+      default_action: abort
+      confirm_required: true
+    safety_critical: true
+    description: >
+      与同步同时接收指令, 在同步倒计时第三秒时完成触发准备。
+      依据束线编号识别需要控制的系统服务。
+
+  # -- 6.36 主发射开关触发准备 ---------------------------------------------------
+  主发射开关触发准备:
+    id: N36
+    type: action
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [开关驱动源组件]
+      fan_out: broadcast
+      completion: all_success
+    command: SwitchTriggerReady
+    call_mode: sync
+    timeout: 3s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: false
+    depends: [发射充电]
+    runtime_guards:
+      - { node: 发射充电, check: completed }
+      - { node: 主发射同步触发, check: started }
+      - { node: 开关充电, check: completed }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyDischarge, target: 开关驱动源组件 }
+    operator_intervention:
+      allowed_actions: [pause, abort]
+      default_action: abort
+      confirm_required: true
+    safety_critical: true
+    description: >
+      与同步同时接收指令, 在同步倒计时第三秒时完成触发准备。
+
+  # -- 6.37 正式发射完成 ----------------------------------------------------
+  正式发射完成:
+    id: N37
+    type: join
+    stage: 正式发射
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    command: null
+    depends: [主发射同步触发, 主发射泵浦触发准备, 主发射开关触发准备]
+    runtime_guards:
+      - { check: 泵浦触发结果正常 }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyDischarge, target: 泵浦分系统 }
+    description: >
+      正式触发后的汇合判断点。
+      [待确认] 最终完成判据是集中同步返回总体成功状态, 还是需要泵浦触发结果作为独立判据。
+
+  # ========================================================================
+  # 节点定义 -- 发射后处理阶段 (N38-N59)
+  # ========================================================================
+
+  # -- 6.38 物理诊断分系统后处理 --------------------------------------------
+  物理诊断后处理:
+    id: N38
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [物理实验诊断分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: DiagShotPostProcess
+    call_mode: async
+    timeout: 10min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { node: 主发射同步触发, check: completed }
+      - { service: 物理实验诊断分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+    description: 数据采集入库, 高压电源退电、DIM的复位。
+
+  # -- 6.39 种子源/二倍频激光参数采集 ----------------------------------------
+  种子源二倍频参数采集:
+    id: N39
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [光纤种子源组件, 二倍频宽带激光注入组件]
+      fan_out: broadcast
+      completion: all_success
+    command: SeedSHGParamCollect
+    call_mode: async
+    timeout: 3min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 光纤种子源组件, check: running }
+      - { service: 二倍频宽带激光注入组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.40 能量数据采集 ----------------------------------------------------
+  能量数据采集:
+    id: N40
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: EnergyDataCollect
+    call_mode: async
+    timeout: 3min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 再生与双程放大组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+    description: 根据束线编号调用对应再生与双程放大系统服务。
+
+  # -- 6.41 预放待机 --------------------------------------------------------
+  预放待机:
+    id: N41
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [再生与双程放大组件]
+      fan_out: by_beam_group
+      completion: all_success
+    command: PreampStandby
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: true
+    depends: [能量数据采集]
+    runtime_guards:
+      - { node: 能量数据采集, check: completed }
+      - { service: 再生与双程放大组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.42 主发射后泵浦数据采集 --------------------------------------------
+  # [修正D1] 加前缀"主发射"区分
+  主发射泵浦数据采集:
+    id: N42
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpDataCollect
+    call_mode: async
+    timeout: 60s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.43 主发射后泵浦待机 ------------------------------------------------
+  主发射泵浦待机:
+    id: N43
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpStandby
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [主发射泵浦数据采集]
+    runtime_guards:
+      - { node: 主发射泵浦数据采集, check: completed }
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.44 预电离发射准备 --------------------------------------------------
+  预电离发射准备:
+    id: N44
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PreIonShotReady
+    call_mode: async
+    timeout: 15s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 预主电压, type: number }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [主发射泵浦待机]
+    runtime_guards:
+      - { node: 主发射泵浦待机, check: completed }
+      - { interlock: safety, check: normal }
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+      notify: [总控操作员]
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+
+  # -- 6.45 预电离发射充电 --------------------------------------------------
+  预电离发射充电:
+    id: N45
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PreIonCharge
+    call_mode: async
+    timing:
+      expected_duration: 75s
+      tolerance: 3s
+      hard_deadline: true
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+      - { name: 预主电压, type: number }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [预电离发射准备, 预电离警示音乐开启]
+    runtime_guards:
+      - { node: 预电离发射准备, check: completed }
+      - { interlock: safety, check: normal }
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyStopCharge, target: 泵浦分系统 }
+    safety_critical: true
+    hold_constraint:
+      max_hold_time: 30s             # [待确认] 30s数值无文档来源, 需业务方确认
+      on_hold_exceeded: emergency_discharge
+    linked_behavior:
+      music_auto_stop:
+        trigger: { node: 预电离发射充电, event: completed }
+        action: stop_music
+    description: 充电完成后, 音乐停止。执行时长75s+-3s。
+
+  # -- 6.46 预电离警示音乐开启 ----------------------------------------------
+  预电离警示音乐开启:
+    id: N46
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [控制环境组件]
+      fan_out: broadcast
+      completion: all_success
+    command: WarningMusicOn
+    call_mode: sync
+    timeout: 1s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+    depends: [预电离发射准备]
+    runtime_guards:
+      - { node: 预电离发射准备, check: completed }
+      - { interlock: safety, check: normal }
+      - { service: 控制环境组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 1s
+      on_max_retries: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: false
+
+  # -- 6.47 预电离同步触发 ---------------------------------------------------
+  预电离同步触发:
+    id: N47
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [集中同步分系统]
+      fan_out: by_beam_line
+      completion: all_success
+    command: SyncTrigger
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: false
+    depends: [预电离发射充电, 预电离警示音乐开启]
+    runtime_guards:
+      - { node: 预电离发射充电, check: completed }
+      - { check: 警示音乐停止 }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyTrigger, target: 集中同步分系统 }
+    operator_intervention:
+      allowed_actions: [pause, abort]
+      default_action: abort
+      confirm_required: true
+    safety_critical: true
+    description: >
+      预电离阶段的同步触发, 时序与主发射相同但不涉及开关驱动源。
+
+  # -- 6.48 预电离泵浦触发准备 -----------------------------------------------
+  预电离泵浦触发准备:
+    id: N48
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpTriggerReady
+    call_mode: sync
+    timeout: 3s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 流程任务编号, type: string }
+      - { name: 节点编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: false
+    depends: [预电离发射充电]
+    runtime_guards:
+      - { node: 预电离发射充电, check: completed }
+      - { node: 预电离同步触发, check: started }
+      - { interlock: safety, check: normal }
+    guard_failure_policy:
+      strategy: abort
+      notify: [总控操作员]
+    on_failure:
+      strategy: emergency
+      action: { command: EmergencyDischarge, target: 泵浦分系统 }
+    operator_intervention:
+      allowed_actions: [pause, abort]
+      default_action: abort
+      confirm_required: true
+    safety_critical: true
+    description: >
+      预电离阶段泵浦触发准备, 在同步倒计时第三秒时完成。
+      [修正B1] 原文6.48对接系统写"泵浦同步分系统(2)", 已修正为"泵浦分系统(1)"。
+
+  # -- 6.49 预电离后泵浦数据采集 --------------------------------------------
+  预电离泵浦数据采集:
+    id: N49
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpDataCollect
+    call_mode: async
+    timeout: 60s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [预电离同步触发, 预电离泵浦触发准备]
+    runtime_guards:
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.50 预电离后泵浦待机 ------------------------------------------------
+  预电离泵浦待机:
+    id: N50
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [泵浦分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: PumpStandby
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 束线编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [预电离泵浦数据采集]
+    runtime_guards:
+      - { node: 预电离泵浦数据采集, check: completed }
+      - { service: 泵浦分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.51 警灯关闭 --------------------------------------------------------
+  警灯关闭:
+    id: N51
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [控制环境组件]
+      fan_out: broadcast
+      completion: all_success
+    command: WarningLightOff
+    call_mode: sync
+    timeout: 1s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [预电离泵浦数据采集]
+    runtime_guards:
+      - { node: 预电离泵浦数据采集, check: completed }
+      - { interlock: safety, check: normal }
+      - { service: 控制环境组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 3
+      retry_interval: 1s
+      on_max_retries: skip
+
+  # -- 6.52 激光参数采集 ----------------------------------------------------
+  激光参数采集:
+    id: N52
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [测量取样组件]
+      fan_out: by_beam_line
+      completion: all_success
+    command: LaserParamCollect
+    call_mode: async
+    timeout: 2min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      aggregate: all_success
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 测量取样组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.53 靶瞄数据分析 ----------------------------------------------------
+  靶瞄数据分析:
+    id: N53
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: TargetDataAnalysis
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [激光参数采集]
+    runtime_guards:
+      - { node: 激光参数采集, check: completed }
+      - { interlock: safety, check: normal }
+      - { service: 靶瞄准定位系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.54 靶瞄收靶 --------------------------------------------------------
+  靶瞄收靶:
+    id: N54
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [靶瞄准定位系统]
+      fan_out: broadcast
+      completion: all_success
+    command: TargetRetract
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 靶瞄准定位系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.55 放电波形采集 ----------------------------------------------------
+  放电波形采集:
+    id: N55
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [开关驱动源组件]
+      fan_out: broadcast
+      completion: all_success
+    command: DischargeWaveCollect
+    call_mode: async
+    timeout: 5s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 开关驱动源组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.56 开关待机 --------------------------------------------------------
+  开关待机:
+    id: N56
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [开关驱动源组件]
+      fan_out: broadcast
+      completion: all_success
+    command: SwitchStandby
+    call_mode: async
+    timeout: 10s
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [放电波形采集]
+    runtime_guards:
+      - { node: 放电波形采集, check: completed }
+      - { service: 开关驱动源组件, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+
+  # -- 6.57 片放吹扫 --------------------------------------------------------
+  片放吹扫:
+    id: N57
+    type: action
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    target:
+      system: [冷却分系统]
+      fan_out: broadcast
+      completion: all_success
+    command: SlabPurge
+    call_mode: async
+    timeout: 40min
+    input:
+      - { name: 发次编号, type: string }
+      - { name: 阶段编号, type: string }
+      - { name: 片放吹扫指令, type: enum, values: [开始, 结束, 关机] }
+    output:
+      接收状态: { type: enum, values: [0, 1, 2] }
+    completion_criteria:
+      success_condition: "output.接收状态 == 1"
+      allow_partial: true
+    depends: [正式发射完成]
+    runtime_guards:
+      - { service: 冷却分系统, check: running }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: retry
+      max_retries: 2
+      on_max_retries: skip
+    pipeline_overlap:                # ── 发次间流水线重叠(本发次未结束, 下发次可提前启动) ──
+      next_instance_start_before_end: 15min  # 吹扫结束前15分钟允许下一发次进入准备阶段
+    description: >
+      在吹扫结束前15分钟进入下一发次发射准备阶段(发次间流水线重叠)。
+
+  # -- 6.58 靶场中子屏蔽门打开 ----------------------------------------------
+  # [待确认] 最终汇合策略: 是否所有后处理分支都汇入此节点, 还是只需泵浦待机链路
+  靶场中子屏蔽门打开:
+    id: N58
+    type: action
+    stage: 发射后处理
+    safety_scope: interlock_control
+    dependency_policy: all_success
+    target:
+      system: [建安工程安防系统屏蔽门控制接口, 人员进出计数接口]
+      fan_out: broadcast
+      completion: all_success
+    command: ShieldDoorOpen
+    call_mode: async
+    timeout: 5min
+    input:
+      - { name: 屏蔽门编号, type: string }
+      - { name: 屏蔽门控制命令, type: enum, values: [开启, 关闭, 锁定] }
+    output:
+      屏蔽门状态: { type: enum, values: [开启, 关闭, 锁定] }
+    completion_criteria:
+      success_condition: "output.屏蔽门状态 == '开启'"
+    depends:
+      - 物理诊断后处理
+      - 种子源二倍频参数采集
+      - 预放待机
+      - 预电离泵浦待机
+      - 警灯关闭
+      - 靶瞄数据分析
+      - 激光参数采集
+      - 靶瞄收靶
+      - 开关待机
+      - 片放吹扫
+    runtime_guards:
+      - { check: 门控服务运行状态正常 }
+    guard_failure_policy:
+      strategy: pause
+      notify: [总控操作员]
+    on_failure:
+      strategy: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: >
+      总控系统下发"靶场中子屏蔽门打开"指令, 完成锁定解除。
+      [待确认] 当前按所有后处理链路汇入建模, 用户提出可能只需泵浦待机链路进入此节点。
+
+  # -- 结束 ------------------------------------------------------------------
+  结束:
+    id: N59
+    type: join
+    stage: 发射后处理
+    safety_scope: under_interlock
+    dependency_policy: all_success
+    command: null
+    depends: [靶场中子屏蔽门打开]
+    runtime_guards: []
+    on_failure:
+      strategy: pause
+    operator_intervention:
+      allowed_actions: [continue, pause, abort]
+      default_action: continue
+      confirm_required: true
+    description: 流程终点。

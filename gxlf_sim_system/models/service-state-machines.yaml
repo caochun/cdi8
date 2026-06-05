@@ -1,0 +1,858 @@
+kind: GXLFServiceStateMachineModel
+version: "0.2"
+status: draft_for_review
+language: zh-CN
+source:
+  flow_definition: "./gxlf-firing-flow.yaml"
+  requirements_doc: "../../流程需求.docx"
+  design_date: "2026-06-03"
+  design_scope:
+    - "Tango 系统服务实例命名规则"
+    - "Tango 系统服务类型状态机模板"
+    - "command 到 state transition 的映射"
+    - "异常状态与人工暂停口径"
+  architecture_boundary:
+    interaction_chain:
+      - "集中管控系统通过 Tango 向系统服务实例下发 command。"
+      - "系统服务实例接收 command，并由系统服务自行控制其背后的真实物理设备。"
+      - "系统服务实例通过集中管控系统注册的状态返回接口反馈执行状态、服务健康状态和对外业务状态。"
+      - "集中管控系统根据状态返回更新流程节点状态、服务状态仓库和 pending 人工决策。"
+    in_scope:
+      - "Tango 系统服务实例的唯一标识、命名和 fan-out 选择规则。"
+      - "系统服务实例对集中管控暴露的健康状态、任务状态和业务状态。"
+      - "系统服务实例 command 的接收态、执行态、完成态和异常态。"
+    out_of_scope:
+      - "系统服务到真实物理设备之间的驱动、采样、闭环控制和内部故障诊断逻辑。"
+      - "真实物理设备内部状态机。"
+  confirmed_overrides:
+    - "以 flow/gxlf-firing-flow.yaml 和用户确认口径为准；需求文档中冲突的服务数量或节点口径不直接采用。"
+    - "所有 fan-out 调用均要求 all_success；不允许因部分服务成功而判定节点完成。"
+    - "暂停后不设置系统自动倒计时，由人工决策继续、重试、跳过或终止。"
+    - "N18 为进入打靶状态，对接多程放大组件 10 路，按 beam_group 扇出。"
+    - "N19 为打靶运动准备，业务指令为测量打靶运动准备，对接测量取样组件 60 路，按 beam_line 扇出。"
+    - "光路准直依赖能量粗闭环；片放吹扫 timeout 为 2s。"
+
+naming_rules:
+  service_id_pattern: "{domain}.{system_code}.{instance_code}"
+  tango_fqdn_pattern: "{domain}/{system_code}/{instance_code}"
+  domain: gxlf
+  command_method_rule:
+    tango_method: "使用接口契约表中的英文 command 名称，例如 MeasShotMotionReady。"
+    business_instruction: "保留中文业务指令名称，用于 UI、日志、审批和客户确认。"
+    note: "后续真实 Tango 系统服务如已有既定英文 API 名，可在 interface-contracts.yaml 的 adapter_method 中覆盖。"
+  instance_code_rules:
+    broadcast:
+      instance_count_rule: "单实例系统使用 svc01；多目标 broadcast 由流程节点显式列出多个系统。"
+      instance_code_pattern: "svc{NN}"
+      examples: ["svc01"]
+    by_beam_line:
+      instance_count_rule: "60 路束线服务，每一路对应一个 Tango 系统服务实例。"
+      instance_code_pattern: "bl{01..60}"
+      fan_out_key: beam_line_no
+      examples: ["bl01", "bl30", "bl60"]
+    by_beam_group:
+      instance_count_rule: "10 路束组服务，每个系统服务实例管 6 束；真实设备映射由系统服务内部负责。"
+      instance_code_pattern: "bg{01..10}"
+      fan_out_key: beam_group_no
+      examples: ["bg01", "bg05", "bg10"]
+  beam_group_mapping:
+    - { beam_group_no: 1, instance_code: bg01, beam_lines: [1, 2, 3, 4, 5, 6] }
+    - { beam_group_no: 2, instance_code: bg02, beam_lines: [7, 8, 9, 10, 11, 12] }
+    - { beam_group_no: 3, instance_code: bg03, beam_lines: [13, 14, 15, 16, 17, 18] }
+    - { beam_group_no: 4, instance_code: bg04, beam_lines: [19, 20, 21, 22, 23, 24] }
+    - { beam_group_no: 5, instance_code: bg05, beam_lines: [25, 26, 27, 28, 29, 30] }
+    - { beam_group_no: 6, instance_code: bg06, beam_lines: [31, 32, 33, 34, 35, 36] }
+    - { beam_group_no: 7, instance_code: bg07, beam_lines: [37, 38, 39, 40, 41, 42] }
+    - { beam_group_no: 8, instance_code: bg08, beam_lines: [43, 44, 45, 46, 47, 48] }
+    - { beam_group_no: 9, instance_code: bg09, beam_lines: [49, 50, 51, 52, 53, 54] }
+    - { beam_group_no: 10, instance_code: bg10, beam_lines: [55, 56, 57, 58, 59, 60] }
+
+system_instance_catalog:
+  光纤种子源组件:
+    system_code: seed_source
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.seed_source.svc01"]
+  二倍频宽带激光注入组件:
+    system_code: shg_injector
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.shg_injector.svc01"]
+  再生与双程放大组件:
+    system_code: preamp
+    protocol: tango
+    selector: by_beam_group
+    instances: 10
+    service_id_pattern: "gxlf.preamp.bg{01..10}"
+  多程放大组件:
+    system_code: multipass_amp
+    protocol: tango
+    selector: by_beam_group
+    instances: 10
+    service_id_pattern: "gxlf.multipass_amp.bg{01..10}"
+  泵浦分系统:
+    system_code: pump
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.pump.svc01"]
+  测量取样组件:
+    system_code: measurement_sample
+    protocol: tango
+    selector: by_beam_line
+    instances: 60
+    service_id_pattern: "gxlf.measurement_sample.bl{01..60}"
+  频率转换分系统:
+    system_code: frequency_conversion
+    protocol: tango
+    selector: by_beam_line
+    instances: 60
+    service_id_pattern: "gxlf.frequency_conversion.bl{01..60}"
+  靶瞄准定位系统:
+    system_code: target_alignment
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.target_alignment.svc01"]
+  真空靶室分系统:
+    system_code: vacuum_target
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.vacuum_target.svc01"]
+  物理实验诊断分系统:
+    system_code: diagnostics
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.diagnostics.svc01"]
+  集中同步分系统:
+    system_code: sync
+    protocol: tango
+    selector: by_beam_line
+    instances: 60
+    service_id_pattern: "gxlf.sync.bl{01..60}"
+  开关驱动源组件:
+    system_code: switch_driver
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.switch_driver.svc01"]
+  冷却分系统:
+    system_code: cooling
+    protocol: tango
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.cooling.svc01"]
+  控制环境组件:
+    system_code: environment_control
+    protocol: http
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.environment_control.svc01"]
+  建安工程安防系统屏蔽门控制接口:
+    system_code: shield_door
+    protocol: tbd
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.shield_door.svc01"]
+  人员进出计数接口:
+    system_code: personnel_counter
+    protocol: tbd
+    selector: broadcast
+    instances: 1
+    service_ids: ["gxlf.personnel_counter.svc01"]
+
+common_service_health_state_machine:
+  initial_state: unknown
+  states:
+    unknown: "尚未纳入健康状态仓库或尚未收到心跳。"
+    offline: "Tango 系统服务实例不可达。"
+    starting: "服务进程启动中。"
+    running: "服务运行正常，可接收流程命令。"
+    busy: "服务正在执行流程任务或本地任务。"
+    fault: "服务检测到异常，需要人工或补偿动作处理。"
+    maintenance: "检修/维护模式，不允许流程调用。"
+    no_permission: "服务存在但当前 caller 无权限。"
+  transitions:
+    - { from: unknown, to: running, event: heartbeat_ok }
+    - { from: unknown, to: offline, event: heartbeat_timeout }
+    - { from: offline, to: starting, event: process_start }
+    - { from: starting, to: running, event: service_ready }
+    - { from: running, to: busy, event: command_accepted }
+    - { from: busy, to: running, event: task_success }
+    - { from: busy, to: fault, event: task_failed }
+    - { from: busy, to: fault, event: task_timeout }
+    - { from: running, to: fault, event: health_error }
+    - { from: fault, to: running, event: operator_reset }
+    - { from: running, to: maintenance, event: enter_maintenance }
+    - { from: maintenance, to: running, event: exit_maintenance }
+    - { from: running, to: no_permission, event: permission_revoked }
+    - { from: no_permission, to: running, event: permission_granted }
+    # v0.2 P1: 补掉线边——任一在线态因心跳超时进入 offline
+    - { from: [running, busy, starting, fault, maintenance, no_permission], to: offline, event: heartbeat_timeout }
+    - { from: offline, to: running, event: heartbeat_recovered, condition: "service_ready == true" }
+  # v0.2 P1: 健康状态新鲜度 / 掉线 TTL
+  health_freshness_policy:
+    heartbeat_interval: 2s
+    stale_after: 6s
+    offline_after: 10s
+    stale_behavior: pending
+    offline_behavior: pending
+  guard_semantics:
+    service_running_guard: "只有 health_state == running 的实例可被流程调用；busy 是否可重入由 command_contract.reentrant 决定，默认不可重入。"
+    fan_out_health_guard: "fan-out 目标实例中任一实例非 running，则节点进入 pending，等待人工决策。"
+
+common_task_lifecycle:
+  initial_state: created
+  terminal_states: [succeeded, failed, timeout, skipped, cancelled]
+  states:
+    created: "流程引擎创建节点任务。"
+    permission_checking: "检查 caller 对目标服务和 command 是否具备权限。"
+    command_sent: "命令已发出，等待接收态返回。"
+    accepted: "服务返回接收状态 1。"
+    rejected: "服务返回接收状态 0 或参数/状态拒绝。"
+    no_permission: "服务返回接收状态 2 或权限仓库拒绝。"
+    executing: "异步命令已进入执行态，等待状态回调。"
+    succeeded: "所有目标实例完成且成功。"
+    failed: "至少一个目标实例失败。"
+    timeout: "超过节点 timeout 未完成。"
+    skipped: "操作员在 pending 状态选择跳过。"
+    cancelled: "流程终止或安全联锁终止该任务。"
+    pending: "v0.2 P0: 节点因 guard 未满足、服务拒绝、无权限、执行失败、超时或人工暂停，进入等待人工决策状态。pending 是正式任务态，不再只是 UI 状态。"
+  transitions:
+    - { from: created, to: permission_checking, event: dispatch_begin }
+    # guard 未满足直接进 pending（v0.2 P0）
+    - { from: created, to: pending, event: guard_failed }
+    - { from: permission_checking, to: command_sent, event: permission_all_allowed }
+    - { from: permission_checking, to: no_permission, event: permission_denied }
+    - { from: command_sent, to: accepted, event: accept_code_1 }
+    - { from: command_sent, to: rejected, event: accept_code_0 }
+    - { from: command_sent, to: no_permission, event: accept_code_2 }
+    - { from: accepted, to: executing, event: async_command_started }
+    - { from: accepted, to: succeeded, event: sync_command_success }
+    - { from: executing, to: succeeded, event: callback_success_all_instances }
+    - { from: executing, to: failed, event: callback_failed_any_instance }
+    - { from: executing, to: timeout, event: node_timeout }
+    # v0.2 P0: 所有异常态统一汇入 pending（先暂停、后人工决策；与确认口径一致）
+    - { from: [rejected, no_permission, failed, timeout], to: pending, event: exception_to_pending }
+    - { from: executing, to: pending, event: operator_pause }
+    # v0.2 P0: pending 的人工决策出口
+    - { from: pending, to: created, event: operator_retry, note: "retry=重跑节点完整调度；调度入口先复位服务到命令合法前置态再重发，不直接重发同一命令" }
+    - { from: pending, to: skipped, event: operator_skip, condition: "节点 failure policy 允许 skip" }
+    - { from: pending, to: cancelled, event: operator_abort }
+    - { from: pending, to: executing, event: operator_continue, condition: "task 已 accepted 且外部条件已恢复" }
+    - { from: pending, to: created, event: operator_continue, condition: "仅 guard 导致的 pending，需重新调度" }
+
+state_transition_defaults:
+  command_preconditions:
+    - "service_health_state == running"
+    - "caller 具备 command 权限"
+    - "节点 runtime_guards 全部满足"
+    - "节点 depends 按 dependency_policy 满足"
+  success_semantics:
+    sync: "接收状态成功即可完成；若系统服务返回 final_state 字段，以 final_state 校验对外业务状态。"
+    async: "接收状态成功只代表服务收到；最终完成必须等待状态回调或健康状态仓库中对应 task_id 的 succeeded。"
+  failure_semantics:
+    all_success: "任一目标实例 rejected/no_permission/failed/timeout 均导致节点 pending。"
+    pending_display: "系统层只展示一个 pending intervention，由人工选择 retry/skip/abort/continue。"
+    retry_dispatch_rule: "v0.2 P0: retry 不直接重发命令；调度入口先校验，若服务当前 business_state 不在命令 transition.from 内，先下发复位命令(FlowTerminate/*Standby/EmergencyDischarge)回到合法前置态，再重发；非幂等命令(idempotent:false)必须复位后才能重发。"
+    retry_target: "v0.2 用户确认: retry 仅重跑【本节点】调度，不重跑整条流程、不回滚上游已完成节点。"
+    fan_out_intervention_scope: "v0.2 用户确认: fan-out 节点 retry = 整组重发（如 60 路全部重发），不是只补失败实例；保证整组一致。个别节点如需只补失败实例，显式标注 retry_scope: failed_instances_only。"
+  command_result_codes:
+    accepted_failed: 0
+    accepted_received: 1
+    accepted_no_permission: 2
+
+# ===== v0.2 P0: 多发次串行策略 =====
+multi_shot_policy:
+  enabled: true
+  concurrency_mode: serial          # 完全串行：一发走到 N59(结束) 才能开下一发
+  shot_boundary_command: ParamDispatch
+  next_shot_precondition:
+    rule: "上一发必须到达终止节点 N59(结束) 后，方可对任一服务下发下一发 ParamDispatch。"
+    guard: "flow_instance.previous_shot_state == shot_completed"
+  stable_terminal_states_can_reenter_next_shot: true
+  dangerous_business_states_must_not_reenter:   # 仅业务态
+    - charging
+    - preion_charging
+    - discharging
+    - trigger_countdown
+    - purging
+  dangerous_health_states_block_next_shot:      # 健康态单独判断
+    - busy
+    - fault
+  shot_context_isolation:
+    task_id_scope: "task_id 必须带 shot_id 前缀，跨发次唯一，不复用。"
+    business_state_reset: "下一发 ParamDispatch 接受后 business_state 归一到 parameterized；上一发采集结果以 shot_id 归档，不残留实例当前态。"
+    health_state_carryover: "health_state 跨发次延续（是实例真实健康，不随发次重置）。"
+
+shot_boundary_reentry_guard:
+  on_next_shot_dispatch:
+    if_business_state_in: dangerous_business_states_must_not_reenter
+    then: pending
+    operator_options: [retry, abort]
+    message: "上一发系统服务尚处危险中间态，未完成/未泄放/未复位，禁止进入下一发。"
+    note: "应急后稳定态(charge_stopped/discharged/emergency_triggered/safe_returned)默认必须先经一次显式复位或人工确认，才允许进入下一发。"
+
+# ===== v0.2 P0: 安全联锁集中管控聚合状态机（当前不含真空） =====
+central_control_aggregate_states:
+  safety_interlock:
+    source_type: central_control_aggregate
+    include_vacuum_state: false
+    states: [inactive, arming, normal, abnormal, released]
+    inputs:
+      - "personnel_count_state == zero"
+      - "neutron_shield_door_state in [closed, locked]"
+      - "air_shower_lock_state == locked"
+    normal_condition: "personnel_count_state == zero and neutron_shield_door_state in [closed, locked] and air_shower_lock_state == locked"
+    transitions:
+      - { from: inactive, to: arming, event: clear_area_started }
+      - { from: arming, to: normal, event: all_interlock_inputs_satisfied }
+      - { from: normal, to: abnormal, event: any_interlock_input_broken }
+      - { from: abnormal, to: released, event: operator_release_after_safe_handling }
+      - { from: released, to: inactive, event: flow_reset }
+    abnormal_behavior:
+      before_armed: pending
+      after_armed: trigger_global_interlock   # 见 interface-contracts.yaml safety_interlock_runtime.emergency_linkage
+
+# ===== v0.2 P1: 通用业务 fault 进入/清除约定（适用于所有含 fault 业务态的模板） =====
+# 各模板不再逐一声明 fault 迁移；统一由本约定驱动，避免 fault 成为不可达孤儿态。
+common_business_fault_policy:
+  enter:
+    - { from: any, to: fault, event: service_reported_fault, condition: "回调 business_state==fault 或 result_status==failed 且服务自报故障" }
+  clear:
+    - { from: fault, to: standby, event: operator_reset, condition: "模板含 standby 态" }
+    - { from: fault, to: parameterized, event: operator_reset, condition: "模板不含 standby 态（如 sync/target_alignment 用 safe_returned/parameterized）" }
+  note: "业务 fault 与健康态 fault 区分：健康态 fault 见 common_service_health_state_machine（operator_reset 恢复 running）；业务 fault 是对外业务态，清除后回到该模板的安全态。"
+
+service_type_templates:
+  laser_source:
+    applies_to: ["光纤种子源组件", "二倍频宽带激光注入组件"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, light_on, collecting, collected, standby, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发稳定终态 collected 重入
+        transition: { from: [idle, standby, parameterized, collected], to: parameterized }
+        task_mode: sync
+        idempotent: true
+        final_callback_state: parameterized
+      LaserOn:
+        transition: { from: [parameterized, standby, light_on], to: light_on }
+        task_mode: async
+        final_callback_state: light_on
+      SeedSHGParamCollect:
+        transition: { from: [light_on, standby, parameterized], to: collecting }
+        completion_transition: { from: collecting, to: collected }
+        task_mode: async
+      FlowTerminate:
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  preamp:
+    applies_to: ["再生与双程放大组件"]
+    initial_business_state: idle
+    business_states:
+      - idle
+      - parameterized
+      - awake
+      - coarse_looping
+      - coarse_ready
+      - fine_looping
+      - fine_ready
+      - energy_reset
+      - collecting
+      - collected
+      - standby
+      - fault
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发稳定终态重入
+        transition: { from: [idle, standby, parameterized, collected, fine_ready, energy_reset], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      PreampWakeup:
+        transition: { from: [parameterized, standby], to: awake }
+        task_mode: async
+      EnergyCoarseLoop:
+        transition: { from: [awake, coarse_ready], to: coarse_looping }
+        completion_transition: { from: coarse_looping, to: coarse_ready }
+        task_mode: async
+      EnergyFineLoop:
+        transition: { from: [coarse_ready, fine_ready, awake], to: fine_looping }
+        completion_transition: { from: fine_looping, to: fine_ready }
+        task_mode: async
+      EnergyMeterReset:
+        transition: { from: [fine_ready], to: energy_reset }
+        task_mode: sync
+      EnergyDataCollect:
+        transition: { from: [energy_reset, fine_ready], to: collecting }
+        completion_transition: { from: collecting, to: collected }
+        task_mode: async
+        idempotent: true
+      PreampStandby:
+        transition: { from: [awake, coarse_ready, fine_ready, energy_reset, collected, fault], to: standby }
+        task_mode: async
+      FlowTerminate:
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  multipass_amp:
+    applies_to: ["多程放大组件"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, alignment_running, aligned, shot_state_ready, standby, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发稳定终态 aligned/shot_state_ready 重入
+        transition: { from: [idle, standby, parameterized, aligned, shot_state_ready], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      BeamlineAlign:
+        transition: { from: [parameterized, aligned, standby], to: alignment_running }
+        completion_transition: { from: alignment_running, to: aligned }
+        task_mode: async
+        required_flow_preconditions: ["预放唤醒 completed", "能量粗闭环 completed", "光纤种子源出光 completed", "片放吹扫停止"]
+      EnterShotState:
+        transition: { from: [aligned, parameterized], to: shot_state_ready }
+        task_mode: async
+        required_flow_preconditions: ["光束引导 completed"]
+      FlowTerminate:
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  pump:
+    applies_to: ["泵浦分系统"]
+    initial_business_state: idle
+    business_states:
+      - idle
+      - parameterized
+      - shot_ready
+      - charge_ready
+      - charging
+      - charged
+      - trigger_ready
+      - collecting
+      - collected
+      - standby
+      - preion_ready
+      - preion_charging
+      - preion_charged
+      - discharging
+      - discharged
+      - charge_stopped
+      - fault
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受 standby/discharged 重入；charge_stopped 须先复位(见 shot_boundary_reentry_guard)
+        transition: { from: [idle, standby, parameterized, discharged], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      PumpShotReady:
+        transition: { from: [parameterized, standby, shot_ready], to: shot_ready }
+        task_mode: async
+      ChargeReady:
+        transition: { from: [shot_ready, charge_ready], to: charge_ready }
+        task_mode: async
+      PumpCharge:
+        transition: { from: [charge_ready], to: charging }
+        completion_transition: { from: charging, to: charged }
+        task_mode: async
+        idempotent: false   # v0.2 P1: 充电非幂等，retry 前必须复位
+        on_exception: "pause for operator decision; do not auto terminate"
+      PumpTriggerReady:
+        transition: { from: [charged, preion_charged], to: trigger_ready }
+        task_mode: sync
+      PumpDataCollect:
+        transition: { from: [trigger_ready, charged, preion_charged], to: collecting }
+        completion_transition: { from: collecting, to: collected }
+        task_mode: async
+      PumpStandby:
+        transition: { from: [collected, trigger_ready, charged, preion_charged, fault], to: standby }
+        task_mode: async
+      PreIonShotReady:
+        transition: { from: [standby, shot_ready], to: preion_ready }
+        task_mode: async
+      PreIonCharge:
+        transition: { from: [preion_ready], to: preion_charging }
+        completion_transition: { from: preion_charging, to: preion_charged }
+        task_mode: async
+        on_exception: "pause; operator may skip downstream pre-ionization chain"
+      EmergencyStopCharge:
+        transition: { from: [charging, preion_charging], to: charge_stopped }
+        task_mode: async
+      EmergencyDischarge:
+        # v0.2 P0: 补 charge_stopped 安全泄放路径
+        transition: { from: [charged, preion_charged, charge_stopped], to: discharging }
+        completion_transition: { from: discharging, to: discharged }
+        task_mode: async
+      FlowTerminate:
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  measurement_sample:
+    applies_to: ["测量取样组件"]
+    initial_business_state: idle
+    business_states:
+      - idle
+      - parameterized
+      - target_align_ready
+      - motion_preparing
+      - motion_ready
+      - shot_measure_ready
+      - collecting
+      - collected
+      - standby
+      - fault
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发稳定终态重入
+        transition: { from: [idle, standby, parameterized, motion_ready, shot_measure_ready, collected], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      MeasTargetAlignReady:
+        transition: { from: [parameterized, standby], to: target_align_ready }
+        task_mode: async
+      MeasShotMotionReady:
+        transition: { from: [target_align_ready, parameterized], to: motion_preparing }
+        completion_transition: { from: motion_preparing, to: motion_ready }
+        task_mode: async
+        required_flow_preconditions: ["光束引导 completed", "安全联锁 normal"]
+      MeasShotReady:
+        transition: { from: [motion_ready, target_align_ready, parameterized], to: shot_measure_ready }
+        task_mode: async
+      LaserParamCollect:
+        transition: { from: [shot_measure_ready, motion_ready], to: collecting }
+        completion_transition: { from: collecting, to: collected }
+        task_mode: async
+        idempotent: true
+        on_exception: "pause; operator may skip current data collection node"
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止/安全停机语义
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  frequency_conversion:
+    applies_to: ["频率转换分系统"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, pose_adjusting, pose_ready, standby, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受 pose_ready 重入
+        transition: { from: [idle, standby, parameterized, pose_ready], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      CrystalPoseAdjust:
+        transition: { from: [parameterized, pose_ready], to: pose_adjusting }
+        completion_transition: { from: pose_adjusting, to: pose_ready }
+        task_mode: async
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止/安全停机语义
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  target_alignment:
+    applies_to: ["靶瞄准定位系统"]
+    initial_business_state: idle
+    business_states:
+      - idle
+      - parameterized
+      - exp_target_pre_positioned
+      - sim_target_positioned
+      - beam_guiding
+      - beam_guided
+      - exp_target_reset
+      - shot_mode
+      - analysing
+      - retracted
+      - safe_returned
+      - fault
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发稳定终态 retracted/safe_returned 重入
+        transition: { from: [idle, parameterized, retracted, safe_returned], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      ExpTargetPrePosition:
+        transition: { from: [parameterized, idle], to: exp_target_pre_positioned }
+        task_mode: async
+      SimTargetPosition:
+        transition: { from: [parameterized, exp_target_pre_positioned], to: sim_target_positioned }
+        task_mode: async
+      BeamGuiding:
+        transition: { from: [sim_target_positioned], to: beam_guiding }
+        completion_transition: { from: beam_guiding, to: beam_guided }
+        task_mode: async
+      ExpTargetReset:
+        transition: { from: [beam_guided], to: exp_target_reset }
+        task_mode: async
+      TargetAlignShotMode:
+        transition: { from: [exp_target_reset], to: shot_mode }
+        task_mode: async
+      TargetDataAnalysis:
+        transition: { from: [shot_mode, beam_guided], to: analysing }
+        task_mode: async
+        idempotent: true
+        on_exception: "pause; operator may skip current data collection/analysis node"
+      TargetRetract:
+        transition: { from: [shot_mode, analysing, exp_target_reset], to: retracted }
+        task_mode: async
+      TargetSafeReturn:
+        transition: { from: any, to: safe_returned }
+        task_mode: async
+      FlowTerminate:
+        transition: { from: any, to: safe_returned }
+        task_mode: async
+
+  vacuum_target:
+    applies_to: ["真空靶室分系统"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, vacuum_normal, vacuum_abnormal, fault]
+    commands:
+      ParamDispatch:
+        transition: { from: [idle, parameterized, vacuum_normal], to: parameterized }
+        task_mode: sync
+        idempotent: true
+    # v0.2 P0: 监控类状态由状态返回接口事件驱动（非 command），使 vacuum_normal/abnormal 可达
+    events:
+      VacuumStatusChanged:
+        transitions:
+          - { from: [parameterized, vacuum_abnormal], to: vacuum_normal, condition: "vacuum_ok == true and titanium_pump_ok == true" }
+          - { from: [parameterized, vacuum_normal], to: vacuum_abnormal, condition: "vacuum_ok == false or titanium_pump_ok == false" }
+          - { from: any, to: fault, condition: "report_error == true" }
+    monitored_guards:
+      # v0.2 P0: 当前不纳入第一版安全联锁判定（见 multi_shot / safety_interlock include_vacuum_state:false）
+      - "靶室真空度 normal"
+      - "钛泵状态 normal"
+
+  diagnostics:
+    applies_to: ["物理实验诊断分系统"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, status_confirmed, collect_setup, processing, processed, standby, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受 processed/standby 重入
+        transition: { from: [idle, parameterized, processed, standby], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      DiagStatusConfirm:
+        transition: { from: [parameterized], to: status_confirmed }
+        task_mode: async
+      DiagCollectSetup:
+        transition: { from: [status_confirmed], to: collect_setup }
+        task_mode: async
+      DiagShotPostProcess:
+        transition: { from: [collect_setup], to: processing }
+        completion_transition: { from: processing, to: processed }
+        task_mode: async
+        idempotent: true
+        on_exception: "pause; operator may skip current data collection node"
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止/安全停机语义
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  sync:
+    applies_to: ["集中同步分系统"]
+    initial_business_state: idle
+    business_states:
+      - idle
+      - parameterized
+      - preamp_reprate_loaded
+      - meas_reprate_loaded
+      - preamp_single_loaded
+      - meas_single_loaded
+      - trigger_countdown
+      - triggered
+      - emergency_triggered
+      - fault
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受上一发触发终态重入（emergency_triggered 须先安全复位）
+        transition: { from: [idle, parameterized, triggered, emergency_triggered], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      SyncPreampRepRateRecipe:
+        transition: { from: [parameterized, preamp_reprate_loaded], to: preamp_reprate_loaded }
+        task_mode: sync
+      SyncMeasRepRateRecipe:
+        transition: { from: [parameterized, meas_reprate_loaded], to: meas_reprate_loaded }
+        task_mode: sync
+      PreampSingleShotRecipe:
+        transition: { from: [preamp_reprate_loaded, parameterized], to: preamp_single_loaded }
+        task_mode: sync
+      MeasSingleShotRecipe:
+        transition: { from: [meas_reprate_loaded, parameterized], to: meas_single_loaded }
+        task_mode: sync
+      SyncTrigger:
+        transition: { from: [preamp_single_loaded, meas_single_loaded, parameterized], to: trigger_countdown }
+        completion_transition: { from: trigger_countdown, to: triggered }
+        task_mode: async
+        idempotent: false   # v0.2 P1: 触发非幂等
+        timing_rule: "T+0 开始倒计时，T+5 完成触发；T+3 需泵浦/开关触发准备完成。"
+      EmergencyTrigger:
+        transition: { from: [trigger_countdown, fault], to: emergency_triggered }
+        task_mode: async
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止/安全停机语义（同步触发链安全停机）
+        transition: { from: any, to: parameterized }
+        task_mode: async
+
+  switch_driver:
+    applies_to: ["开关驱动源组件"]
+    initial_business_state: idle
+    # v0.2 P1: 删除不可达孤儿态 triggered（无迁移进入）
+    business_states: [idle, parameterized, charging, charged, trigger_ready, collecting, collected, standby, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受 standby/collected 重入
+        transition: { from: [idle, standby, parameterized, collected], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      SwitchCharge:
+        transition: { from: [parameterized, standby], to: charging }
+        completion_transition: { from: charging, to: charged }
+        task_mode: async
+        idempotent: false   # v0.2 P1: 充电非幂等，retry 前必须复位
+        on_exception: "pause for operator decision; do not auto terminate"
+      SwitchTriggerReady:
+        transition: { from: [charged], to: trigger_ready }
+        task_mode: sync
+      DischargeWaveCollect:
+        transition: { from: [trigger_ready, charged], to: collecting }
+        completion_transition: { from: collecting, to: collected }
+        task_mode: async
+        idempotent: true
+        on_exception: "pause; operator may skip current data collection node"
+      SwitchStandby:
+        transition: { from: [collected, trigger_ready, charged, fault], to: standby }
+        task_mode: async
+      EmergencyDischargeSwitch:
+        # v0.2 P0: 补开关应急泄放命令（对接 safety_interlock 应急联动）
+        transition: { from: [charged, trigger_ready], to: standby }
+        task_mode: async
+        note: "开关充满电/触发准备后的应急泄放。"
+      FlowTerminate:
+        transition: { from: any, to: standby }
+        task_mode: async
+
+  cooling:
+    applies_to: ["冷却分系统"]
+    initial_business_state: idle
+    business_states: [idle, parameterized, purging, purge_done, stopped, fault]
+    commands:
+      ParamDispatch:
+        # v0.2 P0 多发次: 接受 purge_done/stopped 重入
+        transition: { from: [idle, parameterized, purge_done, stopped], to: parameterized }
+        task_mode: sync
+        idempotent: true
+      SlabPurge:
+        transition: { from: [parameterized, stopped, purge_done], to: purging }
+        completion_transition: { from: purging, to: purge_done }
+        task_mode: async
+        timeout: 2s
+      SlabPurgeStop:
+        transition: { from: [purging], to: stopped }
+        task_mode: async
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止/安全停机语义（吹扫停止）
+        transition: { from: any, to: stopped }
+        task_mode: async
+
+  environment_control:
+    applies_to: ["控制环境组件"]
+    initial_business_state: idle
+    business_states: [idle, clearing, warning_active, music_active, warning_off, alarm_active, fault]
+    commands:
+      AreaClearAnnounce:
+        transition: { from: [idle], to: clearing }
+        task_mode: async
+      WarningLightAndMusic:
+        transition: { from: [idle, clearing, warning_off], to: music_active }
+        completion_transition: { from: music_active, to: warning_active }
+        task_mode: async
+      WarningMusicOn:
+        transition: { from: [warning_off, idle], to: music_active }
+        completion_transition: { from: music_active, to: warning_active }
+        task_mode: sync
+      WarningLightOff:
+        transition: { from: [warning_active, music_active, alarm_active], to: warning_off }
+        task_mode: sync
+      AlarmOn:
+        transition: { from: any, to: alarm_active }
+        task_mode: async
+      FlowTerminate:
+        # v0.2 P1: 统一流程终止语义（声光复位到 warning_off）
+        transition: { from: any, to: warning_off }
+        task_mode: async
+
+  shield_door:
+    applies_to: ["建安工程安防系统屏蔽门控制接口"]
+    initial_business_state: open
+    business_states: [open, closing, locked, unlocking, air_shower_locked, fault]
+    commands:
+      ShieldDoorClose:
+        transition: { from: [open], to: closing }
+        completion_transition: { from: closing, to: locked }
+        task_mode: async
+        required_flow_preconditions: ["人员计数归零"]
+      AirShowerLock:
+        transition: { from: [open, locked], to: air_shower_locked }
+        task_mode: async
+      ShieldDoorOpen:
+        transition: { from: [locked, air_shower_locked], to: unlocking }
+        completion_transition: { from: unlocking, to: open }
+        task_mode: async
+      DoorUnlock:
+        transition: { from: [locked, air_shower_locked], to: open }
+        task_mode: async
+    # v0.2 P1: 监控类状态由状态返回接口事件驱动（非 command），供 safety_interlock 聚合
+    events:
+      DoorStatusChanged:
+        transitions:
+          - { from: closing, to: locked, condition: "door_status == locked" }
+          - { from: any, to: fault, condition: "door_status == fault" }
+      AirShowerStatusChanged:
+        transitions:
+          - { from: [open, locked], to: air_shower_locked, condition: "air_shower_lock_state == locked" }
+          - { from: any, to: fault, condition: "air_shower_lock_state == fault" }
+
+  personnel_counter:
+    applies_to: ["人员进出计数接口"]
+    initial_business_state: unknown
+    business_states: [unknown, zero, nonzero, fault]
+    commands:
+      ShieldDoorClose:
+        transition: { from: [zero], to: zero }
+        task_mode: async
+        note: "作为屏蔽门关闭节点的人员计数归零校验服务参与 all_success。"
+      ShieldDoorOpen:
+        transition: { from: [zero, nonzero, unknown], to: unknown }
+        task_mode: async
+        note: "作为屏蔽门打开节点的人员进出状态同步服务参与 all_success。"
+    # v0.2 P0: 监控类状态由状态返回接口事件驱动（非 command），表达"人员撤离完成"等
+    events:
+      PersonnelCountChanged:
+        transitions:
+          - { from: [unknown, zero], to: nonzero, condition: "personnel_count > 0" }
+          - { from: [unknown, nonzero], to: zero, condition: "personnel_count == 0" }
+          - { from: any, to: fault, condition: "report_error == true" }
+
+manual_intervention_semantics:
+  pending_state:
+    ui_state: pending
+    timeout_countdown: null
+    description: "节点异常、超时、拒绝、无权限或运行 guard 未满足时，流程进入 pending，只展示一个人工决策入口。"
+  common_options:
+    continue: "用于人工确认点或外部条件已恢复后的继续。"
+    retry: "重新对当前节点目标实例发起命令。"
+    skip: "跳过当前节点；仅当节点 failure policy 允许 skip 时开放。"
+    abort: "终止流程，并按补偿链/安全联锁策略处理。"
+  data_collection_nodes:
+    policy: "发生异常先 pending，允许 skip/retry/abort。"
+    node_ids: [N38, N39, N40, N42, N49, N52, N53, N55]
+  charge_exception_nodes:
+    policy: "开关、泵浦发射充电异常先 pending，由人工决策，不直接终止流程。"
+    node_ids: [N31, N33, N45]
