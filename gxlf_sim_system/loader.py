@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from .models import FlowNode, parse_duration
+from .domain import FlowNode, parse_duration
 
 
 @dataclass
@@ -82,9 +82,12 @@ def _service_type_by_system(state_machine: dict[str, Any]) -> dict[str, str]:
 
 def load_models(root: str | Path = ".") -> ModelBundle:
     root_path = Path(root).resolve()
-    model_dir = root_path / "gxlf_sim_system" / "models"
-    if not model_dir.exists():
-        model_dir = Path(__file__).resolve().parent / "models"
+    model_candidates = [
+        root_path / "gxlf_sim_system" / "models",
+        root_path / "models",
+        Path(__file__).resolve().parent / "models",
+    ]
+    model_dir = next((candidate for candidate in model_candidates if candidate.exists()), model_candidates[-1])
     flow_path = model_dir / "gxlf-firing-flow.yaml"
     interface_path = model_dir / "interface-contracts.yaml"
     state_machine_path = model_dir / "service-state-machines.yaml"

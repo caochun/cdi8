@@ -1,0 +1,18 @@
+id: n04_seed_callback_timeout
+title: N04 光纤种子源 callback timeout 会导致节点失败
+suite: model_scenario
+faults:
+  - behavior: callback_timeout
+    node_id: N04
+    system_name: 光纤种子源组件
+run:
+  time_scale: 0
+expect:
+  flow_status: failed
+  failed_nodes:
+    - N04
+  engine_events:
+    includes:
+      - target_failed
+      - node_failed
+      - flow_failed

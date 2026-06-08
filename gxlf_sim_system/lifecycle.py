@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from .models import LifecycleEvent, ServiceInstance
+from .domain import LifecycleEvent, ServiceInstance
 
 
 def utc_now() -> str:
@@ -24,9 +25,11 @@ class LifecycleEventSink(Protocol):
 @dataclass
 class MemoryLifecycleSink:
     events: list[LifecycleEvent] = field(default_factory=list)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def publish(self, event: LifecycleEvent) -> None:
-        self.events.append(event)
+        with self._lock:
+            self.events.append(event)
 
     def close(self) -> None:
         return
@@ -37,12 +40,15 @@ class JsonlLifecycleSink:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = self.path.open("w", encoding="utf-8")
+        self._lock = threading.Lock()
 
     def publish(self, event: LifecycleEvent) -> None:
-        self._fh.write(json.dumps(event.to_payload(), ensure_ascii=False) + "\n")
+        with self._lock:
+            self._fh.write(json.dumps(event.to_payload(), ensure_ascii=False) + "\n")
 
     def close(self) -> None:
-        self._fh.close()
+        with self._lock:
+            self._fh.close()
 
 
 class TangoLifecycleEventSink:
@@ -70,13 +76,14 @@ class LifecycleLogger:
         self.memory_sink = MemoryLifecycleSink()
         self.sinks: list[LifecycleEventSink] = [self.memory_sink]
         self._seq = 0
+        self._lock = threading.Lock()
         if self.path:
             self.sinks.append(JsonlLifecycleSink(self.path))
         self.sinks.extend(sinks or [])
 
     @property
     def events(self) -> list[LifecycleEvent]:
-        return self.memory_sink.events
+        return list(self.memory_sink.events)
 
     def close(self) -> None:
         for sink in self.sinks:
@@ -98,9 +105,11 @@ class LifecycleLogger:
         message: str = "",
     ) -> LifecycleEvent:
         payload = payload or {}
-        self._seq += 1
+        with self._lock:
+            self._seq += 1
+            seq = self._seq
         event = LifecycleEvent(
-            seq=self._seq,
+            seq=seq,
             timestamp=utc_now(),
             event_type=event_type,
             flow_instance_id=str(payload.get("flow_instance_id", "")),

@@ -1,0 +1,8 @@
+id: on_failure_policy_declared
+title: 模型声明 on_failure 策略但引擎尚未完整解释
+suite: model_gap
+check:
+  field: on_failure
+expect:
+  declared_on_nodes: 59
+  engine_support: unsupported

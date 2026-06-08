@@ -3,7 +3,7 @@
 This directory contains a standalone implementation of a GXLF flow engine plus
 state-machine driven Tango-style service simulators.
 
-It uses the three model files in `gxlf_sim_system/models/` as source data:
+It uses the three YAML model files in `gxlf_sim_system/models/` as source data:
 
 - `gxlf-firing-flow.yaml`: flow DAG and node orchestration.
 - `interface-contracts.yaml`: command request/response/callback contracts.
@@ -15,9 +15,14 @@ PyTango runtime. It exposes an internal Tango-like boundary:
 
 ```text
 command_inout(command_name, DevString(JSON)) -> DevString(JSON)
-task status callbacks as JSON events
+task status callbacks through the simulator callback bus
 service health snapshots as JSON payloads
 ```
+
+`command_inout` now models the real control boundary more closely: it returns
+only the immediate accept/reject response. Device task states such as
+`accepted`, `executing`, and `succeeded` are published later through an internal
+callback bus, and the flow engine waits on that bus before advancing the DAG.
 
 That keeps the flow engine and simulator contract-compatible with the YAML
 models while making the system runnable in a plain Python environment.
@@ -27,25 +32,33 @@ models while making the system runnable in a plain Python environment.
 From the repository root:
 
 ```bash
-python3 -m gxlf_sim_system run --max-nodes 12
+make sim-validate
+make sim-run
+```
+
+Install the core system as a CLI:
+
+```bash
+python3 -m pip install -e .
+gxlf-sim run --max-nodes 12
 ```
 
 Run the whole flow:
 
 ```bash
-python3 -m gxlf_sim_system run
+gxlf-sim run
 ```
 
 Write device lifecycle events to JSONL for timeline rendering:
 
 ```bash
-python3 -m gxlf_sim_system run --lifecycle-log gxlf_sim_system/output/lifecycle.jsonl
+gxlf-sim run --lifecycle-log gxlf_sim_system/output/lifecycle.jsonl
 ```
 
 Render the lifecycle log as an interactive HTML timeline:
 
 ```bash
-python3 -m gxlf_sim_system timeline \
+gxlf-sim timeline \
   --input gxlf_sim_system/output/lifecycle.jsonl \
   --output gxlf_sim_system/output/timeline.html
 ```
@@ -53,7 +66,7 @@ python3 -m gxlf_sim_system timeline \
 Validate the three model files against the simulator indexes:
 
 ```bash
-python3 -m gxlf_sim_system validate
+gxlf-sim validate
 ```
 
 ## Current Scope
@@ -65,7 +78,7 @@ Implemented:
 - Resolves `broadcast`, `by_beam_group`, and `by_beam_line` fan-out targets.
 - Validates node commands against service state-machine templates.
 - Simulates Tango-style command request and accept response payloads.
-- Simulates synchronous and asynchronous command completion callbacks.
+- Simulates immediate command acceptance plus later task-state callbacks.
 - Executes the GXLF DAG with `all_success` aggregation.
 - Tracks per-instance `health_state`, `business_state`, and task history.
 - Writes per-device lifecycle events as JSONL for later timeline rendering.

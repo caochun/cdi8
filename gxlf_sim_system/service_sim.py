@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 from .contracts import ContractError, ContractValidator, make_error
 from .lifecycle import LifecycleLogger
-from .models import ServiceInstance, ServiceTarget, TaskCallback
+from .domain import ServiceInstance, ServiceTarget, TaskCallback
 
 SYSTEM_ALIASES = {
     "多程放大系统": "多程放大组件",
@@ -32,6 +33,93 @@ class SimTimingConfig:
     time_scale: float = 0.0
     min_delay_seconds: float = 0.0
     max_delay_seconds: float = 5.0
+
+
+@dataclass(frozen=True)
+class SimFault:
+    behavior: str
+    node_id: str = ""
+    system_name: str = ""
+    service_id: str = ""
+    instance_code: str = ""
+    command: str = ""
+
+    def matches(self, payload: dict[str, Any], instance: ServiceInstance, command_name: str) -> bool:
+        return (
+            (not self.node_id or self.node_id == payload.get("node_id"))
+            and (not self.system_name or self.system_name == instance.system_name)
+            and (not self.service_id or self.service_id == instance.service_id)
+            and (not self.instance_code or self.instance_code == instance.instance_code)
+            and (not self.command or self.command == command_name)
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in {
+                "behavior": self.behavior,
+                "node_id": self.node_id,
+                "system_name": self.system_name,
+                "service_id": self.service_id,
+                "instance_code": self.instance_code,
+                "command": self.command,
+            }.items()
+            if value
+        }
+
+
+@dataclass
+class SimFaultRegistry:
+    faults: list[SimFault] = field(default_factory=list)
+
+    def add(self, fault: SimFault) -> SimFault:
+        self.faults.append(fault)
+        return fault
+
+    def clear(self) -> None:
+        self.faults.clear()
+
+    def match(self, payload: dict[str, Any], instance: ServiceInstance, command_name: str) -> SimFault | None:
+        for fault in reversed(self.faults):
+            if fault.matches(payload, instance, command_name):
+                return fault
+        return None
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        return [fault.to_payload() for fault in self.faults]
+
+
+class SimTaskCallbackBus:
+    def __init__(self) -> None:
+        self._condition = threading.Condition()
+        self._callbacks: list[dict[str, Any]] = []
+        self._callbacks_by_task: dict[str, list[dict[str, Any]]] = {}
+
+    @property
+    def callbacks(self) -> list[dict[str, Any]]:
+        with self._condition:
+            return list(self._callbacks)
+
+    def publish(self, callback: dict[str, Any]) -> None:
+        task_id = str(callback.get("task_id") or "")
+        with self._condition:
+            self._callbacks.append(callback)
+            if task_id:
+                self._callbacks_by_task.setdefault(task_id, []).append(callback)
+            self._condition.notify_all()
+
+    def wait_for_terminal(self, task_id: str, timeout_seconds: float) -> list[dict[str, Any]]:
+        terminal_states = {"succeeded", "failed", "timeout", "rejected", "cancelled"}
+        deadline = time.monotonic() + max(timeout_seconds, 0.001)
+        with self._condition:
+            while True:
+                callbacks = list(self._callbacks_by_task.get(task_id, []))
+                if any(callback.get("task_state") in terminal_states for callback in callbacks):
+                    return callbacks
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return callbacks
+                self._condition.wait(remaining)
 
 
 class SimServiceRegistry:
@@ -168,6 +256,8 @@ class TangoSimAdapter:
         validator: ContractValidator,
         lifecycle_logger: LifecycleLogger | None = None,
         timing: SimTimingConfig | None = None,
+        callback_bus: SimTaskCallbackBus | None = None,
+        fault_registry: SimFaultRegistry | None = None,
     ):
         self.registry = registry
         self.state_machine_model = state_machine_model
@@ -175,15 +265,17 @@ class TangoSimAdapter:
         self.templates = state_machine_model.get("service_type_templates") or {}
         self.lifecycle_logger = lifecycle_logger
         self.timing = timing or SimTimingConfig()
+        self.callback_bus = callback_bus or SimTaskCallbackBus()
+        self.fault_registry = fault_registry or SimFaultRegistry()
 
-    def command_inout(self, command_name: str, dev_string_json: str) -> tuple[str, list[dict[str, Any]]]:
+    def command_inout(self, command_name: str, dev_string_json: str) -> str:
         payload = json.loads(dev_string_json)
         effective_command_name = COMMAND_ALIASES.get(command_name, command_name)
         payload["command"] = effective_command_name
         try:
             self.validator.validate_command_request(payload)
         except ContractError as exc:
-            return json.dumps(self._accept_rejected(payload, effective_command_name, "INVALID_ARGUMENT", str(exc)), ensure_ascii=False), []
+            return json.dumps(self._accept_rejected(payload, effective_command_name, "INVALID_ARGUMENT", str(exc)), ensure_ascii=False)
 
         service_id = payload["target_service_id"]
         instance = self.registry.instances_by_id.get(service_id)
@@ -191,23 +283,21 @@ class TangoSimAdapter:
             return json.dumps(
                 self._accept_rejected(payload, effective_command_name, "INVALID_SERVICE_NAME", f"unknown service_id {service_id}"),
                 ensure_ascii=False,
-            ), []
+            )
 
-        accept, callbacks = self._execute(instance, effective_command_name, payload)
+        accept = self._accept_and_schedule(instance, effective_command_name, payload)
         self.validator.validate_accept_response(accept)
-        for callback in callbacks:
-            self.validator.validate_task_callback(callback, instance.service_type)
-        return json.dumps(accept, ensure_ascii=False), callbacks
+        return json.dumps(accept, ensure_ascii=False)
 
-    def _execute(
+    def _accept_and_schedule(
         self,
         instance: ServiceInstance,
         command_name: str,
         payload: dict[str, Any],
-    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    ) -> dict[str, Any]:
         if instance.health_state != "running":
             self._log_rejected(instance, payload, command_name, "service is not running")
-            return self._accept_rejected(payload, command_name, "SERVICE_NOT_RUNNING", "service is not running"), []
+            return self._accept_rejected(payload, command_name, "SERVICE_NOT_RUNNING", "service is not running")
 
         template = self.templates[instance.service_type]
         command_def = (template.get("commands") or {}).get(command_name)
@@ -218,7 +308,7 @@ class TangoSimAdapter:
                 command_name,
                 "COMMAND_NOT_SUPPORTED",
                 f"{instance.service_type}.{command_name} is not defined",
-            ), []
+            )
 
         transition = command_def.get("transition", {})
         allowed_from = transition.get("from", [])
@@ -234,13 +324,18 @@ class TangoSimAdapter:
                 command_name,
                 "INVALID_STATE",
                 f"{instance.business_state} cannot accept {command_name}",
-            ), []
+            )
+
+        fault = self.fault_registry.match(payload, instance, command_name)
+        if fault and fault.behavior == "reject":
+            self._log_rejected(instance, payload, command_name, "injected reject fault")
+            return self._accept_rejected(payload, command_name, "INJECTED_REJECT", "injected reject fault")
 
         payload["sim_node_delay_seconds"] = self._sim_node_delay_seconds(payload, command_def)
         payload["sim_delay_seconds"] = self._sim_delay_seconds(payload, command_def)
         payload["sim_business_countdown_seconds"] = self._sim_business_countdown_seconds(payload, command_name)
         instance.task_seq += 1
-        task_id = f"{payload['shot_id']}.{payload['node_id']}.{instance.instance_code}.{instance.task_seq}"
+        task_id = f"{payload['shot_id']}.{payload['node_id']}.{instance.service_id}.{instance.task_seq}"
         instance.current_task_id = task_id
         health_before = instance.health_state
         business_before = instance.business_state
@@ -281,16 +376,41 @@ class TangoSimAdapter:
             "instance_code": instance.instance_code,
             "command": command_name,
             "message": "command received",
+            "sim_delay_seconds": payload["sim_delay_seconds"],
+            "sim_node_delay_seconds": payload["sim_node_delay_seconds"],
         }
+        if fault:
+            accept["sim_fault_behavior"] = fault.behavior
 
         task_mode = command_def.get("task_mode", payload.get("call_mode", "sync"))
-        callbacks: list[dict[str, Any]] = []
-        callbacks.append(self._callback(payload, instance, task_id, command_name, "accepted", "success", 1, 0))
+        worker = threading.Thread(
+            target=self._run_task,
+            args=(instance, command_name, dict(payload), dict(command_def), task_id, str(task_mode), fault),
+            name=f"gxlf-sim-task-{task_id}",
+            daemon=True,
+        )
+        worker.start()
+        return accept
+
+    def _run_task(
+        self,
+        instance: ServiceInstance,
+        command_name: str,
+        payload: dict[str, Any],
+        command_def: dict[str, Any],
+        task_id: str,
+        task_mode: str,
+        fault: SimFault | None = None,
+    ) -> None:
         self._log("task_state_changed", instance, payload, task_id, task_before="created", task_after="accepted", result_status="success")
+        self._publish_callback(payload, instance, task_id, command_name, "accepted", "success", 1, 0)
         if task_mode == "async":
-            callbacks.append(self._callback(payload, instance, task_id, command_name, "executing", "success", 1, 50))
             self._log("task_state_changed", instance, payload, task_id, task_before="accepted", task_after="executing", result_status="success")
+            self._publish_callback(payload, instance, task_id, command_name, "executing", "success", 1, 50)
             self._sleep_for_command(payload, command_def)
+
+        if fault and fault.behavior == "callback_timeout":
+            return
 
         completion_business_before = instance.business_state
         completion_transition = command_def.get("completion_transition")
@@ -311,7 +431,9 @@ class TangoSimAdapter:
             )
         final_health_before = instance.health_state
         instance.health_state = "running"
-        callbacks.append(self._callback(payload, instance, task_id, command_name, "succeeded", "success", 0, 100))
+        task_after = "failed" if fault and fault.behavior == "callback_failed" else "succeeded"
+        result_status = "failed" if task_after == "failed" else "success"
+        result_code = 1 if task_after == "failed" else 0
         self._log(
             "task_state_changed",
             instance,
@@ -322,9 +444,10 @@ class TangoSimAdapter:
             business_before=instance.business_state,
             business_after=instance.business_state,
             task_before="executing" if task_mode == "async" else "accepted",
-            task_after="succeeded",
-            result_status="success",
+            task_after=task_after,
+            result_status=result_status,
         )
+        self._publish_callback(payload, instance, task_id, command_name, task_after, result_status, result_code, 100)
         instance.current_task_id = None
         instance.history.append(
             {
@@ -336,7 +459,21 @@ class TangoSimAdapter:
                 "finished_at": utc_now(),
             }
         )
-        return accept, callbacks
+
+    def _publish_callback(
+        self,
+        payload: dict[str, Any],
+        instance: ServiceInstance,
+        task_id: str,
+        command_name: str,
+        task_state: str,
+        result_status: str,
+        result_code: int,
+        progress: float,
+    ) -> None:
+        callback = self._callback(payload, instance, task_id, command_name, task_state, result_status, result_code, progress)
+        self.validator.validate_task_callback(callback, instance.service_type)
+        self.callback_bus.publish(callback)
 
     def _sleep_for_command(self, payload: dict[str, Any], command_def: dict[str, Any]) -> None:
         delay = float(payload.get("sim_delay_seconds") or 0)
@@ -349,8 +486,7 @@ class TangoSimAdapter:
             raw_duration = float(payload.get("sim_expected_duration_ms") or 0) / 1000
         if raw_duration <= 0 or self.timing.time_scale <= 0:
             return 0.0
-        fanout_count = self._sim_fanout_count(payload)
-        delay = self._sim_node_delay_seconds(payload, command_def) / fanout_count
+        delay = self._sim_node_delay_seconds(payload, command_def)
         delay = max(delay, self.timing.min_delay_seconds)
         return min(delay, self.timing.max_delay_seconds)
 
@@ -385,12 +521,12 @@ class TangoSimAdapter:
             for key in ("compressed_duration", "duration", "expected_duration"):
                 value = sim_timing.get(key)
                 if value is not None:
-                    from .models import parse_duration
+                    from .domain import parse_duration
 
                     return parse_duration(value)
         timeout = command_def.get("timeout")
         if timeout:
-            from .models import parse_duration
+            from .domain import parse_duration
 
             return parse_duration(timeout)
         return 0.0

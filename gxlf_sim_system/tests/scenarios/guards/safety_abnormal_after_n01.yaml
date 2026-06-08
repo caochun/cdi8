@@ -1,0 +1,28 @@
+id: safety_abnormal_after_n01
+title: N01 后 safety abnormal 时后续安全域节点等待
+suite: model_scenario
+initial_context:
+  interlocks:
+    safety: abnormal
+run:
+  async: true
+expect_before_stop:
+  completed_nodes:
+    - N01
+  waiting_nodes:
+    - N02
+    - N03
+    - N04
+  engine_events:
+    includes:
+      - node_guard_blocked
+then:
+  stop: true
+expect:
+  flow_status: aborted
+  failed_nodes: []
+  commands_dispatched_for:
+    N01: 208
+    N02: 0
+    N03: 0
+    N04: 0

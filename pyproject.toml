@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gxlf-sim-system"
+version = "0.1.0"
+description = "GXLF contract-driven flow simulation system"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+gxlf-sim = "gxlf_sim_system.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["gxlf_sim_system*"]
+
+[tool.setuptools.package-data]
+gxlf_sim_system = ["models/*.yaml"]

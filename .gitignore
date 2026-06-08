@@ -22,6 +22,10 @@ env/
 *.log
 gxlf_sim_system/output/
 
+# 本地资料与归档
+docs/
+archive/
+
 # IDE
 .idea/
 .vscode/
@@ -34,6 +38,10 @@ gxlf_sim_system/output/
 # Node
 node_modules/
 dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
 
 # Tango
 *.tango_db

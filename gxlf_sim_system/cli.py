@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Callable
 
 from .contracts import ContractValidator
-from .engine import FlowEngine
+from .engine import EngineEvent, FlowEngine
 from .event_bridge import BridgeConfig, run_bridge
+from .guards import FlowRuntimeContext, GuardEvaluator
 from .lifecycle import LifecycleLogger
 from .loader import load_models
-from .service_sim import SimServiceRegistry, SimTimingConfig, TangoSimAdapter
+from .service_sim import SimFaultRegistry, SimServiceRegistry, SimTimingConfig, TangoSimAdapter
 from .timeline import write_timeline
 from .validation import validate_model_bundle
 
@@ -17,6 +19,9 @@ def build_engine(
     root: Path,
     lifecycle_logger: LifecycleLogger | None = None,
     sim_timing: SimTimingConfig | None = None,
+    runtime_context: FlowRuntimeContext | None = None,
+    engine_event_sink: Callable[[EngineEvent], None] | None = None,
+    fault_registry: SimFaultRegistry | None = None,
 ) -> FlowEngine:
     bundle = load_models(root)
     registry = SimServiceRegistry(bundle.state_machine)
@@ -27,12 +32,15 @@ def build_engine(
         validator,
         lifecycle_logger=lifecycle_logger,
         timing=sim_timing,
+        fault_registry=fault_registry,
     )
     return FlowEngine(
         nodes=bundle.nodes,
         registry=registry,
         tango_adapter=tango,
         node_contracts_by_id=bundle.node_contracts_by_id,
+        guard_evaluator=GuardEvaluator(registry, runtime_context),
+        event_sink=engine_event_sink,
     )
 
 
@@ -79,6 +87,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     completed = sum(1 for status in result.node_statuses.values() if status == "completed")
     failed = sum(1 for status in result.node_statuses.values() if status == "failed")
     pending = sum(1 for status in result.node_statuses.values() if status == "pending")
+    waiting_guard = sum(1 for status in result.node_statuses.values() if status == "waiting_guard")
 
     print("GXLF simulation run")
     print(f"  status:         {result.flow_status.value}")
@@ -86,7 +95,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  completed:      {completed}")
     print(f"  failed:         {failed}")
     print(f"  pending:        {pending}")
+    print(f"  waiting_guard:  {waiting_guard}")
     print(f"  callbacks:      {len(result.callbacks)}")
+    print(f"  guard_checks:   {len(result.guard_results)}")
     print(f"  time_scale:     {sim_timing.time_scale:g}")
     if args.target_duration:
         print(f"  target_duration:{args.target_duration:g}s")
@@ -146,7 +157,12 @@ def cmd_bridge(args: argparse.Namespace) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="GXLF contract-driven simulation system")
-    parser.add_argument("--root", type=Path, default=Path("."), help="repository root containing gxlf_sim_system/models/")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path("."),
+        help="repository root, package root, or directory containing gxlf_sim_system/models/",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     validate_parser = subparsers.add_parser("validate", help="validate model cross references")
