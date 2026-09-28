@@ -17,6 +17,10 @@ Model 2.0 preserves column O as `state_definition` and requires task-specific
 active actions, and recovery requires verified cause clearance and safe reset.
 See the repository README for API examples and the explicit modeling assumptions.
 
+Step 3 adds `excel-shg-injector-state-machine.yaml` and
+`laser-joint-experiment.yaml`. The composite executor keeps both subsystem
+machines independent and evaluates the joint readiness gate with AND semantics.
+
 Run its tests from the repository root:
 
 ```bash

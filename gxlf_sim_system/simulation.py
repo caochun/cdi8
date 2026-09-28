@@ -9,6 +9,7 @@ def simulated_success_evidence(action: str) -> CompletionEvidence:
         'function_check': '功能检查完成',
         'parameter_dispatch': '参数下发完成',
         'seed_source_emit': '出光完成',
+        'frequency_doubled_emit': '出光完成',
         'laser_parameter_collect': '采集完成',
         'standby_reset': '复位/待机完成',
         'abort_reset': '复位/待机完成',

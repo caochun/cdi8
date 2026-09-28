@@ -1,7 +1,6 @@
 # 光纤种子源组件：状态机与最小实验流程
 
-依据状态机模型 2.0 和 `seed-source-experiment.yaml`，实现基线 `d3c0bbd`。
-本文件只增加图示，不改变运行逻辑。
+依据光纤种子源状态机模型 2.0、`seed-source-experiment.yaml` 和第 3 步联合模型。
 
 ## 分系统状态机
 
@@ -193,3 +192,46 @@ sequenceDiagram
 未来流程可以组合多个分系统，但不会把它们所有局部状态组合成一张巨大的状态表。
 
 演示运行：`python3 -m gxlf_sim_system`。其中完成证据是显式模拟数据，不来自真实设备。
+
+## 第 3 步：双分系统联合门禁
+
+激光链路联合模型串行执行光纤种子源和二倍频宽带激光注入组件的自检、功能检查与参数下发。
+联合门禁不是任一个节点成功的别名；它读取**两个独立分系统当下的状态快照**，逐字段按 AND 判断：
+
+```text
+seed_source.main_state     = 正常
+AND seed_source.current_state  = 参数下发完成
+AND seed_source.business_state = 就绪
+AND shg_injector.main_state     = 正常
+AND shg_injector.current_state  = 参数下发完成
+AND shg_injector.business_state = 就绪
+```
+
+```mermaid
+flowchart LR
+    A["光纤种子源<br/>正常 / 参数下发完成 / 就绪"]
+    B["二倍频注入组件<br/>正常 / 参数下发完成 / 就绪"]
+    G{"laser_ready_gate<br/>A AND B"}
+    C["通过：允许联合出光阶段"]
+    X["不通过：联合流程失败<br/>不下发后续出光动作"]
+    A --> G
+    B --> G
+    G -->|全部满足| C
+    G -->|任一不满足| X
+    classDef ready fill:#edfdf3,stroke:#26834a,color:#14532d;
+    classDef gate fill:#fff8e7,stroke:#b7791f,color:#713f12;
+    classDef fault fill:#fff0f0,stroke:#c53030,color:#742a2a;
+    class A,B,C ready;
+    class G gate;
+    class X fault;
+```
+
+因此单系统局部状态保持独立：联合门禁不会把两套状态机合成一个状态枚举。流程调度仍然是串行的，
+也没有多实例 fan-out。任一分系统异常都结束当前联合流程；本阶段没有人工 pending 或自动恢复。
+
+验证场景：
+
+- 两个系统都完成参数下发，联合门禁通过；
+- 仅光纤种子源配置失效，联合门禁阻断；
+- 仅二倍频注入组件配置失效，联合门禁阻断；
+- 两者都准备完成后，其中一个系统报告通信异常，联合流程失败。

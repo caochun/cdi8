@@ -1,6 +1,8 @@
 # GXLF 实验流程仿真
 
-当前完成前两个开发步骤：根据 Excel 一次性整理出的定义，实现“光纤种子源组件”独立状态机，以及基于该状态机的最小实验流程。
+当前完成前三个开发步骤：光纤种子源独立状态机、单系统最小实验，以及多个分系统前置条件组合。
+
+第 3 步增加了独立的“二倍频宽带激光注入组件”状态机和双分系统联合流程。两个分系统仍按顺序调度，联合门禁采用 AND 语义。
 
 模型文件：`gxlf_sim_system/models/excel-seed-source-state-machine.yaml`
 
@@ -18,6 +20,12 @@ python3 -m pip install -e .
 python3 -m gxlf_sim_system
 ```
 
+运行双分系统联合仿真：
+
+```bash
+python3 -m gxlf_sim_system.joint_demo
+```
+
 依次执行：开机自检 → 功能检查 → 参数下发 → 出光 → 参数采集 → 待机/复位 → 关机。
 这是单分系统的验证流程，不代表完整发射实验。命令行示例逐个动作显式回报成功，
 不模拟真实设备反馈或耗时；运行时只读取已整理的 YAML，不读取 Excel。
@@ -30,13 +38,17 @@ make test
 
 流程模型：`gxlf_sim_system/models/seed-source-experiment.yaml`。
 
+双分系统流程模型：`gxlf_sim_system/models/laser-joint-experiment.yaml`。
+
+联合流程执行器：`gxlf_sim_system/composite_experiment.py`。
+
 流程执行器：`gxlf_sim_system/experiment.py`。
 
 流程状态为 `idle → running → succeeded/failed`，节点状态为
 `waiting → running → succeeded/failed`。每次运行具有独立编号；
 下发命令后等待结果确认，成功回报还须符合分系统模型声明的成功状态。
 命令被拒绝、执行失败或结果不符时停止推进，下游节点保留 `waiting`。
-失败不会自动复位、补偿或关机；跨系统条件、并行调度、自动超时检测和联锁监测留到后续步骤实现。
+失败不会自动复位、补偿或关机；并行调度、多实例扇出、自动超时检测和联锁监测留到后续步骤实现。
 
 手动分步驱动：
 
