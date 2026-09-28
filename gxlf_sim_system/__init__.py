@@ -12,6 +12,12 @@ from .parallel_experiment import (
     ParallelFanoutExperiment,
     load_seed_source_fanout_experiment,
 )
+from .joint_fanout_experiment import (
+    JointFanoutDispatch,
+    JointFanoutExperimentError,
+    JointFanoutSequentialExperiment,
+    load_laser_joint_fanout_experiment,
+)
 from .subsystem_fsm import (
     CompletionEvidence,
     StateMachineError,
@@ -26,10 +32,14 @@ __all__ = [
     "CompositeExperimentError",
     "CompositeSequentialExperiment",
     "FanoutDispatch",
+    "JointFanoutDispatch",
+    "JointFanoutExperimentError",
+    "JointFanoutSequentialExperiment",
     "ExperimentError",
     "SequentialExperiment",
     "load_seed_source_experiment",
     "load_laser_joint_experiment",
+    "load_laser_joint_fanout_experiment",
     "load_seed_source_fanout_experiment",
     "ParallelExperimentError",
     "ParallelFanoutExperiment",

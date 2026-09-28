@@ -25,6 +25,11 @@ Step 4 adds `parallel_experiment.py` and a three-instance fan-out demo. The
 node dispatches concurrently and uses `all_success`: one failed or exceptional
 instance fails the whole node, and late results are rejected.
 
+Before Step 5, the joint flow is also available as a combined model:
+`joint_fanout_experiment.py` runs three seed-source instances as one
+`all_success` group and one SHG instance, then applies the cross-subsystem AND
+gate. This is still sequential across nodes and has no timeout or compensation.
+
 Run its tests from the repository root:
 
 ```bash

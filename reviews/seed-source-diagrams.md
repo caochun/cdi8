@@ -284,3 +284,38 @@ flowchart TB
 - 这是 `all_success` 聚合，不是部分成功，也没有自动补发失败实例。
 
 仿真运行：`python3 -m gxlf_sim_system.fanout_demo`。
+
+## 第 4 步组合：种子源 fan-out + 二倍频单实例
+
+联合组合模型将两种聚合关系叠加，但不混淆它们：
+
+```mermaid
+flowchart TB
+    S1["seed_01"] --> SA{"种子源 all_success"}
+    S2["seed_02"] --> SA
+    S3["seed_03"] --> SA
+    SHG["shg_01 二倍频组件"] --> J{"联合门禁<br/>seed all_success AND shg one"}
+    SA --> J
+    J -->|通过| OUT["允许联合出光"]
+    J -->|任一条件不满足| FAIL["联合流程失败"]
+    classDef target fill:#f7fafc,stroke:#718096,color:#2d3748;
+    classDef agg fill:#fff8e7,stroke:#b7791f,color:#713f12;
+    classDef good fill:#edfdf3,stroke:#26834a,color:#14532d;
+    classDef bad fill:#fff0f0,stroke:#c53030,color:#742a2a;
+    class S1,S2,S3,SHG target;
+    class SA,J agg;
+    class OUT good;
+    class FAIL bad;
+```
+
+种子源的三个实例必须全部达到目标状态；二倍频组件只需它的唯一实例达到目标状态。
+联合门禁读取各实例的当前快照：
+
+```text
+(seed_01 ready AND seed_02 ready AND seed_03 ready)
+AND shg_01 ready
+```
+
+该模型仍按节点顺序调度，但每个种子节点内部并行启动三个实例。种子源任一实例失败时，
+同组其他未完成任务会被取消；二倍频单实例失败也会结束整个联合流程。实例数量为仿真配置，
+不能从 Excel 推断为真实设备数量。
