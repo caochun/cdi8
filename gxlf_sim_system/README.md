@@ -21,6 +21,10 @@ Step 3 adds `excel-shg-injector-state-machine.yaml` and
 `laser-joint-experiment.yaml`. The composite executor keeps both subsystem
 machines independent and evaluates the joint readiness gate with AND semantics.
 
+Step 4 adds `parallel_experiment.py` and a three-instance fan-out demo. The
+node dispatches concurrently and uses `all_success`: one failed or exceptional
+instance fails the whole node, and late results are rejected.
+
 Run its tests from the repository root:
 
 ```bash

@@ -235,3 +235,52 @@ flowchart LR
 - 仅光纤种子源配置失效，联合门禁阻断；
 - 仅二倍频注入组件配置失效，联合门禁阻断；
 - 两者都准备完成后，其中一个系统报告通信异常，联合流程失败。
+
+## 第 4 步：并行执行与多实例扇出
+
+第 4 步使用 3 个独立的光纤种子源仿真实例。实例数量和编号是仿真配置，
+不是 Excel 对光纤种子源实际数量的声明。一个扇出节点同时为所有实例创建任务：
+
+```mermaid
+flowchart TB
+    N["流程节点：parallel_self_test<br/>动作：power_on_self_test"]
+    N --> A["seed_01<br/>独立 task_id<br/>自检执行中"]
+    N --> B["seed_02<br/>独立 task_id<br/>自检执行中"]
+    N --> C["seed_03<br/>独立 task_id<br/>自检执行中"]
+    A --> G{"all_success 聚合器"}
+    B --> G
+    C --> G
+    G -->|三个都成功| OK["节点 succeeded<br/>允许下一个扇出节点"]
+    G -->|任一失败或异常| BAD["节点 failed<br/>取消其他未完成实例"]
+    classDef flow fill:#edf5ff,stroke:#2563eb,color:#1e3a8a;
+    classDef target fill:#f7fafc,stroke:#718096,color:#2d3748;
+    classDef good fill:#edfdf3,stroke:#26834a,color:#14532d;
+    classDef bad fill:#fff0f0,stroke:#c53030,color:#742a2a;
+    class N flow;
+    class A,B,C target;
+    class G fill:#fff8e7,stroke:#b7791f,color:#713f12;
+    class OK good;
+    class BAD bad;
+```
+
+并行节点与实例状态的关系是：
+
+```text
+节点 dispatch
+    → 所有实例预检前置条件
+    → 同时 start 所有实例
+    → 每个实例分别接收自己的 task_id 反馈
+    → all_success 聚合
+    → 节点成功或整组失败
+```
+
+实现中的重要边界：
+
+- 预检是全组原子门槛：任一实例不能执行时，不启动其他实例。
+- 实例状态和历史完全独立；一个实例成功不会修改另一个实例的状态。
+- 结果必须同时匹配节点、实例和该实例自己的 `task_id`。
+- 任一实例失败或报告通用异常，整组节点失败，并取消仍在执行的同组任务。
+- 节点只在所有实例成功且反馈证据有效后才标记为 `succeeded`。
+- 这是 `all_success` 聚合，不是部分成功，也没有自动补发失败实例。
+
+仿真运行：`python3 -m gxlf_sim_system.fanout_demo`。

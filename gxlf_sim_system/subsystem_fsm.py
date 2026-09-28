@@ -107,6 +107,24 @@ class SubsystemStateMachine:
         self._record('action_started', action_id, None, before)
         return self.snapshot()
 
+    def can_start(self, action_id: str) -> None:
+        """Validate dispatch without mutating state (used for fan-out preflight)."""
+        action = self._entry('actions', action_id)
+        self._check_precondition(action)
+        if self._active_action is not None and not action.get('preempts_active_task', False):
+            raise StateMachineError(f'action already executing: {self._active_action}')
+
+    def cancel_active_task(self, reason: str = 'cancelled') -> StateSnapshot:
+        """Cancel an active task without changing its business result."""
+        if self._active_action is None:
+            return self.snapshot()
+        before = self.snapshot()
+        action_id = self._active_action
+        self._state['task_state'] = 'cancelled'
+        self._active_action = None
+        self._record('task_cancelled', action_id, reason, before)
+        return self.snapshot()
+
     def complete_success(
         self, action_id: str | None = None, *, task_id: str,
         evidence: CompletionEvidence,
