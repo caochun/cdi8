@@ -28,7 +28,11 @@ instance fails the whole node, and late results are rejected.
 Before Step 5, the joint flow is also available as a combined model:
 `joint_fanout_experiment.py` runs three seed-source instances as one
 `all_success` group and one SHG instance, then applies the cross-subsystem AND
-gate. This is still sequential across nodes and has no timeout or compensation.
+gate. This remains sequential across nodes; timeout and compensation are added in Step 5 below.
+
+Step 5 adds deterministic timeout checks, declared fault injection, a global
+interlock event, and priority-ordered compensation. Compensation returns
+subsystems to a safe state but never changes a failed flow back to success.
 
 Run its tests from the repository root:
 

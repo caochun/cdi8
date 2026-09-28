@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -26,6 +27,7 @@ class JointFanoutNode:
     phase: str
     is_gate: bool = False
     requires: dict[str, dict[str, Any]] | None = None
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +55,8 @@ class JointFanoutSnapshot:
     active: JointFanoutDispatch | None
     node_states: tuple[tuple[str, str], ...]
     results: tuple[JointFanoutResult, ...]
+    interlock_triggered: bool = False
+    compensation_required: bool = False
 
 
 class JointFanoutSequentialExperiment:
@@ -92,6 +96,7 @@ class JointFanoutSequentialExperiment:
                 id=str(raw.get('id') or ''), target=None if is_gate else str(raw.get('target') or ''),
                 action=None if is_gate else str(raw.get('action') or ''), phase=str(raw.get('phase') or ''),
                 is_gate=is_gate, requires=deepcopy(raw.get('requires')) if is_gate else None,
+                timeout_seconds=float(raw['timeout_seconds']) if raw.get('timeout_seconds') is not None else None,
             )
             if not node.id or not node.phase or node.id in ids:
                 raise JointFanoutExperimentError('nodes need unique id and phase')
@@ -114,10 +119,18 @@ class JointFanoutSequentialExperiment:
         self._completed: dict[str, StateSnapshot] = {}
         self._node_states = {node.id: 'waiting' for node in nodes}
         self._results: list[JointFanoutResult] = []
+        runtime = model.get('runtime') or {}
+        self._default_timeout_seconds = float(runtime.get('default_timeout_seconds', 30.0))
+        self._compensation_plan = tuple(deepcopy(runtime.get('compensation') or ()))
+        self._active_started_at: float | None = None
+        self._interlock_triggered = False
+        self._compensation_required = False
+        self._compensation_results: list[dict[str, Any]] = []
 
     def snapshot(self) -> JointFanoutSnapshot:
         return JointFanoutSnapshot(self._run_id, self._status, self._active,
-                                   tuple(self._node_states.items()), tuple(self._results))
+                                   tuple(self._node_states.items()), tuple(self._results),
+                                   self._interlock_triggered, self._compensation_required)
 
     def dispatch_next(self) -> JointFanoutDispatch | None:
         if self._status in {'succeeded', 'failed'}:
@@ -144,11 +157,85 @@ class JointFanoutSequentialExperiment:
                 raise JointFanoutExperimentError(f'{node.id}: dispatch failed: {exc}') from exc
             task_ids = tuple((target, snapshot.task_id or '') for target, snapshot in started)
             self._active = JointFanoutDispatch(self._run_id, node.id, node.action, task_ids)
+            self._active_started_at = time.monotonic()
             self._pending = dict(task_ids)
             self._completed = {}
             self._node_states[node.id] = 'running'
             self._status = 'running'
             return self._active
+
+    def check_timeout(self, now: float | None = None) -> JointFanoutResult | None:
+        """Evaluate the active node deadline; ``now`` makes tests deterministic."""
+        if self._active is None or self._active_started_at is None:
+            return None
+        node = self.nodes[self._index]
+        timeout = node.timeout_seconds if node.timeout_seconds is not None else self._default_timeout_seconds
+        current = time.monotonic() if now is None else now
+        if current - self._active_started_at < timeout:
+            return None
+        target = next(iter(self._pending), None)
+        if target is None:
+            return None
+        subsystem_name, instance = target.split(':', 1)
+        state = self.machines[subsystem_name][instance].report_exception('execution_timeout')
+        return self._fail(target, state.current_state)
+
+    def inject_fault(self, target: str, exception_id: str = 'fault_lock') -> JointFanoutResult:
+        """Inject a declared subsystem exception into an active target."""
+        if self._active is None or target not in self._pending:
+            raise JointFanoutExperimentError('fault target is not active')
+        subsystem_name, instance = target.split(':', 1)
+        state = self.machines[subsystem_name][instance].report_exception(exception_id)
+        return self._fail(target, state.current_state)
+
+    def trigger_interlock(self, reason: str = 'safety_interlock') -> JointFanoutResult:
+        """Trip the global interlock and make compensation mandatory."""
+        self._interlock_triggered = True
+        self._compensation_required = True
+        if self._active is None:
+            states = tuple((f'{name}:{instance}', self.machines[name][instance].snapshot())
+                           for name, targets in self.targets.items() for instance in targets)
+            result = JointFanoutResult('interlock', 'failed', states, reason=reason)
+            self._results.append(result)
+            self._status = 'failed'
+            return result
+        target = next(iter(self._pending))
+        subsystem_name, instance = target.split(':', 1)
+        self.machines[subsystem_name][instance].report_exception('fault_lock')
+        return self._fail(target, reason)
+
+    def run_compensation(self, evidence_by_target: dict[str, CompletionEvidence]) -> tuple[dict[str, Any], ...]:
+        """Execute configured compensation actions by priority.
+
+        Compensation does not change the failed flow result; it only returns
+        devices to the declared safe state and records each verified action.
+        """
+        if not self._compensation_required:
+            raise JointFanoutExperimentError('no compensation is required')
+        records: list[dict[str, Any]] = []
+        for item in sorted(self._compensation_plan, key=lambda value: int(value.get('priority', 0))):
+            target_system = str(item.get('target'))
+            action = str(item.get('action'))
+            for instance in self.targets.get(target_system, ()):
+                target = f'{target_system}:{instance}'
+                evidence = evidence_by_target.get(target)
+                if evidence is None:
+                    raise JointFanoutExperimentError(f'missing compensation evidence for {target}')
+                machine = self.machines[target_system][instance]
+                try:
+                    started = machine.start(action)
+                    state = machine.complete_success(task_id=started.task_id, evidence=evidence)
+                except StateMachineError as exc:
+                    raise JointFanoutExperimentError(f'compensation failed for {target}: {exc}') from exc
+                record = {'target': target, 'action': action,
+                          'priority': int(item.get('priority', 0)),
+                          'status': 'succeeded' if state.task_state == 'succeeded' else 'failed'}
+                records.append(record)
+                if record['status'] != 'succeeded':
+                    raise JointFanoutExperimentError(f'compensation failed for {target}')
+        self._compensation_results.extend(records)
+        self._compensation_required = False
+        return tuple(records)
         self._status = 'succeeded'
         return None
 
@@ -232,6 +319,7 @@ class JointFanoutSequentialExperiment:
         self._results.append(result)
         self._node_states[node.id] = status
         self._active = None
+        self._active_started_at = None
         self._pending = {}
         if status == 'failed':
             self._status = 'failed'

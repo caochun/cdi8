@@ -72,7 +72,7 @@ make test
 `waiting → running → succeeded/failed`。每次运行具有独立编号；
 下发命令后等待结果确认，成功回报还须符合分系统模型声明的成功状态。
 命令被拒绝、执行失败或结果不符时停止推进，下游节点保留 `waiting`。
-失败不会自动复位、补偿或关机；自动超时检测和联锁监测留到第 5 步实现。
+第 5 步已加入显式超时检查、故障注入、全局联锁和补偿链。超时和联锁需要由调用方轮询/上报，当前没有后台计时线程或真实传感器监测。
 
 手动分步驱动：
 
@@ -163,3 +163,19 @@ machine.recover_from_exception(conditions={
 配置、出光、就绪条件失效并退出业务资格。这些事件及其条件必须由调用方上报；
 自动心跳检测、计时器、持续联锁监测和补偿调度尚未实现。
 模型的 `semantics` 和 `open_questions` 分别列出开发补充规则和原表未明确的部分。
+
+第 5 步联合 fan-out API：
+
+```python
+flow.check_timeout()  # 事件循环中的显式截止时间检查
+flow.inject_fault("seed_source:seed_02", "fault_lock")
+flow.trigger_interlock("personnel_detected")
+flow.run_compensation({
+    "seed_source:seed_01": simulated_success_evidence("abort_reset"),
+    "seed_source:seed_02": simulated_success_evidence("abort_reset"),
+    "seed_source:seed_03": simulated_success_evidence("abort_reset"),
+    "shg_injector:shg_01": simulated_success_evidence("abort_reset"),
+})
+```
+
+超时会注入 Excel 定义的“执行超时”异常，取消同组未完成任务；迟到反馈不能覆盖失败结果。联锁会设置 `interlock_triggered` 和 `compensation_required`。补偿按模型 priority 执行，但不会把失败流程改回成功。

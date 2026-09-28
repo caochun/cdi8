@@ -319,3 +319,33 @@ AND shg_01 ready
 该模型仍按节点顺序调度，但每个种子节点内部并行启动三个实例。种子源任一实例失败时，
 同组其他未完成任务会被取消；二倍频单实例失败也会结束整个联合流程。实例数量为仿真配置，
 不能从 Excel 推断为真实设备数量。
+
+## 第 5 步：超时、故障、联锁与补偿
+
+```mermaid
+flowchart TB
+    ACTIVE["联合 fan-out 节点运行中<br/>多个 target 有独立 task_id"]
+    ACTIVE -->|截止时间到达且未完成| TIMEOUT["执行超时<br/>目标进入异常"]
+    ACTIVE -->|显式 fault_lock / communication_error| FAULT["分系统异常<br/>整组节点失败"]
+    ACTIVE -->|全局 safety interlock| IL["联锁触发<br/>流程失败 + 要求补偿"]
+    TIMEOUT --> STOP["取消同组未完成任务"]
+    FAULT --> STOP
+    IL --> STOP
+    STOP --> COMP["按 priority 执行 abort_reset<br/>逐目标验证完成反馈"]
+    COMP --> SAFE["设备回到安全/未就绪状态"]
+    SAFE -.-> FLOWFAIL["原流程仍为 failed<br/>安全补偿不等于业务成功"]
+    classDef active fill:#edf5ff,stroke:#2563eb,color:#1e3a8a;
+    classDef danger fill:#fff0f0,stroke:#c53030,color:#742a2a;
+    classDef safe fill:#edfdf3,stroke:#26834a,color:#14532d;
+    class ACTIVE active;
+    class TIMEOUT,FAULT,IL,STOP,COMP danger;
+    class SAFE,FLOWFAIL safe;
+```
+
+第 5 步的运行控制保持显式调用：`check_timeout()` 检查节点截止时间，`inject_fault(target, exception_id)`
+注入某个目标的 Excel 通用异常，`trigger_interlock(reason)` 触发跨系统安全联锁。
+这些事件都会结束当前 `all_success` 节点；同组未完成任务被取消，迟到反馈不能覆盖失败结果。
+
+联锁会设置 `interlock_triggered` 和 `compensation_required`。`run_compensation(evidence_by_target)`
+按模型 priority 对所有种子实例和二倍频实例执行 `abort_reset`，逐个验证成功回调、目标状态和安全条件。
+补偿缺少证据或执行失败时保留补偿要求。补偿只负责安全回退，不能把已经失败的业务流程改回成功。

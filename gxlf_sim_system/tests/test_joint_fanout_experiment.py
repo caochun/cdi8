@@ -110,6 +110,45 @@ class JointFanoutExperimentTest(unittest.TestCase):
         with self.assertRaises(JointFanoutExperimentError):
             load_laser_joint_fanout_experiment(invalid)
 
+    def test_timeout_fails_active_node_and_cancels_peer_tasks(self):
+        dispatch = self.flow.dispatch_next()
+        self.flow._active_started_at -= 11
+        result = self.flow.check_timeout(now=self.flow._active_started_at + 11)
+        self.assertEqual(result.status, 'failed')
+        self.assertEqual(result.failed_target, 'seed_source:seed_01')
+        self.assertEqual(self.machines['seed_source']['seed_01'].snapshot().current_state, '执行超时')
+        self.assertTrue(all(machine.snapshot().active_action is None
+                            for machine in self.machines['seed_source'].values()))
+
+    def test_explicit_fault_injection_fails_group(self):
+        self.flow.dispatch_next()
+        result = self.flow.inject_fault('seed_source:seed_02', 'fault_lock')
+        self.assertEqual(result.failed_target, 'seed_source:seed_02')
+        self.assertEqual(self.machines['seed_source']['seed_02'].snapshot().current_state, '故障锁定')
+
+    def test_interlock_requires_and_executes_compensation(self):
+        self.flow.dispatch_next()
+        result = self.flow.trigger_interlock('personnel_detected')
+        self.assertEqual(result.status, 'failed')
+        snapshot = self.flow.snapshot()
+        self.assertTrue(snapshot.interlock_triggered)
+        self.assertTrue(snapshot.compensation_required)
+        evidence = {
+            f'seed_source:seed_{index:02d}': simulated_success_evidence('abort_reset')
+            for index in range(1, 4)
+        }
+        evidence['shg_injector:shg_01'] = simulated_success_evidence('abort_reset')
+        records = self.flow.run_compensation(evidence)
+        self.assertEqual(len(records), 4)
+        self.assertFalse(self.flow.snapshot().compensation_required)
+        self.assertEqual(self.flow.snapshot().status, 'failed')
+
+    def test_compensation_cannot_be_claimed_without_evidence(self):
+        self.flow.dispatch_next()
+        self.flow.trigger_interlock()
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.run_compensation({})
+
 
 if __name__ == '__main__':
     unittest.main()
