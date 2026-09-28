@@ -1,0 +1,182 @@
+kind: GXLFExcelSubsystemStateMachine
+version: "1.0"
+status: executable
+language: zh-CN
+source:
+  workbook: 20260928集中管控系统与分系统关键状态梳理清单.xlsx
+  sheet: 分系统关键状态表
+  rows: "3-13"
+  note: "一次性从 Excel 的光纤种子源组件记录转换；关键状态和业务状态按原表保留。"
+
+system:
+  id: laser_seed_source
+  name: 光纤种子源组件
+  initial:
+    main_state: 未就绪
+    current_state: 关机完成、未上电/离线
+    business_state: 未就绪
+    key_state: 未上电/离线
+    task_state: idle
+
+states:
+  main: [未就绪, 就绪, 正常, 异常]
+  business: [未就绪, 就绪, 出光, 异常]
+  task: [idle, executing, succeeded, failed]
+
+actions:
+  - id: power_on_self_test
+    excel_row: 3
+    business_action: 开机自检
+    precondition:
+      main_state: [未就绪]
+      current_state: [关机完成、未上电/离线]
+    success:
+      main_state: 未就绪
+      current_state: 自检完成
+      key_state: 自检完成
+      business_state: 未就绪
+    failure:
+      main_state: 异常
+      current_state: 自检异常
+      key_state: 自检异常
+      business_state: 未就绪
+
+  - id: function_check
+    excel_row: 4
+    business_action: 功能检查
+    precondition:
+      main_state: [未就绪, 正常, 异常]
+      current_state: [自检完成]
+    success:
+      main_state: 就绪
+      current_state: 功能检查完成
+      key_state: 业务就绪完成（具备倍频注入/旁路判定能力）
+      business_state: 就绪
+    failure:
+      main_state: 异常
+      current_state: 功能检查异常
+      key_state: 功能检查异常
+      business_state: 就绪
+
+  - id: parameter_dispatch
+    excel_row: 5
+    business_action: 参数下发
+    precondition:
+      main_state: [就绪, 正常]
+      current_state: [功能检查完成, 采集完成]
+    success:
+      main_state: 正常
+      current_state: 参数下发完成
+      key_state: 参数配置正常
+      business_state: 就绪
+    failure:
+      main_state: 异常
+      current_state: 参数下发异常
+      key_state: 参数下发异常
+      business_state: 就绪
+
+  - id: seed_source_emit
+    excel_row: 6
+    business_action: 种子源出光
+    precondition:
+      main_state: [正常]
+      current_state: [参数下发完成]
+    success:
+      main_state: 正常
+      current_state: 出光完成
+      key_state: 稳定出光正常
+      business_state: 出光
+    failure:
+      main_state: 异常
+      current_state: 出光异常
+      key_state: 出光异常
+      business_state: 出光
+
+  - id: laser_parameter_collect
+    excel_row: 7
+    business_action: 激光参数采集
+    precondition:
+      main_state: [正常]
+      current_state: [出光完成]
+    success:
+      main_state: 正常
+      current_state: 采集完成
+      key_state: 采集正常
+      business_state: 出光
+    failure:
+      main_state: 异常
+      current_state: 采集异常
+      key_state: 采集异常
+      business_state: 出光
+
+  - id: standby_reset
+    excel_row: 8
+    business_action: 种子源待机/复位
+    precondition:
+      main_state: [正常]
+      current_state: [采集完成]
+    success:
+      main_state: 就绪
+      current_state: 复位/待机完成
+      key_state: 复位/待机完成
+      business_state: 就绪
+    failure:
+      main_state: 异常
+      current_state: 复位/待机异常
+      key_state: 复位/待机异常
+      business_state: 就绪
+
+  - id: abort_reset
+    excel_row: 9
+    business_action: 流程终止（异常中止）
+    precondition: {}
+    success:
+      main_state: 就绪
+      current_state: 复位/待机完成
+      key_state: 复位/待机完成
+      business_state: 未就绪
+    failure:
+      main_state: 异常
+      current_state: 复位/待机异常
+      key_state: 复位/待机异常
+      business_state: 未就绪
+
+  - id: shutdown
+    excel_row: 10
+    business_action: 关机
+    precondition: {}
+    success:
+      main_state: 未就绪
+      current_state: 关机完成
+      key_state: 关机正常
+      business_state: 未就绪
+    failure:
+      main_state: 异常
+      current_state: 关机异常
+      key_state: 关机异常
+      business_state: 未就绪
+
+exceptions:
+  - id: fault_lock
+    excel_row: 11
+    business_action: 通用异常处置
+    key_state: 故障锁定
+  - id: communication_error
+    excel_row: 12
+    business_action: 通用异常处置
+    key_state: 通信异常
+  - id: execution_timeout
+    excel_row: 13
+    business_action: 通用异常处置
+    key_state: 执行超时
+
+exception_policy:
+  main_state: 异常
+  business_state: 异常
+  recovery_event: 故障解除并复位校验
+  recovery_target:
+    main_state: 就绪
+    current_state: 复位/待机完成
+    key_state: 复位/待机完成
+    business_state: 就绪
+  note: "恢复目标由 Excel 通用异常处置说明与第 8 行复位/待机完成状态合并得到；恢复必须由显式事件触发。"
