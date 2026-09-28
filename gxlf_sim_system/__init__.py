@@ -2,6 +2,7 @@
 
 from .experiment import ExperimentError, SequentialExperiment, load_seed_source_experiment
 from .subsystem_fsm import (
+    CompletionEvidence,
     StateMachineError,
     StateSnapshot,
     SubsystemStateMachine,
@@ -10,6 +11,7 @@ from .subsystem_fsm import (
 )
 
 __all__ = [
+    "CompletionEvidence",
     "ExperimentError",
     "SequentialExperiment",
     "load_seed_source_experiment",

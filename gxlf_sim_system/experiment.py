@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import yaml
 
-from .subsystem_fsm import StateMachineError, StateSnapshot, SubsystemStateMachine
+from .subsystem_fsm import CompletionEvidence, StateMachineError, StateSnapshot, SubsystemStateMachine
 
 
 class ExperimentError(ValueError):
@@ -107,25 +107,32 @@ class SequentialExperiment:
             raise ExperimentError("wait for the active node's result")
         node = self.nodes[self._index]
         try:
-            self.subsystem.start(node.action)
+            started = self.subsystem.start(node.action)
         except StateMachineError as exc:
             self._finish_node("failed", self.subsystem.snapshot(), str(exc))
             raise ExperimentError(f"{node.id}: command rejected: {exc}") from exc
-        self._active = Dispatch(self._run_id, node.id, node.action, uuid4().hex)
+        self._active = Dispatch(self._run_id, node.id, node.action, started.task_id)
         self._node_states[node.id] = "running"
         self._status = "running"
         return self._active
 
-    def complete(self, dispatch: Dispatch, *, success: bool) -> NodeResult:
+    def complete(
+        self, dispatch: Dispatch, *, success: bool,
+        evidence: CompletionEvidence | None = None,
+    ) -> NodeResult:
         if type(success) is not bool:
             raise ExperimentError("success must be a boolean")
         if self._active is None or dispatch != self._active:
             raise ExperimentError("result does not belong to the active task")
+        if success and not isinstance(evidence, CompletionEvidence):
+            raise ExperimentError("success requires callback and observed state evidence")
         try:
             if success:
-                state = self.subsystem.complete_success(dispatch.action)
+                state = self.subsystem.complete_success(
+                    dispatch.action, task_id=dispatch.task_id, evidence=evidence,
+                )
             else:
-                state = self.subsystem.complete_failure(dispatch.action)
+                state = self.subsystem.complete_failure(dispatch.action, task_id=dispatch.task_id)
         except StateMachineError as exc:
             return self._finish_node("failed", self.subsystem.snapshot(), str(exc))
         if not success:
@@ -135,6 +142,13 @@ class SequentialExperiment:
         if state.task_state != "succeeded" or state.active_action is not None or mismatches:
             return self._finish_node("failed", state, "subsystem result did not satisfy success criteria")
         return self._finish_node("succeeded", state)
+
+    def report_exception(self, exception_id: str) -> NodeResult:
+        """Deliver an external subsystem exception and immediately block the run."""
+        if self._status in {"succeeded", "failed"}:
+            raise ExperimentError(f"experiment already {self._status}")
+        state = self.subsystem.report_exception(exception_id)
+        return self._finish_node("failed", state, state.current_state)
 
     def _finish_node(self, status: str, state: StateSnapshot, reason: str = "") -> NodeResult:
         node = self.nodes[self._index]

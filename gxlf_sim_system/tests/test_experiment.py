@@ -8,6 +8,12 @@ from gxlf_sim_system.experiment import (
     ExperimentError, SequentialExperiment, load_seed_source_experiment,
 )
 from gxlf_sim_system.subsystem_fsm import load_seed_source_state_machine
+from gxlf_sim_system.simulation import simulated_success_evidence
+
+
+def succeed(flow, dispatch=None):
+    dispatch = dispatch or flow.dispatch_next()
+    return flow.complete(dispatch, success=True, evidence=simulated_success_evidence(dispatch.action))
 
 
 class ExperimentTest(unittest.TestCase):
@@ -17,7 +23,7 @@ class ExperimentTest(unittest.TestCase):
 
     def run_success(self, flow):
         for _ in flow.nodes:
-            result = flow.complete(flow.dispatch_next(), success=True)
+            result = succeed(flow)
             self.assertEqual(result.status, "succeeded")
 
     def test_full_experiment_and_next_run_use_same_subsystem(self):
@@ -44,7 +50,7 @@ class ExperimentTest(unittest.TestCase):
         with self.assertRaises(ExperimentError):
             self.flow.dispatch_next()
         self.assertEqual(self.flow.snapshot().results, ())
-        self.flow.complete(dispatch, success=True)
+        succeed(self.flow, dispatch)
         self.assertEqual(self.flow.dispatch_next().node_id, "check")
 
     def test_failure_at_each_node_blocks_downstream(self):
@@ -53,7 +59,7 @@ class ExperimentTest(unittest.TestCase):
                 machine = load_seed_source_state_machine()
                 flow = load_seed_source_experiment(machine)
                 for _ in range(failure_index):
-                    flow.complete(flow.dispatch_next(), success=True)
+                    succeed(flow)
                 result = flow.complete(flow.dispatch_next(), success=False)
                 self.assertEqual(result.status, "failed")
                 self.assertEqual(result.subsystem.main_state, "异常")
@@ -77,12 +83,12 @@ class ExperimentTest(unittest.TestCase):
         first = self.flow.dispatch_next()
         for wrong in (replace(first, task_id="other"), replace(first, run_id="other")):
             with self.assertRaises(ExperimentError):
-                self.flow.complete(wrong, success=True)
-        self.flow.complete(first, success=True)
+                succeed(self.flow, wrong)
+        succeed(self.flow, first)
         second = self.flow.dispatch_next()
         before = self.machine.snapshot()
         with self.assertRaises(ExperimentError):
-            self.flow.complete(first, success=True)
+            succeed(self.flow, first)
         self.assertEqual(self.machine.snapshot(), before)
         self.assertEqual(self.flow.snapshot().active, second)
 
@@ -90,28 +96,28 @@ class ExperimentTest(unittest.TestCase):
         last = None
         for _ in self.flow.nodes:
             last = self.flow.dispatch_next()
-            self.flow.complete(last, success=True)
+            succeed(self.flow, last)
         with self.assertRaises(ExperimentError):
             self.flow.dispatch_next()
         with self.assertRaises(ExperimentError):
-            self.flow.complete(last, success=True)
+            succeed(self.flow, last)
 
     def test_success_requires_expected_subsystem_state(self):
         dispatch = self.flow.dispatch_next()
         original = self.machine.complete_success
 
-        def wrong_feedback(action):
-            return replace(original(action), current_state="错误反馈")
+        def wrong_feedback(action, **kwargs):
+            return replace(original(action, **kwargs), current_state="错误反馈")
 
         self.machine.complete_success = wrong_feedback
-        result = self.flow.complete(dispatch, success=True)
+        result = succeed(self.flow, dispatch)
         self.assertEqual(result.status, "failed")
         self.assertEqual(self.flow.snapshot().status, "failed")
 
     def test_externally_interrupted_task_does_not_advance(self):
         dispatch = self.flow.dispatch_next()
-        self.machine.complete_failure()
-        result = self.flow.complete(dispatch, success=True)
+        self.machine.complete_failure(task_id=dispatch.task_id)
+        result = succeed(self.flow, dispatch)
         self.assertEqual(result.status, "failed")
         self.assertEqual(result.subsystem.main_state, "异常")
 
@@ -138,6 +144,31 @@ class ExperimentTest(unittest.TestCase):
             with self.subTest(model=model), self.assertRaises(ExperimentError):
                 SequentialExperiment(deepcopy(model), self.machine)
         self.assertEqual(self.machine.history, ())
+
+    def test_success_without_observation_is_not_accepted(self):
+        dispatch = self.flow.dispatch_next()
+        before = self.machine.snapshot()
+        with self.assertRaises(ExperimentError):
+            self.flow.complete(dispatch, success=True)
+        self.assertEqual(self.machine.snapshot(), before)
+
+    def test_exception_immediately_stops_flow_and_rejects_late_result(self):
+        dispatch = self.flow.dispatch_next()
+        self.flow.report_exception("communication_error")
+        self.assertEqual(self.flow.snapshot().status, "failed")
+        self.assertEqual(self.machine.snapshot().state_definition, "异常处置")
+        with self.assertRaises(ExperimentError):
+            succeed(self.flow, dispatch)
+        with self.assertRaises(ExperimentError):
+            self.flow.dispatch_next()
+
+    def test_wrong_observation_fails_node_and_subsystem(self):
+        dispatch = self.flow.dispatch_next()
+        evidence = replace(simulated_success_evidence(dispatch.action), observed_state="尚未完成")
+        result = self.flow.complete(dispatch, success=True, evidence=evidence)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(self.machine.snapshot().business_state, "异常")
+        self.assertIsNone(self.machine.snapshot().active_action)
 
 
 if __name__ == "__main__":

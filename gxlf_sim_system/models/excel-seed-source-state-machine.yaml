@@ -1,183 +1,363 @@
 kind: GXLFExcelSubsystemStateMachine
-version: "1.0"
+version: '2.0'
 status: executable
 language: zh-CN
 source:
   workbook: 20260928集中管控系统与分系统关键状态梳理清单.xlsx
   sheet: 分系统关键状态表
-  rows: "3-13"
-  note: "一次性从 Excel 的光纤种子源组件记录转换；关键状态和业务状态按原表保留。"
-
+  rows: 3-13
+  note: Excel 一次性整理为模型；原文元数据与补充运行规则明确分开，运行时不读取 Excel。
+semantics:
+  key_state: D 列保留为 key_state_description（行的描述）；H/J 是动作实际结果，写入 current_state 与 key_state。异常事件按 D 命名，不能把 D 的正常描述当作失败后的结果。
+  state_definition: O 列是状态语义分类，保存到模型、运行快照和历史；分类名称本身不自动授予流程放行资格。
+  business_state: K 列是流程维护的业务状态；本单分系统仿真保留为流程投影。仅正常分支采用 K，失败统一投影为异常。
+  failure_business_state: 建模约定：Excel 未定义各动作失败后的 K，统一异常，表示业务资格无效，并非断言物理设备已停止出光。
+  completion: 必须同时提供成功回调、实际采集结果及所需条件；反馈字段名为根据 L/M 定义的仿真接口，不是 Excel 原字段名。
+  preemption: 建模约定：异常事件可打断任意执行中任务；异常中止可取消当前任务；普通关机不抢占，需先异常中止。
+  recovery: 建模约定：故障解除并验证安全复位后先回未就绪，不直接授予就绪资格；未补造 Excel 未定义的待机重入动作。
+  self_test: G/H/K 显式列优先：自检成功仍未就绪，功能检查成功后才就绪。
+  invalidated: L 列的条件失效以显式 validity_lost 事件实现，为开发补充事件；自动采样、心跳与超时检测器属于后续阶段。
 system:
   id: laser_seed_source
   name: 光纤种子源组件
   initial:
     main_state: 未就绪
-    current_state: 关机完成、未上电/离线
+    current_state: 未上电/离线
     business_state: 未就绪
     key_state: 未上电/离线
     task_state: idle
-
+    state_definition: 启动中、准备中
+    key_state_description: 未上电/离线
+  category: 激光链路
 states:
-  main: [未就绪, 就绪, 正常, 异常]
-  business: [未就绪, 就绪, 出光, 异常]
-  task: [idle, executing, succeeded, failed]
-
+  main:
+  - 未就绪
+  - 就绪
+  - 正常
+  - 异常
+  business:
+  - 未就绪
+  - 就绪
+  - 出光
+  - 异常
+  task:
+  - idle
+  - executing
+  - succeeded
+  - failed
+  - cancelled
 actions:
-  - id: power_on_self_test
-    excel_row: 3
-    business_action: 开机自检
-    precondition:
-      main_state: [未就绪]
-      # 原单元格以顿号列出关机完成、未上电/离线；保留初始兼容值并接受两种独立状态。
-      current_state: [关机完成、未上电/离线, 关机完成, 未上电/离线]
-    success:
-      main_state: 未就绪
-      current_state: 自检完成
-      key_state: 自检完成
-      business_state: 未就绪
-    failure:
-      main_state: 异常
-      current_state: 自检异常
-      key_state: 自检异常
-      business_state: 未就绪
-
-  - id: function_check
-    excel_row: 4
-    business_action: 功能检查
-    precondition:
-      main_state: [未就绪, 正常, 异常]
-      current_state: [自检完成]
-    success:
-      main_state: 就绪
-      current_state: 功能检查完成
-      key_state: 业务就绪完成（具备倍频注入/旁路判定能力）
-      business_state: 就绪
-    failure:
-      main_state: 异常
-      current_state: 功能检查异常
-      key_state: 功能检查异常
-      business_state: 就绪
-
-  - id: parameter_dispatch
-    excel_row: 5
-    business_action: 参数下发
-    precondition:
-      main_state: [就绪, 正常]
-      current_state: [功能检查完成, 采集完成]
-    success:
-      main_state: 正常
-      current_state: 参数下发完成
-      key_state: 参数配置正常
-      business_state: 就绪
-    failure:
-      main_state: 异常
-      current_state: 参数下发异常
-      key_state: 参数下发异常
-      business_state: 就绪
-
-  - id: seed_source_emit
-    excel_row: 6
-    business_action: 种子源出光
-    precondition:
-      main_state: [正常]
-      current_state: [参数下发完成]
-    success:
-      main_state: 正常
-      current_state: 出光完成
-      key_state: 稳定出光正常
-      business_state: 出光
-    failure:
-      main_state: 异常
-      current_state: 出光异常
-      key_state: 出光异常
-      business_state: 出光
-
-  - id: laser_parameter_collect
-    excel_row: 7
-    business_action: 激光参数采集
-    precondition:
-      main_state: [正常]
-      current_state: [出光完成]
-    success:
-      main_state: 正常
-      current_state: 采集完成
-      key_state: 采集正常
-      business_state: 出光
-    failure:
-      main_state: 异常
-      current_state: 采集异常
-      key_state: 采集异常
-      business_state: 出光
-
-  - id: standby_reset
-    excel_row: 8
-    business_action: 种子源待机/复位
-    precondition:
-      main_state: [正常]
-      current_state: [采集完成]
-    success:
-      main_state: 就绪
-      current_state: 复位/待机完成
-      key_state: 复位/待机完成
-      business_state: 就绪
-    failure:
-      main_state: 异常
-      current_state: 复位/待机异常
-      key_state: 复位/待机异常
-      business_state: 就绪
-
-  - id: abort_reset
-    excel_row: 9
-    business_action: 流程终止（异常中止）
-    precondition: {}
-    success:
-      main_state: 就绪
-      current_state: 复位/待机完成
-      key_state: 复位/待机完成
-      business_state: 未就绪
-    failure:
-      main_state: 异常
-      current_state: 复位/待机异常
-      key_state: 复位/待机异常
-      business_state: 未就绪
-
-  - id: shutdown
-    excel_row: 10
-    business_action: 关机
-    precondition: {}
-    success:
-      main_state: 未就绪
-      current_state: 关机完成
-      key_state: 关机正常
-      business_state: 未就绪
-    failure:
-      main_state: 异常
-      current_state: 关机异常
-      key_state: 关机异常
-      business_state: 未就绪
-
-exceptions:
-  - id: fault_lock
-    excel_row: 11
-    business_action: 通用异常处置
-    key_state: 故障锁定
-  - id: communication_error
-    excel_row: 12
-    business_action: 通用异常处置
-    key_state: 通信异常
-  - id: execution_timeout
-    excel_row: 13
-    business_action: 通用异常处置
-    key_state: 执行超时
-
-exception_policy:
-  main_state: 异常
-  business_state: 异常
-  recovery_event: 故障解除并复位校验
-  recovery_target:
+- id: power_on_self_test
+  excel_row: 3
+  business_action: 开机自检
+  key_state_description: 未上电/离线
+  state_definition: 启动中、准备中
+  business_state_description: 光纤种子源组件正在进行上电、连通和自检，尚无业务资格；全部通过后转为就绪。
+  state_condition: 电源/心跳/服务可达任一关键项不满足，且未处于可执行服务状态
+  flow_impact: 阻断相关业务节点，等待基础条件满足
+  precondition:
+    main_state:
+    - 未就绪
+    current_state:
+    - 关机完成
+    - 未上电/离线
+  completion:
+    observed_states:
+    - 自检完成
+    required_conditions:
+    - power_available
+    - heartbeat_ok
+    - service_reachable
+    - self_test_passed
+  success:
+    main_state: 未就绪
+    current_state: 自检完成
+    key_state: 自检完成
+    business_state: 未就绪
+  failure:
+    main_state: 异常
+    current_state: 自检异常
+    key_state: 自检异常
+    business_state: 异常
+- id: function_check
+  excel_row: 4
+  business_action: 功能检查
+  key_state_description: 业务就绪完成（具备倍频注入/旁路判定能力）
+  state_definition: 业务就绪确认
+  business_state_description: 光纤种子源组件已通过功能检查并具备倍频注入/旁路判定能力；关键能力或联锁失效时退出就绪。
+  state_condition: 基础服务运行正常、自检通过、功能检查通过，该分系统关键能力均满足节点前置要求，是业务执行的门禁；设备回到可安全接收下一次流程的初始位/待机位，且无未清故障、无未释放资源锁
+  flow_impact: 避免通用状态误判为业务可执行，导致节点提前下发
+  precondition:
+    main_state:
+    - 未就绪
+    - 正常
+    - 异常
+    current_state:
+    - 自检完成
+  completion:
+    observed_states:
+    - 功能检查完成
+    required_conditions:
+    - service_running
+    - self_test_passed
+    - function_check_passed
+    - capabilities_ok
+    - interlock_ok
+    - safe_position
+    - no_uncleared_fault
+    - resources_released
+  success:
+    main_state: 就绪
+    current_state: 功能检查完成
+    key_state: 功能检查完成
+    business_state: 就绪
+  failure:
+    main_state: 异常
+    current_state: 功能检查异常
+    key_state: 功能检查异常
+    business_state: 异常
+- id: parameter_dispatch
+  excel_row: 5
+  business_action: 参数下发
+  key_state_description: 参数配置正常
+  state_definition: 结果确认/保持有效
+  business_state_description: 光纤种子源组件参数或配方已下发并校验生效，可执行出光动作；配置变化后需重新下发。
+  state_condition: 服务任务执行成功或持续保持，完成回调，且采集到的目标状态等于“XX完成”或具体业务状态“XX执行成功”。
+  flow_impact: 阻断当前节点或当前阶段
+  precondition:
+    main_state:
+    - 就绪
+    - 正常
+    current_state:
+    - 功能检查完成
+    - 采集完成
+  completion:
+    observed_states:
+    - 参数下发完成
+    required_conditions:
+    - configuration_valid
+  success:
+    main_state: 正常
+    current_state: 参数下发完成
+    key_state: 参数下发完成
+    business_state: 就绪
+  failure:
+    main_state: 异常
+    current_state: 参数下发异常
+    key_state: 参数下发异常
+    business_state: 异常
+- id: seed_source_emit
+  excel_row: 6
+  business_action: 种子源出光
+  key_state_description: 稳定出光正常
+  state_definition: 结果确认/保持有效
+  business_state_description: 种子源已稳定出光并持续供光；关光或异常时退出。
+  state_condition: 服务任务执行成功或持续保持，完成回调，且采集到的目标状态等于“XX完成”或具体业务状态“XX执行成功”。
+  flow_impact: 阻断当前节点或当前阶段
+  precondition:
+    main_state:
+    - 正常
+    current_state:
+    - 参数下发完成
+  completion:
+    observed_states:
+    - 出光完成
+    required_conditions:
+    - emission_stable
+  success:
+    main_state: 正常
+    current_state: 出光完成
+    key_state: 出光完成
+    business_state: 出光
+  failure:
+    main_state: 异常
+    current_state: 出光异常
+    key_state: 出光异常
+    business_state: 异常
+- id: laser_parameter_collect
+  excel_row: 7
+  business_action: 激光参数采集
+  key_state_description: 采集正常
+  state_definition: 数据采集/后处理
+  business_state_description: 保持出光完成参数采集；采集不改变出光状态。
+  state_condition: 服务任务执行成功或持续保持，完成回调，且采集到的目标状态等于“XX完成”或具体业务状态“XX执行成功”。
+  flow_impact: 采集成功不等于数据可用，影响发射后分析
+  precondition:
+    main_state:
+    - 正常
+    current_state:
+    - 出光完成
+  completion:
+    observed_states:
+    - 采集完成
+    required_conditions:
+    - emission_stable
+  success:
+    main_state: 正常
+    current_state: 采集完成
+    key_state: 采集完成
+    business_state: 出光
+  failure:
+    main_state: 异常
+    current_state: 采集异常
+    key_state: 采集异常
+    business_state: 异常
+- id: standby_reset
+  excel_row: 8
+  business_action: 种子源待机/复位
+  key_state_description: 复位/待机完成
+  state_definition: 待机
+  business_state_description: 光纤种子源组件已回到安全待机位并释放资源；下一发执行前仍须校验前置条件。
+  state_condition: 服务任务执行成功或持续保持，完成回调，且采集到的目标状态等于“XX完成”或具体业务状态“XX执行成功”。
+  flow_impact: 缺少复位态会影响下一发衔接和资源释放判断
+  precondition:
+    main_state:
+    - 正常
+    current_state:
+    - 采集完成
+  completion:
+    observed_states:
+    - 复位/待机完成
+    required_conditions:
+    - safe_position
+    - resources_released
+  success:
     main_state: 就绪
     current_state: 复位/待机完成
     key_state: 复位/待机完成
     business_state: 就绪
-  note: "恢复目标由 Excel 通用异常处置说明与第 8 行复位/待机完成状态合并得到；恢复必须由显式事件触发。"
+  failure:
+    main_state: 异常
+    current_state: 复位/待机异常
+    key_state: 复位/待机异常
+    business_state: 异常
+- id: abort_reset
+  excel_row: 9
+  business_action: 流程终止（异常中止）
+  key_state_description: 复位/待机完成
+  state_definition: 待机
+  business_state_description: 光纤种子源组件已完成异常中止后的安全复位；重新执行前须校验全部前置条件。
+  state_condition: 服务任务执行成功或持续保持，完成回调，且采集到的目标状态等于“XX完成”或具体业务状态“XX执行成功”。
+  flow_impact: 缺少复位态会影响下一发衔接和资源释放判断
+  preempts_active_task: true
+  precondition: {}
+  completion:
+    observed_states:
+    - 复位/待机完成
+    required_conditions:
+    - cause_cleared
+    - reset_verified
+    - safe_position
+    - resources_released
+  success:
+    main_state: 就绪
+    current_state: 复位/待机完成
+    key_state: 复位/待机完成
+    business_state: 未就绪
+  failure:
+    main_state: 异常
+    current_state: 复位/待机异常
+    key_state: 复位/待机异常
+    business_state: 异常
+- id: shutdown
+  excel_row: 10
+  business_action: 关机
+  key_state_description: 关机正常
+  state_definition: 关机
+  business_state_description: 光纤种子源组件已关机下电，业务能力不可用；重新使用前须完成上电、自检和功能检查。
+  state_condition: 服务任务成功回调，且采集到的目标状态等于“关机成功”或具体业务状态“下电成功”。
+  flow_impact: 阻断当前节点或当前阶段
+  precondition: {}
+  completion:
+    observed_states:
+    - 关机完成
+    - 关机成功
+    - 下电成功
+    required_conditions:
+    - power_off_confirmed
+  success:
+    main_state: 未就绪
+    current_state: 关机完成
+    key_state: 关机完成
+    business_state: 未就绪
+  failure:
+    main_state: 异常
+    current_state: 关机异常
+    key_state: 关机异常
+    business_state: 异常
+exceptions:
+- id: fault_lock
+  excel_row: 11
+  business_action: 通用异常处置
+  key_state: 故障锁定
+  state_definition: 异常处置
+  business_state_description: 光纤种子源组件发生“故障锁定”，状态不得用于流程放行；解除故障并复位校验后退出异常。
+  state_condition: 设备上报故障或安全策略锁定，未经过复位/人工解除
+  flow_impact: 阻断当前节点及依赖节点，需重试、复位或人工确认
+  interrupts_active_task: true
+  blocks_flow: true
+  key_state_description: 故障锁定
+- id: communication_error
+  excel_row: 12
+  business_action: 通用异常处置
+  key_state: 通信异常
+  state_definition: 异常处置
+  business_state_description: 光纤种子源组件发生“通信异常”，状态不得用于流程放行；解除故障并复位校验后退出异常。
+  state_condition: 心跳中断、接口不可达、连续调用失败或状态采集超时
+  flow_impact: 阻断当前节点及依赖节点，需重试、复位或人工确认
+  interrupts_active_task: true
+  blocks_flow: true
+  key_state_description: 通信异常
+- id: execution_timeout
+  excel_row: 13
+  business_action: 通用异常处置
+  key_state: 执行超时
+  state_definition: 异常处置
+  business_state_description: 光纤种子源组件发生“执行超时”，状态不得用于流程放行；解除故障并复位校验后退出异常。
+  state_condition: 节点执行超过配置超时时间，且目标状态未达标
+  flow_impact: 阻断当前节点及依赖节点，需重试、复位或人工确认
+  interrupts_active_task: true
+  blocks_flow: true
+  key_state_description: 执行超时
+exception_policy:
+  main_state: 异常
+  business_state: 异常
+  task_state: failed
+  recovery_event: 故障解除并复位校验
+  recovery_required_conditions:
+  - cause_cleared
+  - reset_verified
+  - safe_position
+  - resources_released
+  recovery_target:
+    main_state: 未就绪
+    current_state: 复位/待机完成
+    key_state: 复位/待机完成
+    business_state: 未就绪
+    state_definition: 待机
+    key_state_description: 复位/待机完成
+validity_loss_events:
+- id: configuration_changed
+  source_row: 5
+  applies_to_current_state:
+  - 参数下发完成
+  current_state: 参数配置失效
+  reason: L5：配置变化后需重新下发。
+- id: emission_lost
+  source_row: 6
+  applies_to_business_state:
+  - 出光
+  current_state: 出光失效
+  reason: L6：关光或异常时退出出光。
+- id: readiness_lost
+  source_row: 4
+  applies_to_main_state:
+  - 就绪
+  - 正常
+  current_state: 业务资格失效
+  reason: L4：关键能力或联锁失效时退出就绪。
+open_questions:
+- 复位/待机完成到功能检查/参数下发的上电重入路径未定义。当前最小流程采用关机→开机自检→功能检查。
+- 种子源功能检查的倍频注入/旁路判定能力按原文保留，是否为复制遗留待业务确认。
+- 配置失效后如何直接重下发未在 F 列给出；先退出业务资格，经安全复位及重新检查恢复。
+- 数据采集成功不等于数据可用：本模型只判定采集完成，数据有效性判定留待后处理模型。
