@@ -51,3 +51,7 @@ tangodb/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Spring Boot / Flowable local runtime
+control-server/target/
+control-server/data/

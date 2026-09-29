@@ -12,6 +12,9 @@ dependencies = [
   "PyYAML>=6.0",
 ]
 
+[project.optional-dependencies]
+tango = ["PyTango>=10.0,<11"]
+
 [tool.setuptools.packages.find]
 include = ["gxlf_sim_system*"]
 

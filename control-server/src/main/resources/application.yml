@@ -1,0 +1,23 @@
+server:
+  address: 127.0.0.1
+  port: 8080
+spring:
+  datasource:
+    url: ${CONTROL_DB_URL:jdbc:h2:file:./data/control}
+    username: sa
+    password: ${CONTROL_DB_PASSWORD:}
+  sql:
+    init:
+      mode: always
+flowable:
+  database-schema-update: true
+  async-executor-activate: true
+  history-level: full
+control:
+  adapter-url: ${DEVICE_ADAPTER_URL:http://127.0.0.1:8766}
+  simulation-controls: ${SIMULATION_CONTROLS:true}
+  worker-enabled: true
+  poll-ms: 500
+logging:
+  level:
+    org.flowable: WARN

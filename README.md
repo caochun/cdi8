@@ -1,5 +1,10 @@
 # GXLF 实验流程仿真
 
+已新增 [Spring Boot + Flowable 后端](control-server/README.md)：真实 BPMN 执行、H2 持久化、Tango 分系统适配和独立操作页面。
+Java 操作台默认 `http://127.0.0.1:8080`；下文的 Python 操作台仍是对照仿真，不是 Flowable 的前端。
+详细启动、协议与迁移边界请先阅读新后端说明。
+
+
 当前已完成第 1～5 步核心模型与仿真控制，以及第 6 步联合 fan-out 本地操作台和日志回放。
 
 启动操作台：
