@@ -115,6 +115,10 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 | `simulator/gxlf_sim_system/tango/gateway.py` | HTTP 到 Tango 适配；不编排实验 |
 
 `docs/bpmn/` 目录里的 `.bpmn` 仍为引擎无关设计稿；运行时加载的是本模块 `.bpmn20.xml`。
+运行版现在也包含 BPMN DI：主图及各层子流程的节点坐标、边界事件位置和连线路径。
+可直接将 `src/main/resources/processes/laser-joint.bpmn20.xml` 导入 bpmn.io 查看，并进入“完整实验周期”或“联锁与人工补偿”子流程。
+[运行版主图预览](docs/bpmn/laser-joint-runtime-overview.svg)。bpmn.io 用于查看/建模，不执行 Flowable 的 Java 表达式。
+之前版本只包含执行定义，bpmn-js 会报 `no diagram to display`；该报错是缺少布局，不是 Flowable 无法解析流程。
 旧 Python YAML 保留为对照基线，Java 不运行时解析它。两套流程定义的后续变更需要同步评审，不能视为自动同步。
 
 ## 执行与持久化语义
@@ -160,7 +164,7 @@ Tango DevString JSON 使用 ASCII 转义，避免中文状态在底层字符串�
 ## 验证
 
 ```bash
-make control-test                      # 6 项真实 Flowable + H2 集成测试
+make control-test                      # 6 项 Flowable + H2 测试，1 项 BPMN 布局完整性测试
 make simulator-test                    # Python 回归；无 PyTango 时仅协议测试跳过
 make test                              # Java 与 Python 全部测试
 python3 -m unittest gxlf_sim_system.tests.test_pytango_device -v

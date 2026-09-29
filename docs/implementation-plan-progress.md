@@ -93,7 +93,7 @@ make simulator-test
 # 或运行两者：make test
 ```
 
-当前验证：**Python 50 项（含实际 PyTango 协议测试）及 Java/Flowable 6 项均通过**。未安装 PyTango 时，Python 的协议测试会显式跳过。覆盖：
+当前验证：**Python 50 项（含实际 PyTango 协议测试）及 Java 7 项（6 项引擎集成＋1 项布局完整性）均通过**。未安装 PyTango 时，Python 的协议测试会显式跳过。覆盖：
 
 旧执行器清理后删除其专用测试 31 项，向当前联合流程迁移补充 5 项回归检查，测试总数由 71 调整为 45。
 

@@ -1,484 +1,2295 @@
 <?xml version='1.0' encoding='utf-8'?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="definitions" targetNamespace="urn:cdi8:flowable">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="definitions" targetNamespace="urn:cdi8:flowable">
   <bpmn:error id="DeviceError" errorCode="DEVICE_ERROR" />
   <bpmn:message id="InterlockMessage" name="Interlock" />
   <bpmn:process id="laser_joint" name="双分系统联合完整周期" isExecutable="true">
-    <bpmn:startEvent id="start" />
-    <bpmn:subProcess id="normal_cycle">
-      <bpmn:startEvent id="normal_start" />
-      <bpmn:subProcess id="seed_self_test" name="准备 / seed_self_test">
-        <bpmn:startEvent id="seed_self_test_start" />
-        <bpmn:serviceTask id="seed_self_test_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'power_on_self_test')}" />
-        <bpmn:subProcess id="seed_self_test_instances">
+    <bpmn:startEvent id="start" name="开始实验" />
+    <bpmn:subProcess id="normal_cycle" name="完整实验周期">
+      <bpmn:startEvent id="normal_start" name="开始正常流程" />
+      <bpmn:subProcess id="seed_self_test" name="种子源开机自检">
+        <bpmn:startEvent id="seed_self_test_start" name="开始" />
+        <bpmn:serviceTask id="seed_self_test_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'power_on_self_test')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_self_test_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_self_test_device_start" />
-          <bpmn:serviceTask id="seed_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'seed_self_test', 'power_on_self_test', deviceId)}" />
+          <bpmn:startEvent id="seed_self_test_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'seed_self_test', 'power_on_self_test', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_self_test_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" />
-          <bpmn:endEvent id="seed_self_test_device_end" />
+          <bpmn:serviceTask id="seed_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_self_test_device_end" name="完成" />
           <bpmn:sequenceFlow id="f1" sourceRef="seed_self_test_device_start" targetRef="seed_self_test_device_send" />
           <bpmn:sequenceFlow id="f2" sourceRef="seed_self_test_device_send" targetRef="seed_self_test_device_wait" />
           <bpmn:sequenceFlow id="f3" sourceRef="seed_self_test_device_wait" targetRef="seed_self_test_device_verify" />
           <bpmn:sequenceFlow id="f4" sourceRef="seed_self_test_device_verify" targetRef="seed_self_test_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_self_test_end" />
+        <bpmn:endEvent id="seed_self_test_end" name="完成" />
         <bpmn:sequenceFlow id="f5" sourceRef="seed_self_test_start" targetRef="seed_self_test_prepare" />
         <bpmn:sequenceFlow id="f6" sourceRef="seed_self_test_prepare" targetRef="seed_self_test_instances" />
         <bpmn:sequenceFlow id="f7" sourceRef="seed_self_test_instances" targetRef="seed_self_test_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_self_test_timeout" attachedToRef="seed_self_test" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_self_test_timeout" attachedToRef="seed_self_test" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT10S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_self_test_expired">
+      <bpmn:endEvent id="seed_self_test_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f8" sourceRef="seed_self_test_timeout" targetRef="seed_self_test_expired" />
       <bpmn:sequenceFlow id="f9" sourceRef="normal_start" targetRef="seed_self_test" />
-      <bpmn:subProcess id="shg_self_test" name="准备 / shg_self_test">
-        <bpmn:startEvent id="shg_self_test_start" />
-        <bpmn:serviceTask id="shg_self_test_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'power_on_self_test')}" />
-        <bpmn:subProcess id="shg_self_test_instances">
-          <bpmn:startEvent id="shg_self_test_device_start" />
-          <bpmn:serviceTask id="shg_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'shg_self_test', 'power_on_self_test', 'shg_01')}" />
+      <bpmn:subProcess id="shg_self_test" name="二倍频开机自检">
+        <bpmn:startEvent id="shg_self_test_start" name="开始" />
+        <bpmn:serviceTask id="shg_self_test_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'power_on_self_test')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_self_test_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_self_test_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'shg_self_test', 'power_on_self_test', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_self_test_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" />
-          <bpmn:endEvent id="shg_self_test_device_end" />
+          <bpmn:serviceTask id="shg_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_self_test_device_end" name="完成" />
           <bpmn:sequenceFlow id="f10" sourceRef="shg_self_test_device_start" targetRef="shg_self_test_device_send" />
           <bpmn:sequenceFlow id="f11" sourceRef="shg_self_test_device_send" targetRef="shg_self_test_device_wait" />
           <bpmn:sequenceFlow id="f12" sourceRef="shg_self_test_device_wait" targetRef="shg_self_test_device_verify" />
           <bpmn:sequenceFlow id="f13" sourceRef="shg_self_test_device_verify" targetRef="shg_self_test_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_self_test_end" />
+        <bpmn:endEvent id="shg_self_test_end" name="完成" />
         <bpmn:sequenceFlow id="f14" sourceRef="shg_self_test_start" targetRef="shg_self_test_prepare" />
         <bpmn:sequenceFlow id="f15" sourceRef="shg_self_test_prepare" targetRef="shg_self_test_instances" />
         <bpmn:sequenceFlow id="f16" sourceRef="shg_self_test_instances" targetRef="shg_self_test_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_self_test_timeout" attachedToRef="shg_self_test" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_self_test_timeout" attachedToRef="shg_self_test" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT10S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_self_test_expired">
+      <bpmn:endEvent id="shg_self_test_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f17" sourceRef="shg_self_test_timeout" targetRef="shg_self_test_expired" />
       <bpmn:sequenceFlow id="f18" sourceRef="seed_self_test" targetRef="shg_self_test" />
-      <bpmn:subProcess id="seed_check" name="准备 / seed_check">
-        <bpmn:startEvent id="seed_check_start" />
-        <bpmn:serviceTask id="seed_check_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'function_check')}" />
-        <bpmn:subProcess id="seed_check_instances">
+      <bpmn:subProcess id="seed_check" name="种子源功能检查">
+        <bpmn:startEvent id="seed_check_start" name="开始" />
+        <bpmn:serviceTask id="seed_check_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'function_check')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_check_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_check_device_start" />
-          <bpmn:serviceTask id="seed_check_device_send" flowable:expression="${devices.enqueue(execution, 'seed_check', 'function_check', deviceId)}" />
+          <bpmn:startEvent id="seed_check_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_check_device_send" flowable:expression="${devices.enqueue(execution, 'seed_check', 'function_check', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_check_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" />
-          <bpmn:endEvent id="seed_check_device_end" />
+          <bpmn:serviceTask id="seed_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_check_device_end" name="完成" />
           <bpmn:sequenceFlow id="f19" sourceRef="seed_check_device_start" targetRef="seed_check_device_send" />
           <bpmn:sequenceFlow id="f20" sourceRef="seed_check_device_send" targetRef="seed_check_device_wait" />
           <bpmn:sequenceFlow id="f21" sourceRef="seed_check_device_wait" targetRef="seed_check_device_verify" />
           <bpmn:sequenceFlow id="f22" sourceRef="seed_check_device_verify" targetRef="seed_check_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_check_end" />
+        <bpmn:endEvent id="seed_check_end" name="完成" />
         <bpmn:sequenceFlow id="f23" sourceRef="seed_check_start" targetRef="seed_check_prepare" />
         <bpmn:sequenceFlow id="f24" sourceRef="seed_check_prepare" targetRef="seed_check_instances" />
         <bpmn:sequenceFlow id="f25" sourceRef="seed_check_instances" targetRef="seed_check_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_check_timeout" attachedToRef="seed_check" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_check_timeout" attachedToRef="seed_check" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_check_expired">
+      <bpmn:endEvent id="seed_check_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f26" sourceRef="seed_check_timeout" targetRef="seed_check_expired" />
       <bpmn:sequenceFlow id="f27" sourceRef="shg_self_test" targetRef="seed_check" />
-      <bpmn:subProcess id="shg_check" name="准备 / shg_check">
-        <bpmn:startEvent id="shg_check_start" />
-        <bpmn:serviceTask id="shg_check_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'function_check')}" />
-        <bpmn:subProcess id="shg_check_instances">
-          <bpmn:startEvent id="shg_check_device_start" />
-          <bpmn:serviceTask id="shg_check_device_send" flowable:expression="${devices.enqueue(execution, 'shg_check', 'function_check', 'shg_01')}" />
+      <bpmn:subProcess id="shg_check" name="二倍频功能检查">
+        <bpmn:startEvent id="shg_check_start" name="开始" />
+        <bpmn:serviceTask id="shg_check_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'function_check')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_check_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_check_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_check_device_send" flowable:expression="${devices.enqueue(execution, 'shg_check', 'function_check', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_check_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" />
-          <bpmn:endEvent id="shg_check_device_end" />
+          <bpmn:serviceTask id="shg_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_check_device_end" name="完成" />
           <bpmn:sequenceFlow id="f28" sourceRef="shg_check_device_start" targetRef="shg_check_device_send" />
           <bpmn:sequenceFlow id="f29" sourceRef="shg_check_device_send" targetRef="shg_check_device_wait" />
           <bpmn:sequenceFlow id="f30" sourceRef="shg_check_device_wait" targetRef="shg_check_device_verify" />
           <bpmn:sequenceFlow id="f31" sourceRef="shg_check_device_verify" targetRef="shg_check_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_check_end" />
+        <bpmn:endEvent id="shg_check_end" name="完成" />
         <bpmn:sequenceFlow id="f32" sourceRef="shg_check_start" targetRef="shg_check_prepare" />
         <bpmn:sequenceFlow id="f33" sourceRef="shg_check_prepare" targetRef="shg_check_instances" />
         <bpmn:sequenceFlow id="f34" sourceRef="shg_check_instances" targetRef="shg_check_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_check_timeout" attachedToRef="shg_check" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_check_timeout" attachedToRef="shg_check" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_check_expired">
+      <bpmn:endEvent id="shg_check_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f35" sourceRef="shg_check_timeout" targetRef="shg_check_expired" />
       <bpmn:sequenceFlow id="f36" sourceRef="seed_check" targetRef="shg_check" />
-      <bpmn:subProcess id="seed_configure" name="参数准备 / seed_configure">
-        <bpmn:startEvent id="seed_configure_start" />
-        <bpmn:serviceTask id="seed_configure_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'parameter_dispatch')}" />
-        <bpmn:subProcess id="seed_configure_instances">
+      <bpmn:subProcess id="seed_configure" name="种子源参数下发">
+        <bpmn:startEvent id="seed_configure_start" name="开始" />
+        <bpmn:serviceTask id="seed_configure_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'parameter_dispatch')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_configure_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_configure_device_start" />
-          <bpmn:serviceTask id="seed_configure_device_send" flowable:expression="${devices.enqueue(execution, 'seed_configure', 'parameter_dispatch', deviceId)}" />
+          <bpmn:startEvent id="seed_configure_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_configure_device_send" flowable:expression="${devices.enqueue(execution, 'seed_configure', 'parameter_dispatch', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_configure_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" />
-          <bpmn:endEvent id="seed_configure_device_end" />
+          <bpmn:serviceTask id="seed_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_configure_device_end" name="完成" />
           <bpmn:sequenceFlow id="f37" sourceRef="seed_configure_device_start" targetRef="seed_configure_device_send" />
           <bpmn:sequenceFlow id="f38" sourceRef="seed_configure_device_send" targetRef="seed_configure_device_wait" />
           <bpmn:sequenceFlow id="f39" sourceRef="seed_configure_device_wait" targetRef="seed_configure_device_verify" />
           <bpmn:sequenceFlow id="f40" sourceRef="seed_configure_device_verify" targetRef="seed_configure_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_configure_end" />
+        <bpmn:endEvent id="seed_configure_end" name="完成" />
         <bpmn:sequenceFlow id="f41" sourceRef="seed_configure_start" targetRef="seed_configure_prepare" />
         <bpmn:sequenceFlow id="f42" sourceRef="seed_configure_prepare" targetRef="seed_configure_instances" />
         <bpmn:sequenceFlow id="f43" sourceRef="seed_configure_instances" targetRef="seed_configure_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_configure_timeout" attachedToRef="seed_configure" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_configure_timeout" attachedToRef="seed_configure" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_configure_expired">
+      <bpmn:endEvent id="seed_configure_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f44" sourceRef="seed_configure_timeout" targetRef="seed_configure_expired" />
       <bpmn:sequenceFlow id="f45" sourceRef="shg_check" targetRef="seed_configure" />
-      <bpmn:subProcess id="shg_configure" name="参数准备 / shg_configure">
-        <bpmn:startEvent id="shg_configure_start" />
-        <bpmn:serviceTask id="shg_configure_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'parameter_dispatch')}" />
-        <bpmn:subProcess id="shg_configure_instances">
-          <bpmn:startEvent id="shg_configure_device_start" />
-          <bpmn:serviceTask id="shg_configure_device_send" flowable:expression="${devices.enqueue(execution, 'shg_configure', 'parameter_dispatch', 'shg_01')}" />
+      <bpmn:subProcess id="shg_configure" name="二倍频参数下发">
+        <bpmn:startEvent id="shg_configure_start" name="开始" />
+        <bpmn:serviceTask id="shg_configure_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'parameter_dispatch')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_configure_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_configure_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_configure_device_send" flowable:expression="${devices.enqueue(execution, 'shg_configure', 'parameter_dispatch', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_configure_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" />
-          <bpmn:endEvent id="shg_configure_device_end" />
+          <bpmn:serviceTask id="shg_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_configure_device_end" name="完成" />
           <bpmn:sequenceFlow id="f46" sourceRef="shg_configure_device_start" targetRef="shg_configure_device_send" />
           <bpmn:sequenceFlow id="f47" sourceRef="shg_configure_device_send" targetRef="shg_configure_device_wait" />
           <bpmn:sequenceFlow id="f48" sourceRef="shg_configure_device_wait" targetRef="shg_configure_device_verify" />
           <bpmn:sequenceFlow id="f49" sourceRef="shg_configure_device_verify" targetRef="shg_configure_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_configure_end" />
+        <bpmn:endEvent id="shg_configure_end" name="完成" />
         <bpmn:sequenceFlow id="f50" sourceRef="shg_configure_start" targetRef="shg_configure_prepare" />
         <bpmn:sequenceFlow id="f51" sourceRef="shg_configure_prepare" targetRef="shg_configure_instances" />
         <bpmn:sequenceFlow id="f52" sourceRef="shg_configure_instances" targetRef="shg_configure_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_configure_timeout" attachedToRef="shg_configure" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_configure_timeout" attachedToRef="shg_configure" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_configure_expired">
+      <bpmn:endEvent id="shg_configure_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f53" sourceRef="shg_configure_timeout" targetRef="shg_configure_expired" />
       <bpmn:sequenceFlow id="f54" sourceRef="seed_configure" targetRef="shg_configure" />
-      <bpmn:serviceTask id="read_joint_gate" flowable:expression="${devices.gate(execution)}" />
-      <bpmn:exclusiveGateway id="laser_ready_gate" default="f57" />
+      <bpmn:serviceTask id="read_joint_gate" flowable:expression="${devices.gate(execution)}" name="读取四个实例当前状态" />
+      <bpmn:exclusiveGateway id="laser_ready_gate" default="f57" name="联合条件满足？" />
       <bpmn:sequenceFlow id="f55" sourceRef="shg_configure" targetRef="read_joint_gate" />
       <bpmn:sequenceFlow id="f56" sourceRef="read_joint_gate" targetRef="laser_ready_gate" />
-      <bpmn:endEvent id="gate_failed">
+      <bpmn:endEvent id="gate_failed" name="联合条件不满足">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f57" sourceRef="laser_ready_gate" targetRef="gate_failed" />
-      <bpmn:subProcess id="seed_emit" name="出光 / seed_emit">
-        <bpmn:startEvent id="seed_emit_start" />
-        <bpmn:serviceTask id="seed_emit_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'seed_source_emit')}" />
-        <bpmn:subProcess id="seed_emit_instances">
+      <bpmn:subProcess id="seed_emit" name="种子源出光">
+        <bpmn:startEvent id="seed_emit_start" name="开始" />
+        <bpmn:serviceTask id="seed_emit_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'seed_source_emit')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_emit_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_emit_device_start" />
-          <bpmn:serviceTask id="seed_emit_device_send" flowable:expression="${devices.enqueue(execution, 'seed_emit', 'seed_source_emit', deviceId)}" />
+          <bpmn:startEvent id="seed_emit_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_emit_device_send" flowable:expression="${devices.enqueue(execution, 'seed_emit', 'seed_source_emit', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_emit_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_emit_device_verify" flowable:expression="${devices.verify(execution, 'seed_source_emit')}" />
-          <bpmn:endEvent id="seed_emit_device_end" />
+          <bpmn:serviceTask id="seed_emit_device_verify" flowable:expression="${devices.verify(execution, 'seed_source_emit')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_emit_device_end" name="完成" />
           <bpmn:sequenceFlow id="f58" sourceRef="seed_emit_device_start" targetRef="seed_emit_device_send" />
           <bpmn:sequenceFlow id="f59" sourceRef="seed_emit_device_send" targetRef="seed_emit_device_wait" />
           <bpmn:sequenceFlow id="f60" sourceRef="seed_emit_device_wait" targetRef="seed_emit_device_verify" />
           <bpmn:sequenceFlow id="f61" sourceRef="seed_emit_device_verify" targetRef="seed_emit_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_emit_end" />
+        <bpmn:endEvent id="seed_emit_end" name="完成" />
         <bpmn:sequenceFlow id="f62" sourceRef="seed_emit_start" targetRef="seed_emit_prepare" />
         <bpmn:sequenceFlow id="f63" sourceRef="seed_emit_prepare" targetRef="seed_emit_instances" />
         <bpmn:sequenceFlow id="f64" sourceRef="seed_emit_instances" targetRef="seed_emit_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_emit_timeout" attachedToRef="seed_emit" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_emit_timeout" attachedToRef="seed_emit" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_emit_expired">
+      <bpmn:endEvent id="seed_emit_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f65" sourceRef="seed_emit_timeout" targetRef="seed_emit_expired" />
       <bpmn:sequenceFlow id="f66" sourceRef="laser_ready_gate" targetRef="seed_emit">
         <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${jointReady}</bpmn:conditionExpression>
       </bpmn:sequenceFlow>
-      <bpmn:subProcess id="shg_emit" name="出光 / shg_emit">
-        <bpmn:startEvent id="shg_emit_start" />
-        <bpmn:serviceTask id="shg_emit_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'frequency_doubled_emit')}" />
-        <bpmn:subProcess id="shg_emit_instances">
-          <bpmn:startEvent id="shg_emit_device_start" />
-          <bpmn:serviceTask id="shg_emit_device_send" flowable:expression="${devices.enqueue(execution, 'shg_emit', 'frequency_doubled_emit', 'shg_01')}" />
+      <bpmn:subProcess id="shg_emit" name="二倍频出光">
+        <bpmn:startEvent id="shg_emit_start" name="开始" />
+        <bpmn:serviceTask id="shg_emit_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'frequency_doubled_emit')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_emit_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_emit_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_emit_device_send" flowable:expression="${devices.enqueue(execution, 'shg_emit', 'frequency_doubled_emit', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_emit_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_emit_device_verify" flowable:expression="${devices.verify(execution, 'frequency_doubled_emit')}" />
-          <bpmn:endEvent id="shg_emit_device_end" />
+          <bpmn:serviceTask id="shg_emit_device_verify" flowable:expression="${devices.verify(execution, 'frequency_doubled_emit')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_emit_device_end" name="完成" />
           <bpmn:sequenceFlow id="f67" sourceRef="shg_emit_device_start" targetRef="shg_emit_device_send" />
           <bpmn:sequenceFlow id="f68" sourceRef="shg_emit_device_send" targetRef="shg_emit_device_wait" />
           <bpmn:sequenceFlow id="f69" sourceRef="shg_emit_device_wait" targetRef="shg_emit_device_verify" />
           <bpmn:sequenceFlow id="f70" sourceRef="shg_emit_device_verify" targetRef="shg_emit_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_emit_end" />
+        <bpmn:endEvent id="shg_emit_end" name="完成" />
         <bpmn:sequenceFlow id="f71" sourceRef="shg_emit_start" targetRef="shg_emit_prepare" />
         <bpmn:sequenceFlow id="f72" sourceRef="shg_emit_prepare" targetRef="shg_emit_instances" />
         <bpmn:sequenceFlow id="f73" sourceRef="shg_emit_instances" targetRef="shg_emit_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_emit_timeout" attachedToRef="shg_emit" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_emit_timeout" attachedToRef="shg_emit" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_emit_expired">
+      <bpmn:endEvent id="shg_emit_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f74" sourceRef="shg_emit_timeout" targetRef="shg_emit_expired" />
       <bpmn:sequenceFlow id="f75" sourceRef="seed_emit" targetRef="shg_emit" />
-      <bpmn:subProcess id="seed_collect" name="参数采集 / seed_collect">
-        <bpmn:startEvent id="seed_collect_start" />
-        <bpmn:serviceTask id="seed_collect_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'laser_parameter_collect')}" />
-        <bpmn:subProcess id="seed_collect_instances">
+      <bpmn:subProcess id="seed_collect" name="种子源参数采集">
+        <bpmn:startEvent id="seed_collect_start" name="开始" />
+        <bpmn:serviceTask id="seed_collect_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'laser_parameter_collect')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_collect_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_collect_device_start" />
-          <bpmn:serviceTask id="seed_collect_device_send" flowable:expression="${devices.enqueue(execution, 'seed_collect', 'laser_parameter_collect', deviceId)}" />
+          <bpmn:startEvent id="seed_collect_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_collect_device_send" flowable:expression="${devices.enqueue(execution, 'seed_collect', 'laser_parameter_collect', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_collect_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" />
-          <bpmn:endEvent id="seed_collect_device_end" />
+          <bpmn:serviceTask id="seed_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_collect_device_end" name="完成" />
           <bpmn:sequenceFlow id="f76" sourceRef="seed_collect_device_start" targetRef="seed_collect_device_send" />
           <bpmn:sequenceFlow id="f77" sourceRef="seed_collect_device_send" targetRef="seed_collect_device_wait" />
           <bpmn:sequenceFlow id="f78" sourceRef="seed_collect_device_wait" targetRef="seed_collect_device_verify" />
           <bpmn:sequenceFlow id="f79" sourceRef="seed_collect_device_verify" targetRef="seed_collect_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_collect_end" />
+        <bpmn:endEvent id="seed_collect_end" name="完成" />
         <bpmn:sequenceFlow id="f80" sourceRef="seed_collect_start" targetRef="seed_collect_prepare" />
         <bpmn:sequenceFlow id="f81" sourceRef="seed_collect_prepare" targetRef="seed_collect_instances" />
         <bpmn:sequenceFlow id="f82" sourceRef="seed_collect_instances" targetRef="seed_collect_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_collect_timeout" attachedToRef="seed_collect" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_collect_timeout" attachedToRef="seed_collect" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_collect_expired">
+      <bpmn:endEvent id="seed_collect_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f83" sourceRef="seed_collect_timeout" targetRef="seed_collect_expired" />
       <bpmn:sequenceFlow id="f84" sourceRef="shg_emit" targetRef="seed_collect" />
-      <bpmn:subProcess id="shg_collect" name="参数采集 / shg_collect">
-        <bpmn:startEvent id="shg_collect_start" />
-        <bpmn:serviceTask id="shg_collect_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'laser_parameter_collect')}" />
-        <bpmn:subProcess id="shg_collect_instances">
-          <bpmn:startEvent id="shg_collect_device_start" />
-          <bpmn:serviceTask id="shg_collect_device_send" flowable:expression="${devices.enqueue(execution, 'shg_collect', 'laser_parameter_collect', 'shg_01')}" />
+      <bpmn:subProcess id="shg_collect" name="二倍频参数采集">
+        <bpmn:startEvent id="shg_collect_start" name="开始" />
+        <bpmn:serviceTask id="shg_collect_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'laser_parameter_collect')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_collect_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_collect_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_collect_device_send" flowable:expression="${devices.enqueue(execution, 'shg_collect', 'laser_parameter_collect', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_collect_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" />
-          <bpmn:endEvent id="shg_collect_device_end" />
+          <bpmn:serviceTask id="shg_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_collect_device_end" name="完成" />
           <bpmn:sequenceFlow id="f85" sourceRef="shg_collect_device_start" targetRef="shg_collect_device_send" />
           <bpmn:sequenceFlow id="f86" sourceRef="shg_collect_device_send" targetRef="shg_collect_device_wait" />
           <bpmn:sequenceFlow id="f87" sourceRef="shg_collect_device_wait" targetRef="shg_collect_device_verify" />
           <bpmn:sequenceFlow id="f88" sourceRef="shg_collect_device_verify" targetRef="shg_collect_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_collect_end" />
+        <bpmn:endEvent id="shg_collect_end" name="完成" />
         <bpmn:sequenceFlow id="f89" sourceRef="shg_collect_start" targetRef="shg_collect_prepare" />
         <bpmn:sequenceFlow id="f90" sourceRef="shg_collect_prepare" targetRef="shg_collect_instances" />
         <bpmn:sequenceFlow id="f91" sourceRef="shg_collect_instances" targetRef="shg_collect_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_collect_timeout" attachedToRef="shg_collect" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_collect_timeout" attachedToRef="shg_collect" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_collect_expired">
+      <bpmn:endEvent id="shg_collect_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f92" sourceRef="shg_collect_timeout" targetRef="shg_collect_expired" />
       <bpmn:sequenceFlow id="f93" sourceRef="seed_collect" targetRef="shg_collect" />
-      <bpmn:subProcess id="seed_standby" name="正常复位 / seed_standby">
-        <bpmn:startEvent id="seed_standby_start" />
-        <bpmn:serviceTask id="seed_standby_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'standby_reset')}" />
-        <bpmn:subProcess id="seed_standby_instances">
+      <bpmn:subProcess id="seed_standby" name="种子源待机复位">
+        <bpmn:startEvent id="seed_standby_start" name="开始" />
+        <bpmn:serviceTask id="seed_standby_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'standby_reset')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_standby_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_standby_device_start" />
-          <bpmn:serviceTask id="seed_standby_device_send" flowable:expression="${devices.enqueue(execution, 'seed_standby', 'standby_reset', deviceId)}" />
+          <bpmn:startEvent id="seed_standby_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_standby_device_send" flowable:expression="${devices.enqueue(execution, 'seed_standby', 'standby_reset', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_standby_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" />
-          <bpmn:endEvent id="seed_standby_device_end" />
+          <bpmn:serviceTask id="seed_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_standby_device_end" name="完成" />
           <bpmn:sequenceFlow id="f94" sourceRef="seed_standby_device_start" targetRef="seed_standby_device_send" />
           <bpmn:sequenceFlow id="f95" sourceRef="seed_standby_device_send" targetRef="seed_standby_device_wait" />
           <bpmn:sequenceFlow id="f96" sourceRef="seed_standby_device_wait" targetRef="seed_standby_device_verify" />
           <bpmn:sequenceFlow id="f97" sourceRef="seed_standby_device_verify" targetRef="seed_standby_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_standby_end" />
+        <bpmn:endEvent id="seed_standby_end" name="完成" />
         <bpmn:sequenceFlow id="f98" sourceRef="seed_standby_start" targetRef="seed_standby_prepare" />
         <bpmn:sequenceFlow id="f99" sourceRef="seed_standby_prepare" targetRef="seed_standby_instances" />
         <bpmn:sequenceFlow id="f100" sourceRef="seed_standby_instances" targetRef="seed_standby_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_standby_timeout" attachedToRef="seed_standby" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_standby_timeout" attachedToRef="seed_standby" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_standby_expired">
+      <bpmn:endEvent id="seed_standby_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f101" sourceRef="seed_standby_timeout" targetRef="seed_standby_expired" />
       <bpmn:sequenceFlow id="f102" sourceRef="shg_collect" targetRef="seed_standby" />
-      <bpmn:subProcess id="shg_standby" name="正常复位 / shg_standby">
-        <bpmn:startEvent id="shg_standby_start" />
-        <bpmn:serviceTask id="shg_standby_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'standby_reset')}" />
-        <bpmn:subProcess id="shg_standby_instances">
-          <bpmn:startEvent id="shg_standby_device_start" />
-          <bpmn:serviceTask id="shg_standby_device_send" flowable:expression="${devices.enqueue(execution, 'shg_standby', 'standby_reset', 'shg_01')}" />
+      <bpmn:subProcess id="shg_standby" name="二倍频待机复位">
+        <bpmn:startEvent id="shg_standby_start" name="开始" />
+        <bpmn:serviceTask id="shg_standby_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'standby_reset')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_standby_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_standby_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_standby_device_send" flowable:expression="${devices.enqueue(execution, 'shg_standby', 'standby_reset', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_standby_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" />
-          <bpmn:endEvent id="shg_standby_device_end" />
+          <bpmn:serviceTask id="shg_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_standby_device_end" name="完成" />
           <bpmn:sequenceFlow id="f103" sourceRef="shg_standby_device_start" targetRef="shg_standby_device_send" />
           <bpmn:sequenceFlow id="f104" sourceRef="shg_standby_device_send" targetRef="shg_standby_device_wait" />
           <bpmn:sequenceFlow id="f105" sourceRef="shg_standby_device_wait" targetRef="shg_standby_device_verify" />
           <bpmn:sequenceFlow id="f106" sourceRef="shg_standby_device_verify" targetRef="shg_standby_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_standby_end" />
+        <bpmn:endEvent id="shg_standby_end" name="完成" />
         <bpmn:sequenceFlow id="f107" sourceRef="shg_standby_start" targetRef="shg_standby_prepare" />
         <bpmn:sequenceFlow id="f108" sourceRef="shg_standby_prepare" targetRef="shg_standby_instances" />
         <bpmn:sequenceFlow id="f109" sourceRef="shg_standby_instances" targetRef="shg_standby_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_standby_timeout" attachedToRef="shg_standby" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_standby_timeout" attachedToRef="shg_standby" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_standby_expired">
+      <bpmn:endEvent id="shg_standby_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f110" sourceRef="shg_standby_timeout" targetRef="shg_standby_expired" />
       <bpmn:sequenceFlow id="f111" sourceRef="seed_standby" targetRef="shg_standby" />
-      <bpmn:subProcess id="seed_shutdown" name="关机收尾 / seed_shutdown">
-        <bpmn:startEvent id="seed_shutdown_start" />
-        <bpmn:serviceTask id="seed_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'shutdown')}" />
-        <bpmn:subProcess id="seed_shutdown_instances">
+      <bpmn:subProcess id="seed_shutdown" name="种子源关机">
+        <bpmn:startEvent id="seed_shutdown_start" name="开始" />
+        <bpmn:serviceTask id="seed_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'shutdown')}" name="预检所有目标" />
+        <bpmn:subProcess id="seed_shutdown_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
-          <bpmn:startEvent id="seed_shutdown_device_start" />
-          <bpmn:serviceTask id="seed_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'seed_shutdown', 'shutdown', deviceId)}" />
+          <bpmn:startEvent id="seed_shutdown_device_start" name="开始" />
+          <bpmn:serviceTask id="seed_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'seed_shutdown', 'shutdown', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_shutdown_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" />
-          <bpmn:endEvent id="seed_shutdown_device_end" />
+          <bpmn:serviceTask id="seed_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" name="验证设备结果" />
+          <bpmn:endEvent id="seed_shutdown_device_end" name="完成" />
           <bpmn:sequenceFlow id="f112" sourceRef="seed_shutdown_device_start" targetRef="seed_shutdown_device_send" />
           <bpmn:sequenceFlow id="f113" sourceRef="seed_shutdown_device_send" targetRef="seed_shutdown_device_wait" />
           <bpmn:sequenceFlow id="f114" sourceRef="seed_shutdown_device_wait" targetRef="seed_shutdown_device_verify" />
           <bpmn:sequenceFlow id="f115" sourceRef="seed_shutdown_device_verify" targetRef="seed_shutdown_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="seed_shutdown_end" />
+        <bpmn:endEvent id="seed_shutdown_end" name="完成" />
         <bpmn:sequenceFlow id="f116" sourceRef="seed_shutdown_start" targetRef="seed_shutdown_prepare" />
         <bpmn:sequenceFlow id="f117" sourceRef="seed_shutdown_prepare" targetRef="seed_shutdown_instances" />
         <bpmn:sequenceFlow id="f118" sourceRef="seed_shutdown_instances" targetRef="seed_shutdown_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_shutdown_timeout" attachedToRef="seed_shutdown" cancelActivity="true">
+      <bpmn:boundaryEvent id="seed_shutdown_timeout" attachedToRef="seed_shutdown" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="seed_shutdown_expired">
+      <bpmn:endEvent id="seed_shutdown_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f119" sourceRef="seed_shutdown_timeout" targetRef="seed_shutdown_expired" />
       <bpmn:sequenceFlow id="f120" sourceRef="shg_standby" targetRef="seed_shutdown" />
-      <bpmn:subProcess id="shg_shutdown" name="关机收尾 / shg_shutdown">
-        <bpmn:startEvent id="shg_shutdown_start" />
-        <bpmn:serviceTask id="shg_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'shutdown')}" />
-        <bpmn:subProcess id="shg_shutdown_instances">
-          <bpmn:startEvent id="shg_shutdown_device_start" />
-          <bpmn:serviceTask id="shg_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'shg_shutdown', 'shutdown', 'shg_01')}" />
+      <bpmn:subProcess id="shg_shutdown" name="二倍频关机">
+        <bpmn:startEvent id="shg_shutdown_start" name="开始" />
+        <bpmn:serviceTask id="shg_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'shutdown')}" name="预检所有目标" />
+        <bpmn:subProcess id="shg_shutdown_instances" name="执行实例动作">
+          <bpmn:startEvent id="shg_shutdown_device_start" name="开始" />
+          <bpmn:serviceTask id="shg_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'shg_shutdown', 'shutdown', 'shg_01')}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_shutdown_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" />
-          <bpmn:endEvent id="shg_shutdown_device_end" />
+          <bpmn:serviceTask id="shg_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" name="验证设备结果" />
+          <bpmn:endEvent id="shg_shutdown_device_end" name="完成" />
           <bpmn:sequenceFlow id="f121" sourceRef="shg_shutdown_device_start" targetRef="shg_shutdown_device_send" />
           <bpmn:sequenceFlow id="f122" sourceRef="shg_shutdown_device_send" targetRef="shg_shutdown_device_wait" />
           <bpmn:sequenceFlow id="f123" sourceRef="shg_shutdown_device_wait" targetRef="shg_shutdown_device_verify" />
           <bpmn:sequenceFlow id="f124" sourceRef="shg_shutdown_device_verify" targetRef="shg_shutdown_device_end" />
         </bpmn:subProcess>
-        <bpmn:endEvent id="shg_shutdown_end" />
+        <bpmn:endEvent id="shg_shutdown_end" name="完成" />
         <bpmn:sequenceFlow id="f125" sourceRef="shg_shutdown_start" targetRef="shg_shutdown_prepare" />
         <bpmn:sequenceFlow id="f126" sourceRef="shg_shutdown_prepare" targetRef="shg_shutdown_instances" />
         <bpmn:sequenceFlow id="f127" sourceRef="shg_shutdown_instances" targetRef="shg_shutdown_end" />
       </bpmn:subProcess>
-      <bpmn:boundaryEvent id="shg_shutdown_timeout" attachedToRef="shg_shutdown" cancelActivity="true">
+      <bpmn:boundaryEvent id="shg_shutdown_timeout" attachedToRef="shg_shutdown" cancelActivity="true" name="执行超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>PT30S</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:endEvent id="shg_shutdown_expired">
+      <bpmn:endEvent id="shg_shutdown_expired" name="抛出超时错误">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f128" sourceRef="shg_shutdown_timeout" targetRef="shg_shutdown_expired" />
       <bpmn:sequenceFlow id="f129" sourceRef="seed_shutdown" targetRef="shg_shutdown" />
-      <bpmn:endEvent id="normal_end" />
+      <bpmn:endEvent id="normal_end" name="正常流程完成" />
       <bpmn:sequenceFlow id="f130" sourceRef="shg_shutdown" targetRef="normal_end" />
     </bpmn:subProcess>
     <bpmn:sequenceFlow id="f131" sourceRef="start" targetRef="normal_cycle" />
-    <bpmn:serviceTask id="mark_success" flowable:expression="${devices.success(execution)}" />
+    <bpmn:serviceTask id="mark_success" flowable:expression="${devices.success(execution)}" name="核对关机状态并记录成功" />
     <bpmn:sequenceFlow id="f132" sourceRef="normal_cycle" targetRef="mark_success" />
-    <bpmn:endEvent id="success" />
+    <bpmn:endEvent id="success" name="实验成功" />
     <bpmn:sequenceFlow id="f133" sourceRef="mark_success" targetRef="success" />
-    <bpmn:boundaryEvent id="normal_cycle_error" attachedToRef="normal_cycle" cancelActivity="true">
+    <bpmn:boundaryEvent id="normal_cycle_error" attachedToRef="normal_cycle" cancelActivity="true" name="设备异常">
       <bpmn:errorEventDefinition errorRef="DeviceError" />
     </bpmn:boundaryEvent>
     <bpmn:sequenceFlow id="f134" sourceRef="normal_cycle_error" targetRef="mark_failed" />
-    <bpmn:boundaryEvent id="mark_success_error" attachedToRef="mark_success" cancelActivity="true">
+    <bpmn:boundaryEvent id="mark_success_error" attachedToRef="mark_success" cancelActivity="true" name="终态校验失败">
       <bpmn:errorEventDefinition errorRef="DeviceError" />
     </bpmn:boundaryEvent>
     <bpmn:sequenceFlow id="f135" sourceRef="mark_success_error" targetRef="mark_failed" />
-    <bpmn:serviceTask id="mark_failed" flowable:expression="${devices.terminate(execution, 'DEVICE_ERROR_OR_TIMEOUT')}" />
-    <bpmn:endEvent id="failure" />
+    <bpmn:serviceTask id="mark_failed" flowable:expression="${devices.terminate(execution, 'DEVICE_ERROR_OR_TIMEOUT')}" name="记录失败并请求取消任务" />
+    <bpmn:endEvent id="failure" name="实验失败" />
     <bpmn:sequenceFlow id="f136" sourceRef="mark_failed" targetRef="failure" />
-    <bpmn:subProcess id="interlock_handler" triggeredByEvent="true">
-      <bpmn:startEvent id="interlock_start" isInterrupting="true">
+    <bpmn:subProcess id="interlock_handler" triggeredByEvent="true" name="联锁与人工补偿">
+      <bpmn:startEvent id="interlock_start" isInterrupting="true" name="收到联锁消息">
         <bpmn:messageEventDefinition messageRef="InterlockMessage" />
       </bpmn:startEvent>
-      <bpmn:serviceTask id="latch_interlock" flowable:expression="${devices.interlock(execution)}" />
+      <bpmn:serviceTask id="latch_interlock" flowable:expression="${devices.interlock(execution)}" name="锁定联锁并中断任务" />
       <bpmn:userTask id="approve_reset" name="确认安全条件并发起补偿" />
-      <bpmn:subProcess id="reset_devices">
+      <bpmn:subProcess id="reset_devices" name="按实例串行安全复位">
         <bpmn:multiInstanceLoopCharacteristics isSequential="true" flowable:collection="${allInstances}" flowable:elementVariable="deviceId" />
-        <bpmn:startEvent id="reset_device_start" />
-        <bpmn:serviceTask id="reset_device_send" flowable:expression="${devices.enqueue(execution, 'compensation', 'abort_reset', deviceId)}" />
+        <bpmn:startEvent id="reset_device_start" name="开始" />
+        <bpmn:serviceTask id="reset_device_send" flowable:expression="${devices.enqueue(execution, 'compensation', 'abort_reset', deviceId)}" name="下发复位命令" />
         <bpmn:receiveTask id="reset_device_wait" name="等待设备最终结果" />
-        <bpmn:serviceTask id="reset_device_verify" flowable:expression="${devices.verify(execution, 'abort_reset')}" />
-        <bpmn:endEvent id="reset_device_end" />
+        <bpmn:serviceTask id="reset_device_verify" flowable:expression="${devices.verify(execution, 'abort_reset')}" name="验证复位结果" />
+        <bpmn:endEvent id="reset_device_end" name="完成" />
         <bpmn:sequenceFlow id="f137" sourceRef="reset_device_start" targetRef="reset_device_send" />
         <bpmn:sequenceFlow id="f138" sourceRef="reset_device_send" targetRef="reset_device_wait" />
         <bpmn:sequenceFlow id="f139" sourceRef="reset_device_wait" targetRef="reset_device_verify" />
         <bpmn:sequenceFlow id="f140" sourceRef="reset_device_verify" targetRef="reset_device_end" />
       </bpmn:subProcess>
-      <bpmn:serviceTask id="mark_compensated" flowable:expression="${devices.compensated(execution)}" />
-      <bpmn:endEvent id="safe_but_failed" />
+      <bpmn:serviceTask id="mark_compensated" flowable:expression="${devices.compensated(execution)}" name="记录补偿完成" />
+      <bpmn:endEvent id="safe_but_failed" name="补偿完成，实验仍失败" />
       <bpmn:sequenceFlow id="f141" sourceRef="interlock_start" targetRef="latch_interlock" />
       <bpmn:sequenceFlow id="f142" sourceRef="latch_interlock" targetRef="approve_reset" />
       <bpmn:sequenceFlow id="f143" sourceRef="approve_reset" targetRef="reset_devices" />
       <bpmn:sequenceFlow id="f144" sourceRef="reset_devices" targetRef="mark_compensated" />
       <bpmn:sequenceFlow id="f145" sourceRef="mark_compensated" targetRef="safe_but_failed" />
-      <bpmn:boundaryEvent id="reset_error" attachedToRef="reset_devices" cancelActivity="true">
+      <bpmn:boundaryEvent id="reset_error" attachedToRef="reset_devices" cancelActivity="true" name="复位失败">
         <bpmn:errorEventDefinition errorRef="DeviceError" />
       </bpmn:boundaryEvent>
-      <bpmn:serviceTask id="reset_failed" flowable:expression="${devices.compensationFailed(execution)}" />
+      <bpmn:serviceTask id="reset_failed" flowable:expression="${devices.compensationFailed(execution)}" name="保留待补偿标记" />
       <bpmn:sequenceFlow id="f146" sourceRef="reset_error" targetRef="reset_failed" />
       <bpmn:sequenceFlow id="f147" sourceRef="reset_failed" targetRef="approve_reset" />
     </bpmn:subProcess>
   </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_laser_joint" name="双分系统联合完整周期">
+    <bpmndi:BPMNPlane id="Plane_laser_joint" bpmnElement="laser_joint">
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
+        <dc:Bounds x="80" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="43.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_normal_cycle" bpmnElement="normal_cycle" isExpanded="false">
+        <dc:Bounds x="200" y="80" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_mark_success" bpmnElement="mark_success">
+        <dc:Bounds x="520" y="80" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_success" bpmnElement="success">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="783.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_mark_failed" bpmnElement="mark_failed">
+        <dc:Bounds x="520" y="300" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_failure" bpmnElement="failure">
+        <dc:Bounds x="820" y="322" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="783.0" y="364" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_interlock_handler" bpmnElement="interlock_handler" isExpanded="false">
+        <dc:Bounds x="200" y="500" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_normal_cycle_error" bpmnElement="normal_cycle_error">
+        <dc:Bounds x="335" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="298.0" y="184" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_mark_success_error" bpmnElement="mark_success_error">
+        <dc:Bounds x="655" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="618.0" y="184" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f131" bpmnElement="f131">
+        <di:waypoint x="116" y="118.0" />
+        <di:waypoint x="158.0" y="118.0" />
+        <di:waypoint x="158.0" y="120.0" />
+        <di:waypoint x="200" y="120.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f132" bpmnElement="f132">
+        <di:waypoint x="380" y="120.0" />
+        <di:waypoint x="450.0" y="120.0" />
+        <di:waypoint x="520" y="120.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f133" bpmnElement="f133">
+        <di:waypoint x="700" y="120.0" />
+        <di:waypoint x="760.0" y="120.0" />
+        <di:waypoint x="760.0" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f134" bpmnElement="f134">
+        <di:waypoint x="353.0" y="178" />
+        <di:waypoint x="353.0" y="340.0" />
+        <di:waypoint x="520" y="340.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f135" bpmnElement="f135">
+        <di:waypoint x="673.0" y="178" />
+        <di:waypoint x="673.0" y="260" />
+        <di:waypoint x="610.0" y="260" />
+        <di:waypoint x="610.0" y="300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f136" bpmnElement="f136">
+        <di:waypoint x="700" y="340.0" />
+        <di:waypoint x="760.0" y="340.0" />
+        <di:waypoint x="820" y="340.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_normal_cycle" name="完整实验周期">
+    <bpmndi:BPMNPlane id="Plane_normal_cycle" bpmnElement="normal_cycle">
+      <bpmndi:BPMNShape id="Shape_normal_start" bpmnElement="normal_start">
+        <dc:Bounds x="300" y="60" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="263.0" y="102" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test" bpmnElement="seed_self_test" isExpanded="false">
+        <dc:Bounds x="230" y="215" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test" bpmnElement="shg_self_test" isExpanded="false">
+        <dc:Bounds x="230" y="370" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check" bpmnElement="seed_check" isExpanded="false">
+        <dc:Bounds x="230" y="525" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check" bpmnElement="shg_check" isExpanded="false">
+        <dc:Bounds x="230" y="680" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure" bpmnElement="seed_configure" isExpanded="false">
+        <dc:Bounds x="230" y="835" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure" bpmnElement="shg_configure" isExpanded="false">
+        <dc:Bounds x="230" y="990" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_read_joint_gate" bpmnElement="read_joint_gate">
+        <dc:Bounds x="230" y="1145" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_laser_ready_gate" bpmnElement="laser_ready_gate" isMarkerVisible="true">
+        <dc:Bounds x="230" y="1300" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="200.0" y="1356" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit" bpmnElement="seed_emit" isExpanded="false">
+        <dc:Bounds x="230" y="1455" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit" bpmnElement="shg_emit" isExpanded="false">
+        <dc:Bounds x="230" y="1610" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect" bpmnElement="seed_collect" isExpanded="false">
+        <dc:Bounds x="230" y="1765" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect" bpmnElement="shg_collect" isExpanded="false">
+        <dc:Bounds x="230" y="1920" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby" bpmnElement="seed_standby" isExpanded="false">
+        <dc:Bounds x="230" y="2075" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby" bpmnElement="shg_standby" isExpanded="false">
+        <dc:Bounds x="230" y="2230" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown" bpmnElement="seed_shutdown" isExpanded="false">
+        <dc:Bounds x="230" y="2385" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown" bpmnElement="shg_shutdown" isExpanded="false">
+        <dc:Bounds x="230" y="2540" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_normal_end" bpmnElement="normal_end">
+        <dc:Bounds x="300" y="2695" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="263.0" y="2737" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_expired" bpmnElement="seed_self_test_expired">
+        <dc:Bounds x="640" y="315" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="357" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_expired" bpmnElement="shg_self_test_expired">
+        <dc:Bounds x="640" y="470" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="512" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_expired" bpmnElement="seed_check_expired">
+        <dc:Bounds x="640" y="625" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="667" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_expired" bpmnElement="shg_check_expired">
+        <dc:Bounds x="640" y="780" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="822" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_expired" bpmnElement="seed_configure_expired">
+        <dc:Bounds x="640" y="935" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="977" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_expired" bpmnElement="shg_configure_expired">
+        <dc:Bounds x="640" y="1090" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="1132" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_expired" bpmnElement="seed_emit_expired">
+        <dc:Bounds x="640" y="1555" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="1597" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_expired" bpmnElement="shg_emit_expired">
+        <dc:Bounds x="640" y="1710" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="1752" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_expired" bpmnElement="seed_collect_expired">
+        <dc:Bounds x="640" y="1865" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="1907" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_expired" bpmnElement="shg_collect_expired">
+        <dc:Bounds x="640" y="2020" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="2062" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_expired" bpmnElement="seed_standby_expired">
+        <dc:Bounds x="640" y="2175" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="2217" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_expired" bpmnElement="shg_standby_expired">
+        <dc:Bounds x="640" y="2330" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="2372" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_expired" bpmnElement="seed_shutdown_expired">
+        <dc:Bounds x="640" y="2485" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="2527" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_expired" bpmnElement="shg_shutdown_expired">
+        <dc:Bounds x="640" y="2640" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="2682" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_gate_failed" bpmnElement="gate_failed">
+        <dc:Bounds x="640" y="1310" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="603.0" y="1352" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_timeout" bpmnElement="seed_self_test_timeout">
+        <dc:Bounds x="365" y="277" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="319" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_timeout" bpmnElement="shg_self_test_timeout">
+        <dc:Bounds x="365" y="432" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="474" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_timeout" bpmnElement="seed_check_timeout">
+        <dc:Bounds x="365" y="587" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="629" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_timeout" bpmnElement="shg_check_timeout">
+        <dc:Bounds x="365" y="742" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="784" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_timeout" bpmnElement="seed_configure_timeout">
+        <dc:Bounds x="365" y="897" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="939" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_timeout" bpmnElement="shg_configure_timeout">
+        <dc:Bounds x="365" y="1052" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="1094" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_timeout" bpmnElement="seed_emit_timeout">
+        <dc:Bounds x="365" y="1517" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="1559" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_timeout" bpmnElement="shg_emit_timeout">
+        <dc:Bounds x="365" y="1672" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="1714" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_timeout" bpmnElement="seed_collect_timeout">
+        <dc:Bounds x="365" y="1827" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="1869" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_timeout" bpmnElement="shg_collect_timeout">
+        <dc:Bounds x="365" y="1982" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="2024" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_timeout" bpmnElement="seed_standby_timeout">
+        <dc:Bounds x="365" y="2137" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="2179" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_timeout" bpmnElement="shg_standby_timeout">
+        <dc:Bounds x="365" y="2292" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="2334" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_timeout" bpmnElement="seed_shutdown_timeout">
+        <dc:Bounds x="365" y="2447" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="2489" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_timeout" bpmnElement="shg_shutdown_timeout">
+        <dc:Bounds x="365" y="2602" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="328.0" y="2644" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f8" bpmnElement="f8">
+        <di:waypoint x="383.0" y="313" />
+        <di:waypoint x="383.0" y="333.0" />
+        <di:waypoint x="640" y="333.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f9" bpmnElement="f9">
+        <di:waypoint x="318.0" y="96" />
+        <di:waypoint x="318.0" y="155.5" />
+        <di:waypoint x="320.0" y="155.5" />
+        <di:waypoint x="320.0" y="215" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f17" bpmnElement="f17">
+        <di:waypoint x="383.0" y="468" />
+        <di:waypoint x="383.0" y="488.0" />
+        <di:waypoint x="640" y="488.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f18" bpmnElement="f18">
+        <di:waypoint x="320.0" y="295" />
+        <di:waypoint x="320.0" y="332.5" />
+        <di:waypoint x="320.0" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f26" bpmnElement="f26">
+        <di:waypoint x="383.0" y="623" />
+        <di:waypoint x="383.0" y="643.0" />
+        <di:waypoint x="640" y="643.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f27" bpmnElement="f27">
+        <di:waypoint x="320.0" y="450" />
+        <di:waypoint x="320.0" y="487.5" />
+        <di:waypoint x="320.0" y="525" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f35" bpmnElement="f35">
+        <di:waypoint x="383.0" y="778" />
+        <di:waypoint x="383.0" y="798.0" />
+        <di:waypoint x="640" y="798.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f36" bpmnElement="f36">
+        <di:waypoint x="320.0" y="605" />
+        <di:waypoint x="320.0" y="642.5" />
+        <di:waypoint x="320.0" y="680" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f44" bpmnElement="f44">
+        <di:waypoint x="383.0" y="933" />
+        <di:waypoint x="383.0" y="953.0" />
+        <di:waypoint x="640" y="953.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f45" bpmnElement="f45">
+        <di:waypoint x="320.0" y="760" />
+        <di:waypoint x="320.0" y="797.5" />
+        <di:waypoint x="320.0" y="835" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f53" bpmnElement="f53">
+        <di:waypoint x="383.0" y="1088" />
+        <di:waypoint x="383.0" y="1108.0" />
+        <di:waypoint x="640" y="1108.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f54" bpmnElement="f54">
+        <di:waypoint x="320.0" y="915" />
+        <di:waypoint x="320.0" y="952.5" />
+        <di:waypoint x="320.0" y="990" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f55" bpmnElement="f55">
+        <di:waypoint x="320.0" y="1070" />
+        <di:waypoint x="320.0" y="1107.5" />
+        <di:waypoint x="320.0" y="1145" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f56" bpmnElement="f56">
+        <di:waypoint x="320.0" y="1225" />
+        <di:waypoint x="320.0" y="1262.5" />
+        <di:waypoint x="255.0" y="1262.5" />
+        <di:waypoint x="255.0" y="1300" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f57" bpmnElement="f57">
+        <di:waypoint x="280" y="1325.0" />
+        <di:waypoint x="460.0" y="1325.0" />
+        <di:waypoint x="460.0" y="1328.0" />
+        <di:waypoint x="640" y="1328.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f65" bpmnElement="f65">
+        <di:waypoint x="383.0" y="1553" />
+        <di:waypoint x="383.0" y="1573.0" />
+        <di:waypoint x="640" y="1573.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f66" bpmnElement="f66">
+        <di:waypoint x="255.0" y="1350" />
+        <di:waypoint x="255.0" y="1402.5" />
+        <di:waypoint x="320.0" y="1402.5" />
+        <di:waypoint x="320.0" y="1455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f74" bpmnElement="f74">
+        <di:waypoint x="383.0" y="1708" />
+        <di:waypoint x="383.0" y="1728.0" />
+        <di:waypoint x="640" y="1728.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f75" bpmnElement="f75">
+        <di:waypoint x="320.0" y="1535" />
+        <di:waypoint x="320.0" y="1572.5" />
+        <di:waypoint x="320.0" y="1610" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f83" bpmnElement="f83">
+        <di:waypoint x="383.0" y="1863" />
+        <di:waypoint x="383.0" y="1883.0" />
+        <di:waypoint x="640" y="1883.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f84" bpmnElement="f84">
+        <di:waypoint x="320.0" y="1690" />
+        <di:waypoint x="320.0" y="1727.5" />
+        <di:waypoint x="320.0" y="1765" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f92" bpmnElement="f92">
+        <di:waypoint x="383.0" y="2018" />
+        <di:waypoint x="383.0" y="2038.0" />
+        <di:waypoint x="640" y="2038.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f93" bpmnElement="f93">
+        <di:waypoint x="320.0" y="1845" />
+        <di:waypoint x="320.0" y="1882.5" />
+        <di:waypoint x="320.0" y="1920" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f101" bpmnElement="f101">
+        <di:waypoint x="383.0" y="2173" />
+        <di:waypoint x="383.0" y="2193.0" />
+        <di:waypoint x="640" y="2193.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f102" bpmnElement="f102">
+        <di:waypoint x="320.0" y="2000" />
+        <di:waypoint x="320.0" y="2037.5" />
+        <di:waypoint x="320.0" y="2075" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f110" bpmnElement="f110">
+        <di:waypoint x="383.0" y="2328" />
+        <di:waypoint x="383.0" y="2348.0" />
+        <di:waypoint x="640" y="2348.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f111" bpmnElement="f111">
+        <di:waypoint x="320.0" y="2155" />
+        <di:waypoint x="320.0" y="2192.5" />
+        <di:waypoint x="320.0" y="2230" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f119" bpmnElement="f119">
+        <di:waypoint x="383.0" y="2483" />
+        <di:waypoint x="383.0" y="2503.0" />
+        <di:waypoint x="640" y="2503.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f120" bpmnElement="f120">
+        <di:waypoint x="320.0" y="2310" />
+        <di:waypoint x="320.0" y="2347.5" />
+        <di:waypoint x="320.0" y="2385" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f128" bpmnElement="f128">
+        <di:waypoint x="383.0" y="2638" />
+        <di:waypoint x="383.0" y="2658.0" />
+        <di:waypoint x="640" y="2658.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f129" bpmnElement="f129">
+        <di:waypoint x="320.0" y="2465" />
+        <di:waypoint x="320.0" y="2502.5" />
+        <di:waypoint x="320.0" y="2540" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f130" bpmnElement="f130">
+        <di:waypoint x="320.0" y="2620" />
+        <di:waypoint x="320.0" y="2657.5" />
+        <di:waypoint x="318.0" y="2657.5" />
+        <di:waypoint x="318.0" y="2695" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_self_test" name="种子源开机自检">
+    <bpmndi:BPMNPlane id="Plane_seed_self_test" bpmnElement="seed_self_test">
+      <bpmndi:BPMNShape id="Shape_seed_self_test_start" bpmnElement="seed_self_test_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_prepare" bpmnElement="seed_self_test_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_instances" bpmnElement="seed_self_test_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_end" bpmnElement="seed_self_test_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f5" bpmnElement="f5">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f6" bpmnElement="f6">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f7" bpmnElement="f7">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_self_test_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_self_test_instances" bpmnElement="seed_self_test_instances">
+      <bpmndi:BPMNShape id="Shape_seed_self_test_device_start" bpmnElement="seed_self_test_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_device_send" bpmnElement="seed_self_test_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_device_wait" bpmnElement="seed_self_test_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_device_verify" bpmnElement="seed_self_test_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_device_end" bpmnElement="seed_self_test_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f1" bpmnElement="f1">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f2" bpmnElement="f2">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f3" bpmnElement="f3">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f4" bpmnElement="f4">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_self_test" name="二倍频开机自检">
+    <bpmndi:BPMNPlane id="Plane_shg_self_test" bpmnElement="shg_self_test">
+      <bpmndi:BPMNShape id="Shape_shg_self_test_start" bpmnElement="shg_self_test_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_prepare" bpmnElement="shg_self_test_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_instances" bpmnElement="shg_self_test_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_end" bpmnElement="shg_self_test_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f14" bpmnElement="f14">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f15" bpmnElement="f15">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f16" bpmnElement="f16">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_self_test_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_self_test_instances" bpmnElement="shg_self_test_instances">
+      <bpmndi:BPMNShape id="Shape_shg_self_test_device_start" bpmnElement="shg_self_test_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_device_send" bpmnElement="shg_self_test_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_device_wait" bpmnElement="shg_self_test_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_device_verify" bpmnElement="shg_self_test_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_device_end" bpmnElement="shg_self_test_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f10" bpmnElement="f10">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f11" bpmnElement="f11">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f12" bpmnElement="f12">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f13" bpmnElement="f13">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_check" name="种子源功能检查">
+    <bpmndi:BPMNPlane id="Plane_seed_check" bpmnElement="seed_check">
+      <bpmndi:BPMNShape id="Shape_seed_check_start" bpmnElement="seed_check_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_prepare" bpmnElement="seed_check_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_instances" bpmnElement="seed_check_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_end" bpmnElement="seed_check_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f23" bpmnElement="f23">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f24" bpmnElement="f24">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f25" bpmnElement="f25">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_check_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_check_instances" bpmnElement="seed_check_instances">
+      <bpmndi:BPMNShape id="Shape_seed_check_device_start" bpmnElement="seed_check_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_device_send" bpmnElement="seed_check_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_device_wait" bpmnElement="seed_check_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_device_verify" bpmnElement="seed_check_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_device_end" bpmnElement="seed_check_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f19" bpmnElement="f19">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f20" bpmnElement="f20">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f21" bpmnElement="f21">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f22" bpmnElement="f22">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_check" name="二倍频功能检查">
+    <bpmndi:BPMNPlane id="Plane_shg_check" bpmnElement="shg_check">
+      <bpmndi:BPMNShape id="Shape_shg_check_start" bpmnElement="shg_check_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_prepare" bpmnElement="shg_check_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_instances" bpmnElement="shg_check_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_end" bpmnElement="shg_check_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f32" bpmnElement="f32">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f33" bpmnElement="f33">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f34" bpmnElement="f34">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_check_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_check_instances" bpmnElement="shg_check_instances">
+      <bpmndi:BPMNShape id="Shape_shg_check_device_start" bpmnElement="shg_check_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_device_send" bpmnElement="shg_check_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_device_wait" bpmnElement="shg_check_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_device_verify" bpmnElement="shg_check_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_device_end" bpmnElement="shg_check_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f28" bpmnElement="f28">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f29" bpmnElement="f29">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f30" bpmnElement="f30">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f31" bpmnElement="f31">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_configure" name="种子源参数下发">
+    <bpmndi:BPMNPlane id="Plane_seed_configure" bpmnElement="seed_configure">
+      <bpmndi:BPMNShape id="Shape_seed_configure_start" bpmnElement="seed_configure_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_prepare" bpmnElement="seed_configure_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_instances" bpmnElement="seed_configure_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_end" bpmnElement="seed_configure_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f41" bpmnElement="f41">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f42" bpmnElement="f42">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f43" bpmnElement="f43">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_configure_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_configure_instances" bpmnElement="seed_configure_instances">
+      <bpmndi:BPMNShape id="Shape_seed_configure_device_start" bpmnElement="seed_configure_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_device_send" bpmnElement="seed_configure_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_device_wait" bpmnElement="seed_configure_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_device_verify" bpmnElement="seed_configure_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_device_end" bpmnElement="seed_configure_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f37" bpmnElement="f37">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f38" bpmnElement="f38">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f39" bpmnElement="f39">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f40" bpmnElement="f40">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_configure" name="二倍频参数下发">
+    <bpmndi:BPMNPlane id="Plane_shg_configure" bpmnElement="shg_configure">
+      <bpmndi:BPMNShape id="Shape_shg_configure_start" bpmnElement="shg_configure_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_prepare" bpmnElement="shg_configure_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_instances" bpmnElement="shg_configure_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_end" bpmnElement="shg_configure_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f50" bpmnElement="f50">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f51" bpmnElement="f51">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f52" bpmnElement="f52">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_configure_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_configure_instances" bpmnElement="shg_configure_instances">
+      <bpmndi:BPMNShape id="Shape_shg_configure_device_start" bpmnElement="shg_configure_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_device_send" bpmnElement="shg_configure_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_device_wait" bpmnElement="shg_configure_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_device_verify" bpmnElement="shg_configure_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_device_end" bpmnElement="shg_configure_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f46" bpmnElement="f46">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f47" bpmnElement="f47">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f48" bpmnElement="f48">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f49" bpmnElement="f49">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_emit" name="种子源出光">
+    <bpmndi:BPMNPlane id="Plane_seed_emit" bpmnElement="seed_emit">
+      <bpmndi:BPMNShape id="Shape_seed_emit_start" bpmnElement="seed_emit_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_prepare" bpmnElement="seed_emit_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_instances" bpmnElement="seed_emit_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_end" bpmnElement="seed_emit_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f62" bpmnElement="f62">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f63" bpmnElement="f63">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f64" bpmnElement="f64">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_emit_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_emit_instances" bpmnElement="seed_emit_instances">
+      <bpmndi:BPMNShape id="Shape_seed_emit_device_start" bpmnElement="seed_emit_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_device_send" bpmnElement="seed_emit_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_device_wait" bpmnElement="seed_emit_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_device_verify" bpmnElement="seed_emit_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_device_end" bpmnElement="seed_emit_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f58" bpmnElement="f58">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f59" bpmnElement="f59">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f60" bpmnElement="f60">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f61" bpmnElement="f61">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_emit" name="二倍频出光">
+    <bpmndi:BPMNPlane id="Plane_shg_emit" bpmnElement="shg_emit">
+      <bpmndi:BPMNShape id="Shape_shg_emit_start" bpmnElement="shg_emit_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_prepare" bpmnElement="shg_emit_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_instances" bpmnElement="shg_emit_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_end" bpmnElement="shg_emit_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f71" bpmnElement="f71">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f72" bpmnElement="f72">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f73" bpmnElement="f73">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_emit_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_emit_instances" bpmnElement="shg_emit_instances">
+      <bpmndi:BPMNShape id="Shape_shg_emit_device_start" bpmnElement="shg_emit_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_device_send" bpmnElement="shg_emit_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_device_wait" bpmnElement="shg_emit_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_device_verify" bpmnElement="shg_emit_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_device_end" bpmnElement="shg_emit_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f67" bpmnElement="f67">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f68" bpmnElement="f68">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f69" bpmnElement="f69">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f70" bpmnElement="f70">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_collect" name="种子源参数采集">
+    <bpmndi:BPMNPlane id="Plane_seed_collect" bpmnElement="seed_collect">
+      <bpmndi:BPMNShape id="Shape_seed_collect_start" bpmnElement="seed_collect_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_prepare" bpmnElement="seed_collect_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_instances" bpmnElement="seed_collect_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_end" bpmnElement="seed_collect_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f80" bpmnElement="f80">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f81" bpmnElement="f81">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f82" bpmnElement="f82">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_collect_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_collect_instances" bpmnElement="seed_collect_instances">
+      <bpmndi:BPMNShape id="Shape_seed_collect_device_start" bpmnElement="seed_collect_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_device_send" bpmnElement="seed_collect_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_device_wait" bpmnElement="seed_collect_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_device_verify" bpmnElement="seed_collect_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_device_end" bpmnElement="seed_collect_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f76" bpmnElement="f76">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f77" bpmnElement="f77">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f78" bpmnElement="f78">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f79" bpmnElement="f79">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_collect" name="二倍频参数采集">
+    <bpmndi:BPMNPlane id="Plane_shg_collect" bpmnElement="shg_collect">
+      <bpmndi:BPMNShape id="Shape_shg_collect_start" bpmnElement="shg_collect_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_prepare" bpmnElement="shg_collect_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_instances" bpmnElement="shg_collect_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_end" bpmnElement="shg_collect_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f89" bpmnElement="f89">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f90" bpmnElement="f90">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f91" bpmnElement="f91">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_collect_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_collect_instances" bpmnElement="shg_collect_instances">
+      <bpmndi:BPMNShape id="Shape_shg_collect_device_start" bpmnElement="shg_collect_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_device_send" bpmnElement="shg_collect_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_device_wait" bpmnElement="shg_collect_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_device_verify" bpmnElement="shg_collect_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_device_end" bpmnElement="shg_collect_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f85" bpmnElement="f85">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f86" bpmnElement="f86">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f87" bpmnElement="f87">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f88" bpmnElement="f88">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_standby" name="种子源待机复位">
+    <bpmndi:BPMNPlane id="Plane_seed_standby" bpmnElement="seed_standby">
+      <bpmndi:BPMNShape id="Shape_seed_standby_start" bpmnElement="seed_standby_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_prepare" bpmnElement="seed_standby_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_instances" bpmnElement="seed_standby_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_end" bpmnElement="seed_standby_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f98" bpmnElement="f98">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f99" bpmnElement="f99">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f100" bpmnElement="f100">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_standby_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_standby_instances" bpmnElement="seed_standby_instances">
+      <bpmndi:BPMNShape id="Shape_seed_standby_device_start" bpmnElement="seed_standby_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_device_send" bpmnElement="seed_standby_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_device_wait" bpmnElement="seed_standby_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_device_verify" bpmnElement="seed_standby_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_device_end" bpmnElement="seed_standby_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f94" bpmnElement="f94">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f95" bpmnElement="f95">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f96" bpmnElement="f96">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f97" bpmnElement="f97">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_standby" name="二倍频待机复位">
+    <bpmndi:BPMNPlane id="Plane_shg_standby" bpmnElement="shg_standby">
+      <bpmndi:BPMNShape id="Shape_shg_standby_start" bpmnElement="shg_standby_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_prepare" bpmnElement="shg_standby_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_instances" bpmnElement="shg_standby_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_end" bpmnElement="shg_standby_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f107" bpmnElement="f107">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f108" bpmnElement="f108">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f109" bpmnElement="f109">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_standby_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_standby_instances" bpmnElement="shg_standby_instances">
+      <bpmndi:BPMNShape id="Shape_shg_standby_device_start" bpmnElement="shg_standby_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_device_send" bpmnElement="shg_standby_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_device_wait" bpmnElement="shg_standby_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_device_verify" bpmnElement="shg_standby_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_device_end" bpmnElement="shg_standby_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f103" bpmnElement="f103">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f104" bpmnElement="f104">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f105" bpmnElement="f105">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f106" bpmnElement="f106">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_shutdown" name="种子源关机">
+    <bpmndi:BPMNPlane id="Plane_seed_shutdown" bpmnElement="seed_shutdown">
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_start" bpmnElement="seed_shutdown_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_prepare" bpmnElement="seed_shutdown_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_instances" bpmnElement="seed_shutdown_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_end" bpmnElement="seed_shutdown_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f116" bpmnElement="f116">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f117" bpmnElement="f117">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f118" bpmnElement="f118">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_seed_shutdown_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_seed_shutdown_instances" bpmnElement="seed_shutdown_instances">
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_device_start" bpmnElement="seed_shutdown_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_device_send" bpmnElement="seed_shutdown_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_device_wait" bpmnElement="seed_shutdown_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_device_verify" bpmnElement="seed_shutdown_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_device_end" bpmnElement="seed_shutdown_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f112" bpmnElement="f112">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f113" bpmnElement="f113">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f114" bpmnElement="f114">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f115" bpmnElement="f115">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_shutdown" name="二倍频关机">
+    <bpmndi:BPMNPlane id="Plane_shg_shutdown" bpmnElement="shg_shutdown">
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_start" bpmnElement="shg_shutdown_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_prepare" bpmnElement="shg_shutdown_prepare">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_instances" bpmnElement="shg_shutdown_instances" isExpanded="false">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_end" bpmnElement="shg_shutdown_end">
+        <dc:Bounds x="810" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="773.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f125" bpmnElement="f125">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f126" bpmnElement="f126">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f127" bpmnElement="f127">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="775.0" y="118.0" />
+        <di:waypoint x="810" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_shg_shutdown_instances" name="执行实例动作">
+    <bpmndi:BPMNPlane id="Plane_shg_shutdown_instances" bpmnElement="shg_shutdown_instances">
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_device_start" bpmnElement="shg_shutdown_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_device_send" bpmnElement="shg_shutdown_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_device_wait" bpmnElement="shg_shutdown_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_device_verify" bpmnElement="shg_shutdown_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_device_end" bpmnElement="shg_shutdown_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f121" bpmnElement="f121">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f122" bpmnElement="f122">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f123" bpmnElement="f123">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f124" bpmnElement="f124">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_interlock_handler" name="联锁与人工补偿">
+    <bpmndi:BPMNPlane id="Plane_interlock_handler" bpmnElement="interlock_handler">
+      <bpmndi:BPMNShape id="Shape_interlock_start" bpmnElement="interlock_start">
+        <dc:Bounds x="70" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="33.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_latch_interlock" bpmnElement="latch_interlock">
+        <dc:Bounds x="315" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_approve_reset" bpmnElement="approve_reset">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_devices" bpmnElement="reset_devices" isExpanded="false">
+        <dc:Bounds x="805" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_mark_compensated" bpmnElement="mark_compensated">
+        <dc:Bounds x="1050" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_safe_but_failed" bpmnElement="safe_but_failed">
+        <dc:Bounds x="1295" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1258.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_failed" bpmnElement="reset_failed">
+        <dc:Bounds x="800" y="315" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_error" bpmnElement="reset_error">
+        <dc:Bounds x="940" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="903.0" y="204" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f141" bpmnElement="f141">
+        <di:waypoint x="106" y="118.0" />
+        <di:waypoint x="210.5" y="118.0" />
+        <di:waypoint x="210.5" y="140.0" />
+        <di:waypoint x="315" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f142" bpmnElement="f142">
+        <di:waypoint x="495" y="140.0" />
+        <di:waypoint x="527.5" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f143" bpmnElement="f143">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="772.5" y="140.0" />
+        <di:waypoint x="805" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f144" bpmnElement="f144">
+        <di:waypoint x="985" y="140.0" />
+        <di:waypoint x="1017.5" y="140.0" />
+        <di:waypoint x="1050" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f145" bpmnElement="f145">
+        <di:waypoint x="1230" y="140.0" />
+        <di:waypoint x="1262.5" y="140.0" />
+        <di:waypoint x="1262.5" y="118.0" />
+        <di:waypoint x="1295" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f146" bpmnElement="f146">
+        <di:waypoint x="958.0" y="198" />
+        <di:waypoint x="958.0" y="275" />
+        <di:waypoint x="890.0" y="275" />
+        <di:waypoint x="890.0" y="315" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f147" bpmnElement="f147">
+        <di:waypoint x="800" y="355.0" />
+        <di:waypoint x="650.0" y="355.0" />
+        <di:waypoint x="650.0" y="180" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_reset_devices" name="按实例串行安全复位">
+    <bpmndi:BPMNPlane id="Plane_reset_devices" bpmnElement="reset_devices">
+      <bpmndi:BPMNShape id="Shape_reset_device_start" bpmnElement="reset_device_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="23.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_device_send" bpmnElement="reset_device_send">
+        <dc:Bounds x="310" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_device_wait" bpmnElement="reset_device_wait">
+        <dc:Bounds x="560" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_device_verify" bpmnElement="reset_device_verify">
+        <dc:Bounds x="810" y="100" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reset_device_end" bpmnElement="reset_device_end">
+        <dc:Bounds x="1060" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1023.0" y="142" width="110" height="36" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_f137" bpmnElement="f137">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="203.0" y="118.0" />
+        <di:waypoint x="203.0" y="140.0" />
+        <di:waypoint x="310" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f138" bpmnElement="f138">
+        <di:waypoint x="490" y="140.0" />
+        <di:waypoint x="525.0" y="140.0" />
+        <di:waypoint x="560" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f139" bpmnElement="f139">
+        <di:waypoint x="740" y="140.0" />
+        <di:waypoint x="775.0" y="140.0" />
+        <di:waypoint x="810" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_f140" bpmnElement="f140">
+        <di:waypoint x="990" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="118.0" />
+        <di:waypoint x="1060" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
 </bpmn:definitions>
