@@ -32,10 +32,20 @@ public class RunService {
     public Map<String,Object> start(String requestId) { return start(requestId,Map.of()); }
     @Transactional
     public Map<String,Object> start(String requestId,Map<String,Map<String,Object>> parameters) {
+        return create(requestId,parameters,false);
+    }
+    @Transactional
+    public Map<String,Object> prepareRestart(String requestId) {
+        if(!simulation)throw new IllegalStateException("simulation controls disabled");
+        return create(requestId,Map.of(),true);
+    }
+    private Map<String,Object> create(String requestId,Map<String,Map<String,Object>> parameters,boolean preparation) {
         if(requestId==null||!requestId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("requestId must be 1..64 safe characters");
         String previous=db.queryForObject("SELECT run_id FROM device_lease WHERE id=1 FOR UPDATE",String.class);
         var exists=db.queryForList("SELECT id FROM experiment_run WHERE id=?",requestId);
         if(!exists.isEmpty()) {
+            String kind=db.queryForObject("SELECT kind FROM experiment_run WHERE id=?",String.class,requestId);
+            if(!kind.equals(preparation?"PREPARATION":"EXPERIMENT"))throw new IllegalArgumentException("requestId reused for another operation");
             var saved=models.forRun(requestId).json().path("run_parameters");
             if(!saved.equals(json.valueToTree(parameters)))throw new IllegalArgumentException("requestId reused with different parameters");
             return view(requestId);
@@ -47,20 +57,21 @@ public class RunService {
             if(db.queryForObject("SELECT COUNT(*) FROM device_command WHERE run_id=? AND status IN ('QUEUED','SENT','RESULT','CANCEL_REQUESTED')",Integer.class,previous)>0)
                 throw new IllegalStateException("device commands still settling");
         }
-        var model=models.current();var overrides=json.valueToTree(parameters);model.validateParameters(overrides);
-        var issues=startup.issues(model);
-        if(!issues.isEmpty())throw new IllegalStateException("尚不能开始新实验："+String.join("；",issues)+"。请先恢复设备的启动条件，再重试。");
+        var model=models.current();var overrides=json.valueToTree(parameters);if(!preparation)model.validateParameters(overrides);
+        String processKey=preparation?"laser_prepare_restart":model.processId();
+        var issues=startup.issues(model,processKey);
+        if(!issues.isEmpty())throw new IllegalStateException((preparation?"尚不能重新准备：":"尚不能开始新实验：")+String.join("；",issues)+"。请先恢复设备的启动条件，再重试。");
         ObjectNode frozen=(ObjectNode)model.json();frozen.set("run_parameters",overrides);
         String snapshot=models.serialize(new ControlModel(frozen));
-        db.update("INSERT INTO experiment_run(id,outcome,model_snapshot,model_hash) VALUES(?,'RUNNING',?,?)",requestId,snapshot,models.hash(snapshot));
+        db.update("INSERT INTO experiment_run(id,outcome,model_snapshot,model_hash,kind,source_run_id) VALUES(?,'RUNNING',?,?,?,?)",requestId,snapshot,models.hash(snapshot),preparation?"PREPARATION":"EXPERIMENT",preparation?previous:null);
         db.update("UPDATE device_lease SET run_id=? WHERE id=1",requestId);
         Map<String,Object> vars=model.variables();vars.put("compensationRequired",false);
-        var process=runtime.startProcessInstanceByKey(model.processId(),requestId,vars);
+        var process=runtime.startProcessInstanceByKey(processKey,requestId,vars);
         db.update("UPDATE experiment_run SET process_id=? WHERE id=?",process.getId(),requestId);
         return view(requestId);
     }
     public Map<String,Object> view(String id) {
-        var rows=db.queryForList("SELECT id,process_id,outcome,reason,failure_detail,created_at,model_hash FROM experiment_run WHERE id=?",id);
+        var rows=db.queryForList("SELECT id,process_id,outcome,reason,failure_detail,created_at,model_hash,kind,source_run_id FROM experiment_run WHERE id=?",id);
         if(rows.isEmpty()) throw new IllegalArgumentException("unknown run");
         Map<String,Object> view=new LinkedHashMap<>(rows.get(0));String pid=(String)view.get("PROCESS_ID");
         var commands=db.queryForList("SELECT id,node_id,device_id,action,status,error,contract_ref,CAST(params_json AS VARCHAR) AS parameters,CAST(result_json AS VARCHAR) AS result_json FROM device_command WHERE run_id=? ORDER BY created_at,id",id);
@@ -85,7 +96,7 @@ public class RunService {
         return view;
     }
     public List<Map<String,Object>> recent() {
-        return db.queryForList("SELECT id,outcome,created_at FROM experiment_run ORDER BY created_at DESC,id DESC LIMIT 20");
+        return db.queryForList("SELECT id,outcome,created_at,kind FROM experiment_run ORDER BY created_at DESC,id DESC LIMIT 20");
     }
     public Map<String,Object> startupChecks() {
         String previous=db.queryForObject("SELECT run_id FROM device_lease WHERE id=1",String.class);
@@ -96,7 +107,9 @@ public class RunService {
             if(db.queryForObject("SELECT COUNT(*) FROM device_command WHERE run_id=? AND status IN ('QUEUED','SENT','RESULT','CANCEL_REQUESTED')",Integer.class,previous)>0)
                 return Map.of("ready",false,"issues",List.of("设备任务尚在处理，请等待任务或取消确认完成"));
         }
-        var issues=startup.issues(models.current());return Map.of("ready",issues.isEmpty(),"issues",issues);
+        var model=models.current();var issues=startup.issues(model);
+        boolean preparationAvailable=simulation&&!issues.isEmpty()&&startup.issues(model,"laser_prepare_restart").isEmpty();
+        return Map.of("ready",issues.isEmpty(),"issues",issues,"preparationAvailable",preparationAvailable);
     }
     @Transactional
     public void interlock(String id) {

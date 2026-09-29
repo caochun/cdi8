@@ -110,6 +110,7 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 |---|---|
 | `src/main/resources/processes/laser-joint.bpmn20.xml` | 已可部署的 Flowable BPMN；现在是 Java 侧唯一流程编排来源 |
 | `Devices.java` | 分系统前置校验、入队、反馈验证、联合门禁及结果记录 |
+| `src/main/resources/processes/prepare-restart.bpmn20.xml` | 仿真重新准备流程：关机、超时、结果验证与启动条件复核 |
 | `CommandWorker.java` | outbox 发送、查询结果、关联唤醒、取消确认 |
 | `RunService.java` | 实验启动幂等、设备占用、联锁、人工补偿和运行查询 |
 | `ControlApi.java` | REST 接口 |
@@ -155,7 +156,8 @@ Flowable 并行多实例表示任务生命周期并行；本版 worker 顺序发
 ## API 与操作
 
 - `POST /api/runs`，`{"requestId":"run-001"}`：创建实验，重复相同编号返回同一实例。
-- `GET /api/runs/startup-checks`：只读启动条件检查，返回是否可启动及逐实例阻塞原因。创建实验前也会重新检查，条件不满足不创建运行记录。
+- `POST /api/runs/prepare-restart`，`{"requestId":"prepare-001"}`：在仿真模式下创建独立关机准备记录，自动提供仿真成功反馈并验证结果；旧流程/取消确认/联锁人工复位未完成时拒绝。同编号重试返回原记录，不自动创建下一次实验。
+- `GET /api/runs/startup-checks`：只读启动条件检查，返回是否可启动、逐实例阻塞原因及 `preparationAvailable`（是否可以准备重新实验）。创建实验前也会重新检查，条件不满足不创建运行记录。
 - `GET /api/runs`：最近 20 次实验的编号、结果和创建时间。
 - `GET /api/runs/run-001`：运行结果、活动任务、设备命令错误、人工任务及 Flowable 活动历史。
 - `POST /api/runs/run-001/commands/<commandId>/simulate`，`{"outcome":"success"}`：在设备端注入模拟反馈。
@@ -209,6 +211,6 @@ Java 集成测试使用独立 FakeAdapter 验证引擎行为；真实协议及�
 - 真正的硬安全联锁仍须在设备/专用控制层执行；取消软件任务不能证明物理设备已关光。
 - BPMN 定时器存在调度延迟，超时与成功同时发生时由事务先后决定；尚未实现硬截止时间优先的仲裁。
 - 补偿暂未配置独立的超时和失败实例增量重试；定时参数是仿真值。
-- 设备复位后业务状态是未就绪；再次实验前需按业务规则关机再自检，程序不会偷偷重置真实设备状态。
+- 设备复位后业务状态是未就绪；仿真页面提供独立关机准备入口，真实设备恢复仍需现场操作，程序不会清空设备状态。
 - 业务条件由动作契约和流程绑定配置解释；已有正常路径一致性检查，尚未完成完整 complete/sound 证明。
 - 旧 Python 操作台与 JSONL 回放工具已移除，已有日志保留但回放功能尚未迁移；Java 当前提供 Flowable 持久化活动历史。

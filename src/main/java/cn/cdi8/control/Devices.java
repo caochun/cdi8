@@ -16,8 +16,9 @@ public class Devices {
     private final DeviceAdapter adapter;
     private final ObjectMapper json;
     private final ModelRepository models;
-    public Devices(JdbcTemplate db,DeviceAdapter adapter,ObjectMapper json,ModelRepository models) {
-        this.db=db;this.adapter=adapter;this.json=json;this.models=models;
+    private final StartupChecks startup;
+    public Devices(JdbcTemplate db,DeviceAdapter adapter,ObjectMapper json,ModelRepository models,StartupChecks startup) {
+        this.db=db;this.adapter=adapter;this.json=json;this.models=models;this.startup=startup;
     }
     private Map<String,Object> snapshot(ControlModel model,String id) {
         return adapter.snapshot(model.device(id).get("adapter_id").asText());
@@ -86,6 +87,15 @@ public class Devices {
         try {
             var model=models.forRun(e.getProcessInstanceBusinessKey());
             if(!model.condition(conditionRef,id->snapshot(model,id)))throw new IllegalStateException("final condition failed: "+conditionRef);
+        }catch(Exception ex){throw failure(e,ex);}
+        db.update("UPDATE experiment_run SET outcome='SUCCEEDED' WHERE id=?",e.getProcessInstanceBusinessKey());
+    }
+    public void prepared(DelegateExecution e) {
+        try {
+            var model=models.forRun(e.getProcessInstanceBusinessKey());
+            if(!model.condition("shutdown_all",id->snapshot(model,id)))throw new IllegalStateException("设备尚未全部确认关机");
+            var issues=startup.issues(model);
+            if(!issues.isEmpty())throw new IllegalStateException("关机后启动条件仍未满足："+String.join("；",issues));
         }catch(Exception ex){throw failure(e,ex);}
         db.update("UPDATE experiment_run SET outcome='SUCCEEDED' WHERE id=?",e.getProcessInstanceBusinessKey());
     }

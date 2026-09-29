@@ -14,7 +14,10 @@ public class StartupChecks {
         this.repository=repository;this.adapter=adapter;
     }
     public List<String> issues(ControlModel model) {
-        var definition=repository.createProcessDefinitionQuery().processDefinitionKey(model.processId()).latestVersion().singleResult();
+        return issues(model,model.processId());
+    }
+    public List<String> issues(ControlModel model,String processKey) {
+        var definition=repository.createProcessDefinitionQuery().processDefinitionKey(processKey).latestVersion().singleResult();
         if(definition==null)return List.of("实验流程尚未部署");
         var steps=RunPresentation.steps(repository.getBpmnModel(definition.getId()),List.of(),"RUNNING");
         Set<String> checked=new HashSet<>();List<String> issues=new ArrayList<>();

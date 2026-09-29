@@ -18,9 +18,11 @@ public class CommandWorker {
     private final ObjectMapper json;
     private final TransactionTemplate tx;
     private final boolean enabled;
+    private final boolean simulation;
     public CommandWorker(JdbcTemplate db,DeviceAdapter adapter,RuntimeService runtime,ObjectMapper json,
-                         TransactionTemplate tx,@Value("${control.worker-enabled:true}") boolean enabled) {
-        this.db=db;this.adapter=adapter;this.runtime=runtime;this.json=json;this.tx=tx;this.enabled=enabled;
+                         TransactionTemplate tx,@Value("${control.worker-enabled:true}") boolean enabled,
+                         @Value("${control.simulation-controls:true}") boolean simulation) {
+        this.db=db;this.adapter=adapter;this.runtime=runtime;this.json=json;this.tx=tx;this.enabled=enabled;this.simulation=simulation;
     }
     @Scheduled(fixedDelayString="${control.poll-ms:500}")
     public void scheduled() { if(enabled) tick(); }
@@ -34,6 +36,8 @@ public class CommandWorker {
                     db.update("UPDATE device_command SET status='CANCELLED',error=NULL WHERE id=? AND status='CANCEL_REQUESTED'",id);
                     continue;
                 }
+                boolean preparation="PREPARATION".equals(db.queryForObject("SELECT kind FROM experiment_run WHERE id=?",String.class,row.get("RUN_ID")));
+                if(preparation&&!simulation)throw new IllegalStateException("simulation controls disabled; preparation paused until timeout");
                 if(status.equals("QUEUED")) {
                     String parameterJson=db.queryForObject("SELECT params_json FROM device_command WHERE id=?",String.class,id);
                     Map<String,Object> parameters=parameterJson==null?Map.of():json.readValue(parameterJson,new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>(){});
@@ -44,6 +48,11 @@ public class CommandWorker {
                 if(status.equals("SENT")) {
                     var result=adapter.result(device,id);
                     if(!id.equals(result.get("command_id"))) throw new IllegalStateException("wrong command correlation");
+                    if(preparation&&"accepted".equals(result.get("status"))) {
+                        adapter.simulate(device,id,"success");
+                        result=adapter.result(device,id);
+                        if(!id.equals(result.get("command_id")))throw new IllegalStateException("wrong command correlation");
+                    }
                     if(Set.of("succeeded","failed","cancelled","rejected").contains(result.get("status"))) {
                         db.update("UPDATE device_command SET status='RESULT',result_json=?,error=NULL WHERE id=? AND status='SENT'",json.writeValueAsString(result),id);
                     }

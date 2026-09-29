@@ -12,6 +12,10 @@ public class ControlApi {
     public record StartRequest(String requestId,Map<String,Map<String,Object>> parameters) {}
     @GetMapping public java.util.List<Map<String,Object>> recent() { return runs.recent(); }
     @GetMapping("/startup-checks") public Map<String,Object> startupChecks() { return runs.startupChecks(); }
+    @PostMapping("/prepare-restart") public Map<String,Object> prepareRestart(@RequestBody StartRequest request) {
+        if(request.parameters()!=null&&!request.parameters().isEmpty())throw new IllegalArgumentException("preparation does not accept experiment parameters");
+        return runs.prepareRestart(request.requestId());
+    }
     @PostMapping public Map<String,Object> start(@RequestBody StartRequest request) {
         return runs.start(request.requestId(),request.parameters()==null?Map.of():request.parameters());
     }

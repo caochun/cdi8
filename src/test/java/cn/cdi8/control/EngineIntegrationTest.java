@@ -30,6 +30,7 @@ class EngineIntegrationTest {
     @Autowired FakeAdapter adapter;
     @Autowired ObjectMapper json;
     @Autowired ResourceLoader resources;
+    @Autowired org.springframework.context.ApplicationContext context;
 
     @TestConfiguration static class Config {
         @Bean @Primary FakeAdapter fakeAdapter(){return new FakeAdapter();}
@@ -39,8 +40,9 @@ class EngineIntegrationTest {
         Map<String,Map<String,Object>> results=new ConcurrentHashMap<>();
         int sends;
         boolean offline;
+        boolean loseSimulationReply;
         FakeAdapter(){reset();}
-        void reset(){states.clear();results.clear();sends=0;offline=false;for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
+        void reset(){states.clear();results.clear();sends=0;offline=false;loseSimulationReply=false;for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
         public Map<String,Object> snapshot(String d){if(offline)throw new IllegalStateException("gateway unavailable");var value=new LinkedHashMap<>(states.get(d));value.putIfAbsent("active_action",null);return value;}
         public Map<String,Object> send(String d,String id,String action,Map<String,Object> parameters){
             if(results.containsKey(id))return results.get(id);
@@ -68,6 +70,7 @@ class EngineIntegrationTest {
                 result.put("status","succeeded");
             }else {state.put("main_state","异常");state.put("business_state","异常");state.put("task_state","failed");result.put("status","failed");}
             result.put("snapshot",snapshot(d));
+            if(loseSimulationReply){loseSimulationReply=false;throw new IllegalStateException("simulation response lost");}
         }
     }
     @BeforeEach void clean(){
@@ -208,6 +211,65 @@ class EngineIntegrationTest {
         var failed=runs.view("changed-state");assertEquals("FAILED",failed.get("OUTCOME"));
         assertTrue(failed.get("FAILURE_DETAIL").toString().contains("shg_01"));
         assertTrue(failed.get("FAILURE_DETAIL").toString().contains("自检完成"));
+    }
+    @Test void prepareRestartShutsDownAllDevicesAndPreservesFailedExperiment() {
+        runs.start("original");worker.tick();runs.simulate("original",(String)pending().get(0).get("ID"),"failure");worker.tick();worker.tick();
+        assertEquals(true,runs.startupChecks().get("preparationAvailable"));
+        int previousSends=adapter.sends;var preparation=runs.prepareRestart("prepare");
+        assertEquals("PREPARATION",preparation.get("KIND"));assertEquals("original",preparation.get("SOURCE_RUN_ID"));
+        assertEquals(preparation.get("PROCESS_ID"),runs.prepareRestart("prepare").get("PROCESS_ID"));
+        assertThrows(IllegalArgumentException.class,()->runs.start("prepare"));
+        assertThrows(IllegalStateException.class,()->runs.prepareRestart("duplicate"));
+        assertThrows(IllegalStateException.class,()->runs.start("too-early"));
+        worker.tick();worker.tick();worker.tick();
+        assertEquals("SUCCEEDED",runs.view("prepare").get("OUTCOME"));assertEquals(previousSends+4,adapter.sends);
+        assertEquals("FAILED",runs.view("original").get("OUTCOME"));
+        assertEquals(true,runs.startupChecks().get("ready"));
+        assertEquals(preparation.get("PROCESS_ID"),runs.prepareRestart("prepare").get("PROCESS_ID"));
+        worker.tick();assertEquals(previousSends+4,adapter.sends);
+        for(var state:adapter.states.values())assertEquals("关机完成",state.get("current_state"));
+        runs.start("new-experiment");assertEquals("RUNNING",runs.view("new-experiment").get("OUTCOME"));
+    }
+    @Test void preparationCannotBypassRunningExperimentCancellationOrInterlockApproval() {
+        runs.start("interlocked");worker.tick();
+        assertThrows(IllegalStateException.class,()->runs.prepareRestart("blocked-live"));
+        runs.interlock("interlocked");
+        assertThrows(IllegalStateException.class,()->runs.prepareRestart("blocked-cancel"));
+        worker.tick();assertThrows(IllegalStateException.class,()->runs.prepareRestart("blocked-approval"));
+        runs.compensate("interlocked");for(int i=0;i<4;i++)successBatch();
+        assertEquals("RUNNING",runs.prepareRestart("after-reset").get("OUTCOME"));
+    }
+    @Test void failedShutdownEvidenceDoesNotMakePreparationSuccessfulAndCanBeRetried() {
+        runs.prepareRestart("bad-shutdown");
+        var command=db.queryForMap("SELECT * FROM device_command ORDER BY id LIMIT 1");String id=(String)command.get("ID");
+        // Even a claimed success must carry the contracted shutdown state.
+        adapter.results.put(id,new LinkedHashMap<>(Map.of("command_id",id,"action","shutdown","status","succeeded",
+            "snapshot",adapter.snapshot((String)command.get("DEVICE_ID")))));
+        worker.tick();worker.tick();
+        assertEquals("FAILED",runs.view("bad-shutdown").get("OUTCOME"));
+        assertTrue(runs.view("bad-shutdown").get("FAILURE_DETAIL").toString().contains("completion contract failed"));
+        runs.prepareRestart("retry-shutdown");worker.tick();worker.tick();worker.tick();
+        assertEquals("SUCCEEDED",runs.view("retry-shutdown").get("OUTCOME"));
+        assertEquals("FAILED",runs.view("bad-shutdown").get("OUTCOME"));
+    }
+    @Test void preparationResumesAfterLostSimulationReplyWithoutDuplicateShutdown() {
+        runs.prepareRestart("lost-reply");adapter.loseSimulationReply=true;worker.tick();
+        var restarted=new CommandWorker(db,adapter,runtime,json,context.getBean(org.springframework.transaction.support.TransactionTemplate.class),true,true);
+        restarted.tick();restarted.tick();restarted.tick();
+        assertEquals("SUCCEEDED",runs.view("lost-reply").get("OUTCOME"));assertEquals(4,adapter.sends);
+    }
+    @Test void disablingSimulationBlocksPreparationAndItsWorkerCommands() {
+        var disabled=new RunService(db,runtime,context.getBean(TaskService.class),context.getBean(HistoryService.class),
+            context.getBean(RepositoryService.class),management,adapter,context.getBean(ModelRepository.class),json,context.getBean(StartupChecks.class),false);
+        assertThrows(IllegalStateException.class,()->disabled.prepareRestart("disabled"));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM experiment_run",Integer.class));
+        var prepared=runs.prepareRestart("paused");
+        var disabledWorker=new CommandWorker(db,adapter,runtime,json,context.getBean(org.springframework.transaction.support.TransactionTemplate.class),true,false);
+        disabledWorker.tick();assertEquals(0,adapter.sends);
+        var timer=management.createTimerJobQuery().processInstanceId((String)prepared.get("PROCESS_ID")).singleResult();
+        management.executeJob(management.moveTimerToExecutableJob(timer.getId()).getId());disabledWorker.tick();
+        assertEquals("FAILED",runs.view("paused").get("OUTCOME"));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM device_command WHERE status='CANCEL_REQUESTED'",Integer.class));
     }
 
 }

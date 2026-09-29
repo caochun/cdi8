@@ -2,7 +2,8 @@ package cn.cdi8.control;
 
 import java.util.*;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 import org.w3c.dom.*;
 
@@ -10,11 +11,15 @@ import org.w3c.dom.*;
 class BpmnDiagramTest {
     private static final String BPMN="http://www.omg.org/spec/BPMN/20100524/MODEL";
     private static final String DI="http://www.omg.org/spec/BPMN/20100524/DI";
-    @Test void everyScopeHasShapesAndConnections() throws Exception {
+    @ParameterizedTest @ValueSource(strings={"laser-joint", "prepare-restart"})
+    void everyScopeHasShapesAndConnections(String file) throws Exception {
         var factory=DocumentBuilderFactory.newInstance();factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
-        try(var xml=getClass().getResourceAsStream("/processes/laser-joint.bpmn20.xml")) {
+        try(var xml=getClass().getResourceAsStream("/processes/"+file+".bpmn20.xml")) {
             assertNotNull(xml);var document=factory.newDocumentBuilder().parse(xml);
+            Set<String> ids=new HashSet<>();var elements=document.getElementsByTagName("*");
+            for(int i=0;i<elements.getLength();i++){var element=(Element)elements.item(i);if(element.hasAttribute("id"))ids.add(element.getAttribute("id"));}
+            for(int i=0;i<elements.getLength();i++){var element=(Element)elements.item(i);if(element.hasAttribute("bpmnElement"))assertTrue(ids.contains(element.getAttribute("bpmnElement")),"diagram references missing element");}
             Map<String,Element> planes=new HashMap<>();
             var list=document.getElementsByTagNameNS(DI,"BPMNPlane");
             for(int i=0;i<list.getLength();i++) {
