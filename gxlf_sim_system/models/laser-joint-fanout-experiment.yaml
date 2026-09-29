@@ -1,11 +1,11 @@
 kind: JointFanoutSequentialExperiment
-version: '1.0'
+version: '1.1'
 id: laser_joint_fanout_experiment
-name: 激光链路种子源扇出与二倍频联合准备
+name: 种子源扇出与二倍频联合实验完整周期
 source:
   workbook: 20260928集中管控系统与分系统关键状态梳理清单.xlsx
   rows: 3-24
-  note: 第 5 步运行时组合模型；种子源实例数量是仿真配置，不是 Excel 的数量声明。
+  note: 双分系统自检至关机的仿真周期；阶段顺序为开发编排约定，种子源实例数量是仿真配置，均非 Excel 对完整发射实验的定义。
 systems:
   seed_source:
     model_id: laser_seed_source
@@ -44,3 +44,9 @@ nodes:
         business_state: 就绪
   - {id: seed_emit, target: seed_source, action: seed_source_emit, phase: 出光}
   - {id: shg_emit, target: shg_injector, action: frequency_doubled_emit, phase: 出光}
+  - {id: seed_collect, target: seed_source, action: laser_parameter_collect, phase: 参数采集}
+  - {id: shg_collect, target: shg_injector, action: laser_parameter_collect, phase: 参数采集}
+  - {id: seed_standby, target: seed_source, action: standby_reset, phase: 正常复位}
+  - {id: shg_standby, target: shg_injector, action: standby_reset, phase: 正常复位}
+  - {id: seed_shutdown, target: seed_source, action: shutdown, phase: 关机收尾}
+  - {id: shg_shutdown, target: shg_injector, action: shutdown, phase: 关机收尾}

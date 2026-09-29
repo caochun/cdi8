@@ -25,14 +25,17 @@ class OperatorTest(unittest.TestCase):
                                          run_id=self.session.flow.snapshot().run_id, **kwargs))
 
     def test_full_run_and_replay_without_executing_again(self):
-        for _ in range(8):
+        for _ in range(14):
             self.assertTrue(self.command('dispatch')['ok'])
             active = self.session.flow.snapshot().active
             for target, task in reversed(active.task_ids):
                 self.assertTrue(self.command('success', target=target, task_id=task)['ok'])
         self.assertEqual(self.session.flow.snapshot().status, 'succeeded')
         events = Journal.read(self.path)
-        self.assertEqual(len([e for e in events if e['kind'] == 'transition']), 32)
+        self.assertEqual(len([e for e in events if e['kind'] == 'transition']), 56)
+        for state in self.session.state()['machines'].values():
+            self.assertEqual(state['current_state'], '关机完成')
+            self.assertEqual(state['business_state'], '未就绪')
         for target, machine in self.session.machines().items():
             records = [e for e in events if e['kind'] == 'transition' and e['target'] == target]
             self.assertEqual([e['after'] for e in records], [asdict(r.after) for r in machine.history])

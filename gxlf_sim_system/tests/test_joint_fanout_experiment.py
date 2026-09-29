@@ -50,7 +50,73 @@ class JointFanoutExperimentTest(unittest.TestCase):
         # Advancing to seed_emit evaluates the gate first.
         self.assertEqual(dict(self.flow.snapshot().node_states)['laser_ready_gate'], 'succeeded')
         finish(self.flow)  # single SHG emit
+        self.assertEqual(self.flow.snapshot().status, 'running')
+        for node_id in ('seed_collect', 'shg_collect', 'seed_standby', 'shg_standby',
+                        'seed_shutdown', 'shg_shutdown'):
+            dispatch, result = finish(self.flow)
+            self.assertEqual(dispatch.node_id, node_id)
+            self.assertEqual(len(result.completed_targets), 3 if node_id.startswith('seed_') else 1)
         self.assertEqual(self.flow.snapshot().status, 'succeeded')
+        for group in self.machines.values():
+            for machine in group.values():
+                state = machine.snapshot()
+                self.assertEqual((state.main_state, state.current_state, state.business_state),
+                                 ('未就绪', '关机完成', '未就绪'))
+                self.assertIsNone(state.active_action)
+
+    def test_collection_preserves_emission_until_normal_reset(self):
+        for _ in range(10):
+            finish(self.flow)
+        for group in self.machines.values():
+            for machine in group.values():
+                state = machine.snapshot()
+                self.assertEqual((state.current_state, state.business_state), ('采集完成', '出光'))
+        finish(self.flow)
+        self.assertTrue(all(m.snapshot().current_state == '复位/待机完成'
+                            for m in self.machines['seed_source'].values()))
+        self.assertEqual(self.machines['shg_injector']['shg_01'].snapshot().business_state, '出光')
+        finish(self.flow)
+        self.assertEqual(self.flow.snapshot().status, 'running')
+
+    def test_each_closing_node_failure_blocks_success_and_later_commands(self):
+        for index, node_id in enumerate(('seed_collect', 'shg_collect', 'seed_standby',
+                                        'shg_standby', 'seed_shutdown', 'shg_shutdown'), start=8):
+            with self.subTest(node=node_id):
+                flow = load_laser_joint_fanout_experiment(machines())
+                for _ in range(index):
+                    finish(flow)
+                dispatch = flow.dispatch_next()
+                self.assertEqual(dispatch.node_id, node_id)
+                target = dispatch.task_ids[-1][0]
+                for peer, _ in dispatch.task_ids[:-1]:
+                    self.assertIsNone(flow.complete(dispatch, peer, success=True,
+                        evidence=simulated_success_evidence(dispatch.action)))
+                self.assertEqual(flow.snapshot().status, 'running')
+                result = flow.complete(dispatch, target, success=False)
+                self.assertEqual(result.status, 'failed')
+                self.assertEqual(flow.snapshot().status, 'failed')
+                with self.assertRaises(JointFanoutExperimentError):
+                    flow.dispatch_next()
+
+    def test_shutdown_requires_verified_power_off_feedback(self):
+        for _ in range(13):
+            finish(self.flow)
+        self.assertEqual(self.flow.snapshot().status, 'running')
+        dispatch = self.flow.dispatch_next()
+        self.assertEqual(dispatch.node_id, 'shg_shutdown')
+        result = self.flow.complete(dispatch, dispatch.task_ids[0][0], success=True,
+            evidence=replace(simulated_success_evidence('shutdown'), conditions={'power_off_confirmed': False}))
+        self.assertEqual(result.status, 'failed')
+        self.assertEqual(self.flow.snapshot().status, 'failed')
+
+    def test_next_experiment_reuses_shutdown_instances(self):
+        for _ in range(14):
+            finish(self.flow)
+        next_flow = load_laser_joint_fanout_experiment(self.machines)
+        self.assertNotEqual(self.flow.snapshot().run_id, next_flow.snapshot().run_id)
+        for _ in range(14):
+            finish(next_flow)
+        self.assertEqual(next_flow.snapshot().status, 'succeeded')
 
     def test_any_seed_instance_failure_breaks_joint_flow(self):
         dispatch = self.flow.dispatch_next()

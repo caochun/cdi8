@@ -19,7 +19,7 @@ def main() -> int:
         },
     }
     flow = load_laser_joint_fanout_experiment(machines)
-    print('种子源 fan-out + 二倍频组件联合流程（all_success + AND）')
+    print('种子源 fan-out + 二倍频组件完整周期（准备 → 出光 → 采集 → 复位 → 关机）')
     while flow.snapshot().status not in {'succeeded', 'failed'}:
         dispatch = flow.dispatch_next()
         if dispatch is None:
