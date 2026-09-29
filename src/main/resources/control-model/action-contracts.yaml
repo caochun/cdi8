@@ -1,0 +1,491 @@
+# 对外动作契约；source_row 指向 Excel，recipe_id 是演示用参数，不是 Excel 原字段。
+# 局部前置条件与完成状态供集中控制判定，分系统内部行为仍由其状态机负责。
+version: 1
+state_fields:
+  main_state:
+    type: string
+    values:
+    - 未就绪
+    - 就绪
+    - 正常
+    - 异常
+  business_state:
+    type: string
+    values:
+    - 未就绪
+    - 就绪
+    - 出光
+    - 异常
+  current_state:
+    type: string
+    values:
+    - 业务资格失效
+    - 关机完成
+    - 关机异常
+    - 出光失效
+    - 出光完成
+    - 出光异常
+    - 功能检查完成
+    - 功能检查异常
+    - 参数下发完成
+    - 参数下发异常
+    - 参数配置失效
+    - 复位/待机完成
+    - 复位/待机异常
+    - 执行超时
+    - 故障锁定
+    - 未上电/离线
+    - 自检完成
+    - 自检异常
+    - 通信异常
+    - 采集完成
+    - 采集异常
+  task_state:
+    type: string
+    values:
+    - idle
+    - executing
+    - succeeded
+    - failed
+    - cancelled
+  active_action:
+    type: string
+    nullable: true
+initial_states:
+  seed:
+    main_state: 未就绪
+    current_state: 未上电/离线
+    business_state: 未就绪
+    task_state: idle
+    active_action: null
+  shg:
+    main_state: 未就绪
+    current_state: 未上电/离线
+    business_state: 未就绪
+    task_state: idle
+    active_action: null
+contracts:
+  seed.power_on_self_test:
+    system_type: seed
+    action: power_on_self_test
+    source_row: 3
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 未就绪
+      - field: current_state
+        in:
+        - 关机完成
+        - 未上电/离线
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 未就绪
+      - field: current_state
+        equals: 自检完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.function_check:
+    system_type: seed
+    action: function_check
+    source_row: 4
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 未就绪
+        - 正常
+        - 异常
+      - field: current_state
+        in:
+        - 自检完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 功能检查完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.parameter_dispatch:
+    system_type: seed
+    action: parameter_dispatch
+    source_row: 5
+    parameters:
+      recipe_id:
+        type: string
+        required: false
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 就绪
+        - 正常
+      - field: current_state
+        in:
+        - 功能检查完成
+        - 采集完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 参数下发完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.seed_source_emit:
+    system_type: seed
+    action: seed_source_emit
+    source_row: 6
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 参数下发完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 出光完成
+      - field: business_state
+        equals: 出光
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.laser_parameter_collect:
+    system_type: seed
+    action: laser_parameter_collect
+    source_row: 7
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 出光完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 采集完成
+      - field: business_state
+        equals: 出光
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.standby_reset:
+    system_type: seed
+    action: standby_reset
+    source_row: 8
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 采集完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 复位/待机完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.abort_reset:
+    system_type: seed
+    action: abort_reset
+    source_row: 9
+    parameters: {}
+    precondition:
+      all:
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 复位/待机完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  seed.shutdown:
+    system_type: seed
+    action: shutdown
+    source_row: 10
+    parameters: {}
+    precondition:
+      all:
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 未就绪
+      - field: current_state
+        equals: 关机完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.power_on_self_test:
+    system_type: shg
+    action: power_on_self_test
+    source_row: 14
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 未就绪
+      - field: current_state
+        in:
+        - 关机完成
+        - 未上电/离线
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 未就绪
+      - field: current_state
+        equals: 自检完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.function_check:
+    system_type: shg
+    action: function_check
+    source_row: 15
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 未就绪
+        - 正常
+        - 异常
+      - field: current_state
+        in:
+        - 自检完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 功能检查完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.parameter_dispatch:
+    system_type: shg
+    action: parameter_dispatch
+    source_row: 16
+    parameters:
+      recipe_id:
+        type: string
+        required: false
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 就绪
+        - 正常
+      - field: current_state
+        in:
+        - 功能检查完成
+        - 采集完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 参数下发完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.frequency_doubled_emit:
+    system_type: shg
+    action: frequency_doubled_emit
+    source_row: 17
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 参数下发完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 出光完成
+      - field: business_state
+        equals: 出光
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.laser_parameter_collect:
+    system_type: shg
+    action: laser_parameter_collect
+    source_row: 18
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 出光完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 正常
+      - field: current_state
+        equals: 采集完成
+      - field: business_state
+        equals: 出光
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.standby_reset:
+    system_type: shg
+    action: standby_reset
+    source_row: 19
+    parameters: {}
+    precondition:
+      all:
+      - field: main_state
+        in:
+        - 正常
+      - field: current_state
+        in:
+        - 采集完成
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 复位/待机完成
+      - field: business_state
+        equals: 就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.abort_reset:
+    system_type: shg
+    action: abort_reset
+    source_row: 20
+    parameters: {}
+    precondition:
+      all:
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 就绪
+      - field: current_state
+        equals: 复位/待机完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null
+  shg.shutdown:
+    system_type: shg
+    action: shutdown
+    source_row: 21
+    parameters: {}
+    precondition:
+      all:
+      - field: active_action
+        equals: null
+    completion:
+      all:
+      - field: main_state
+        equals: 未就绪
+      - field: current_state
+        equals: 关机完成
+      - field: business_state
+        equals: 未就绪
+      - field: task_state
+        equals: succeeded
+      - field: active_action
+        equals: null

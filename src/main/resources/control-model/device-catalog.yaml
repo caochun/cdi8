@@ -1,0 +1,28 @@
+# adapter_id 是网关逻辑 ID；Tango Device 地址由网关的 --tango-devices 映射。
+# 实例数量为仿真配置；运行启动后实例分组随配置快照冻结。
+version: 1
+devices:
+  seed_01:
+    system_type: seed
+    adapter_id: seed_01
+  seed_02:
+    system_type: seed
+    adapter_id: seed_02
+  seed_03:
+    system_type: seed
+    adapter_id: seed_03
+  shg_01:
+    system_type: shg
+    adapter_id: shg_01
+groups:
+  seed:
+  - seed_01
+  - seed_02
+  - seed_03
+  shg:
+  - shg_01
+  all:
+  - seed_01
+  - seed_02
+  - seed_03
+  - shg_01

@@ -50,5 +50,18 @@ class DeviceRuntimeTest(unittest.TestCase):
         self.assertEqual(result['snapshot']['business_state'],'异常')
         self.assertEqual(result,self.device.cancel('one'))
 
+    def test_parameters_persist_and_command_id_cannot_change_them(self):
+        for action in ('power_on_self_test','function_check'):
+            self.device.execute({'command_id':action,'action':action})
+            self.device.simulate({'command_id':action,'outcome':'success'})
+        request={'command_id':'configure','action':'parameter_dispatch','parameters':{'recipe_id':'recipe-42'}}
+        result=self.device.execute(request)
+        self.assertEqual(result['parameters'],request['parameters'])
+        with self.assertRaises(ValueError):
+            self.device.execute({**request,'parameters':{'recipe_id':'other'}})
+        self.device.simulate({'command_id':'configure','outcome':'success'})
+        restarted=DeviceRuntime(MODEL,self.db);self.addCleanup(restarted.db.close)
+        self.assertEqual(restarted.result('configure')['parameters'],request['parameters'])
+
 
 if __name__=='__main__':unittest.main()

@@ -120,6 +120,19 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 之前版本只包含执行定义，bpmn-js 会报 `no diagram to display`；该报错是缺少布局，不是 Flowable 无法解析流程。
 旧 Python 流程 YAML 已移除；`simulator` 中只保留两份分系统状态模型，与 BPMN 分别承担设备行为和实验编排职责。
 
+## 动作契约与流程绑定
+
+业务条件已从 `Devices.java` 提取到 `src/main/resources/control-model/`：
+
+- `action-contracts.yaml`：单设备动作的参数、前置条件和完成状态。
+- `device-catalog.yaml`：实例、类型、网关逻辑 ID 和分组。
+- `workflow-bindings.yaml`：BPMN 节点到契约/分组的映射、联合门禁和流程变量来源。
+
+BPMN 保留流程顺序、并行、等待、超时及异常策略；Java 解释配置，设备仿真器执行自身状态机。
+每次实验冻结配置和输入参数，每条命令保存契约及参数，避免后续配置变更影响已有实验。
+启动时检查引用和正常路径的状态衔接；`GET /api/model/checks` 可查看报告。
+完整例子、参数接口、迁移限制见 [动作契约说明](docs/action-contracts.md)。
+
 ## 执行与持久化语义
 
 1. BPMN 的发送服务任务只在与 Flowable 相同的数据库事务中写 `device_command`，随后进入 receiveTask。
@@ -152,7 +165,7 @@ Device 契约：
 
 | Tango 接口 | 输入 / 输出 |
 |---|---|
-| Execute | JSON `{command_id, action}` → 关联结果及 accepted/rejected 状态 |
+| Execute | JSON `{command_id, action, parameters}` → 关联结果及 accepted/rejected 状态 |
 | GetResult | command ID → 持久化结果 `{command_id, action, status, snapshot}` |
 | Cancel | command ID → 幂等取消结果；先取消后迟到的发送也会被拒绝执行 |
 | Simulate | JSON `{command_id, outcome}` → 仿真结果；真实设备服务不应暴露该测试命令 |
@@ -163,7 +176,7 @@ Tango DevString JSON 使用 ASCII 转义，避免中文状态在底层字符串�
 ## 验证
 
 ```bash
-make control-test                      # 6 项 Flowable + H2 测试，1 项 BPMN 布局完整性测试
+make control-test                      # 引擎集成、契约/模型校验与 BPMN 布局测试
 make simulator-test                    # Python 回归；无 PyTango 时仅协议测试跳过
 make test                              # Java 与 Python 全部测试
 python3 -m unittest gxlf_sim_system.tests.test_pytango_device -v
@@ -191,5 +204,5 @@ Java 集成测试使用独立 FakeAdapter 验证引擎行为；真实协议及�
 - BPMN 定时器存在调度延迟，超时与成功同时发生时由事务先后决定；尚未实现硬截止时间优先的仲裁。
 - 补偿暂未配置独立的超时和失败实例增量重试；定时参数是仿真值。
 - 设备复位后业务状态是未就绪；再次实验前需按业务规则关机再自检，程序不会偷偷重置真实设备状态。
-- 当前叶子状态规则在 Java 适配校验中有明确映射，尚未做自动生成或完整 complete/sound 证明。
+- 业务条件由动作契约和流程绑定配置解释；已有正常路径一致性检查，尚未完成完整 complete/sound 证明。
 - 旧 Python 操作台与 JSONL 回放工具已移除，已有日志保留但回放功能尚未迁移；Java 当前提供 Flowable 持久化活动历史。

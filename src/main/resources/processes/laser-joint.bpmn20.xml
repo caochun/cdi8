@@ -8,13 +8,13 @@
       <bpmn:startEvent id="normal_start" name="开始正常流程" />
       <bpmn:subProcess id="seed_self_test" name="种子源开机自检">
         <bpmn:startEvent id="seed_self_test_start" name="开始" />
-        <bpmn:serviceTask id="seed_self_test_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'power_on_self_test')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_self_test_prepare" flowable:expression="${devices.prepare(execution, 'seed_self_test')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_self_test_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_self_test_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'seed_self_test', 'power_on_self_test', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'seed_self_test', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_self_test_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_self_test_device_verify" flowable:expression="${devices.verify(execution, 'seed_self_test')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_self_test_device_end" name="完成" />
           <bpmn:sequenceFlow id="f1" sourceRef="seed_self_test_device_start" targetRef="seed_self_test_device_send" />
           <bpmn:sequenceFlow id="f2" sourceRef="seed_self_test_device_send" targetRef="seed_self_test_device_wait" />
@@ -38,12 +38,12 @@
       <bpmn:sequenceFlow id="f9" sourceRef="normal_start" targetRef="seed_self_test" />
       <bpmn:subProcess id="shg_self_test" name="二倍频开机自检">
         <bpmn:startEvent id="shg_self_test_start" name="开始" />
-        <bpmn:serviceTask id="shg_self_test_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'power_on_self_test')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_self_test_prepare" flowable:expression="${devices.prepare(execution, 'shg_self_test')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_self_test_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_self_test_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'shg_self_test', 'power_on_self_test', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_self_test_device_send" flowable:expression="${devices.enqueue(execution, 'shg_self_test', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_self_test_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_self_test_device_verify" flowable:expression="${devices.verify(execution, 'power_on_self_test')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_self_test_device_verify" flowable:expression="${devices.verify(execution, 'shg_self_test')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_self_test_device_end" name="完成" />
           <bpmn:sequenceFlow id="f10" sourceRef="shg_self_test_device_start" targetRef="shg_self_test_device_send" />
           <bpmn:sequenceFlow id="f11" sourceRef="shg_self_test_device_send" targetRef="shg_self_test_device_wait" />
@@ -67,13 +67,13 @@
       <bpmn:sequenceFlow id="f18" sourceRef="seed_self_test" targetRef="shg_self_test" />
       <bpmn:subProcess id="seed_check" name="种子源功能检查">
         <bpmn:startEvent id="seed_check_start" name="开始" />
-        <bpmn:serviceTask id="seed_check_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'function_check')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_check_prepare" flowable:expression="${devices.prepare(execution, 'seed_check')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_check_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_check_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_check_device_send" flowable:expression="${devices.enqueue(execution, 'seed_check', 'function_check', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_check_device_send" flowable:expression="${devices.enqueue(execution, 'seed_check', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_check_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_check_device_verify" flowable:expression="${devices.verify(execution, 'seed_check')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_check_device_end" name="完成" />
           <bpmn:sequenceFlow id="f19" sourceRef="seed_check_device_start" targetRef="seed_check_device_send" />
           <bpmn:sequenceFlow id="f20" sourceRef="seed_check_device_send" targetRef="seed_check_device_wait" />
@@ -97,12 +97,12 @@
       <bpmn:sequenceFlow id="f27" sourceRef="shg_self_test" targetRef="seed_check" />
       <bpmn:subProcess id="shg_check" name="二倍频功能检查">
         <bpmn:startEvent id="shg_check_start" name="开始" />
-        <bpmn:serviceTask id="shg_check_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'function_check')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_check_prepare" flowable:expression="${devices.prepare(execution, 'shg_check')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_check_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_check_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_check_device_send" flowable:expression="${devices.enqueue(execution, 'shg_check', 'function_check', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_check_device_send" flowable:expression="${devices.enqueue(execution, 'shg_check', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_check_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_check_device_verify" flowable:expression="${devices.verify(execution, 'function_check')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_check_device_verify" flowable:expression="${devices.verify(execution, 'shg_check')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_check_device_end" name="完成" />
           <bpmn:sequenceFlow id="f28" sourceRef="shg_check_device_start" targetRef="shg_check_device_send" />
           <bpmn:sequenceFlow id="f29" sourceRef="shg_check_device_send" targetRef="shg_check_device_wait" />
@@ -126,13 +126,13 @@
       <bpmn:sequenceFlow id="f36" sourceRef="seed_check" targetRef="shg_check" />
       <bpmn:subProcess id="seed_configure" name="种子源参数下发">
         <bpmn:startEvent id="seed_configure_start" name="开始" />
-        <bpmn:serviceTask id="seed_configure_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'parameter_dispatch')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_configure_prepare" flowable:expression="${devices.prepare(execution, 'seed_configure')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_configure_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_configure_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_configure_device_send" flowable:expression="${devices.enqueue(execution, 'seed_configure', 'parameter_dispatch', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_configure_device_send" flowable:expression="${devices.enqueue(execution, 'seed_configure', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_configure_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_configure_device_verify" flowable:expression="${devices.verify(execution, 'seed_configure')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_configure_device_end" name="完成" />
           <bpmn:sequenceFlow id="f37" sourceRef="seed_configure_device_start" targetRef="seed_configure_device_send" />
           <bpmn:sequenceFlow id="f38" sourceRef="seed_configure_device_send" targetRef="seed_configure_device_wait" />
@@ -156,12 +156,12 @@
       <bpmn:sequenceFlow id="f45" sourceRef="shg_check" targetRef="seed_configure" />
       <bpmn:subProcess id="shg_configure" name="二倍频参数下发">
         <bpmn:startEvent id="shg_configure_start" name="开始" />
-        <bpmn:serviceTask id="shg_configure_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'parameter_dispatch')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_configure_prepare" flowable:expression="${devices.prepare(execution, 'shg_configure')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_configure_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_configure_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_configure_device_send" flowable:expression="${devices.enqueue(execution, 'shg_configure', 'parameter_dispatch', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_configure_device_send" flowable:expression="${devices.enqueue(execution, 'shg_configure', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_configure_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_configure_device_verify" flowable:expression="${devices.verify(execution, 'parameter_dispatch')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_configure_device_verify" flowable:expression="${devices.verify(execution, 'shg_configure')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_configure_device_end" name="完成" />
           <bpmn:sequenceFlow id="f46" sourceRef="shg_configure_device_start" targetRef="shg_configure_device_send" />
           <bpmn:sequenceFlow id="f47" sourceRef="shg_configure_device_send" targetRef="shg_configure_device_wait" />
@@ -183,7 +183,7 @@
       </bpmn:endEvent>
       <bpmn:sequenceFlow id="f53" sourceRef="shg_configure_timeout" targetRef="shg_configure_expired" />
       <bpmn:sequenceFlow id="f54" sourceRef="seed_configure" targetRef="shg_configure" />
-      <bpmn:serviceTask id="read_joint_gate" flowable:expression="${devices.gate(execution)}" name="读取四个实例当前状态" />
+      <bpmn:serviceTask id="read_joint_gate" flowable:expression="${devices.gate(execution, 'laser_ready')}" flowable:resultVariable="jointReady" name="读取四个实例当前状态" />
       <bpmn:exclusiveGateway id="laser_ready_gate" default="f57" name="联合条件满足？" />
       <bpmn:sequenceFlow id="f55" sourceRef="shg_configure" targetRef="read_joint_gate" />
       <bpmn:sequenceFlow id="f56" sourceRef="read_joint_gate" targetRef="laser_ready_gate" />
@@ -193,13 +193,13 @@
       <bpmn:sequenceFlow id="f57" sourceRef="laser_ready_gate" targetRef="gate_failed" />
       <bpmn:subProcess id="seed_emit" name="种子源出光">
         <bpmn:startEvent id="seed_emit_start" name="开始" />
-        <bpmn:serviceTask id="seed_emit_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'seed_source_emit')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_emit_prepare" flowable:expression="${devices.prepare(execution, 'seed_emit')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_emit_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_emit_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_emit_device_send" flowable:expression="${devices.enqueue(execution, 'seed_emit', 'seed_source_emit', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_emit_device_send" flowable:expression="${devices.enqueue(execution, 'seed_emit', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_emit_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_emit_device_verify" flowable:expression="${devices.verify(execution, 'seed_source_emit')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_emit_device_verify" flowable:expression="${devices.verify(execution, 'seed_emit')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_emit_device_end" name="完成" />
           <bpmn:sequenceFlow id="f58" sourceRef="seed_emit_device_start" targetRef="seed_emit_device_send" />
           <bpmn:sequenceFlow id="f59" sourceRef="seed_emit_device_send" targetRef="seed_emit_device_wait" />
@@ -225,12 +225,12 @@
       </bpmn:sequenceFlow>
       <bpmn:subProcess id="shg_emit" name="二倍频出光">
         <bpmn:startEvent id="shg_emit_start" name="开始" />
-        <bpmn:serviceTask id="shg_emit_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'frequency_doubled_emit')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_emit_prepare" flowable:expression="${devices.prepare(execution, 'shg_emit')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_emit_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_emit_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_emit_device_send" flowable:expression="${devices.enqueue(execution, 'shg_emit', 'frequency_doubled_emit', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_emit_device_send" flowable:expression="${devices.enqueue(execution, 'shg_emit', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_emit_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_emit_device_verify" flowable:expression="${devices.verify(execution, 'frequency_doubled_emit')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_emit_device_verify" flowable:expression="${devices.verify(execution, 'shg_emit')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_emit_device_end" name="完成" />
           <bpmn:sequenceFlow id="f67" sourceRef="shg_emit_device_start" targetRef="shg_emit_device_send" />
           <bpmn:sequenceFlow id="f68" sourceRef="shg_emit_device_send" targetRef="shg_emit_device_wait" />
@@ -254,13 +254,13 @@
       <bpmn:sequenceFlow id="f75" sourceRef="seed_emit" targetRef="shg_emit" />
       <bpmn:subProcess id="seed_collect" name="种子源参数采集">
         <bpmn:startEvent id="seed_collect_start" name="开始" />
-        <bpmn:serviceTask id="seed_collect_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'laser_parameter_collect')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_collect_prepare" flowable:expression="${devices.prepare(execution, 'seed_collect')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_collect_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_collect_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_collect_device_send" flowable:expression="${devices.enqueue(execution, 'seed_collect', 'laser_parameter_collect', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_collect_device_send" flowable:expression="${devices.enqueue(execution, 'seed_collect', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_collect_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_collect_device_verify" flowable:expression="${devices.verify(execution, 'seed_collect')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_collect_device_end" name="完成" />
           <bpmn:sequenceFlow id="f76" sourceRef="seed_collect_device_start" targetRef="seed_collect_device_send" />
           <bpmn:sequenceFlow id="f77" sourceRef="seed_collect_device_send" targetRef="seed_collect_device_wait" />
@@ -284,12 +284,12 @@
       <bpmn:sequenceFlow id="f84" sourceRef="shg_emit" targetRef="seed_collect" />
       <bpmn:subProcess id="shg_collect" name="二倍频参数采集">
         <bpmn:startEvent id="shg_collect_start" name="开始" />
-        <bpmn:serviceTask id="shg_collect_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'laser_parameter_collect')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_collect_prepare" flowable:expression="${devices.prepare(execution, 'shg_collect')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_collect_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_collect_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_collect_device_send" flowable:expression="${devices.enqueue(execution, 'shg_collect', 'laser_parameter_collect', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_collect_device_send" flowable:expression="${devices.enqueue(execution, 'shg_collect', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_collect_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_collect_device_verify" flowable:expression="${devices.verify(execution, 'laser_parameter_collect')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_collect_device_verify" flowable:expression="${devices.verify(execution, 'shg_collect')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_collect_device_end" name="完成" />
           <bpmn:sequenceFlow id="f85" sourceRef="shg_collect_device_start" targetRef="shg_collect_device_send" />
           <bpmn:sequenceFlow id="f86" sourceRef="shg_collect_device_send" targetRef="shg_collect_device_wait" />
@@ -313,13 +313,13 @@
       <bpmn:sequenceFlow id="f93" sourceRef="seed_collect" targetRef="shg_collect" />
       <bpmn:subProcess id="seed_standby" name="种子源待机复位">
         <bpmn:startEvent id="seed_standby_start" name="开始" />
-        <bpmn:serviceTask id="seed_standby_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'standby_reset')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_standby_prepare" flowable:expression="${devices.prepare(execution, 'seed_standby')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_standby_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_standby_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_standby_device_send" flowable:expression="${devices.enqueue(execution, 'seed_standby', 'standby_reset', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_standby_device_send" flowable:expression="${devices.enqueue(execution, 'seed_standby', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_standby_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_standby_device_verify" flowable:expression="${devices.verify(execution, 'seed_standby')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_standby_device_end" name="完成" />
           <bpmn:sequenceFlow id="f94" sourceRef="seed_standby_device_start" targetRef="seed_standby_device_send" />
           <bpmn:sequenceFlow id="f95" sourceRef="seed_standby_device_send" targetRef="seed_standby_device_wait" />
@@ -343,12 +343,12 @@
       <bpmn:sequenceFlow id="f102" sourceRef="shg_collect" targetRef="seed_standby" />
       <bpmn:subProcess id="shg_standby" name="二倍频待机复位">
         <bpmn:startEvent id="shg_standby_start" name="开始" />
-        <bpmn:serviceTask id="shg_standby_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'standby_reset')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_standby_prepare" flowable:expression="${devices.prepare(execution, 'shg_standby')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_standby_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_standby_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_standby_device_send" flowable:expression="${devices.enqueue(execution, 'shg_standby', 'standby_reset', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_standby_device_send" flowable:expression="${devices.enqueue(execution, 'shg_standby', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_standby_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_standby_device_verify" flowable:expression="${devices.verify(execution, 'standby_reset')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_standby_device_verify" flowable:expression="${devices.verify(execution, 'shg_standby')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_standby_device_end" name="完成" />
           <bpmn:sequenceFlow id="f103" sourceRef="shg_standby_device_start" targetRef="shg_standby_device_send" />
           <bpmn:sequenceFlow id="f104" sourceRef="shg_standby_device_send" targetRef="shg_standby_device_wait" />
@@ -372,13 +372,13 @@
       <bpmn:sequenceFlow id="f111" sourceRef="seed_standby" targetRef="shg_standby" />
       <bpmn:subProcess id="seed_shutdown" name="种子源关机">
         <bpmn:startEvent id="seed_shutdown_start" name="开始" />
-        <bpmn:serviceTask id="seed_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'seed', 'shutdown')}" name="预检所有目标" />
+        <bpmn:serviceTask id="seed_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'seed_shutdown')}" name="预检所有目标" />
         <bpmn:subProcess id="seed_shutdown_instances" name="执行实例动作">
           <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedInstances}" flowable:elementVariable="deviceId" />
           <bpmn:startEvent id="seed_shutdown_device_start" name="开始" />
-          <bpmn:serviceTask id="seed_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'seed_shutdown', 'shutdown', deviceId)}" name="下发命令入队" />
+          <bpmn:serviceTask id="seed_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'seed_shutdown', deviceId)}" name="下发命令入队" />
           <bpmn:receiveTask id="seed_shutdown_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="seed_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" name="验证设备结果" />
+          <bpmn:serviceTask id="seed_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'seed_shutdown')}" name="验证设备结果" />
           <bpmn:endEvent id="seed_shutdown_device_end" name="完成" />
           <bpmn:sequenceFlow id="f112" sourceRef="seed_shutdown_device_start" targetRef="seed_shutdown_device_send" />
           <bpmn:sequenceFlow id="f113" sourceRef="seed_shutdown_device_send" targetRef="seed_shutdown_device_wait" />
@@ -402,12 +402,12 @@
       <bpmn:sequenceFlow id="f120" sourceRef="shg_standby" targetRef="seed_shutdown" />
       <bpmn:subProcess id="shg_shutdown" name="二倍频关机">
         <bpmn:startEvent id="shg_shutdown_start" name="开始" />
-        <bpmn:serviceTask id="shg_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'shg', 'shutdown')}" name="预检所有目标" />
+        <bpmn:serviceTask id="shg_shutdown_prepare" flowable:expression="${devices.prepare(execution, 'shg_shutdown')}" name="预检所有目标" />
         <bpmn:subProcess id="shg_shutdown_instances" name="执行实例动作">
           <bpmn:startEvent id="shg_shutdown_device_start" name="开始" />
-          <bpmn:serviceTask id="shg_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'shg_shutdown', 'shutdown', 'shg_01')}" name="下发命令入队" />
+          <bpmn:serviceTask id="shg_shutdown_device_send" flowable:expression="${devices.enqueue(execution, 'shg_shutdown', shgInstance)}" name="下发命令入队" />
           <bpmn:receiveTask id="shg_shutdown_device_wait" name="等待设备最终结果" />
-          <bpmn:serviceTask id="shg_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shutdown')}" name="验证设备结果" />
+          <bpmn:serviceTask id="shg_shutdown_device_verify" flowable:expression="${devices.verify(execution, 'shg_shutdown')}" name="验证设备结果" />
           <bpmn:endEvent id="shg_shutdown_device_end" name="完成" />
           <bpmn:sequenceFlow id="f121" sourceRef="shg_shutdown_device_start" targetRef="shg_shutdown_device_send" />
           <bpmn:sequenceFlow id="f122" sourceRef="shg_shutdown_device_send" targetRef="shg_shutdown_device_wait" />
@@ -433,7 +433,7 @@
       <bpmn:sequenceFlow id="f130" sourceRef="shg_shutdown" targetRef="normal_end" />
     </bpmn:subProcess>
     <bpmn:sequenceFlow id="f131" sourceRef="start" targetRef="normal_cycle" />
-    <bpmn:serviceTask id="mark_success" flowable:expression="${devices.success(execution)}" name="核对关机状态并记录成功" />
+    <bpmn:serviceTask id="mark_success" flowable:expression="${devices.success(execution, 'shutdown_all')}" name="核对关机状态并记录成功" />
     <bpmn:sequenceFlow id="f132" sourceRef="normal_cycle" targetRef="mark_success" />
     <bpmn:endEvent id="success" name="实验成功" />
     <bpmn:sequenceFlow id="f133" sourceRef="mark_success" targetRef="success" />
@@ -457,9 +457,9 @@
       <bpmn:subProcess id="reset_devices" name="按实例串行安全复位">
         <bpmn:multiInstanceLoopCharacteristics isSequential="true" flowable:collection="${allInstances}" flowable:elementVariable="deviceId" />
         <bpmn:startEvent id="reset_device_start" name="开始" />
-        <bpmn:serviceTask id="reset_device_send" flowable:expression="${devices.enqueue(execution, 'compensation', 'abort_reset', deviceId)}" name="下发复位命令" />
+        <bpmn:serviceTask id="reset_device_send" flowable:expression="${devices.enqueue(execution, 'compensation', deviceId)}" name="下发复位命令" />
         <bpmn:receiveTask id="reset_device_wait" name="等待设备最终结果" />
-        <bpmn:serviceTask id="reset_device_verify" flowable:expression="${devices.verify(execution, 'abort_reset')}" name="验证复位结果" />
+        <bpmn:serviceTask id="reset_device_verify" flowable:expression="${devices.verify(execution, 'compensation')}" name="验证复位结果" />
         <bpmn:endEvent id="reset_device_end" name="完成" />
         <bpmn:sequenceFlow id="f137" sourceRef="reset_device_start" targetRef="reset_device_send" />
         <bpmn:sequenceFlow id="f138" sourceRef="reset_device_send" targetRef="reset_device_wait" />

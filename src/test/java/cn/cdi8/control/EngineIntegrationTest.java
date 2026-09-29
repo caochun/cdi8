@@ -11,6 +11,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import cn.cdi8.control.model.ModelRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import org.springframework.core.io.ResourceLoader;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
 
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:engine_test;DB_CLOSE_DELAY=-1","flowable.async-executor-activate=false","control.worker-enabled=false","logging.level.root=WARN","logging.level.org.springframework=WARN"})
 class EngineIntegrationTest {
@@ -20,6 +28,8 @@ class EngineIntegrationTest {
     @Autowired CommandWorker worker;
     @Autowired JdbcTemplate db;
     @Autowired FakeAdapter adapter;
+    @Autowired ObjectMapper json;
+    @Autowired ResourceLoader resources;
 
     @TestConfiguration static class Config {
         @Bean @Primary FakeAdapter fakeAdapter(){return new FakeAdapter();}
@@ -29,12 +39,12 @@ class EngineIntegrationTest {
         Map<String,Map<String,Object>> results=new ConcurrentHashMap<>();
         int sends;
         FakeAdapter(){reset();}
-        void reset(){states.clear();results.clear();sends=0;for(String d:Devices.ALL)states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
-        public Map<String,Object> snapshot(String d){return new LinkedHashMap<>(states.get(d));}
-        public Map<String,Object> send(String d,String id,String action){
+        void reset(){states.clear();results.clear();sends=0;for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
+        public Map<String,Object> snapshot(String d){var value=new LinkedHashMap<>(states.get(d));value.putIfAbsent("active_action",null);return value;}
+        public Map<String,Object> send(String d,String id,String action,Map<String,Object> parameters){
             if(results.containsKey(id))return results.get(id);
             sends++;var state=states.get(d);state.put("active_action",action);state.put("task_id",id);state.put("task_state","executing");
-            var result=new LinkedHashMap<String,Object>();result.put("command_id",id);result.put("action",action);result.put("status","accepted");result.put("snapshot",snapshot(d));results.put(id,result);return result;
+            var result=new LinkedHashMap<String,Object>();result.put("command_id",id);result.put("action",action);result.put("parameters",new LinkedHashMap<>(parameters));result.put("status","accepted");result.put("snapshot",snapshot(d));results.put(id,result);return result;
         }
         public Map<String,Object> result(String d,String id){return results.get(id);}
         public void cancel(String d,String id){if(results.containsKey(id))results.get(id).put("status","cancelled");states.get(d).remove("active_action");states.get(d).put("task_state","cancelled");}
@@ -42,7 +52,16 @@ class EngineIntegrationTest {
             var result=results.get(id);if(!result.get("status").equals("accepted"))return;
             String action=(String)result.get("action");var state=states.get(d);state.remove("active_action");
             if(outcome.equals("success")){
-                state.put("current_state",Devices.expected(action));state.put("task_state","succeeded");
+                state.put("current_state",switch(action) {
+                    case "power_on_self_test" -> "自检完成";
+                    case "function_check" -> "功能检查完成";
+                    case "parameter_dispatch" -> "参数下发完成";
+                    case "seed_source_emit", "frequency_doubled_emit" -> "出光完成";
+                    case "laser_parameter_collect" -> "采集完成";
+                    case "standby_reset", "abort_reset" -> "复位/待机完成";
+                    case "shutdown" -> "关机完成";
+                    default -> throw new IllegalArgumentException(action);
+                });state.put("task_state","succeeded");
                 state.put("main_state",switch(action){case "power_on_self_test","shutdown"->"未就绪";case "function_check","standby_reset","abort_reset"->"就绪";default->"正常";});
                 state.put("business_state",switch(action){case "seed_source_emit","frequency_doubled_emit","laser_parameter_collect"->"出光";case "power_on_self_test","shutdown","abort_reset"->"未就绪";default->"就绪";});
                 result.put("status","succeeded");
@@ -65,7 +84,7 @@ class EngineIntegrationTest {
         for(int i=0;i<13;i++)successBatch();
         assertEquals("SUCCEEDED",runs.view("golden").get("OUTCOME"));assertEquals(28,adapter.sends);
         assertEquals(0,runtime.createProcessInstanceQuery().count());
-        for(String d:Devices.ALL)assertEquals("关机完成",adapter.snapshot(d).get("current_state"));
+        for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))assertEquals("关机完成",adapter.snapshot(d).get("current_state"));
         runs.start("next");successBatch();assertEquals("RUNNING",runs.view("next").get("OUTCOME"));
     }
     @Test void duplicateStartDoesNotDispatchTwiceAndAnotherRunIsLocked(){
@@ -100,4 +119,44 @@ class EngineIntegrationTest {
         assertEquals("FAILED",runs.view("stale").get("OUTCOME"));
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM device_command WHERE action='seed_source_emit'",Integer.class));
     }
+    @Test void parametersReachDeviceAndRunModelIsFrozen() {
+        Map<String,Map<String,Object>> parameters=Map.of("seed_configure",Map.of("recipe_id","recipe-42"));
+        var first=runs.start("recipe",parameters);
+        assertNotNull(first.get("MODEL_HASH"));
+        assertEquals(first.get("PROCESS_ID"),runs.start("recipe",parameters).get("PROCESS_ID"));
+        assertThrows(IllegalArgumentException.class,()->runs.start("recipe",Map.of()));
+        for(int i=0;i<4;i++)successBatch();worker.tick();
+        for(var c:pending()) {
+            assertEquals("seed_configure",c.get("NODE_ID"));
+            assertEquals(Map.of("recipe_id","recipe-42"),adapter.results.get(c.get("ID")).get("parameters"));
+            assertEquals("seed.parameter_dispatch",c.get("CONTRACT_REF"));
+        }
+        // Mutating a copy of the current config cannot rewrite this run's stored snapshot.
+        var frozen=db.queryForObject("SELECT model_snapshot FROM experiment_run WHERE id='recipe'",String.class);
+        assertTrue(frozen.contains("recipe-42"));
+    }
+    @Test void invalidParametersAreRejectedBeforeCreatingAnExperiment() {
+        assertThrows(IllegalArgumentException.class,()->runs.start("bad-params",Map.of("seed_configure",Map.of("recipe_id",123))));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM experiment_run",Integer.class));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM device_command",Integer.class));
+    }
+    @Test void reloadedConfigurationDoesNotRewriteExistingRun(@TempDir Path directory) throws Exception {
+        var run=runs.start("frozen");var yaml=new ObjectMapper(new YAMLFactory());
+        for(String file:List.of("action-contracts.yaml","device-catalog.yaml","workflow-bindings.yaml")) {
+            try(var input=getClass().getResourceAsStream("/control-model/"+file)) {
+                var tree=yaml.readTree(input);
+                if(file.equals("device-catalog.yaml")) {
+                    ((ArrayNode)tree.at("/groups/seed")).remove(2);((ArrayNode)tree.at("/groups/all")).remove(2);
+                    ((ObjectNode)tree.get("devices")).remove("seed_03");
+                }
+                yaml.writeValue(directory.resolve(file).toFile(),tree);
+            }
+        }
+        var reloaded=new ModelRepository(json,db,resources,directory.toUri().toString());
+        assertEquals(reloaded.hash("{\"a\":1,\"b\":2}"),reloaded.hash("{\"b\":2,\"a\":1}"));
+        assertEquals(2,reloaded.current().group("seed").size());
+        assertEquals(3,reloaded.forRun("frozen").group("seed").size());
+        assertEquals(List.of("seed_01","seed_02","seed_03"),runtime.getVariable((String)run.get("PROCESS_ID"),"seedInstances"));
+    }
+
 }

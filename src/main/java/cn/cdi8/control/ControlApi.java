@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.*;
 public class ControlApi {
     private final RunService runs;
     public ControlApi(RunService runs) { this.runs=runs; }
-    @PostMapping public Map<String,Object> start(@RequestBody Map<String,String> request) { return runs.start(request.get("requestId")); }
+    public record StartRequest(String requestId,Map<String,Map<String,Object>> parameters) {}
+    @PostMapping public Map<String,Object> start(@RequestBody StartRequest request) {
+        return runs.start(request.requestId(),request.parameters()==null?Map.of():request.parameters());
+    }
     @GetMapping("/{id}") public Map<String,Object> view(@PathVariable String id) { return runs.view(id); }
     @PostMapping("/{id}/interlock") public Map<String,Boolean> interlock(@PathVariable String id) { runs.interlock(id);return Map.of("accepted",true); }
     @PostMapping("/{id}/compensate") public Map<String,Boolean> compensate(@PathVariable String id) { runs.compensate(id);return Map.of("accepted",true); }

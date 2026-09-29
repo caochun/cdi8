@@ -30,8 +30,12 @@ class DeviceRuntime:
         with self.lock:
             return asdict(self.machine.snapshot())
 
-    def _save(self, command_id, action, status):
-        result = dict(command_id=command_id, action=action, status=status, snapshot=self.snapshot())
+    def _save(self, command_id, action, status, parameters=None):
+        if parameters is None:
+            previous = self._get(command_id)
+            parameters = previous.get('parameters', {}) if previous else {}
+        result = dict(command_id=command_id, action=action, parameters=parameters,
+                      status=status, snapshot=self.snapshot())
         self.db.execute('INSERT OR REPLACE INTO device_state VALUES(1,?)', (json.dumps(self.snapshot()),))
         self.db.execute('INSERT OR REPLACE INTO commands VALUES(?,?,?)', (command_id, action, json.dumps(result)))
         self.db.commit()
@@ -44,18 +48,21 @@ class DeviceRuntime:
     def execute(self, request):
         with self.lock:
             command_id, action = request['command_id'], request['action']
+            parameters = request.get('parameters', {})
+            if not isinstance(parameters, dict):
+                raise ValueError('parameters must be an object')
             if not isinstance(command_id, str) or not command_id or len(command_id)>128:
                 raise ValueError('invalid command_id')
             previous = self._get(command_id)
             if previous:
-                if previous['action'] not in (None, action):
+                if previous['action'] not in (None, action) or (previous['action'] is not None and previous.get('parameters', {}) != parameters):
                     raise ValueError('command id reused for another action')
                 return previous
             try:
                 self.machine.start(action)
             except StateMachineError:
-                return self._save(command_id, action, 'rejected')
-            return self._save(command_id, action, 'accepted')
+                return self._save(command_id, action, 'rejected', parameters)
+            return self._save(command_id, action, 'accepted', parameters)
 
     def result(self, command_id):
         with self.lock:

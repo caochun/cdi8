@@ -31,7 +31,7 @@ public class HttpDeviceAdapter implements DeviceAdapter {
         } catch(java.io.IOException ex) { throw new IllegalArgumentException(ex); }
     }
     public Map<String,Object> snapshot(String d) { return get("/devices/"+d); }
-    public Map<String,Object> send(String d,String id,String a) { return post("/devices/"+d+"/commands",Map.of("command_id",id,"action",a)); }
+    public Map<String,Object> send(String d,String id,String a,Map<String,Object> parameters) { return post("/devices/"+d+"/commands",Map.of("command_id",id,"action",a,"parameters",parameters)); }
     public Map<String,Object> result(String d,String id) { return get("/devices/"+d+"/commands/"+id); }
     public void cancel(String d,String id) { post("/devices/"+d+"/cancel",Map.of("command_id",id)); }
     public void simulate(String d,String id,String outcome) { post("/devices/"+d+"/simulate",Map.of("command_id",id,"outcome",outcome)); }

@@ -1,6 +1,9 @@
 package cn.cdi8.control;
 
 import java.util.*;
+import cn.cdi8.control.model.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.flowable.engine.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,36 +18,46 @@ public class RunService {
     private final HistoryService history;
     private final DeviceAdapter adapter;
     private final boolean simulation;
+    private final ModelRepository models;
+    private final ObjectMapper json;
     public RunService(JdbcTemplate db,RuntimeService runtime,TaskService tasks,HistoryService history,
-                      DeviceAdapter adapter,@Value("${control.simulation-controls:true}") boolean simulation) {
-        this.db=db;this.runtime=runtime;this.tasks=tasks;this.history=history;this.adapter=adapter;this.simulation=simulation;
+                      DeviceAdapter adapter,ModelRepository models,ObjectMapper json,@Value("${control.simulation-controls:true}") boolean simulation) {
+        this.db=db;this.runtime=runtime;this.tasks=tasks;this.history=history;this.adapter=adapter;this.models=models;this.json=json;this.simulation=simulation;
     }
     @Transactional
-    public Map<String,Object> start(String requestId) {
+    public Map<String,Object> start(String requestId) { return start(requestId,Map.of()); }
+    @Transactional
+    public Map<String,Object> start(String requestId,Map<String,Map<String,Object>> parameters) {
         if(requestId==null||!requestId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("requestId must be 1..64 safe characters");
         String previous=db.queryForObject("SELECT run_id FROM device_lease WHERE id=1 FOR UPDATE",String.class);
         var exists=db.queryForList("SELECT id FROM experiment_run WHERE id=?",requestId);
-        if(!exists.isEmpty()) return view(requestId);
+        if(!exists.isEmpty()) {
+            var saved=models.forRun(requestId).json().path("run_parameters");
+            if(!saved.equals(json.valueToTree(parameters)))throw new IllegalArgumentException("requestId reused with different parameters");
+            return view(requestId);
+        }
         if(previous!=null) {
-            var prev=db.queryForMap("SELECT * FROM experiment_run WHERE id=?",previous);
+            var prev=db.queryForMap("SELECT id,process_id,outcome,reason,created_at,model_hash FROM experiment_run WHERE id=?",previous);
             if(runtime.createProcessInstanceQuery().processInstanceId((String)prev.get("PROCESS_ID")).count()>0)
                 throw new IllegalStateException("devices are reserved by "+previous);
             if(db.queryForObject("SELECT COUNT(*) FROM device_command WHERE run_id=? AND status IN ('QUEUED','SENT','RESULT','CANCEL_REQUESTED')",Integer.class,previous)>0)
                 throw new IllegalStateException("device commands still settling");
         }
-        db.update("INSERT INTO experiment_run(id,outcome) VALUES(?,'RUNNING')",requestId);
+        var model=models.current();var overrides=json.valueToTree(parameters);model.validateParameters(overrides);
+        ObjectNode frozen=(ObjectNode)model.json();frozen.set("run_parameters",overrides);
+        String snapshot=models.serialize(new ControlModel(frozen));
+        db.update("INSERT INTO experiment_run(id,outcome,model_snapshot,model_hash) VALUES(?,'RUNNING',?,?)",requestId,snapshot,models.hash(snapshot));
         db.update("UPDATE device_lease SET run_id=? WHERE id=1",requestId);
-        Map<String,Object> vars=new HashMap<>();vars.put("seedInstances",new ArrayList<>(Devices.SEEDS));
-        vars.put("allInstances",new ArrayList<>(Devices.ALL));vars.put("compensationRequired",false);
-        var process=runtime.startProcessInstanceByKey("laser_joint",requestId,vars);
+        Map<String,Object> vars=model.variables();vars.put("compensationRequired",false);
+        var process=runtime.startProcessInstanceByKey(model.processId(),requestId,vars);
         db.update("UPDATE experiment_run SET process_id=? WHERE id=?",process.getId(),requestId);
         return view(requestId);
     }
     public Map<String,Object> view(String id) {
-        var rows=db.queryForList("SELECT * FROM experiment_run WHERE id=?",id);
+        var rows=db.queryForList("SELECT id,process_id,outcome,reason,created_at,model_hash FROM experiment_run WHERE id=?",id);
         if(rows.isEmpty()) throw new IllegalArgumentException("unknown run");
         Map<String,Object> view=new LinkedHashMap<>(rows.get(0));String pid=(String)view.get("PROCESS_ID");
-        view.put("commands",db.queryForList("SELECT id,node_id,device_id,action,status,error FROM device_command WHERE run_id=? ORDER BY created_at,id",id));
+        view.put("commands",db.queryForList("SELECT id,node_id,device_id,action,status,error,contract_ref,CAST(params_json AS VARCHAR) AS parameters FROM device_command WHERE run_id=? ORDER BY created_at,id",id));
         if(pid!=null) {
             view.put("activeActivities",runtime.createProcessInstanceQuery().processInstanceId(pid).count()==0?List.of():runtime.getActiveActivityIds(pid));
             view.put("userTasks",tasks.createTaskQuery().processInstanceId(pid).list().stream().map(t->Map.of("id",t.getId(),"name",t.getName())).toList());
@@ -71,7 +84,7 @@ public class RunService {
     }
     public void simulate(String run,String task,String outcome) {
         if(!simulation) throw new IllegalStateException("simulation controls disabled");
-        var rows=db.queryForList("SELECT device_id,status FROM device_command WHERE id=? AND run_id=?",task,run);
+        var rows=db.queryForList("SELECT COALESCE(adapter_id,device_id) AS device_id,status FROM device_command WHERE id=? AND run_id=?",task,run);
         if(rows.isEmpty()||!Set.of("SENT","RESULT","DELIVERED").contains(rows.get(0).get("STATUS")))
             throw new IllegalArgumentException("command not accepted or cancelled");
         if(!Set.of("success","failure","communication_error","fault_lock").contains(outcome)) throw new IllegalArgumentException("invalid simulation outcome");

@@ -9,3 +9,11 @@ CREATE TABLE IF NOT EXISTS device_command (
 );
 CREATE TABLE IF NOT EXISTS device_lease (id INT PRIMARY KEY, run_id VARCHAR(64));
 MERGE INTO device_lease (id) KEY(id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM device_lease WHERE id=1);
+
+-- Additive migration: historical records remain readable; new runs freeze their model.
+ALTER TABLE experiment_run ADD COLUMN IF NOT EXISTS model_snapshot CLOB;
+ALTER TABLE experiment_run ADD COLUMN IF NOT EXISTS model_hash VARCHAR(64);
+ALTER TABLE device_command ADD COLUMN IF NOT EXISTS contract_ref VARCHAR(160);
+ALTER TABLE device_command ADD COLUMN IF NOT EXISTS contract_json CLOB;
+ALTER TABLE device_command ADD COLUMN IF NOT EXISTS params_json CLOB;
+ALTER TABLE device_command ADD COLUMN IF NOT EXISTS adapter_id VARCHAR(128);

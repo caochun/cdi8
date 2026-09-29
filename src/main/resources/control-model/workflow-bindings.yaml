@@ -1,0 +1,153 @@
+# 节点到契约/目标的绑定，不定义执行顺序；顺序由 BPMN 定义。
+# guard 是流程级联合条件；compensation 根据实例类型选择复位契约。
+version: 1
+process_id: laser_joint
+variables:
+  seedInstances:
+    group: seed
+    mode: list
+  shgInstance:
+    group: shg
+    mode: single
+  allInstances:
+    group: all
+    mode: list
+nodes:
+  seed_self_test:
+    group: seed
+    contracts:
+      seed: seed.power_on_self_test
+    parameters: {}
+  shg_self_test:
+    group: shg
+    contracts:
+      shg: shg.power_on_self_test
+    parameters: {}
+  seed_check:
+    group: seed
+    contracts:
+      seed: seed.function_check
+    parameters: {}
+  shg_check:
+    group: shg
+    contracts:
+      shg: shg.function_check
+    parameters: {}
+  seed_configure:
+    group: seed
+    contracts:
+      seed: seed.parameter_dispatch
+    parameters: {}
+  shg_configure:
+    group: shg
+    contracts:
+      shg: shg.parameter_dispatch
+    parameters: {}
+  seed_emit:
+    group: seed
+    contracts:
+      seed: seed.seed_source_emit
+    parameters: {}
+    guard: laser_ready
+  shg_emit:
+    group: shg
+    contracts:
+      shg: shg.frequency_doubled_emit
+    parameters: {}
+    guard: shg_emit_allowed
+  seed_collect:
+    group: seed
+    contracts:
+      seed: seed.laser_parameter_collect
+    parameters: {}
+  shg_collect:
+    group: shg
+    contracts:
+      shg: shg.laser_parameter_collect
+    parameters: {}
+  seed_standby:
+    group: seed
+    contracts:
+      seed: seed.standby_reset
+    parameters: {}
+  shg_standby:
+    group: shg
+    contracts:
+      shg: shg.standby_reset
+    parameters: {}
+  seed_shutdown:
+    group: seed
+    contracts:
+      seed: seed.shutdown
+    parameters: {}
+  shg_shutdown:
+    group: shg
+    contracts:
+      shg: shg.shutdown
+    parameters: {}
+  compensation:
+    activity_id: reset_devices
+    group: all
+    contracts:
+      seed: seed.abort_reset
+      shg: shg.abort_reset
+    parameters: {}
+conditions:
+  laser_ready:
+    all:
+    - group: seed
+      quantifier: all
+      condition:
+        all:
+        - field: main_state
+          equals: 正常
+        - field: current_state
+          equals: 参数下发完成
+        - field: business_state
+          equals: 就绪
+        - field: active_action
+          equals: null
+    - group: shg
+      quantifier: all
+      condition:
+        all:
+        - field: main_state
+          equals: 正常
+        - field: current_state
+          equals: 参数下发完成
+        - field: business_state
+          equals: 就绪
+        - field: active_action
+          equals: null
+  shg_emit_allowed:
+    all:
+    - group: seed
+      quantifier: all
+      condition:
+        all:
+        - field: main_state
+          equals: 正常
+        - field: business_state
+          equals: 出光
+    - group: shg
+      quantifier: all
+      condition:
+        all:
+        - field: main_state
+          equals: 正常
+        - field: current_state
+          equals: 参数下发完成
+        - field: business_state
+          equals: 就绪
+        - field: active_action
+          equals: null
+  shutdown_all:
+    all:
+    - group: all
+      quantifier: all
+      condition:
+        all:
+        - field: current_state
+          equals: 关机完成
+        - field: business_state
+          equals: 未就绪

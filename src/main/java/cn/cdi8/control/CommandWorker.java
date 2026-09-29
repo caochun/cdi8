@@ -26,7 +26,7 @@ public class CommandWorker {
     public void scheduled() { if(enabled) tick(); }
     public synchronized void tick() {
         for(var row:db.queryForList("SELECT * FROM device_command WHERE status IN ('QUEUED','SENT','RESULT','CANCEL_REQUESTED') ORDER BY created_at,id")) {
-            String id=(String)row.get("ID"),device=(String)row.get("DEVICE_ID");
+            String id=(String)row.get("ID"),device=(String)(row.get("ADAPTER_ID")==null?row.get("DEVICE_ID"):row.get("ADAPTER_ID"));
             try {
                 String status=db.queryForObject("SELECT status FROM device_command WHERE id=?",String.class,id);
                 if(status.equals("CANCEL_REQUESTED")) {
@@ -35,7 +35,9 @@ public class CommandWorker {
                     continue;
                 }
                 if(status.equals("QUEUED")) {
-                    adapter.send(device,id,(String)row.get("ACTION"));
+                    String parameterJson=db.queryForObject("SELECT params_json FROM device_command WHERE id=?",String.class,id);
+                    Map<String,Object> parameters=parameterJson==null?Map.of():json.readValue(parameterJson,new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>(){});
+                    adapter.send(device,id,(String)row.get("ACTION"),parameters);
                     db.update("UPDATE device_command SET status='SENT',error=NULL WHERE id=? AND status='QUEUED'",id);
                     status="SENT";
                 }
