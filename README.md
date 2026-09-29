@@ -28,7 +28,7 @@ make operator
 采集完成仍保持出光，普通复位回到待机，关机成功后为“未就绪 / 关机完成 / 未就绪”。
 收尾失败直接阻断后续节点；不自动跳过失败或运行后面的关机动作。
 这是两个分系统的完整仿真周期，尚未包含泵浦、同步、靶瞄、真空和诊断等完整发射链路。
-早期 `laser-joint-experiment.yaml` 仍作为双单实例准备与出光的阶段示例保留。
+早期阶段演示已合并到这一份完整流程，历史版本保存在 Git 中。
 
 模型文件：`gxlf_sim_system/models/excel-seed-source-state-machine.yaml`
 
@@ -40,33 +40,15 @@ make operator
 python3 -m pip install -e .
 ```
 
-运行最小实验仿真：
+运行完整联合仿真（命令行）：
 
 ```bash
 python3 -m gxlf_sim_system
-```
-
-运行双分系统联合仿真：
-
-```bash
-python3 -m gxlf_sim_system.joint_demo
-```
-
-运行并行扇出仿真：
-
-```bash
-python3 -m gxlf_sim_system.fanout_demo
-```
-
-运行联合 fan-out 仿真：
-
-```bash
+# 同一入口也可显式调用
 python3 -m gxlf_sim_system.joint_fanout_demo
 ```
 
-依次执行：开机自检 → 功能检查 → 参数下发 → 出光 → 参数采集 → 待机/复位 → 关机。
-这是单分系统的验证流程，不代表完整发射实验。命令行示例逐个动作显式回报成功，
-不模拟真实设备反馈或耗时；运行时只读取已整理的 YAML，不读取 Excel。
+命令行示例使用明确的模拟成功证据，不模拟真实设备反馈或耗时；运行时只读取 YAML，不读取 Excel。
 
 运行所有测试：
 
@@ -74,21 +56,15 @@ python3 -m gxlf_sim_system.joint_fanout_demo
 make test
 ```
 
-流程模型：`gxlf_sim_system/models/seed-source-experiment.yaml`。
+当前只有三份 YAML 定义：
 
-双分系统流程模型：`gxlf_sim_system/models/laser-joint-experiment.yaml`。
+| 文件 | 职责 |
+|---|---|
+| [laser-joint-fanout-experiment.yaml](gxlf_sim_system/models/laser-joint-fanout-experiment.yaml) | 完整联合流程、实例分组、门禁、超时和补偿 |
+| [excel-seed-source-state-machine.yaml](gxlf_sim_system/models/excel-seed-source-state-machine.yaml) | 光纤种子源分系统状态机 |
+| [excel-shg-injector-state-machine.yaml](gxlf_sim_system/models/excel-shg-injector-state-machine.yaml) | 二倍频组件分系统状态机 |
 
-联合流程执行器：`gxlf_sim_system/composite_experiment.py`。
-
-并行扇出模型：`gxlf_sim_system/models/seed-source-fanout-experiment.yaml`。
-
-并行扇出执行器：`gxlf_sim_system/parallel_experiment.py`。
-
-联合 fan-out 模型：`gxlf_sim_system/models/laser-joint-fanout-experiment.yaml`。
-
-联合 fan-out 执行器：`gxlf_sim_system/joint_fanout_experiment.py`。
-
-流程执行器：`gxlf_sim_system/experiment.py`。
+流程执行器：`gxlf_sim_system/joint_fanout_experiment.py`；分系统执行器：`gxlf_sim_system/subsystem_fsm.py`。
 
 流程状态为 `idle → running → succeeded/failed`，节点状态为
 `waiting → running → succeeded/failed`。每次运行具有独立编号；
@@ -100,17 +76,17 @@ make test
 手动分步驱动：
 
 ```python
-from gxlf_sim_system import load_seed_source_state_machine, load_seed_source_experiment
+from gxlf_sim_system.operator import build_flow
 from gxlf_sim_system.simulation import simulated_success_evidence
 
-machine = load_seed_source_state_machine()
-experiment = load_seed_source_experiment(machine)
-dispatch = experiment.dispatch_next()  # 只启动开机自检，不视为成功
-result = experiment.complete(
-    dispatch, success=True,
-    evidence=simulated_success_evidence(dispatch.action),  # 明确使用演示用模拟反馈
-)
-print(experiment.snapshot())
+flow = build_flow()
+dispatch = flow.dispatch_next()  # 为三个种子实例分别创建任务
+for target, task_id in dispatch.task_ids:
+    result = flow.complete(
+        dispatch, target, success=True,
+        evidence=simulated_success_evidence(dispatch.action),
+    )
+print(flow.snapshot())
 ```
 
 `complete` 要求反馈匹配当前运行、节点和任务；旧任务或重复反馈被拒绝。
@@ -159,7 +135,7 @@ print(machine.complete_success(
 “通用异常处置”的三行是独立事件，不在实验动作序列中：
 
 ```python
-experiment.report_exception("communication_error")
+flow.report_exception("seed_source:seed_01", "communication_error")
 # 也可直接对分系统调用：machine.report_exception("fault_lock")
 ```
 

@@ -39,6 +39,64 @@ class JointFanoutExperimentTest(unittest.TestCase):
         self.machines = machines()
         self.flow = load_laser_joint_fanout_experiment(self.machines)
 
+    def test_partial_and_out_of_order_results_do_not_advance_early(self):
+        dispatch = self.flow.dispatch_next()
+        self.assertEqual(len({task for _, task in dispatch.task_ids}), 3)
+        self.assertTrue(all(m.snapshot().task_state == 'executing'
+                            for m in self.machines['seed_source'].values()))
+        targets = list(reversed(dispatch.task_ids))
+        for target, _ in targets[:-1]:
+            self.assertIsNone(self.flow.complete(dispatch, target, success=True,
+                evidence=simulated_success_evidence(dispatch.action)))
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.dispatch_next()
+        self.assertEqual(dict(self.flow.snapshot().node_states)['shg_self_test'], 'waiting')
+        result = self.flow.complete(dispatch, targets[-1][0], success=True,
+            evidence=simulated_success_evidence(dispatch.action))
+        self.assertEqual(result.status, 'succeeded')
+
+    def test_foreign_and_duplicate_results_leave_current_task_unchanged(self):
+        dispatch = self.flow.dispatch_next()
+        target = dispatch.task_ids[0][0]
+        before = self.machines['seed_source']['seed_01'].snapshot()
+        for wrong in (replace(dispatch, run_id='other'), replace(dispatch, task_ids=())):
+            with self.assertRaises(JointFanoutExperimentError):
+                self.flow.complete(wrong, target, success=True,
+                    evidence=simulated_success_evidence(dispatch.action))
+        self.assertEqual(self.machines['seed_source']['seed_01'].snapshot(), before)
+        self.flow.complete(dispatch, target, success=True,
+            evidence=simulated_success_evidence(dispatch.action))
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.complete(dispatch, target, success=True,
+                evidence=simulated_success_evidence(dispatch.action))
+
+    def test_preflight_rejects_group_before_starting_other_instances(self):
+        self.machines['seed_source']['seed_02'].start('power_on_self_test')
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.dispatch_next()
+        for target in ('seed_01', 'seed_03'):
+            self.assertEqual(self.machines['seed_source'][target].history, ())
+
+    def test_success_requires_evidence_and_wrong_observation_fails(self):
+        dispatch = self.flow.dispatch_next()
+        target = dispatch.task_ids[0][0]
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.complete(dispatch, target, success=True)
+        evidence = replace(simulated_success_evidence(dispatch.action), observed_state='尚未完成')
+        result = self.flow.complete(dispatch, target, success=True, evidence=evidence)
+        self.assertEqual(result.status, 'failed')
+        self.assertTrue(all(m.snapshot().active_action is None
+                            for m in self.machines['seed_source'].values()))
+
+    def test_terminal_run_rejects_additional_dispatch(self):
+        for _ in range(14):
+            dispatch, _ = finish(self.flow)
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.dispatch_next()
+        with self.assertRaises(JointFanoutExperimentError):
+            self.flow.complete(dispatch, dispatch.task_ids[0][0], success=True,
+                evidence=simulated_success_evidence(dispatch.action))
+
     def test_seed_fanout_and_single_shg_joint_golden_path(self):
         # Six action nodes: seed/shg self-test, check and configure.
         for _ in range(6):
