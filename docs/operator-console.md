@@ -1,11 +1,14 @@
-# 第 6 步：本地操作台与日志回放
+# Python 对照操作台与日志回放
+
+当前主操作台由根目录 Spring Boot 提供，访问 8080。本文件描述保留在 simulator 中的旧对照操作台（8765）。
+从根目录执行 make 命令；直接使用 python 模块命令前先安装 `./simulator`。
 
 运行入口：
 
 ```bash
-make operator
+make legacy-operator
 # 或指定日志文件、端口
-python3 -m gxlf_sim_system.operator_server --port 8765 --log gxlf_sim_system/output/session.jsonl
+python3 -m gxlf_sim_system.operator_server --port 8765 --log simulator/gxlf_sim_system/output/session.jsonl
 ```
 
 访问 `http://127.0.0.1:8765`。默认每次启动生成独立 JSONL 文件。指定已有文件时保留原记录、追加新实验；

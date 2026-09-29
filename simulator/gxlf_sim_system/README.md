@@ -1,4 +1,7 @@
-# GXLF 联合实验仿真
+# Python 联合实验对照实现
+
+本包包含 Tango 分系统仿真及旧流程/操作台。当前主应用是仓库根目录的 Spring Boot + Flowable。
+更多说明见 [simulator 模块说明](../README.md)。
 
 当前保留一份完整流程模型和两份分系统状态模型：
 
@@ -11,9 +14,9 @@
 
 ```bash
 python3 -m gxlf_sim_system   # 完整联合周期演示
-make operator              # 本地操作台 http://127.0.0.1:8765
-make test                  # 当前模型回归测试
+make legacy-operator              # 本地操作台 http://127.0.0.1:8765
+make simulator-test                  # 当前模型回归测试
 ```
 
-操作台、JSONL 日志和只读回放见 [使用说明](../reviews/operator-console.md)。
-模型正确性验证的设计见 [验证计划](../reviews/model-correctness-verification.md)。
+操作台、JSONL 日志和只读回放见 [使用说明](../../docs/operator-console.md)。
+模型正确性验证的设计见 [验证计划](../../docs/model-correctness-verification.md)。

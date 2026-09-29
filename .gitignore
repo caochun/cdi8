@@ -20,10 +20,9 @@ env/
 
 # 日志
 *.log
-gxlf_sim_system/output/
+simulator/gxlf_sim_system/output/
 
-# 本地资料与归档
-docs/
+# 本地归档（docs 为版本化项目文档）
 archive/
 
 # IDE
@@ -53,5 +52,5 @@ tangodb/
 htmlcov/
 
 # Spring Boot / Flowable local runtime
-control-server/target/
-control-server/data/
+/target/
+/data/

@@ -75,7 +75,7 @@ def main():
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--log', type=Path)
     args = parser.parse_args()
-    log = args.log or Path('gxlf_sim_system/output') / f'operator-{uuid4().hex}.jsonl'
+    log = args.log or Path(__file__).resolve().parent / 'output' / f'operator-{uuid4().hex}.jsonl'
     session = OperatorSession(log)
     server = make_server(session, args.port)
     stop = Event()

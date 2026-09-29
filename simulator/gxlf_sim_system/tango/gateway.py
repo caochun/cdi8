@@ -59,7 +59,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--mode',choices=['local','tango'],default='local')
     parser.add_argument('--port',type=int,default=8766)
-    parser.add_argument('--data',type=Path,default=Path('gxlf_sim_system/output/devices'))
+    parser.add_argument('--data',type=Path,default=Path(__file__).resolve().parents[1]/'output'/'devices')
     parser.add_argument('--tango-devices',type=Path,help='JSON mapping of logical IDs to existing Tango Device names')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]/'models'

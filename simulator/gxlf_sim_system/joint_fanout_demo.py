@@ -1,5 +1,7 @@
 """Run the seed fan-out plus single SHG joint-flow demonstration."""
 
+from pathlib import Path
+
 from .joint_fanout_experiment import load_laser_joint_fanout_experiment
 from .simulation import simulated_success_evidence
 from .subsystem_fsm import SubsystemStateMachine
@@ -9,12 +11,12 @@ def main() -> int:
     machines = {
         'seed_source': {
             f'seed_{index:02d}': SubsystemStateMachine.from_yaml(
-                'gxlf_sim_system/models/excel-seed-source-state-machine.yaml'
+                Path(__file__).resolve().parent / 'models' / 'excel-seed-source-state-machine.yaml'
             ) for index in range(1, 4)
         },
         'shg_injector': {
             'shg_01': SubsystemStateMachine.from_yaml(
-                'gxlf_sim_system/models/excel-shg-injector-state-machine.yaml'
+                Path(__file__).resolve().parent / 'models' / 'excel-shg-injector-state-machine.yaml'
             )
         },
     }

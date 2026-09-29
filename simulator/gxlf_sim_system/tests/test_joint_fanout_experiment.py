@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 import unittest
 
 from gxlf_sim_system.joint_fanout_experiment import (
@@ -11,8 +12,8 @@ from gxlf_sim_system.simulation import simulated_success_evidence
 from gxlf_sim_system.subsystem_fsm import SubsystemStateMachine
 
 
-SEED = 'gxlf_sim_system/models/excel-seed-source-state-machine.yaml'
-SHG = 'gxlf_sim_system/models/excel-shg-injector-state-machine.yaml'
+SEED = Path(__file__).resolve().parents[1] / 'models' / 'excel-seed-source-state-machine.yaml'
+SHG = Path(__file__).resolve().parents[1] / 'models' / 'excel-shg-injector-state-machine.yaml'
 
 
 def machines():

@@ -5,8 +5,8 @@
 ## 范围
 
 本分支以 `20260928集中管控系统与分系统关键状态梳理清单.xlsx` 为一次性业务输入，
-运行时使用整理后的 YAML 模型，不读取 Excel。当前实现重点是验证分系统状态机、实验流程、
-多分系统组合和安全运行机制；真实设备协议不在本阶段范围内。
+分系统仿真读取整理后的 YAML，主应用的 Flowable 读取可执行 BPMN，均不在运行时读取 Excel。
+当前根项目为 Spring Boot 集中控制应用，simulator 为独立的分系统仿真模块；已接通真实 Tango 协议的仿真 Device Server，尚未接入真实物理设备。
 
 ## 既定计划
 
@@ -85,10 +85,12 @@ AND shg_01 成功
 
 ## 当前验证结果
 
-执行命令：
+执行命令（仓库根目录）：
 
 ```bash
-make test
+mvn test
+make simulator-test
+# 或运行两者：make test
 ```
 
 当前验证：**Python 50 项（含实际 PyTango 协议测试）及 Java/Flowable 6 项均通过**。未安装 PyTango 时，Python 的协议测试会显式跳过。覆盖：
@@ -124,7 +126,7 @@ d3c0bbd  对齐 Excel 语义和异常处理
 - `test_operator.py`：新增 9 项测试，涵盖重放一致性、事件历史对照、命令去重、并发点击、超时、联锁补偿、失败审计及 HTTP 边界。
 - 已通过实际浏览器操作检查，包括窄屏、日志导入、历史只读与返回实时。
 
-运行 `make operator`，访问 `http://127.0.0.1:8765`。日志默认位于 `gxlf_sim_system/output/`。
+运行 `make legacy-operator`，访问 `http://127.0.0.1:8765`。日志默认位于 `simulator/gxlf_sim_system/output/`。
 完整说明见 [operator-console.md](operator-console.md)。
 
 当前交付以联合 fan-out 为唯一完整流程；早期三个演示执行器及 YAML 已清理。
@@ -145,7 +147,7 @@ d3c0bbd  对齐 Excel 语义和异常处理
 
 ## 架构迁移进度：Spring Boot + Flowable + Tango
 
-已新增 `control-server/`：采用 Flowable 7.1.0 / Spring Boot 3.3.4，部署可执行 BPMN，覆盖完整 14 动作节点。
+已新增 根目录 Spring Boot 应用：采用 Flowable 7.1.0 / Spring Boot 3.3.4，部署可执行 BPMN，覆盖完整 14 动作节点。
 流程状态和设备命令 outbox/inbox 保存在 H2；分系统状态仍由 PyTango 仿真 Device 管理并保存在 SQLite。
 Java 通过 HTTP 网关接入真实 Tango，当前结果回传为持久化查询轮询，Device 也提供 CHANGE_EVENT。
 
@@ -153,7 +155,17 @@ Java 通过 HTTP 网关接入真实 Tango，当前结果回传为持久化查询
 6 项 Java 引擎集成测试通过；原 Python 测试保留，另加 4 项设备持久化测试和 1 项可选真实 Tango 协议测试。
 
 当前只迁移核心编排与简单操作页面；旧 Python JSONL 回放、生产权限、Tango DB 现场部署、硬截止时间仲裁等未迁移。
-详见 [新后端说明](../control-server/README.md)。
+详见 [新后端说明](../README.md)。
+
+## 目录组织迁移已完成
+
+- 根目录 `pom.xml` 与 `src/` 是 Spring Boot 主项目，直接使用 `mvn test` / `mvn spring-boot:run`。
+- Python 代码和包配置移至 `simulator/`，保留独立安装与测试入口。
+- 架构、计划、图示及参考资料统一移至版本化的 `docs/`。
+- 原 Python 主 README 移至 `docs/python-reference-guide.md`，作为对照实现说明。
+- 旧 Python 编排与操作台明确为 legacy：`make legacy-operator` 启动 8765，`make operator` 启动 Java 8080。
+- H2 数据迁移至根 `data/`，原 Python 日志随模块迁移；自定义设备数据库绝对路径保持不变。
+- 已验证根 Maven 构建、6 项 Java 测试、50 项 Python 测试、模块独立安装及仓库外运行；文档相对链接全部有效。
 
 ## 下一步任务（待确认后实施）
 

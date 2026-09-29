@@ -1,6 +1,6 @@
 # 当前联合实验 YAML 的 BPMN 定义
 
-来源：`gxlf_sim_system/models/laser-joint-fanout-experiment.yaml` 1.1。
+来源：`simulator/gxlf_sim_system/models/laser-joint-fanout-experiment.yaml` 1.1。
 模型文件：[laser-joint-fanout-experiment.bpmn](bpmn/laser-joint-fanout-experiment.bpmn)。
 预览：[BPMN 主流程 SVG](bpmn/laser-joint-fanout-overview.svg)。
 
