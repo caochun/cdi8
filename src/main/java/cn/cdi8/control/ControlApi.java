@@ -11,6 +11,7 @@ public class ControlApi {
     public ControlApi(RunService runs) { this.runs=runs; }
     public record StartRequest(String requestId,Map<String,Map<String,Object>> parameters) {}
     @GetMapping public java.util.List<Map<String,Object>> recent() { return runs.recent(); }
+    @GetMapping("/startup-checks") public Map<String,Object> startupChecks() { return runs.startupChecks(); }
     @PostMapping public Map<String,Object> start(@RequestBody StartRequest request) {
         return runs.start(request.requestId(),request.parameters()==null?Map.of():request.parameters());
     }

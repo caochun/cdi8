@@ -155,6 +155,7 @@ Flowable 并行多实例表示任务生命周期并行；本版 worker 顺序发
 ## API 与操作
 
 - `POST /api/runs`，`{"requestId":"run-001"}`：创建实验，重复相同编号返回同一实例。
+- `GET /api/runs/startup-checks`：只读启动条件检查，返回是否可启动及逐实例阻塞原因。创建实验前也会重新检查，条件不满足不创建运行记录。
 - `GET /api/runs`：最近 20 次实验的编号、结果和创建时间。
 - `GET /api/runs/run-001`：运行结果、活动任务、设备命令错误、人工任务及 Flowable 活动历史。
 - `POST /api/runs/run-001/commands/<commandId>/simulate`，`{"outcome":"success"}`：在设备端注入模拟反馈。

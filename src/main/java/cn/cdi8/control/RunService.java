@@ -22,9 +22,11 @@ public class RunService {
     private final boolean simulation;
     private final ModelRepository models;
     private final ObjectMapper json;
+    private final StartupChecks startup;
     public RunService(JdbcTemplate db,RuntimeService runtime,TaskService tasks,HistoryService history,RepositoryService repository,ManagementService management,
-                      DeviceAdapter adapter,ModelRepository models,ObjectMapper json,@Value("${control.simulation-controls:true}") boolean simulation) {
+                      DeviceAdapter adapter,ModelRepository models,ObjectMapper json,StartupChecks startup,@Value("${control.simulation-controls:true}") boolean simulation) {
         this.db=db;this.runtime=runtime;this.tasks=tasks;this.history=history;this.repository=repository;this.management=management;this.adapter=adapter;this.models=models;this.json=json;this.simulation=simulation;
+        this.startup=startup;
     }
     @Transactional
     public Map<String,Object> start(String requestId) { return start(requestId,Map.of()); }
@@ -46,6 +48,8 @@ public class RunService {
                 throw new IllegalStateException("device commands still settling");
         }
         var model=models.current();var overrides=json.valueToTree(parameters);model.validateParameters(overrides);
+        var issues=startup.issues(model);
+        if(!issues.isEmpty())throw new IllegalStateException("尚不能开始新实验："+String.join("；",issues)+"。请先恢复设备的启动条件，再重试。");
         ObjectNode frozen=(ObjectNode)model.json();frozen.set("run_parameters",overrides);
         String snapshot=models.serialize(new ControlModel(frozen));
         db.update("INSERT INTO experiment_run(id,outcome,model_snapshot,model_hash) VALUES(?,'RUNNING',?,?)",requestId,snapshot,models.hash(snapshot));
@@ -56,7 +60,7 @@ public class RunService {
         return view(requestId);
     }
     public Map<String,Object> view(String id) {
-        var rows=db.queryForList("SELECT id,process_id,outcome,reason,created_at,model_hash FROM experiment_run WHERE id=?",id);
+        var rows=db.queryForList("SELECT id,process_id,outcome,reason,failure_detail,created_at,model_hash FROM experiment_run WHERE id=?",id);
         if(rows.isEmpty()) throw new IllegalArgumentException("unknown run");
         Map<String,Object> view=new LinkedHashMap<>(rows.get(0));String pid=(String)view.get("PROCESS_ID");
         var commands=db.queryForList("SELECT id,node_id,device_id,action,status,error,contract_ref,CAST(params_json AS VARCHAR) AS parameters,CAST(result_json AS VARCHAR) AS result_json FROM device_command WHERE run_id=? ORDER BY created_at,id",id);
@@ -82,6 +86,17 @@ public class RunService {
     }
     public List<Map<String,Object>> recent() {
         return db.queryForList("SELECT id,outcome,created_at FROM experiment_run ORDER BY created_at DESC,id DESC LIMIT 20");
+    }
+    public Map<String,Object> startupChecks() {
+        String previous=db.queryForObject("SELECT run_id FROM device_lease WHERE id=1",String.class);
+        if(previous!=null) {
+            String pid=db.queryForObject("SELECT process_id FROM experiment_run WHERE id=?",String.class,previous);
+            if(pid!=null&&runtime.createProcessInstanceQuery().processInstanceId(pid).count()>0)
+                return Map.of("ready",false,"issues",List.of("设备正由实验 "+previous+" 使用，请先查看或完成该实验"));
+            if(db.queryForObject("SELECT COUNT(*) FROM device_command WHERE run_id=? AND status IN ('QUEUED','SENT','RESULT','CANCEL_REQUESTED')",Integer.class,previous)>0)
+                return Map.of("ready",false,"issues",List.of("设备任务尚在处理，请等待任务或取消确认完成"));
+        }
+        var issues=startup.issues(models.current());return Map.of("ready",issues.isEmpty(),"issues",issues);
     }
     @Transactional
     public void interlock(String id) {

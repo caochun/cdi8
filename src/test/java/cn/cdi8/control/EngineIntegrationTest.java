@@ -38,9 +38,10 @@ class EngineIntegrationTest {
         Map<String,Map<String,Object>> states=new ConcurrentHashMap<>();
         Map<String,Map<String,Object>> results=new ConcurrentHashMap<>();
         int sends;
+        boolean offline;
         FakeAdapter(){reset();}
-        void reset(){states.clear();results.clear();sends=0;for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
-        public Map<String,Object> snapshot(String d){var value=new LinkedHashMap<>(states.get(d));value.putIfAbsent("active_action",null);return value;}
+        void reset(){states.clear();results.clear();sends=0;offline=false;for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))states.put(d,new LinkedHashMap<>(Map.of("main_state","未就绪","current_state","未上电/离线","business_state","未就绪","task_state","idle")));}
+        public Map<String,Object> snapshot(String d){if(offline)throw new IllegalStateException("gateway unavailable");var value=new LinkedHashMap<>(states.get(d));value.putIfAbsent("active_action",null);return value;}
         public Map<String,Object> send(String d,String id,String action,Map<String,Object> parameters){
             if(results.containsKey(id))return results.get(id);
             sends++;var state=states.get(d);state.put("active_action",action);state.put("task_id",id);state.put("task_state","executing");
@@ -174,6 +175,39 @@ class EngineIntegrationTest {
         @SuppressWarnings("unchecked") var commands=(List<Map<String,Object>>)runs.view("display").get("commands");
         assertTrue(commands.stream().anyMatch(c->"failed".equals(c.get("RESULT_STATUS"))));
         assertEquals("display",runs.recent().get(0).get("ID"));
+    }
+    @Test void startupRejectsStaleSeedOrShgBeforeCreatingRunOrCommands() {
+        assertEquals(true,runs.startupChecks().get("ready"));
+        for(String device:List.of("seed_01","shg_01")) {
+            adapter.reset();adapter.states.get(device).put("current_state","自检完成");
+            assertEquals(false,runs.startupChecks().get("ready"));
+            var error=assertThrows(IllegalStateException.class,()->runs.start("blocked"));
+            assertTrue(error.getMessage().contains(device));assertTrue(error.getMessage().contains("自检完成"));
+            assertTrue(error.getMessage().contains("关机完成"));
+            assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM experiment_run",Integer.class));
+            assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM device_command",Integer.class));
+            assertNull(db.queryForObject("SELECT run_id FROM device_lease WHERE id=1",String.class));
+            assertEquals(0,adapter.sends);
+        }
+        adapter.reset();runs.start("after-recovery");assertEquals(3,db.queryForObject("SELECT COUNT(*) FROM device_command",Integer.class));
+        assertEquals(false,runs.startupChecks().get("ready"));
+        // Idempotent retries still return the existing run even if live state has changed.
+        adapter.states.get("seed_01").put("current_state","自检完成");
+        assertEquals("after-recovery",runs.start("after-recovery").get("ID"));
+    }
+    @Test void unavailableGatewayBlocksStartupWithoutCreatingFailedExperiment() {
+        adapter.offline=true;
+        assertEquals(false,runs.startupChecks().get("ready"));
+        assertTrue(assertThrows(IllegalStateException.class,()->runs.start("offline")).getMessage().contains("无法读取设备状态"));
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM experiment_run",Integer.class));
+    }
+    @Test void conditionChangeAfterStartupRetainsDetailedFailureReason() {
+        runs.start("changed-state");worker.tick();
+        for(var c:pending())runs.simulate("changed-state",(String)c.get("ID"),"success");
+        adapter.states.get("shg_01").put("current_state","自检完成");worker.tick();
+        var failed=runs.view("changed-state");assertEquals("FAILED",failed.get("OUTCOME"));
+        assertTrue(failed.get("FAILURE_DETAIL").toString().contains("shg_01"));
+        assertTrue(failed.get("FAILURE_DETAIL").toString().contains("自检完成"));
     }
 
 }

@@ -57,6 +57,24 @@ public final class Conditions {
         return false;
     }
 
+    /** Explain mismatches using the same predicates as the runtime checks. */
+    public static String mismatch(JsonNode rule, Map<String,Object> state) {
+        if(matches(rule,state))return "";
+        if(rule.has("all")||rule.has("any")) {
+            List<String> reasons=new ArrayList<>();
+            for(var child:rule.get(rule.has("all")?"all":"any")) {
+                String reason=mismatch(child,state);if(!reason.isEmpty())reasons.add(reason);
+            }
+            return String.join(rule.has("all")?"；":" 或 ",reasons);
+        }
+        String field=rule.path("field").asText();
+        String label=Map.of("main_state","主状态","current_state","当前状态","business_state","业务状态",
+            "task_state","任务状态","active_action","正在执行的动作").getOrDefault(field,field);
+        String actual=state.containsKey(field)?Objects.toString(state.get(field),"无"):"缺失";
+        var expected=rule.has("equals")?rule.get("equals"):rule.get("in");
+        return label+"为「"+actual+"」，要求 "+expected.toString();
+    }
+
     /** Extract a deterministic post-state for static path checks; OR/in is intentionally not guessed. */
     public static Optional<Map<String,Object>> fixedState(JsonNode rule) {
         Map<String,Object> values=new LinkedHashMap<>();

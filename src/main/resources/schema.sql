@@ -13,6 +13,7 @@ MERGE INTO device_lease (id) KEY(id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM de
 -- Additive migration: historical records remain readable; new runs freeze their model.
 ALTER TABLE experiment_run ADD COLUMN IF NOT EXISTS model_snapshot CLOB;
 ALTER TABLE experiment_run ADD COLUMN IF NOT EXISTS model_hash VARCHAR(64);
+ALTER TABLE experiment_run ADD COLUMN IF NOT EXISTS failure_detail VARCHAR(2000);
 ALTER TABLE device_command ADD COLUMN IF NOT EXISTS contract_ref VARCHAR(160);
 ALTER TABLE device_command ADD COLUMN IF NOT EXISTS contract_json CLOB;
 ALTER TABLE device_command ADD COLUMN IF NOT EXISTS params_json CLOB;

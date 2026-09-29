@@ -10,7 +10,8 @@
 <body>
 <header><div><h1>GXLF 实验控制台</h1><p>准备 → 出光 → 采集 → 复位 → 关机</p></div><span class="badge" style="background:#234e5a;color:white;border-color:#48717e">本地实验环境</span></header>
 <main>
-<div class="topbar"><button id="start" class="primary">开始一次新实验</button><label for="recent">查看历史实验</label><select id="recent"><option value="">选择最近的实验…</option></select><span class="muted" id="connection">正在连接服务…</span></div>
+<div class="topbar"><button id="start" class="primary" disabled>开始一次新实验</button><label for="recent">查看历史实验</label><select id="recent"><option value="">选择最近的实验…</option></select><span class="muted" id="connection">正在连接服务…</span></div>
+<section id="startupPanel" class="panel"><strong id="startupTitle">正在检查新实验的启动条件…</strong><div id="startupIssues"></div><p class="muted">这里检查设备现在能否开始新实验；不会改变设备状态。每 5 秒自动更新。</p></section>
 <div id="error" class="error" role="alert"></div>
 <section class="panel hero" id="hero" aria-live="polite"><span class="badge" id="status">尚未开始</span><h2 id="headline">从“开始一次新实验”开始</h2><p id="guide">启动后，系统会自动执行流程。需要仿真反馈时，当前实例的操作按钮会出现在下方。</p><div class="row actions"><button id="reset" class="primary hidden">开始安全复位</button><button id="interlock" class="danger" disabled>触发安全中止（联锁）</button><span class="badge hidden" id="deadline"></span><span class="muted" id="runLabel"></span></div></section>
 <div class="layout">
@@ -21,7 +22,7 @@
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let run=localStorage.getItem('flowableRun')||'',current=null,busy=false,refreshing=false,serial=0,rendered='';
+let run=localStorage.getItem('flowableRun')||'',current=null,busy=false,refreshing=false,serial=0,rendered='',startup=null,checking=false;
 const labels={waiting:'未执行',running:'进行中',succeeded:'已完成',stopped:'已中断'};
 function el(tag,value,cls){const n=document.createElement(tag);n.textContent=value;if(cls)n.className=cls;return n;}
 function deviceName(id){return id.startsWith('seed_')?'种子源 '+id.slice(5):id.startsWith('shg_')?'二倍频 '+id.slice(4):id;}
@@ -43,7 +44,22 @@ function friendly(message){
  return message;
 }
 async function api(path,data){const r=await fetch(path,data!==undefined?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const v=await r.json();if(!r.ok)throw Error(v.error||'请求失败：'+r.status);return v;}
+function renderStartup(){
+ const active=(current?.activeActivities||[]).length>0||(current?.commands||[]).some(pending);
+ $('startupPanel').classList.toggle('hidden',active);
+ $('start').disabled=busy||active||!startup?.ready;
+ $('startupTitle').textContent=startup?.ready?'设备启动条件已满足':startup?'暂时不能开始新实验':'正在检查新实验的启动条件…';
+ $('startupIssues').replaceChildren();for(const issue of startup?.issues||[])$('startupIssues').append(el('p',issue));
+}
+async function checkStartup(){
+ if(checking||busy||(current?.activeActivities||[]).length)return;
+ checking=true;const stamp=serial;
+ try{const result=await api('/api/runs/startup-checks');if(stamp===serial)startup=result;}
+ catch(e){if(stamp===serial)startup={ready:false,issues:['无法检查启动条件：'+friendly(e.message)]};}
+ finally{checking=false;renderStartup();}
+}
 function render(s){
+ renderStartup();
  const due=(s.deadlines||[]).map(t=>new Date(t.due).getTime()).sort((a,b)=>a-b)[0];$('deadline').classList.toggle('hidden',!due);$('deadline').textContent=due?'当前步骤约剩 '+Math.max(0,Math.ceil((due-Date.now())/1000))+' 秒':'';
  const revision=JSON.stringify([s,busy]);if(revision===rendered)return;rendered=revision;
  const cmds=s.commands||[],steps=s.steps||[],tasks=s.userTasks||[],active=s.activeActivities||[];
@@ -59,9 +75,10 @@ function render(s){
  else if(s.OUTCOME==='SUCCEEDED'){$('headline').textContent='实验完成，双方已确认关机';$('guide').textContent='全部实验步骤和最终状态检查已通过。可以查看历史记录，或开始下一次实验。';}
  else if(s.OUTCOME==='FAILED'){$('headline').textContent=completedReset?'安全复位已确认，实验已终止':'实验已停止'+(step?'：'+step.name:'');$('guide').textContent=completedReset?'设备复位不等于实验成功。再次实验前仍需按设备规则恢复开机自检条件。':'设备动作或状态检查未通过，或等待反馈超时；后续步骤已阻断。查看下方任务信息，必要时打开技术详情。';}
  else {$('headline').textContent=step?'当前步骤：'+step.name:'正在推进实验流程';$('guide').textContent=s.simulationEnabled?'请在下方对等待反馈的实例点击“此实例完成（仿真）”。本步骤全部通过后，系统自动继续。':'手动仿真入口已关闭，系统正在等待设备反馈并自动推进。';}
+ if(s.OUTCOME==='FAILED'&&s.FAILURE_DETAIL&&!completedReset)$('guide').textContent+=' 原因：'+s.FAILURE_DETAIL;
  $('reset').classList.toggle('hidden',!tasks.length);$('reset').disabled=busy||cancelling||!tasks.length;
  $('interlock').disabled=busy||!active.length||s.OUTCOME!=='RUNNING';
- $('start').disabled=busy||active.length>0||cmds.some(pending);
+ renderStartup();
  $('recent').disabled=busy;
  const option=[...$('recent').options].find(o=>o.value===s.ID);if(option)option.textContent=displayTime(s.CREATED_AT)+' · '+({RUNNING:'进行中',SUCCEEDED:'成功',FAILED:'失败'}[s.OUTCOME]||s.OUTCOME);
  $('steps').replaceChildren();for(const [i,n] of steps.entries()){const li=el('li','','step '+n.status);li.append(el('span',n.status==='succeeded'?'✓':String(i+1),'stepNum'),el('span',n.name,'name'),el('small',labels[n.status]||n.status));$('steps').append(li);}
@@ -74,7 +91,7 @@ function render(s){
  $('taskSummary').textContent=cards.length?`${cards.length} 个实例中，${good} 份成功反馈已处理`:'当前没有需要提交反馈的任务';
  const openFaults=new Set([...$('cards').querySelectorAll('article[data-command] details[open]')].map(d=>d.parentElement.dataset.command));
  $('cards').replaceChildren();
- if(!cards.length)$('cards').append(el('p',s.OUTCOME==='SUCCEEDED'?'所有步骤均已完成。可在技术详情中查看全部任务记录。':'等待系统下发任务，或按上方提示处理。','empty'));
+ if(!cards.length)$('cards').append(el('p',s.OUTCOME==='SUCCEEDED'?'所有步骤均已完成。可在技术详情中查看全部任务记录。':s.OUTCOME==='FAILED'?'本次实验已结束，没有待反馈任务。请查看失败原因及新实验的启动条件。':'等待系统下发任务，或按上方提示处理。','empty'));
  for(const c of cards){const good=c.STATUS==='DELIVERED'&&c.RESULT_STATUS==='succeeded';const card=el('article','','card '+(good?'done':c.ERROR||['failed','rejected'].includes(c.RESULT_STATUS)?'problem':''));card.dataset.command=c.ID;card.append(el('h3',deviceName(c.DEVICE_ID)),el('p',taskText(c)));
   if(c.STATUS==='SENT'&&(s.OUTCOME==='RUNNING'||compensation)){const b=el('button','此实例完成（仿真）','primary');b.disabled=busy||!s.simulationEnabled;b.onclick=()=>respond(c,'success');card.append(b);
    const details=document.createElement('details');details.open=openFaults.has(c.ID);details.append(el('summary','故障演练（会中断当前实验）'));for(const [value,label]of [['failure','模拟本次动作失败'],['communication_error','模拟通信故障']]){const x=el('button',label,'danger');x.disabled=busy||!s.simulationEnabled;x.onclick=()=>respond(c,value);details.append(x);}card.append(details);}
@@ -84,13 +101,14 @@ function render(s){
 }
 async function refresh(){if(!run||refreshing)return;refreshing=true;const id=run,stamp=serial;try{const s=await api('/api/runs/'+encodeURIComponent(id));if(run!==id||stamp!==serial)return;current=s;render(s);$('connection').textContent='已连接 · 自动更新';}finally{refreshing=false;}}
 async function loadRecent(){const list=await api('/api/runs');$('recent').replaceChildren(el('option','选择最近的实验…'));$('recent').firstChild.value='';for(const r of list){const option=el('option',displayTime(r.CREATED_AT)+' · '+({RUNNING:'进行中',SUCCEEDED:'成功',FAILED:'失败'}[r.OUTCOME]||r.OUTCOME));option.value=r.ID;$('recent').append(option);}$('recent').value=run;}
-async function act(fn){if(busy)return;busy=true;serial++;$('error').textContent='';if(current)render(current);else $('start').disabled=true;try{await fn();await loadRecent();}catch(e){$('error').textContent=friendly(e.message);}finally{busy=false;if(current)render(current);else $('start').disabled=false;await refresh().catch(e=>$('error').textContent=friendly(e.message));}}
+async function act(fn){if(busy)return;busy=true;serial++;$('error').textContent='';if(current)render(current);else $('start').disabled=true;try{await fn();await loadRecent();}catch(e){$('error').textContent=friendly(e.message);}finally{busy=false;if(current)render(current);else renderStartup();await refresh().catch(e=>$('error').textContent=friendly(e.message));await checkStartup();}}
 function respond(c,outcome){return act(()=>api('/api/runs/'+encodeURIComponent(run)+'/commands/'+encodeURIComponent(c.ID)+'/simulate',{outcome}));}
 async function selectRun(id){if(!id)return;const s=await api('/api/runs/'+encodeURIComponent(id));run=id;current=s;localStorage.setItem('flowableRun',run);render(s);}
 $('start').onclick=()=>act(async()=>{const id='run-'+crypto.randomUUID();const s=await api('/api/runs',{requestId:id});run=id;current=s;localStorage.setItem('flowableRun',run);});
 $('recent').onchange=()=>act(()=>selectRun($('recent').value));$('loadForm').onsubmit=e=>{e.preventDefault();act(()=>selectRun($('run').value.trim()));};
 $('interlock').onclick=()=>act(()=>api('/api/runs/'+encodeURIComponent(run)+'/interlock',{}));$('reset').onclick=()=>act(()=>api('/api/runs/'+encodeURIComponent(run)+'/compensate',{}));
-loadRecent().then(()=>{if(run)return refresh();$('connection').textContent='已连接';}).catch(e=>{$('error').textContent=friendly(e.message);$('connection').textContent='连接失败';});
+loadRecent().then(async()=>{if(run)await refresh();else $('connection').textContent='已连接';await checkStartup();}).catch(e=>{$('error').textContent=friendly(e.message);$('connection').textContent='连接失败';});
+setInterval(checkStartup,5000);
 setInterval(()=>{if(!busy)refresh().catch(e=>{$('error').textContent=friendly(e.message);$('connection').textContent='连接暂不可用';});},800);
 </script>
 </body></html>

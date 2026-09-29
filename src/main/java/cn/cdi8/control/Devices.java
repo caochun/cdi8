@@ -27,12 +27,13 @@ public class Devices {
             var model=models.forRun(e.getProcessInstanceBusinessKey());var node=model.node(nodeId);
             for(String id:model.group(node.get("group").asText())) {
                 var contract=model.contract(model.contractRef(nodeId,id));
-                if(!Conditions.matches(contract.get("precondition"),snapshot(model,id)))
-                    throw new IllegalStateException(nodeId+" / "+id+" precondition failed");
+                String mismatch=Conditions.mismatch(contract.get("precondition"),snapshot(model,id));
+                if(!mismatch.isEmpty())
+                    throw new IllegalStateException(id+" 启动动作的条件不满足："+mismatch);
             }
             if(node.has("guard")&&!model.condition(node.get("guard").asText(),id->snapshot(model,id)))
                 throw new IllegalStateException(nodeId+" guard failed: "+node.get("guard").asText());
-        }catch(Exception ex){throw new BpmnError("DEVICE_ERROR",ex.getMessage());}
+        }catch(Exception ex){throw failure(e,ex);}
     }
     public boolean gate(DelegateExecution e,String conditionRef) {
         try {
@@ -51,7 +52,7 @@ public class Devices {
                 id,e.getProcessInstanceBusinessKey(),e.getId(),nodeId,device,contract.get("action").asText(),"QUEUED",ref,
                 json.writeValueAsString(contract),json.writeValueAsString(params),model.device(device).get("adapter_id").asText());
             e.setVariableLocal("commandId",id);
-        }catch(Exception ex){throw new BpmnError("DEVICE_ERROR",ex.getMessage());}
+        }catch(Exception ex){throw failure(e,ex);}
     }
     public void verify(DelegateExecution e,String nodeId) {
         try {
@@ -66,7 +67,7 @@ public class Devices {
                 throw new IllegalStateException("result correlation or status failed: "+id);
             @SuppressWarnings("unchecked") var state=(Map<String,Object>)raw;
             if(!Conditions.matches(contract.get("completion"),state))throw new IllegalStateException("completion contract failed: "+row.get("CONTRACT_REF"));
-        }catch(Exception ex){throw new BpmnError("DEVICE_ERROR",ex.getMessage());}
+        }catch(Exception ex){throw failure(e,ex);}
     }
     public void terminate(DelegateExecution e,String reason) {
         String run=e.getProcessInstanceBusinessKey();
@@ -85,7 +86,12 @@ public class Devices {
         try {
             var model=models.forRun(e.getProcessInstanceBusinessKey());
             if(!model.condition(conditionRef,id->snapshot(model,id)))throw new IllegalStateException("final condition failed: "+conditionRef);
-        }catch(Exception ex){throw new BpmnError("DEVICE_ERROR",ex.getMessage());}
+        }catch(Exception ex){throw failure(e,ex);}
         db.update("UPDATE experiment_run SET outcome='SUCCEEDED' WHERE id=?",e.getProcessInstanceBusinessKey());
+    }
+    private BpmnError failure(DelegateExecution e,Exception ex) {
+        String detail=Objects.toString(ex.getMessage(),ex.getClass().getSimpleName());
+        db.update("UPDATE experiment_run SET failure_detail=? WHERE id=?",detail.substring(0,Math.min(2000,detail.length())),e.getProcessInstanceBusinessKey());
+        return new BpmnError("DEVICE_ERROR",detail);
     }
 }
