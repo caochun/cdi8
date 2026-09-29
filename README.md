@@ -71,6 +71,10 @@ java -jar target/control-server-0.1.0.jar
 ```
 
 访问 **http://127.0.0.1:8080**。这套页面由 Spring Boot 提供，实际驱动 Flowable。
+页面上方说明当前步骤和下一步操作，左侧显示完整进度，右侧显示当前实例反馈。
+仿真时逐个点击“此实例完成（仿真）”，系统会自动推进；历史实验从下拉框选择。
+异常中止及安全复位的操作说明见 [实验控制台使用指南](docs/flowable-operator-guide.md)。
+
 原 Python 8765 操作台已移除；现有 JSONL 日志保留，Java 当前提供 Flowable 活动历史。
 
 网关地址可以修改：
@@ -151,6 +155,7 @@ Flowable 并行多实例表示任务生命周期并行；本版 worker 顺序发
 ## API 与操作
 
 - `POST /api/runs`，`{"requestId":"run-001"}`：创建实验，重复相同编号返回同一实例。
+- `GET /api/runs`：最近 20 次实验的编号、结果和创建时间。
 - `GET /api/runs/run-001`：运行结果、活动任务、设备命令错误、人工任务及 Flowable 活动历史。
 - `POST /api/runs/run-001/commands/<commandId>/simulate`，`{"outcome":"success"}`：在设备端注入模拟反馈。
 - `outcome` 也支持 `failure`、`communication_error`、`fault_lock`。

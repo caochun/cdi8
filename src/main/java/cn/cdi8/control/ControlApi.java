@@ -10,6 +10,7 @@ public class ControlApi {
     private final RunService runs;
     public ControlApi(RunService runs) { this.runs=runs; }
     public record StartRequest(String requestId,Map<String,Map<String,Object>> parameters) {}
+    @GetMapping public java.util.List<Map<String,Object>> recent() { return runs.recent(); }
     @PostMapping public Map<String,Object> start(@RequestBody StartRequest request) {
         return runs.start(request.requestId(),request.parameters()==null?Map.of():request.parameters());
     }

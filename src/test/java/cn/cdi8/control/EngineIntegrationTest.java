@@ -83,6 +83,8 @@ class EngineIntegrationTest {
         for(var c:pending())runs.simulate("golden",(String)c.get("ID"),"success");worker.tick();
         for(int i=0;i<13;i++)successBatch();
         assertEquals("SUCCEEDED",runs.view("golden").get("OUTCOME"));assertEquals(28,adapter.sends);
+        @SuppressWarnings("unchecked") var visible=(List<Map<String,Object>>)runs.view("golden").get("steps");
+        assertEquals(15,visible.size());assertTrue(visible.stream().allMatch(step->"succeeded".equals(step.get("status"))));
         assertEquals(0,runtime.createProcessInstanceQuery().count());
         for(String d:List.of("seed_01","seed_02","seed_03","shg_01"))assertEquals("关机完成",adapter.snapshot(d).get("current_state"));
         runs.start("next");successBatch();assertEquals("RUNNING",runs.view("next").get("OUTCOME"));
@@ -117,6 +119,8 @@ class EngineIntegrationTest {
         adapter.states.get("seed_03").put("main_state","异常");
         for(var c:pending())runs.simulate("stale",(String)c.get("ID"),"success");worker.tick();
         assertEquals("FAILED",runs.view("stale").get("OUTCOME"));
+        @SuppressWarnings("unchecked") var steps=(List<Map<String,Object>>)runs.view("stale").get("steps");
+        assertEquals("stopped",steps.stream().filter(s->s.get("id").equals("laser_ready_gate")).findFirst().orElseThrow().get("status"));
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM device_command WHERE action='seed_source_emit'",Integer.class));
     }
     @Test void parametersReachDeviceAndRunModelIsFrozen() {
@@ -157,6 +161,19 @@ class EngineIntegrationTest {
         assertEquals(2,reloaded.current().group("seed").size());
         assertEquals(3,reloaded.forRun("frozen").group("seed").size());
         assertEquals(List.of("seed_01","seed_02","seed_03"),runtime.getVariable((String)run.get("PROCESS_ID"),"seedInstances"));
+    }
+    @Test void presentationUsesBusinessNamesAndDoesNotMarkInterruptedStepSuccessful() {
+        var started=runs.start("display");
+        @SuppressWarnings("unchecked") var steps=(List<Map<String,Object>>)started.get("steps");
+        assertEquals(15,steps.size());assertEquals("种子源开机自检",steps.get(0).get("name"));
+        assertEquals("running",steps.get(0).get("status"));assertEquals("waiting",steps.get(1).get("status"));
+        assertFalse(((List<?>)started.get("deadlines")).isEmpty());
+        worker.tick();var row=pending().get(0);runs.simulate("display",(String)row.get("ID"),"failure");worker.tick();
+        @SuppressWarnings("unchecked") var failed=(List<Map<String,Object>>)runs.view("display").get("steps");
+        assertEquals("stopped",failed.get(0).get("status"));assertEquals("waiting",failed.get(1).get("status"));
+        @SuppressWarnings("unchecked") var commands=(List<Map<String,Object>>)runs.view("display").get("commands");
+        assertTrue(commands.stream().anyMatch(c->"failed".equals(c.get("RESULT_STATUS"))));
+        assertEquals("display",runs.recent().get(0).get("ID"));
     }
 
 }

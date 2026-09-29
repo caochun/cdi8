@@ -1,16 +1,96 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GXLF · Flowable 操作台</title>
-<style>body{font:15px system-ui;background:#edf3f6;color:#183745;margin:0}header{background:#153947;color:white;padding:25px 5vw}h1{font-size:24px;margin:0}main{max-width:1250px;margin:auto;padding:22px}section{background:white;padding:20px;border:1px solid #d4e0e7;border-radius:12px;margin:16px 0}button,input{font:inherit;padding:9px;border:1px solid #bfd1db;border-radius:6px;margin:4px}button{cursor:pointer;background:#eef6f7}button:disabled{opacity:.5}table{width:100%;border-collapse:collapse;font-size:13px}td,th{border-bottom:1px solid #e1e9ee;padding:9px;text-align:left}#error{color:#af253c}small{color:#69828c}.scroll{overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>
-<header><h1>GXLF · Flowable 实验操作台</h1><p>BPMN 执行 · 种子源 ×3 · 二倍频 ×1 · Tango 分系统适配</p></header>
-<main><section><button id="start">新建并启动实验</button><input id="run" placeholder="运行编号"><button id="load">查看实验</button><button id="interlock">触发联锁</button><button id="reset">批准补偿</button><p id="status">尚未选择实验</p><p id="error" role="alert"></p><small>“模拟成功”由分系统仿真器生成证据。Flowable 自动推进 BPMN；不会把已接收命令当作已完成。审批补偿后仍需逐个确认复位结果。</small></section>
-<section><h2>设备任务</h2><div class="scroll"><table><thead><tr><th>节点</th><th>实例</th><th>动作</th><th>任务状态</th><th>仿真反馈</th><th>错误</th></tr></thead><tbody id="commands"></tbody></table></div></section>
-<section><h2>流程等待与人工处理</h2><pre id="active"></pre></section><section><h2>Flowable 执行历史</h2><details><summary>查看持久化活动历史</summary><pre id="history"></pre></details></section></main>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GXLF · 实验控制台</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#183541;background:#f0f4f6;font-size:15px;line-height:1.55}*{box-sizing:border-box}body{margin:0}header{padding:22px max(24px,calc((100vw - 1250px)/2));background:#163a46;color:white;display:flex;justify-content:space-between;align-items:center;gap:16px}h1{font-size:23px;margin:0}header p{margin:3px 0;color:#bcd3db;font-size:13px}main{max-width:1300px;padding:24px;margin:auto}h2{font-size:18px;margin:0 0 12px}h3{font-size:17px;margin:0 0 9px}p{margin:8px 0}.muted{color:#59727b;font-size:13px}.badge{display:inline-block;border:1px solid #c8dce2;border-radius:24px;padding:5px 13px;background:#e9f2f4;font-size:13px}.topbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:18px}.topbar label{font-weight:600}button,select,input{font:inherit;border:1px solid #bdd0d8;border-radius:7px;padding:9px 13px;background:white;color:inherit;max-width:100%}button{cursor:pointer;font-weight:600}button:hover:enabled{background:#edf5f7}button.primary{background:#166b77;color:white;border-color:#166b77}button.primary:hover:enabled{background:#125563}button.danger{color:#ad293c;border-color:#e7b9c1}button:disabled{opacity:.45;cursor:not-allowed}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #5caebf;outline-offset:2px}.panel{background:white;border:1px solid #d6e2e6;border-radius:13px;padding:22px;margin-bottom:18px}.hero{border-left:5px solid #227d89}.hero.failure{border-left-color:#be4053}.hero.success{border-left-color:#268563}#headline{font-size:25px;margin:12px 0 5px}#guide{font-size:16px;max-width:850px}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.actions{margin-top:17px}.layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px}.progress{height:7px;background:#e7eff2;border-radius:5px;overflow:hidden;margin:12px 0}#progressBar{height:100%;background:#2c927b;transition:width .2s}#steps{list-style:none;margin:0;padding:0;max-height:635px;overflow:auto}.step{display:flex;gap:10px;align-items:center;padding:10px 6px;border-bottom:1px solid #ecf1f3}.stepNum{display:grid;place-items:center;flex-shrink:0;width:27px;height:27px;border-radius:50%;background:#edf2f5;color:#627b84;font-size:12px}.step span.name{flex:1}.step small{font-size:12px;color:#5c7580}.step.running{background:#eef8fb}.step.running .stepNum{background:#146a78;color:white}.step.succeeded .stepNum{background:#dff3e9;color:#176947}.step.stopped .stepNum{background:#fce6eb;color:#a62b41}.step.stopped{background:#fff5f7}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.card{border:1px solid #d4e1e6;border-radius:10px;padding:17px;background:#fcfdfe}.card.done{border-color:#acd5c0}.card.problem{border-color:#e7b9c1}.card p{font-size:14px}.card button.primary{width:100%;margin:12px 0 3px}.card details{margin-top:12px}.card details button{font-size:13px;margin-top:8px}.card summary{font-size:13px;color:#60757e}.empty{padding:28px 10px;text-align:center;color:#687f88}.error{color:#a82b3d;background:#fff0f3;border-radius:8px;padding:12px;margin:0 0 18px;overflow-wrap:anywhere}.error:empty{display:none}.guideBox{padding:15px;background:#f1f7f8;border-radius:9px;margin-top:20px;font-size:14px}.guideBox p{margin:5px 0}summary{cursor:pointer;font-weight:600}details.panel[open] summary{margin-bottom:15px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:9px;text-align:left;border-bottom:1px solid #e2eaee;overflow-wrap:anywhere}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:380px;overflow:auto}#loadForm{margin-top:12px}.hidden{display:none!important}@media(max-width:800px){header{padding:18px}main{padding:14px}.layout{grid-template-columns:1fr}.layout aside{order:2}.panel{padding:17px}#steps{max-height:320px}#headline{font-size:22px}.topbar select{width:100%}}
+</style>
+</head>
+<body>
+<header><div><h1>GXLF 实验控制台</h1><p>准备 → 出光 → 采集 → 复位 → 关机</p></div><span class="badge" style="background:#234e5a;color:white;border-color:#48717e">本地实验环境</span></header>
+<main>
+<div class="topbar"><button id="start" class="primary">开始一次新实验</button><label for="recent">查看历史实验</label><select id="recent"><option value="">选择最近的实验…</option></select><span class="muted" id="connection">正在连接服务…</span></div>
+<div id="error" class="error" role="alert"></div>
+<section class="panel hero" id="hero" aria-live="polite"><span class="badge" id="status">尚未开始</span><h2 id="headline">从“开始一次新实验”开始</h2><p id="guide">启动后，系统会自动执行流程。需要仿真反馈时，当前实例的操作按钮会出现在下方。</p><div class="row actions"><button id="reset" class="primary hidden">开始安全复位</button><button id="interlock" class="danger" disabled>触发安全中止（联锁）</button><span class="badge hidden" id="deadline"></span><span class="muted" id="runLabel"></span></div></section>
+<div class="layout">
+<aside class="panel"><h2>完整实验进度</h2><p id="progressText" class="muted">开始后显示每一步的执行情况</p><div class="progress"><div id="progressBar" style="width:0%"></div></div><ol id="steps"></ol></aside>
+<section class="panel"><h2 id="taskTitle">当前需要处理的实例</h2><p id="taskSummary" class="muted">尚无任务</p><div id="cards" class="cards"></div><div class="guideBox"><strong>怎样操作这个页面？</strong><p>① 开始实验，等待系统下发当前步骤。</p><p>② 仿真模式下，对每个等待反馈的实例点击“此实例完成”。种子源步骤需收到全部实例的成功结果。</p><p>③ 系统自动进入下一步，不需要手动逐个启动节点。</p><p>④ 双方都完成关机后，实验才算成功。故障演练会使本次实验失败。</p><p class="muted">卡片显示本次设备任务的处理情况，不表示设备完整的实时状态。模拟反馈不等于真实设备测量。</p></div></section>
+</div>
+<details class="panel"><summary>技术详情：任务编号、原始反馈与执行历史</summary><p class="muted">排查问题时使用；正常操作无需阅读这里的字段。</p><form id="loadForm" class="row"><label for="run">实验编号</label><input id="run" placeholder="输入完整实验编号" size="42"><button type="submit">按编号查看</button></form><div class="scroll"><table><thead><tr><th>步骤</th><th>实例</th><th>动作标识</th><th>传输状态 / 设备结果</th><th>任务编号</th><th>错误</th></tr></thead><tbody id="commands"></tbody></table></div><details><summary>流程等待点与人工任务</summary><pre id="active"></pre></details><details><summary>执行历史</summary><pre id="history"></pre></details></details>
+</main>
 <script>
-const $=s=>document.getElementById(s);let run=localStorage.getItem('flowableRun')||'',busy=false; $('run').value=run;
-function text(tag,value){const e=document.createElement(tag);e.textContent=value;return e;}
-async function api(path,data){const r=await fetch(path,data?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const value=await r.json();if(!r.ok)throw Error(value.error||r.status);return value;}
-async function refresh(){if(!run)return;const s=await api('/api/runs/'+encodeURIComponent(run));$('status').textContent='实验 '+s.ID+' · '+s.OUTCOME;$('commands').replaceChildren();for(const c of s.commands){const tr=document.createElement('tr');tr.append(text('td',c.NODE_ID),text('td',c.DEVICE_ID),text('td',c.ACTION),text('td',c.STATUS));const ops=document.createElement('td');if(c.STATUS==='SENT')for(const [outcome,label] of [['success','模拟成功'],['failure','模拟失败'],['communication_error','通信故障']]){const b=text('button',label);b.disabled=busy;b.onclick=()=>act(()=>api('/api/runs/'+run+'/commands/'+c.ID+'/simulate',{outcome}));ops.append(b);}tr.append(ops,text('td',c.ERROR||''));$('commands').append(tr);}$('active').textContent=JSON.stringify({等待活动:s.activeActivities,人工任务:s.userTasks},null,2);$('history').textContent=JSON.stringify(s.history,null,2);$('reset').disabled=busy||s.userTasks.length===0;$('interlock').disabled=busy||s.activeActivities.length===0;}
-async function act(fn){if(busy)return;busy=true;$('error').textContent='';try{await fn();await refresh();}catch(e){$('error').textContent=e.message;}finally{busy=false;}}
-$('start').onclick=()=>act(async()=>{const id='run-'+crypto.randomUUID();await api('/api/runs',{requestId:id});run=id;localStorage.setItem('flowableRun',run);$('run').value=run;});
-$('load').onclick=()=>act(async()=>{run=$('run').value.trim();});$('interlock').onclick=()=>act(()=>api('/api/runs/'+run+'/interlock',{}));$('reset').onclick=()=>act(()=>api('/api/runs/'+run+'/compensate',{}));
-setInterval(()=>{if(!busy)refresh().catch(e=>$('error').textContent=e.message);},700);refresh().catch(e=>$('error').textContent=e.message);
-</script></html>
+const $=id=>document.getElementById(id);
+let run=localStorage.getItem('flowableRun')||'',current=null,busy=false,refreshing=false,serial=0,rendered='';
+const labels={waiting:'未执行',running:'进行中',succeeded:'已完成',stopped:'已中断'};
+function el(tag,value,cls){const n=document.createElement(tag);n.textContent=value;if(cls)n.className=cls;return n;}
+function deviceName(id){return id.startsWith('seed_')?'种子源 '+id.slice(5):id.startsWith('shg_')?'二倍频 '+id.slice(4):id;}
+function displayTime(value){return value?new Date(value).toLocaleString('zh-CN',{hour12:false}):'';}
+function pending(c){return ['QUEUED','SENT','RESULT','CANCEL_REQUESTED'].includes(c.STATUS);}
+function taskText(c){
+ if(c.STATUS==='CANCEL_REQUESTED')return '正在取消任务';if(c.STATUS==='CANCELLED')return '任务已取消';if(c.STATUS==='QUEUED')return '命令等待发送';
+ if(c.STATUS==='SENT')return c.ERROR?'通信或处理遇到问题，正在重试':'等待本实例的完成反馈';if(c.STATUS==='RESULT')return '反馈已到达，正在校验';
+ if(c.STATUS==='DELIVERED')return c.RESULT_STATUS==='succeeded'?'设备成功反馈已处理':'设备失败反馈已处理';
+ if(c.STATUS==='IGNORED')return '过期反馈已忽略';return c.STATUS;
+}
+function friendly(message){
+ if(message.includes('devices are reserved'))return '另一场实验正在使用设备，请选择该实验查看进度。';
+ if(message.includes('device commands still settling')||message.includes('cancellation acknowledgements'))return '正在等待设备任务取消确认，请稍后再操作。';
+ if(message.includes('unknown run'))return '没有找到这个实验。请选择历史记录，或检查实验编号。';
+ if(message.includes('simulation controls disabled'))return '手动仿真入口已关闭，请等待设备自行反馈。';
+ if(message.includes('not accepted or cancelled'))return '该任务已结束、取消或尚未被设备接受，请等待页面更新。';
+ if(message.includes('run is ended or already interlocked'))return '实验已经结束或已触发联锁，不能重复中止。';
+ return message;
+}
+async function api(path,data){const r=await fetch(path,data!==undefined?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}:{});const v=await r.json();if(!r.ok)throw Error(v.error||'请求失败：'+r.status);return v;}
+function render(s){
+ const due=(s.deadlines||[]).map(t=>new Date(t.due).getTime()).sort((a,b)=>a-b)[0];$('deadline').classList.toggle('hidden',!due);$('deadline').textContent=due?'当前步骤约剩 '+Math.max(0,Math.ceil((due-Date.now())/1000))+' 秒':'';
+ const revision=JSON.stringify([s,busy]);if(revision===rendered)return;rendered=revision;
+ const cmds=s.commands||[],steps=s.steps||[],tasks=s.userTasks||[],active=s.activeActivities||[];
+ const cancelling=cmds.some(c=>c.STATUS==='CANCEL_REQUESTED');
+ const compensation=cmds.some(c=>c.NODE_ID==='compensation'&&pending(c));
+ const completedReset=!active.length&&(s.history||[]).some(a=>a.activity==='mark_compensated'&&a.ended);
+ const step=steps.find(n=>n.status==='running')||[...steps].reverse().find(n=>n.status==='stopped');
+ $('hero').className='panel hero '+(s.OUTCOME==='FAILED'?'failure':s.OUTCOME==='SUCCEEDED'?'success':'');
+ $('status').textContent=s.OUTCOME==='RUNNING'?'实验进行中':s.OUTCOME==='SUCCEEDED'?'实验成功':'实验未成功';
+ $('runLabel').textContent='创建时间：'+displayTime(s.CREATED_AT);
+ if(tasks.length){$('headline').textContent=cancelling?'正在停止设备任务':'等待人工处理：安全复位';$('guide').textContent=cancelling?'已阻断后续实验步骤。等待取消确认后，可以开始安全复位。':s.REASON==='COMPENSATION_FAILED'?'上一次安全复位未完成。处理原因后，可再次发起；各实例仍需逐一确认结果。':'实验已因联锁中止。确认安全条件后点击“开始安全复位”，再逐个提供复位结果。';}
+ else if(compensation){$('headline').textContent='正在执行安全复位';$('guide').textContent='按顺序等待各实例的复位结果。安全复位完成后，本次实验仍记为失败。';}
+ else if(s.OUTCOME==='SUCCEEDED'){$('headline').textContent='实验完成，双方已确认关机';$('guide').textContent='全部实验步骤和最终状态检查已通过。可以查看历史记录，或开始下一次实验。';}
+ else if(s.OUTCOME==='FAILED'){$('headline').textContent=completedReset?'安全复位已确认，实验已终止':'实验已停止'+(step?'：'+step.name:'');$('guide').textContent=completedReset?'设备复位不等于实验成功。再次实验前仍需按设备规则恢复开机自检条件。':'设备动作或状态检查未通过，或等待反馈超时；后续步骤已阻断。查看下方任务信息，必要时打开技术详情。';}
+ else {$('headline').textContent=step?'当前步骤：'+step.name:'正在推进实验流程';$('guide').textContent=s.simulationEnabled?'请在下方对等待反馈的实例点击“此实例完成（仿真）”。本步骤全部通过后，系统自动继续。':'手动仿真入口已关闭，系统正在等待设备反馈并自动推进。';}
+ $('reset').classList.toggle('hidden',!tasks.length);$('reset').disabled=busy||cancelling||!tasks.length;
+ $('interlock').disabled=busy||!active.length||s.OUTCOME!=='RUNNING';
+ $('start').disabled=busy||active.length>0||cmds.some(pending);
+ $('recent').disabled=busy;
+ const option=[...$('recent').options].find(o=>o.value===s.ID);if(option)option.textContent=displayTime(s.CREATED_AT)+' · '+({RUNNING:'进行中',SUCCEEDED:'成功',FAILED:'失败'}[s.OUTCOME]||s.OUTCOME);
+ $('steps').replaceChildren();for(const [i,n] of steps.entries()){const li=el('li','','step '+n.status);li.append(el('span',n.status==='succeeded'?'✓':String(i+1),'stepNum'),el('span',n.name,'name'),el('small',labels[n.status]||n.status));$('steps').append(li);}
+ const done=steps.filter(n=>n.status==='succeeded').length;$('progressText').textContent=steps.length?`${done} / ${steps.length} 步已完成（含联合条件确认）`:'该历史版本未提供步骤视图';$('progressBar').style.width=(steps.length?100*done/steps.length:0)+'%';
+ const currentId=compensation||tasks.length||completedReset?'compensation':step?.id;
+ const selected=currentId?cmds.filter(c=>c.NODE_ID===currentId):[];
+ const latest=new Map();for(const c of selected)latest.set(c.DEVICE_ID,c);
+ const cards=[...latest.values()].sort((a,b)=>a.DEVICE_ID.localeCompare(b.DEVICE_ID));$('taskTitle').textContent=currentId==='compensation'?'安全复位任务':step?step.name+' · 实例反馈':'本次实验任务';
+ const good=cards.filter(c=>c.STATUS==='DELIVERED'&&c.RESULT_STATUS==='succeeded').length;
+ $('taskSummary').textContent=cards.length?`${cards.length} 个实例中，${good} 份成功反馈已处理`:'当前没有需要提交反馈的任务';
+ const openFaults=new Set([...$('cards').querySelectorAll('article[data-command] details[open]')].map(d=>d.parentElement.dataset.command));
+ $('cards').replaceChildren();
+ if(!cards.length)$('cards').append(el('p',s.OUTCOME==='SUCCEEDED'?'所有步骤均已完成。可在技术详情中查看全部任务记录。':'等待系统下发任务，或按上方提示处理。','empty'));
+ for(const c of cards){const good=c.STATUS==='DELIVERED'&&c.RESULT_STATUS==='succeeded';const card=el('article','','card '+(good?'done':c.ERROR||['failed','rejected'].includes(c.RESULT_STATUS)?'problem':''));card.dataset.command=c.ID;card.append(el('h3',deviceName(c.DEVICE_ID)),el('p',taskText(c)));
+  if(c.STATUS==='SENT'&&(s.OUTCOME==='RUNNING'||compensation)){const b=el('button','此实例完成（仿真）','primary');b.disabled=busy||!s.simulationEnabled;b.onclick=()=>respond(c,'success');card.append(b);
+   const details=document.createElement('details');details.open=openFaults.has(c.ID);details.append(el('summary','故障演练（会中断当前实验）'));for(const [value,label]of [['failure','模拟本次动作失败'],['communication_error','模拟通信故障']]){const x=el('button',label,'danger');x.disabled=busy||!s.simulationEnabled;x.onclick=()=>respond(c,value);details.append(x);}card.append(details);}
+  if(c.ERROR)card.append(el('p','详情：'+c.ERROR,'muted'));$('cards').append(card);}
+ $('commands').replaceChildren();for(const c of cmds){const row=document.createElement('tr');const name=c.NODE_ID==='compensation'?'安全复位':steps.find(n=>n.id===c.NODE_ID)?.name||c.NODE_ID;for(const value of [name,deviceName(c.DEVICE_ID),c.ACTION,c.STATUS+' / '+(c.RESULT_STATUS||'尚无最终结果'),c.ID,c.ERROR||''])row.append(el('td',value));$('commands').append(row);}
+ $('active').textContent=JSON.stringify({等待活动:active,人工任务:tasks,失败原因:s.REASON,模型指纹:s.MODEL_HASH},null,2);$('history').textContent=JSON.stringify(s.history,null,2);$('run').value=run;
+}
+async function refresh(){if(!run||refreshing)return;refreshing=true;const id=run,stamp=serial;try{const s=await api('/api/runs/'+encodeURIComponent(id));if(run!==id||stamp!==serial)return;current=s;render(s);$('connection').textContent='已连接 · 自动更新';}finally{refreshing=false;}}
+async function loadRecent(){const list=await api('/api/runs');$('recent').replaceChildren(el('option','选择最近的实验…'));$('recent').firstChild.value='';for(const r of list){const option=el('option',displayTime(r.CREATED_AT)+' · '+({RUNNING:'进行中',SUCCEEDED:'成功',FAILED:'失败'}[r.OUTCOME]||r.OUTCOME));option.value=r.ID;$('recent').append(option);}$('recent').value=run;}
+async function act(fn){if(busy)return;busy=true;serial++;$('error').textContent='';if(current)render(current);else $('start').disabled=true;try{await fn();await loadRecent();}catch(e){$('error').textContent=friendly(e.message);}finally{busy=false;if(current)render(current);else $('start').disabled=false;await refresh().catch(e=>$('error').textContent=friendly(e.message));}}
+function respond(c,outcome){return act(()=>api('/api/runs/'+encodeURIComponent(run)+'/commands/'+encodeURIComponent(c.ID)+'/simulate',{outcome}));}
+async function selectRun(id){if(!id)return;const s=await api('/api/runs/'+encodeURIComponent(id));run=id;current=s;localStorage.setItem('flowableRun',run);render(s);}
+$('start').onclick=()=>act(async()=>{const id='run-'+crypto.randomUUID();const s=await api('/api/runs',{requestId:id});run=id;current=s;localStorage.setItem('flowableRun',run);});
+$('recent').onchange=()=>act(()=>selectRun($('recent').value));$('loadForm').onsubmit=e=>{e.preventDefault();act(()=>selectRun($('run').value.trim()));};
+$('interlock').onclick=()=>act(()=>api('/api/runs/'+encodeURIComponent(run)+'/interlock',{}));$('reset').onclick=()=>act(()=>api('/api/runs/'+encodeURIComponent(run)+'/compensate',{}));
+loadRecent().then(()=>{if(run)return refresh();$('connection').textContent='已连接';}).catch(e=>{$('error').textContent=friendly(e.message);$('connection').textContent='连接失败';});
+setInterval(()=>{if(!busy)refresh().catch(e=>{$('error').textContent=friendly(e.message);$('connection').textContent='连接暂不可用';});},800);
+</script>
+</body></html>

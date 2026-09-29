@@ -16,13 +16,15 @@ public class RunService {
     private final RuntimeService runtime;
     private final TaskService tasks;
     private final HistoryService history;
+    private final RepositoryService repository;
+    private final ManagementService management;
     private final DeviceAdapter adapter;
     private final boolean simulation;
     private final ModelRepository models;
     private final ObjectMapper json;
-    public RunService(JdbcTemplate db,RuntimeService runtime,TaskService tasks,HistoryService history,
+    public RunService(JdbcTemplate db,RuntimeService runtime,TaskService tasks,HistoryService history,RepositoryService repository,ManagementService management,
                       DeviceAdapter adapter,ModelRepository models,ObjectMapper json,@Value("${control.simulation-controls:true}") boolean simulation) {
-        this.db=db;this.runtime=runtime;this.tasks=tasks;this.history=history;this.adapter=adapter;this.models=models;this.json=json;this.simulation=simulation;
+        this.db=db;this.runtime=runtime;this.tasks=tasks;this.history=history;this.repository=repository;this.management=management;this.adapter=adapter;this.models=models;this.json=json;this.simulation=simulation;
     }
     @Transactional
     public Map<String,Object> start(String requestId) { return start(requestId,Map.of()); }
@@ -57,14 +59,29 @@ public class RunService {
         var rows=db.queryForList("SELECT id,process_id,outcome,reason,created_at,model_hash FROM experiment_run WHERE id=?",id);
         if(rows.isEmpty()) throw new IllegalArgumentException("unknown run");
         Map<String,Object> view=new LinkedHashMap<>(rows.get(0));String pid=(String)view.get("PROCESS_ID");
-        view.put("commands",db.queryForList("SELECT id,node_id,device_id,action,status,error,contract_ref,CAST(params_json AS VARCHAR) AS parameters FROM device_command WHERE run_id=? ORDER BY created_at,id",id));
+        var commands=db.queryForList("SELECT id,node_id,device_id,action,status,error,contract_ref,CAST(params_json AS VARCHAR) AS parameters,CAST(result_json AS VARCHAR) AS result_json FROM device_command WHERE run_id=? ORDER BY created_at,id",id);
+        for(var command:commands) {
+            Object payload=command.remove("RESULT_JSON");
+            if(payload!=null)try { command.put("RESULT_STATUS",json.readTree(payload.toString()).path("status").asText()); }
+            catch(java.io.IOException ignored) { command.put("RESULT_STATUS","invalid"); }
+        }
+        view.put("commands",commands);
+        view.put("simulationEnabled",simulation);
         if(pid!=null) {
+            view.put("deadlines",management.createTimerJobQuery().processInstanceId(pid).list().stream()
+                .filter(job->job.getDuedate()!=null).map(job->Map.of("activity",job.getElementId(),"due",job.getDuedate())).toList());
             view.put("activeActivities",runtime.createProcessInstanceQuery().processInstanceId(pid).count()==0?List.of():runtime.getActiveActivityIds(pid));
             view.put("userTasks",tasks.createTaskQuery().processInstanceId(pid).list().stream().map(t->Map.of("id",t.getId(),"name",t.getName())).toList());
-            view.put("history",history.createHistoricActivityInstanceQuery().processInstanceId(pid).orderByHistoricActivityInstanceStartTime().asc().list().stream()
-                .map(a->{Map<String,Object> m=new LinkedHashMap<>();m.put("activity",a.getActivityId());m.put("type",a.getActivityType());m.put("started",a.getStartTime());m.put("ended",a.getEndTime());return m;}).toList());
+            var activities=history.createHistoricActivityInstanceQuery().processInstanceId(pid).orderByHistoricActivityInstanceStartTime().asc().list();
+            var historicRun=history.createHistoricProcessInstanceQuery().processInstanceId(pid).singleResult();
+            if(historicRun!=null)view.put("steps",RunPresentation.steps(repository.getBpmnModel(historicRun.getProcessDefinitionId()),activities,(String)view.get("OUTCOME")));
+            view.put("history",activities.stream()
+                .map(a->{Map<String,Object> m=new LinkedHashMap<>();m.put("activity",a.getActivityId());m.put("name",a.getActivityName());m.put("type",a.getActivityType());m.put("started",a.getStartTime());m.put("ended",a.getEndTime());return m;}).toList());
         }
         return view;
+    }
+    public List<Map<String,Object>> recent() {
+        return db.queryForList("SELECT id,outcome,created_at FROM experiment_run ORDER BY created_at DESC,id DESC LIMIT 20");
     }
     @Transactional
     public void interlock(String id) {
