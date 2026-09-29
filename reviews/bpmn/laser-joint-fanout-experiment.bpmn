@@ -1,0 +1,1207 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="GXLFDefinitions" targetNamespace="urn:gxlf:experiment:design">
+  <bpmn:error id="ActionFailed" name="动作拒绝、失败或结果无效" errorCode="ACTION_FAILED" />
+  <bpmn:message id="TaskResultMessage" name="按 runId/nodeId/instanceId/taskId 关联的最终结果" />
+  <bpmn:message id="InterlockMessage" name="按 runId 关联的联锁事件" />
+  <bpmn:process id="laser_joint_fanout_experiment" name="种子源扇出与二倍频联合实验完整周期（设计稿）" isExecutable="false">
+    <bpmn:documentation>源：laser-joint-fanout-experiment.yaml 1.1。引擎无关 BPMN 2.0 设计稿，非可部署模型。服务实现、变量绑定、消息关联及表达式需要所选引擎适配。节点顺序与 YAML 保持一致。</bpmn:documentation>
+    <bpmn:startEvent id="start" name="新实验" />
+    <bpmn:subProcess id="seed_self_test" name="开机自检 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_self_test", "target": "seed_source", "action": "power_on_self_test", "phase": "准备", "timeout_seconds": 10}, "success": {"main_state": "未就绪", "current_state": "自检完成", "key_state": "自检完成", "business_state": "未就绪"}, "completion": {"observed_states": ["自检完成"], "required_conditions": ["power_available", "heartbeat_ok", "service_reachable", "self_test_passed"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_self_test_begin" name="开始" />
+      <bpmn:serviceTask id="seed_self_test_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_self_test_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_self_test_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_self_test_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_self_test_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 power_on_self_test；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_self_test_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_self_test_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_self_test_instance_ok" name="本实例验证成功？" default="Flow_6" />
+          <bpmn:endEvent id="seed_self_test_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_self_test_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_1" sourceRef="seed_self_test_instance_start" targetRef="seed_self_test_instance_send" />
+          <bpmn:sequenceFlow id="Flow_2" sourceRef="seed_self_test_instance_send" targetRef="seed_self_test_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_3" sourceRef="seed_self_test_instance_wait" targetRef="seed_self_test_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_4" sourceRef="seed_self_test_instance_validate" targetRef="seed_self_test_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_5" sourceRef="seed_self_test_instance_ok" targetRef="seed_self_test_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_6" sourceRef="seed_self_test_instance_ok" targetRef="seed_self_test_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_self_test_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_self_test_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_7" sourceRef="seed_self_test_group_start" targetRef="seed_self_test_instance" />
+        <bpmn:sequenceFlow id="Flow_8" sourceRef="seed_self_test_instance" targetRef="seed_self_test_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_self_test_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_9" sourceRef="seed_self_test_begin" targetRef="seed_self_test_preflight" />
+      <bpmn:sequenceFlow id="Flow_10" sourceRef="seed_self_test_preflight" targetRef="seed_self_test_group" />
+      <bpmn:sequenceFlow id="Flow_11" sourceRef="seed_self_test_group" targetRef="seed_self_test_end" />
+      <bpmn:boundaryEvent id="seed_self_test_timeout" name="节点超时" attachedToRef="seed_self_test_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT10S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_self_test_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_self_test_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_12" sourceRef="seed_self_test_timeout" targetRef="seed_self_test_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_13" sourceRef="seed_self_test_mark_timeout" targetRef="seed_self_test_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_self_test_error_boundary" name="动作失败" attachedToRef="seed_self_test" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="seed_self_test_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="start" targetRef="seed_self_test" />
+    <bpmn:subProcess id="shg_self_test" name="开机自检 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_self_test", "target": "shg_injector", "action": "power_on_self_test", "phase": "准备", "timeout_seconds": 10}, "success": {"main_state": "未就绪", "current_state": "自检完成", "key_state": "自检完成", "business_state": "未就绪"}, "completion": {"observed_states": ["自检完成"], "required_conditions": ["power_available", "heartbeat_ok", "service_reachable", "self_test_passed"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_self_test_begin" name="开始" />
+      <bpmn:serviceTask id="shg_self_test_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_self_test_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_self_test_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_self_test_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_self_test_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 power_on_self_test；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_self_test_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_self_test_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_self_test_instance_ok" name="本实例验证成功？" default="Flow_21" />
+          <bpmn:endEvent id="shg_self_test_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_self_test_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_16" sourceRef="shg_self_test_instance_start" targetRef="shg_self_test_instance_send" />
+          <bpmn:sequenceFlow id="Flow_17" sourceRef="shg_self_test_instance_send" targetRef="shg_self_test_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_18" sourceRef="shg_self_test_instance_wait" targetRef="shg_self_test_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_19" sourceRef="shg_self_test_instance_validate" targetRef="shg_self_test_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_20" sourceRef="shg_self_test_instance_ok" targetRef="shg_self_test_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_21" sourceRef="shg_self_test_instance_ok" targetRef="shg_self_test_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_self_test_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_self_test_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_22" sourceRef="shg_self_test_group_start" targetRef="shg_self_test_instance" />
+        <bpmn:sequenceFlow id="Flow_23" sourceRef="shg_self_test_instance" targetRef="shg_self_test_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_self_test_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_24" sourceRef="shg_self_test_begin" targetRef="shg_self_test_preflight" />
+      <bpmn:sequenceFlow id="Flow_25" sourceRef="shg_self_test_preflight" targetRef="shg_self_test_group" />
+      <bpmn:sequenceFlow id="Flow_26" sourceRef="shg_self_test_group" targetRef="shg_self_test_end" />
+      <bpmn:boundaryEvent id="shg_self_test_timeout" name="节点超时" attachedToRef="shg_self_test_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT10S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_self_test_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_self_test_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_27" sourceRef="shg_self_test_timeout" targetRef="shg_self_test_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_28" sourceRef="shg_self_test_mark_timeout" targetRef="shg_self_test_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_self_test_error_boundary" name="动作失败" attachedToRef="shg_self_test" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_29" sourceRef="shg_self_test_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_30" sourceRef="seed_self_test" targetRef="shg_self_test" />
+    <bpmn:subProcess id="seed_check" name="功能检查 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_check", "target": "seed_source", "action": "function_check", "phase": "准备"}, "success": {"main_state": "就绪", "current_state": "功能检查完成", "key_state": "功能检查完成", "business_state": "就绪"}, "completion": {"observed_states": ["功能检查完成"], "required_conditions": ["service_running", "self_test_passed", "function_check_passed", "capabilities_ok", "interlock_ok", "safe_position", "no_uncleared_fault", "resources_released"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_check_begin" name="开始" />
+      <bpmn:serviceTask id="seed_check_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_check_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_check_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_check_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_check_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 function_check；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_check_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_check_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_check_instance_ok" name="本实例验证成功？" default="Flow_36" />
+          <bpmn:endEvent id="seed_check_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_check_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_31" sourceRef="seed_check_instance_start" targetRef="seed_check_instance_send" />
+          <bpmn:sequenceFlow id="Flow_32" sourceRef="seed_check_instance_send" targetRef="seed_check_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_33" sourceRef="seed_check_instance_wait" targetRef="seed_check_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_34" sourceRef="seed_check_instance_validate" targetRef="seed_check_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_35" sourceRef="seed_check_instance_ok" targetRef="seed_check_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_36" sourceRef="seed_check_instance_ok" targetRef="seed_check_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_check_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_check_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_37" sourceRef="seed_check_group_start" targetRef="seed_check_instance" />
+        <bpmn:sequenceFlow id="Flow_38" sourceRef="seed_check_instance" targetRef="seed_check_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_check_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_39" sourceRef="seed_check_begin" targetRef="seed_check_preflight" />
+      <bpmn:sequenceFlow id="Flow_40" sourceRef="seed_check_preflight" targetRef="seed_check_group" />
+      <bpmn:sequenceFlow id="Flow_41" sourceRef="seed_check_group" targetRef="seed_check_end" />
+      <bpmn:boundaryEvent id="seed_check_timeout" name="节点超时" attachedToRef="seed_check_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_check_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_check_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_42" sourceRef="seed_check_timeout" targetRef="seed_check_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_43" sourceRef="seed_check_mark_timeout" targetRef="seed_check_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_check_error_boundary" name="动作失败" attachedToRef="seed_check" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_44" sourceRef="seed_check_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_45" sourceRef="shg_self_test" targetRef="seed_check" />
+    <bpmn:subProcess id="shg_check" name="功能检查 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_check", "target": "shg_injector", "action": "function_check", "phase": "准备"}, "success": {"main_state": "就绪", "current_state": "功能检查完成", "key_state": "功能检查完成", "business_state": "就绪"}, "completion": {"observed_states": ["功能检查完成"], "required_conditions": ["service_running", "self_test_passed", "function_check_passed", "capabilities_ok", "interlock_ok", "safe_position", "no_uncleared_fault", "resources_released"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_check_begin" name="开始" />
+      <bpmn:serviceTask id="shg_check_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_check_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_check_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_check_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_check_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 function_check；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_check_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_check_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_check_instance_ok" name="本实例验证成功？" default="Flow_51" />
+          <bpmn:endEvent id="shg_check_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_check_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_46" sourceRef="shg_check_instance_start" targetRef="shg_check_instance_send" />
+          <bpmn:sequenceFlow id="Flow_47" sourceRef="shg_check_instance_send" targetRef="shg_check_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_48" sourceRef="shg_check_instance_wait" targetRef="shg_check_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_49" sourceRef="shg_check_instance_validate" targetRef="shg_check_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_50" sourceRef="shg_check_instance_ok" targetRef="shg_check_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_51" sourceRef="shg_check_instance_ok" targetRef="shg_check_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_check_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_check_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_52" sourceRef="shg_check_group_start" targetRef="shg_check_instance" />
+        <bpmn:sequenceFlow id="Flow_53" sourceRef="shg_check_instance" targetRef="shg_check_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_check_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_54" sourceRef="shg_check_begin" targetRef="shg_check_preflight" />
+      <bpmn:sequenceFlow id="Flow_55" sourceRef="shg_check_preflight" targetRef="shg_check_group" />
+      <bpmn:sequenceFlow id="Flow_56" sourceRef="shg_check_group" targetRef="shg_check_end" />
+      <bpmn:boundaryEvent id="shg_check_timeout" name="节点超时" attachedToRef="shg_check_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_check_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_check_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_57" sourceRef="shg_check_timeout" targetRef="shg_check_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_58" sourceRef="shg_check_mark_timeout" targetRef="shg_check_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_check_error_boundary" name="动作失败" attachedToRef="shg_check" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_59" sourceRef="shg_check_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_60" sourceRef="seed_check" targetRef="shg_check" />
+    <bpmn:subProcess id="seed_configure" name="参数下发 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_configure", "target": "seed_source", "action": "parameter_dispatch", "phase": "参数准备"}, "success": {"main_state": "正常", "current_state": "参数下发完成", "key_state": "参数下发完成", "business_state": "就绪"}, "completion": {"observed_states": ["参数下发完成"], "required_conditions": ["configuration_valid"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_configure_begin" name="开始" />
+      <bpmn:serviceTask id="seed_configure_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_configure_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_configure_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_configure_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_configure_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 parameter_dispatch；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_configure_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_configure_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_configure_instance_ok" name="本实例验证成功？" default="Flow_66" />
+          <bpmn:endEvent id="seed_configure_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_configure_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_61" sourceRef="seed_configure_instance_start" targetRef="seed_configure_instance_send" />
+          <bpmn:sequenceFlow id="Flow_62" sourceRef="seed_configure_instance_send" targetRef="seed_configure_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_63" sourceRef="seed_configure_instance_wait" targetRef="seed_configure_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_64" sourceRef="seed_configure_instance_validate" targetRef="seed_configure_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_65" sourceRef="seed_configure_instance_ok" targetRef="seed_configure_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_66" sourceRef="seed_configure_instance_ok" targetRef="seed_configure_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_configure_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_configure_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_67" sourceRef="seed_configure_group_start" targetRef="seed_configure_instance" />
+        <bpmn:sequenceFlow id="Flow_68" sourceRef="seed_configure_instance" targetRef="seed_configure_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_configure_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_69" sourceRef="seed_configure_begin" targetRef="seed_configure_preflight" />
+      <bpmn:sequenceFlow id="Flow_70" sourceRef="seed_configure_preflight" targetRef="seed_configure_group" />
+      <bpmn:sequenceFlow id="Flow_71" sourceRef="seed_configure_group" targetRef="seed_configure_end" />
+      <bpmn:boundaryEvent id="seed_configure_timeout" name="节点超时" attachedToRef="seed_configure_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_configure_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_configure_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_72" sourceRef="seed_configure_timeout" targetRef="seed_configure_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_73" sourceRef="seed_configure_mark_timeout" targetRef="seed_configure_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_configure_error_boundary" name="动作失败" attachedToRef="seed_configure" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_74" sourceRef="seed_configure_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_75" sourceRef="shg_check" targetRef="seed_configure" />
+    <bpmn:subProcess id="shg_configure" name="参数下发 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_configure", "target": "shg_injector", "action": "parameter_dispatch", "phase": "参数准备"}, "success": {"main_state": "正常", "current_state": "参数下发完成", "key_state": "参数下发完成", "business_state": "就绪"}, "completion": {"observed_states": ["参数下发完成"], "required_conditions": ["configuration_valid"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_configure_begin" name="开始" />
+      <bpmn:serviceTask id="shg_configure_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_configure_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_configure_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_configure_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_configure_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 parameter_dispatch；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_configure_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_configure_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_configure_instance_ok" name="本实例验证成功？" default="Flow_81" />
+          <bpmn:endEvent id="shg_configure_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_configure_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_76" sourceRef="shg_configure_instance_start" targetRef="shg_configure_instance_send" />
+          <bpmn:sequenceFlow id="Flow_77" sourceRef="shg_configure_instance_send" targetRef="shg_configure_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_78" sourceRef="shg_configure_instance_wait" targetRef="shg_configure_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_79" sourceRef="shg_configure_instance_validate" targetRef="shg_configure_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_80" sourceRef="shg_configure_instance_ok" targetRef="shg_configure_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_81" sourceRef="shg_configure_instance_ok" targetRef="shg_configure_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_configure_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_configure_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_82" sourceRef="shg_configure_group_start" targetRef="shg_configure_instance" />
+        <bpmn:sequenceFlow id="Flow_83" sourceRef="shg_configure_instance" targetRef="shg_configure_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_configure_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_84" sourceRef="shg_configure_begin" targetRef="shg_configure_preflight" />
+      <bpmn:sequenceFlow id="Flow_85" sourceRef="shg_configure_preflight" targetRef="shg_configure_group" />
+      <bpmn:sequenceFlow id="Flow_86" sourceRef="shg_configure_group" targetRef="shg_configure_end" />
+      <bpmn:boundaryEvent id="shg_configure_timeout" name="节点超时" attachedToRef="shg_configure_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_configure_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_configure_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_87" sourceRef="shg_configure_timeout" targetRef="shg_configure_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_88" sourceRef="shg_configure_mark_timeout" targetRef="shg_configure_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_configure_error_boundary" name="动作失败" attachedToRef="shg_configure" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_89" sourceRef="shg_configure_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_90" sourceRef="seed_configure" targetRef="shg_configure" />
+    <bpmn:serviceTask id="read_joint_states" name="读取四个实例当前状态并计算 AND">
+      <bpmn:documentation>{"seed_source": {"mode": "all", "main_state": "正常", "current_state": "参数下发完成", "business_state": "就绪"}, "shg_injector": {"mode": "one", "main_state": "正常", "current_state": "参数下发完成", "business_state": "就绪"}}；就绪是当前快照判断，不是先前节点成功标记；读取失败映射 ACTION_FAILED。</bpmn:documentation>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="laser_ready_gate" name="联合条件满足？" default="Flow_93" />
+    <bpmn:sequenceFlow id="Flow_91" sourceRef="shg_configure" targetRef="read_joint_states" />
+    <bpmn:sequenceFlow id="Flow_92" sourceRef="read_joint_states" targetRef="laser_ready_gate" />
+    <bpmn:sequenceFlow id="Flow_93" sourceRef="laser_ready_gate" targetRef="record_failure" name="不满足" />
+    <bpmn:subProcess id="seed_emit" name="种子源出光 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_emit", "target": "seed_source", "action": "seed_source_emit", "phase": "出光"}, "success": {"main_state": "正常", "current_state": "出光完成", "key_state": "出光完成", "business_state": "出光"}, "completion": {"observed_states": ["出光完成"], "required_conditions": ["emission_stable"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_emit_begin" name="开始" />
+      <bpmn:serviceTask id="seed_emit_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_emit_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_emit_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_emit_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_emit_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 seed_source_emit；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_emit_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_emit_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_emit_instance_ok" name="本实例验证成功？" default="Flow_99" />
+          <bpmn:endEvent id="seed_emit_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_emit_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_94" sourceRef="seed_emit_instance_start" targetRef="seed_emit_instance_send" />
+          <bpmn:sequenceFlow id="Flow_95" sourceRef="seed_emit_instance_send" targetRef="seed_emit_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_96" sourceRef="seed_emit_instance_wait" targetRef="seed_emit_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_97" sourceRef="seed_emit_instance_validate" targetRef="seed_emit_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_98" sourceRef="seed_emit_instance_ok" targetRef="seed_emit_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_99" sourceRef="seed_emit_instance_ok" targetRef="seed_emit_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_emit_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_emit_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_100" sourceRef="seed_emit_group_start" targetRef="seed_emit_instance" />
+        <bpmn:sequenceFlow id="Flow_101" sourceRef="seed_emit_instance" targetRef="seed_emit_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_emit_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_102" sourceRef="seed_emit_begin" targetRef="seed_emit_preflight" />
+      <bpmn:sequenceFlow id="Flow_103" sourceRef="seed_emit_preflight" targetRef="seed_emit_group" />
+      <bpmn:sequenceFlow id="Flow_104" sourceRef="seed_emit_group" targetRef="seed_emit_end" />
+      <bpmn:boundaryEvent id="seed_emit_timeout" name="节点超时" attachedToRef="seed_emit_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_emit_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_emit_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_105" sourceRef="seed_emit_timeout" targetRef="seed_emit_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_106" sourceRef="seed_emit_mark_timeout" targetRef="seed_emit_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_emit_error_boundary" name="动作失败" attachedToRef="seed_emit" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_107" sourceRef="seed_emit_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_108" sourceRef="laser_ready_gate" targetRef="seed_emit" name="满足">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">jointReady = true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:subProcess id="shg_emit" name="二倍频出光 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_emit", "target": "shg_injector", "action": "frequency_doubled_emit", "phase": "出光"}, "success": {"main_state": "正常", "current_state": "出光完成", "key_state": "出光完成", "business_state": "出光"}, "completion": {"observed_states": ["出光完成"], "required_conditions": ["emission_stable"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_emit_begin" name="开始" />
+      <bpmn:serviceTask id="shg_emit_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_emit_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_emit_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_emit_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_emit_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 frequency_doubled_emit；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_emit_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_emit_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_emit_instance_ok" name="本实例验证成功？" default="Flow_114" />
+          <bpmn:endEvent id="shg_emit_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_emit_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_109" sourceRef="shg_emit_instance_start" targetRef="shg_emit_instance_send" />
+          <bpmn:sequenceFlow id="Flow_110" sourceRef="shg_emit_instance_send" targetRef="shg_emit_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_111" sourceRef="shg_emit_instance_wait" targetRef="shg_emit_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_112" sourceRef="shg_emit_instance_validate" targetRef="shg_emit_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_113" sourceRef="shg_emit_instance_ok" targetRef="shg_emit_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_114" sourceRef="shg_emit_instance_ok" targetRef="shg_emit_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_emit_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_emit_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_115" sourceRef="shg_emit_group_start" targetRef="shg_emit_instance" />
+        <bpmn:sequenceFlow id="Flow_116" sourceRef="shg_emit_instance" targetRef="shg_emit_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_emit_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_117" sourceRef="shg_emit_begin" targetRef="shg_emit_preflight" />
+      <bpmn:sequenceFlow id="Flow_118" sourceRef="shg_emit_preflight" targetRef="shg_emit_group" />
+      <bpmn:sequenceFlow id="Flow_119" sourceRef="shg_emit_group" targetRef="shg_emit_end" />
+      <bpmn:boundaryEvent id="shg_emit_timeout" name="节点超时" attachedToRef="shg_emit_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_emit_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_emit_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_120" sourceRef="shg_emit_timeout" targetRef="shg_emit_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_121" sourceRef="shg_emit_mark_timeout" targetRef="shg_emit_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_emit_error_boundary" name="动作失败" attachedToRef="shg_emit" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_122" sourceRef="shg_emit_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_123" sourceRef="seed_emit" targetRef="shg_emit" />
+    <bpmn:subProcess id="seed_collect" name="激光参数采集 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_collect", "target": "seed_source", "action": "laser_parameter_collect", "phase": "参数采集"}, "success": {"main_state": "正常", "current_state": "采集完成", "key_state": "采集完成", "business_state": "出光"}, "completion": {"observed_states": ["采集完成"], "required_conditions": ["emission_stable"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_collect_begin" name="开始" />
+      <bpmn:serviceTask id="seed_collect_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_collect_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_collect_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_collect_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_collect_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 laser_parameter_collect；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_collect_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_collect_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_collect_instance_ok" name="本实例验证成功？" default="Flow_129" />
+          <bpmn:endEvent id="seed_collect_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_collect_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_124" sourceRef="seed_collect_instance_start" targetRef="seed_collect_instance_send" />
+          <bpmn:sequenceFlow id="Flow_125" sourceRef="seed_collect_instance_send" targetRef="seed_collect_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_126" sourceRef="seed_collect_instance_wait" targetRef="seed_collect_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_127" sourceRef="seed_collect_instance_validate" targetRef="seed_collect_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_128" sourceRef="seed_collect_instance_ok" targetRef="seed_collect_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_129" sourceRef="seed_collect_instance_ok" targetRef="seed_collect_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_collect_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_collect_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_130" sourceRef="seed_collect_group_start" targetRef="seed_collect_instance" />
+        <bpmn:sequenceFlow id="Flow_131" sourceRef="seed_collect_instance" targetRef="seed_collect_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_collect_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_132" sourceRef="seed_collect_begin" targetRef="seed_collect_preflight" />
+      <bpmn:sequenceFlow id="Flow_133" sourceRef="seed_collect_preflight" targetRef="seed_collect_group" />
+      <bpmn:sequenceFlow id="Flow_134" sourceRef="seed_collect_group" targetRef="seed_collect_end" />
+      <bpmn:boundaryEvent id="seed_collect_timeout" name="节点超时" attachedToRef="seed_collect_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_collect_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_collect_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_135" sourceRef="seed_collect_timeout" targetRef="seed_collect_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_136" sourceRef="seed_collect_mark_timeout" targetRef="seed_collect_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_collect_error_boundary" name="动作失败" attachedToRef="seed_collect" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_137" sourceRef="seed_collect_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_138" sourceRef="shg_emit" targetRef="seed_collect" />
+    <bpmn:subProcess id="shg_collect" name="激光参数采集 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_collect", "target": "shg_injector", "action": "laser_parameter_collect", "phase": "参数采集"}, "success": {"main_state": "正常", "current_state": "采集完成", "key_state": "采集完成", "business_state": "出光"}, "completion": {"observed_states": ["采集完成"], "required_conditions": ["emission_stable"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_collect_begin" name="开始" />
+      <bpmn:serviceTask id="shg_collect_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_collect_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_collect_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_collect_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_collect_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 laser_parameter_collect；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_collect_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_collect_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_collect_instance_ok" name="本实例验证成功？" default="Flow_144" />
+          <bpmn:endEvent id="shg_collect_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_collect_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_139" sourceRef="shg_collect_instance_start" targetRef="shg_collect_instance_send" />
+          <bpmn:sequenceFlow id="Flow_140" sourceRef="shg_collect_instance_send" targetRef="shg_collect_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_141" sourceRef="shg_collect_instance_wait" targetRef="shg_collect_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_142" sourceRef="shg_collect_instance_validate" targetRef="shg_collect_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_143" sourceRef="shg_collect_instance_ok" targetRef="shg_collect_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_144" sourceRef="shg_collect_instance_ok" targetRef="shg_collect_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_collect_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_collect_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_145" sourceRef="shg_collect_group_start" targetRef="shg_collect_instance" />
+        <bpmn:sequenceFlow id="Flow_146" sourceRef="shg_collect_instance" targetRef="shg_collect_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_collect_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_147" sourceRef="shg_collect_begin" targetRef="shg_collect_preflight" />
+      <bpmn:sequenceFlow id="Flow_148" sourceRef="shg_collect_preflight" targetRef="shg_collect_group" />
+      <bpmn:sequenceFlow id="Flow_149" sourceRef="shg_collect_group" targetRef="shg_collect_end" />
+      <bpmn:boundaryEvent id="shg_collect_timeout" name="节点超时" attachedToRef="shg_collect_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_collect_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_collect_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_150" sourceRef="shg_collect_timeout" targetRef="shg_collect_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_151" sourceRef="shg_collect_mark_timeout" targetRef="shg_collect_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_collect_error_boundary" name="动作失败" attachedToRef="shg_collect" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_152" sourceRef="shg_collect_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_153" sourceRef="seed_collect" targetRef="shg_collect" />
+    <bpmn:subProcess id="seed_standby" name="种子源待机/复位 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_standby", "target": "seed_source", "action": "standby_reset", "phase": "正常复位"}, "success": {"main_state": "就绪", "current_state": "复位/待机完成", "key_state": "复位/待机完成", "business_state": "就绪"}, "completion": {"observed_states": ["复位/待机完成"], "required_conditions": ["safe_position", "resources_released"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_standby_begin" name="开始" />
+      <bpmn:serviceTask id="seed_standby_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_standby_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_standby_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_standby_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_standby_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 standby_reset；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_standby_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_standby_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_standby_instance_ok" name="本实例验证成功？" default="Flow_159" />
+          <bpmn:endEvent id="seed_standby_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_standby_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_154" sourceRef="seed_standby_instance_start" targetRef="seed_standby_instance_send" />
+          <bpmn:sequenceFlow id="Flow_155" sourceRef="seed_standby_instance_send" targetRef="seed_standby_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_156" sourceRef="seed_standby_instance_wait" targetRef="seed_standby_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_157" sourceRef="seed_standby_instance_validate" targetRef="seed_standby_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_158" sourceRef="seed_standby_instance_ok" targetRef="seed_standby_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_159" sourceRef="seed_standby_instance_ok" targetRef="seed_standby_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_standby_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_standby_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_160" sourceRef="seed_standby_group_start" targetRef="seed_standby_instance" />
+        <bpmn:sequenceFlow id="Flow_161" sourceRef="seed_standby_instance" targetRef="seed_standby_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_standby_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_162" sourceRef="seed_standby_begin" targetRef="seed_standby_preflight" />
+      <bpmn:sequenceFlow id="Flow_163" sourceRef="seed_standby_preflight" targetRef="seed_standby_group" />
+      <bpmn:sequenceFlow id="Flow_164" sourceRef="seed_standby_group" targetRef="seed_standby_end" />
+      <bpmn:boundaryEvent id="seed_standby_timeout" name="节点超时" attachedToRef="seed_standby_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_standby_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_standby_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_165" sourceRef="seed_standby_timeout" targetRef="seed_standby_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_166" sourceRef="seed_standby_mark_timeout" targetRef="seed_standby_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_standby_error_boundary" name="动作失败" attachedToRef="seed_standby" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_167" sourceRef="seed_standby_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_168" sourceRef="shg_collect" targetRef="seed_standby" />
+    <bpmn:subProcess id="shg_standby" name="二倍频待机/复位 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_standby", "target": "shg_injector", "action": "standby_reset", "phase": "正常复位"}, "success": {"main_state": "就绪", "current_state": "复位/待机完成", "key_state": "复位/待机完成", "business_state": "就绪"}, "completion": {"observed_states": ["复位/待机完成"], "required_conditions": ["safe_position", "resources_released"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_standby_begin" name="开始" />
+      <bpmn:serviceTask id="shg_standby_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_standby_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_standby_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_standby_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_standby_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 standby_reset；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_standby_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_standby_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_standby_instance_ok" name="本实例验证成功？" default="Flow_174" />
+          <bpmn:endEvent id="shg_standby_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_standby_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_169" sourceRef="shg_standby_instance_start" targetRef="shg_standby_instance_send" />
+          <bpmn:sequenceFlow id="Flow_170" sourceRef="shg_standby_instance_send" targetRef="shg_standby_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_171" sourceRef="shg_standby_instance_wait" targetRef="shg_standby_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_172" sourceRef="shg_standby_instance_validate" targetRef="shg_standby_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_173" sourceRef="shg_standby_instance_ok" targetRef="shg_standby_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_174" sourceRef="shg_standby_instance_ok" targetRef="shg_standby_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_standby_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_standby_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_175" sourceRef="shg_standby_group_start" targetRef="shg_standby_instance" />
+        <bpmn:sequenceFlow id="Flow_176" sourceRef="shg_standby_instance" targetRef="shg_standby_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_standby_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_177" sourceRef="shg_standby_begin" targetRef="shg_standby_preflight" />
+      <bpmn:sequenceFlow id="Flow_178" sourceRef="shg_standby_preflight" targetRef="shg_standby_group" />
+      <bpmn:sequenceFlow id="Flow_179" sourceRef="shg_standby_group" targetRef="shg_standby_end" />
+      <bpmn:boundaryEvent id="shg_standby_timeout" name="节点超时" attachedToRef="shg_standby_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_standby_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_standby_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_180" sourceRef="shg_standby_timeout" targetRef="shg_standby_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_181" sourceRef="shg_standby_mark_timeout" targetRef="shg_standby_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_standby_error_boundary" name="动作失败" attachedToRef="shg_standby" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_182" sourceRef="shg_standby_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_183" sourceRef="seed_standby" targetRef="shg_standby" />
+    <bpmn:subProcess id="seed_shutdown" name="关机 · 种子源 ×3">
+      <bpmn:documentation>{"source_node": {"id": "seed_shutdown", "target": "seed_source", "action": "shutdown", "phase": "关机收尾"}, "success": {"main_state": "未就绪", "current_state": "关机完成", "key_state": "关机完成", "business_state": "未就绪"}, "completion": {"observed_states": ["关机完成", "关机成功", "下电成功"], "required_conditions": ["power_off_confirmed"]}}</bpmn:documentation>
+      <bpmn:startEvent id="seed_shutdown_begin" name="开始" />
+      <bpmn:serviceTask id="seed_shutdown_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="seed_shutdown_group" name="本节点执行组">
+        <bpmn:subProcess id="seed_shutdown_instance" name="分系统异步动作">
+          <bpmn:documentation>seedInstances=[seed_01,seed_02,seed_03]，每轮按局部索引绑定对应 Device。三个实例全部正常结束才完成；任一实例抛出 ACTION_FAILED，传播至节点边界中断整组。未使用提前完成条件。</bpmn:documentation>
+          <bpmn:startEvent id="seed_shutdown_instance_start" name="开始" />
+          <bpmn:serviceTask id="seed_shutdown_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 shutdown；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="seed_shutdown_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="seed_shutdown_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="seed_shutdown_instance_ok" name="本实例验证成功？" default="Flow_189" />
+          <bpmn:endEvent id="seed_shutdown_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="seed_shutdown_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_184" sourceRef="seed_shutdown_instance_start" targetRef="seed_shutdown_instance_send" />
+          <bpmn:sequenceFlow id="Flow_185" sourceRef="seed_shutdown_instance_send" targetRef="seed_shutdown_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_186" sourceRef="seed_shutdown_instance_wait" targetRef="seed_shutdown_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_187" sourceRef="seed_shutdown_instance_validate" targetRef="seed_shutdown_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_188" sourceRef="seed_shutdown_instance_ok" targetRef="seed_shutdown_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_189" sourceRef="seed_shutdown_instance_ok" targetRef="seed_shutdown_instance_error" name="否" />
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+            <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">3</bpmn:loopCardinality>
+          </bpmn:multiInstanceLoopCharacteristics>
+        </bpmn:subProcess>
+        <bpmn:startEvent id="seed_shutdown_group_start" name="开始执行组" />
+        <bpmn:endEvent id="seed_shutdown_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_190" sourceRef="seed_shutdown_group_start" targetRef="seed_shutdown_instance" />
+        <bpmn:sequenceFlow id="Flow_191" sourceRef="seed_shutdown_instance" targetRef="seed_shutdown_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="seed_shutdown_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_192" sourceRef="seed_shutdown_begin" targetRef="seed_shutdown_preflight" />
+      <bpmn:sequenceFlow id="Flow_193" sourceRef="seed_shutdown_preflight" targetRef="seed_shutdown_group" />
+      <bpmn:sequenceFlow id="Flow_194" sourceRef="seed_shutdown_group" targetRef="seed_shutdown_end" />
+      <bpmn:boundaryEvent id="seed_shutdown_timeout" name="节点超时" attachedToRef="seed_shutdown_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="seed_shutdown_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="seed_shutdown_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_195" sourceRef="seed_shutdown_timeout" targetRef="seed_shutdown_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_196" sourceRef="seed_shutdown_mark_timeout" targetRef="seed_shutdown_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="seed_shutdown_error_boundary" name="动作失败" attachedToRef="seed_shutdown" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_197" sourceRef="seed_shutdown_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_198" sourceRef="shg_standby" targetRef="seed_shutdown" />
+    <bpmn:subProcess id="shg_shutdown" name="关机 · 二倍频 ×1">
+      <bpmn:documentation>{"source_node": {"id": "shg_shutdown", "target": "shg_injector", "action": "shutdown", "phase": "关机收尾"}, "success": {"main_state": "未就绪", "current_state": "关机完成", "key_state": "关机完成", "business_state": "未就绪"}, "completion": {"observed_states": ["关机完成", "关机成功", "下电成功"], "required_conditions": ["power_off_confirmed"]}}</bpmn:documentation>
+      <bpmn:startEvent id="shg_shutdown_begin" name="开始" />
+      <bpmn:serviceTask id="shg_shutdown_preflight" name="预检全部目标实例">
+        <bpmn:documentation>逐实例读取状态并检查 precondition；任一不满足抛出 ACTION_FAILED，禁止部分下发。预检与设备接受之间仍需并发控制。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="shg_shutdown_group" name="本节点执行组">
+        <bpmn:subProcess id="shg_shutdown_instance" name="分系统异步动作">
+          <bpmn:documentation>本实例绑定 shg_01；只有一次执行。</bpmn:documentation>
+          <bpmn:startEvent id="shg_shutdown_instance_start" name="开始" />
+          <bpmn:serviceTask id="shg_shutdown_instance_send" name="下发 Tango Command，登记 taskId">
+            <bpmn:documentation>检查并发送 shutdown；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="shg_shutdown_instance_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+            <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="shg_shutdown_instance_validate" name="校验任务、观测状态及完成条件" />
+          <bpmn:exclusiveGateway id="shg_shutdown_instance_ok" name="本实例验证成功？" default="Flow_204" />
+          <bpmn:endEvent id="shg_shutdown_instance_done" name="本实例成功" />
+          <bpmn:endEvent id="shg_shutdown_instance_error" name="本实例失败">
+            <bpmn:errorEventDefinition errorRef="ActionFailed" />
+          </bpmn:endEvent>
+          <bpmn:sequenceFlow id="Flow_199" sourceRef="shg_shutdown_instance_start" targetRef="shg_shutdown_instance_send" />
+          <bpmn:sequenceFlow id="Flow_200" sourceRef="shg_shutdown_instance_send" targetRef="shg_shutdown_instance_wait" />
+          <bpmn:sequenceFlow id="Flow_201" sourceRef="shg_shutdown_instance_wait" targetRef="shg_shutdown_instance_validate" />
+          <bpmn:sequenceFlow id="Flow_202" sourceRef="shg_shutdown_instance_validate" targetRef="shg_shutdown_instance_ok" />
+          <bpmn:sequenceFlow id="Flow_203" sourceRef="shg_shutdown_instance_ok" targetRef="shg_shutdown_instance_done" name="是">
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+          </bpmn:sequenceFlow>
+          <bpmn:sequenceFlow id="Flow_204" sourceRef="shg_shutdown_instance_ok" targetRef="shg_shutdown_instance_error" name="否" />
+        </bpmn:subProcess>
+        <bpmn:startEvent id="shg_shutdown_group_start" name="开始执行组" />
+        <bpmn:endEvent id="shg_shutdown_group_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="Flow_205" sourceRef="shg_shutdown_group_start" targetRef="shg_shutdown_instance" />
+        <bpmn:sequenceFlow id="Flow_206" sourceRef="shg_shutdown_instance" targetRef="shg_shutdown_group_done" />
+      </bpmn:subProcess>
+      <bpmn:endEvent id="shg_shutdown_end" name="节点成功" />
+      <bpmn:sequenceFlow id="Flow_207" sourceRef="shg_shutdown_begin" targetRef="shg_shutdown_preflight" />
+      <bpmn:sequenceFlow id="Flow_208" sourceRef="shg_shutdown_preflight" targetRef="shg_shutdown_group" />
+      <bpmn:sequenceFlow id="Flow_209" sourceRef="shg_shutdown_group" targetRef="shg_shutdown_end" />
+      <bpmn:boundaryEvent id="shg_shutdown_timeout" name="节点超时" attachedToRef="shg_shutdown_group" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT30S</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="shg_shutdown_mark_timeout" name="标记未达标目标执行超时">
+        <bpmn:documentation>整组截止时间。与当前 Python 近似：计时从进入执行组开始；Python 从所有 start 返回后开始。Tango 上线需确定统一计时起点及同刻超时/成功的优先级。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="shg_shutdown_timeout_error" name="传播超时失败">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_210" sourceRef="shg_shutdown_timeout" targetRef="shg_shutdown_mark_timeout" />
+      <bpmn:sequenceFlow id="Flow_211" sourceRef="shg_shutdown_mark_timeout" targetRef="shg_shutdown_timeout_error" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="shg_shutdown_error_boundary" name="动作失败" attachedToRef="shg_shutdown" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_212" sourceRef="shg_shutdown_error_boundary" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="Flow_213" sourceRef="seed_shutdown" targetRef="shg_shutdown" />
+    <bpmn:endEvent id="success" name="实验成功（双方关机已确认）" />
+    <bpmn:sequenceFlow id="Flow_214" sourceRef="shg_shutdown" targetRef="success" />
+    <bpmn:serviceTask id="record_failure" name="记录流程失败；取消当前组剩余任务">
+      <bpmn:documentation>停止下游调度；取消外部设备任务须经 Tango 显式命令，不能由 BPMN token 取消推断设备已停止。普通失败不自动启动补偿，与当前 Python API 一致。</bpmn:documentation>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="failure" name="实验失败" />
+    <bpmn:sequenceFlow id="Flow_215" sourceRef="record_failure" targetRef="failure" />
+    <bpmn:boundaryEvent id="gate_error" name="状态读取失败" attachedToRef="read_joint_states" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="ActionFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_216" sourceRef="gate_error" targetRef="record_failure" />
+    <bpmn:subProcess id="interlock_handler" name="全局联锁：中断当前实验并等待补偿" triggeredByEvent="true">
+      <bpmn:documentation>仅覆盖 BPMN 流程存活期间的联锁。Python 在 failed/succeeded 后也可触发联锁；部署时需要独立设备安全管理流程承接，不应复活已结束流程。</bpmn:documentation>
+      <bpmn:startEvent id="interlock_received" name="收到本 runId 联锁消息" isInterrupting="true">
+        <bpmn:messageEventDefinition messageRef="InterlockMessage" />
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="latch_interlock" name="锁定联锁、记录实验失败并中止活动任务" />
+      <bpmn:userTask id="request_compensation" name="操作员确认原因解除与复位证据，发起补偿" />
+      <bpmn:subProcess id="compensate_serial" name="按优先级逐实例执行安全复位">
+        <bpmn:documentation>按 priority 稳定排序：seed_01、seed_02、seed_03、shg_01，当前两个策略 priority 均为 1。每个动作等待并校验安全复位证据，失败停止后续补偿；不采用 BPMN 自动补偿事件。</bpmn:documentation>
+        <bpmn:startEvent id="compensation_start" name="开始" />
+        <bpmn:serviceTask id="compensation_send" name="下发 Tango Command，登记 taskId">
+          <bpmn:documentation>检查并发送 abort_reset；命令拒绝映射为 ACTION_FAILED。接收成功只代表 accepted。adapter 必须先登记关联并缓存早到反馈。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:receiveTask id="compensation_wait" name="等待本实例最终结果" messageRef="TaskResultMessage">
+          <bpmn:documentation>只消费最终结果；accepted/executing 不结束等待。实例局部变量隔离；runId/nodeId/instanceId/taskId 关联及幂等由适配层实现。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:serviceTask id="compensation_validate" name="校验任务、观测状态及完成条件" />
+        <bpmn:exclusiveGateway id="compensation_ok" name="本实例验证成功？" default="Flow_222" />
+        <bpmn:endEvent id="compensation_done" name="本实例成功" />
+        <bpmn:endEvent id="compensation_error" name="本实例失败">
+          <bpmn:errorEventDefinition errorRef="ActionFailed" />
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="Flow_217" sourceRef="compensation_start" targetRef="compensation_send" />
+        <bpmn:sequenceFlow id="Flow_218" sourceRef="compensation_send" targetRef="compensation_wait" />
+        <bpmn:sequenceFlow id="Flow_219" sourceRef="compensation_wait" targetRef="compensation_validate" />
+        <bpmn:sequenceFlow id="Flow_220" sourceRef="compensation_validate" targetRef="compensation_ok" />
+        <bpmn:sequenceFlow id="Flow_221" sourceRef="compensation_ok" targetRef="compensation_done" name="是">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">resultValid = true</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_222" sourceRef="compensation_ok" targetRef="compensation_error" name="否" />
+        <bpmn:multiInstanceLoopCharacteristics isSequential="true">
+          <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">4</bpmn:loopCardinality>
+        </bpmn:multiInstanceLoopCharacteristics>
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="clear_compensation_flag" name="清除待补偿标记，保留实验失败及联锁记录" />
+      <bpmn:endEvent id="interlock_end" name="安全回退完成；实验仍失败" />
+      <bpmn:boundaryEvent id="compensation_boundary_error" name="补偿失败" attachedToRef="compensate_serial" cancelActivity="true">
+        <bpmn:errorEventDefinition errorRef="ActionFailed" />
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="retain_compensation" name="保留待补偿标记及已完成记录" />
+      <bpmn:userTask id="compensation_attention" name="人工处理并决定再次补偿" />
+      <bpmn:sequenceFlow id="Flow_223" sourceRef="interlock_received" targetRef="latch_interlock" />
+      <bpmn:sequenceFlow id="Flow_224" sourceRef="latch_interlock" targetRef="request_compensation" />
+      <bpmn:sequenceFlow id="Flow_225" sourceRef="request_compensation" targetRef="compensate_serial" />
+      <bpmn:sequenceFlow id="Flow_226" sourceRef="compensate_serial" targetRef="clear_compensation_flag" />
+      <bpmn:sequenceFlow id="Flow_227" sourceRef="clear_compensation_flag" targetRef="interlock_end" />
+      <bpmn:sequenceFlow id="Flow_228" sourceRef="compensation_boundary_error" targetRef="retain_compensation" />
+      <bpmn:sequenceFlow id="Flow_229" sourceRef="retain_compensation" targetRef="compensation_attention" />
+      <bpmn:sequenceFlow id="Flow_230" sourceRef="compensation_attention" targetRef="request_compensation" />
+    </bpmn:subProcess>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Overview">
+    <bpmndi:BPMNPlane id="Plane" bpmnElement="laser_joint_fanout_experiment">
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
+        <dc:Bounds x="300" y="20" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test" bpmnElement="seed_self_test" isExpanded="false">
+        <dc:Bounds x="220" y="100" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_self_test_error_boundary" bpmnElement="seed_self_test_error_boundary">
+        <dc:Bounds x="460" y="157" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test" bpmnElement="shg_self_test" isExpanded="false">
+        <dc:Bounds x="220" y="235" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_self_test_error_boundary" bpmnElement="shg_self_test_error_boundary">
+        <dc:Bounds x="460" y="292" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check" bpmnElement="seed_check" isExpanded="false">
+        <dc:Bounds x="220" y="370" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_check_error_boundary" bpmnElement="seed_check_error_boundary">
+        <dc:Bounds x="460" y="427" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check" bpmnElement="shg_check" isExpanded="false">
+        <dc:Bounds x="220" y="505" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_check_error_boundary" bpmnElement="shg_check_error_boundary">
+        <dc:Bounds x="460" y="562" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure" bpmnElement="seed_configure" isExpanded="false">
+        <dc:Bounds x="220" y="640" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_configure_error_boundary" bpmnElement="seed_configure_error_boundary">
+        <dc:Bounds x="460" y="697" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure" bpmnElement="shg_configure" isExpanded="false">
+        <dc:Bounds x="220" y="775" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_configure_error_boundary" bpmnElement="shg_configure_error_boundary">
+        <dc:Bounds x="460" y="832" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_read_joint_states" bpmnElement="read_joint_states">
+        <dc:Bounds x="220" y="910" width="270" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_laser_ready_gate" bpmnElement="laser_ready_gate">
+        <dc:Bounds x="300" y="985" width="45" height="45" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit" bpmnElement="seed_emit" isExpanded="false">
+        <dc:Bounds x="220" y="1045" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_emit_error_boundary" bpmnElement="seed_emit_error_boundary">
+        <dc:Bounds x="460" y="1102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit" bpmnElement="shg_emit" isExpanded="false">
+        <dc:Bounds x="220" y="1180" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_emit_error_boundary" bpmnElement="shg_emit_error_boundary">
+        <dc:Bounds x="460" y="1237" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect" bpmnElement="seed_collect" isExpanded="false">
+        <dc:Bounds x="220" y="1315" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_collect_error_boundary" bpmnElement="seed_collect_error_boundary">
+        <dc:Bounds x="460" y="1372" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect" bpmnElement="shg_collect" isExpanded="false">
+        <dc:Bounds x="220" y="1450" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_collect_error_boundary" bpmnElement="shg_collect_error_boundary">
+        <dc:Bounds x="460" y="1507" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby" bpmnElement="seed_standby" isExpanded="false">
+        <dc:Bounds x="220" y="1585" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_standby_error_boundary" bpmnElement="seed_standby_error_boundary">
+        <dc:Bounds x="460" y="1642" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby" bpmnElement="shg_standby" isExpanded="false">
+        <dc:Bounds x="220" y="1720" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_standby_error_boundary" bpmnElement="shg_standby_error_boundary">
+        <dc:Bounds x="460" y="1777" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown" bpmnElement="seed_shutdown" isExpanded="false">
+        <dc:Bounds x="220" y="1855" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_seed_shutdown_error_boundary" bpmnElement="seed_shutdown_error_boundary">
+        <dc:Bounds x="460" y="1912" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown" bpmnElement="shg_shutdown" isExpanded="false">
+        <dc:Bounds x="220" y="1990" width="270" height="75" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_shg_shutdown_error_boundary" bpmnElement="shg_shutdown_error_boundary">
+        <dc:Bounds x="460" y="2047" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_success" bpmnElement="success">
+        <dc:Bounds x="300" y="2125" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_record_failure" bpmnElement="record_failure">
+        <dc:Bounds x="670" y="650" width="260" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_failure" bpmnElement="failure">
+        <dc:Bounds x="780" y="790" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_gate_error" bpmnElement="gate_error">
+        <dc:Bounds x="468" y="953" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_interlock_handler" bpmnElement="interlock_handler" isExpanded="false">
+        <dc:Bounds x="1040" y="650" width="290" height="85" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow_14" bpmnElement="Flow_14">
+        <di:waypoint x="496" y="175.0" />
+        <di:waypoint x="580" y="175.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_15" bpmnElement="Flow_15">
+        <di:waypoint x="318.0" y="56" />
+        <di:waypoint x="355.0" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_29" bpmnElement="Flow_29">
+        <di:waypoint x="496" y="310.0" />
+        <di:waypoint x="580" y="310.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_30" bpmnElement="Flow_30">
+        <di:waypoint x="355.0" y="175" />
+        <di:waypoint x="355.0" y="235" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_44" bpmnElement="Flow_44">
+        <di:waypoint x="496" y="445.0" />
+        <di:waypoint x="580" y="445.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_45" bpmnElement="Flow_45">
+        <di:waypoint x="355.0" y="310" />
+        <di:waypoint x="355.0" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_59" bpmnElement="Flow_59">
+        <di:waypoint x="496" y="580.0" />
+        <di:waypoint x="580" y="580.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_60" bpmnElement="Flow_60">
+        <di:waypoint x="355.0" y="445" />
+        <di:waypoint x="355.0" y="505" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_74" bpmnElement="Flow_74">
+        <di:waypoint x="496" y="715.0" />
+        <di:waypoint x="580" y="715.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_75" bpmnElement="Flow_75">
+        <di:waypoint x="355.0" y="580" />
+        <di:waypoint x="355.0" y="640" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_89" bpmnElement="Flow_89">
+        <di:waypoint x="496" y="850.0" />
+        <di:waypoint x="580" y="850.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_90" bpmnElement="Flow_90">
+        <di:waypoint x="355.0" y="715" />
+        <di:waypoint x="355.0" y="775" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_91" bpmnElement="Flow_91">
+        <di:waypoint x="355.0" y="850" />
+        <di:waypoint x="355.0" y="910" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_92" bpmnElement="Flow_92">
+        <di:waypoint x="355.0" y="970" />
+        <di:waypoint x="322.5" y="985" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_93" bpmnElement="Flow_93">
+        <di:waypoint x="345" y="1007.5" />
+        <di:waypoint x="580" y="1007.5" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_107" bpmnElement="Flow_107">
+        <di:waypoint x="496" y="1120.0" />
+        <di:waypoint x="580" y="1120.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_108" bpmnElement="Flow_108">
+        <di:waypoint x="322.5" y="1030" />
+        <di:waypoint x="355.0" y="1045" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_122" bpmnElement="Flow_122">
+        <di:waypoint x="496" y="1255.0" />
+        <di:waypoint x="580" y="1255.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_123" bpmnElement="Flow_123">
+        <di:waypoint x="355.0" y="1120" />
+        <di:waypoint x="355.0" y="1180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_137" bpmnElement="Flow_137">
+        <di:waypoint x="496" y="1390.0" />
+        <di:waypoint x="580" y="1390.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_138" bpmnElement="Flow_138">
+        <di:waypoint x="355.0" y="1255" />
+        <di:waypoint x="355.0" y="1315" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_152" bpmnElement="Flow_152">
+        <di:waypoint x="496" y="1525.0" />
+        <di:waypoint x="580" y="1525.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_153" bpmnElement="Flow_153">
+        <di:waypoint x="355.0" y="1390" />
+        <di:waypoint x="355.0" y="1450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_167" bpmnElement="Flow_167">
+        <di:waypoint x="496" y="1660.0" />
+        <di:waypoint x="580" y="1660.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_168" bpmnElement="Flow_168">
+        <di:waypoint x="355.0" y="1525" />
+        <di:waypoint x="355.0" y="1585" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_182" bpmnElement="Flow_182">
+        <di:waypoint x="496" y="1795.0" />
+        <di:waypoint x="580" y="1795.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_183" bpmnElement="Flow_183">
+        <di:waypoint x="355.0" y="1660" />
+        <di:waypoint x="355.0" y="1720" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_197" bpmnElement="Flow_197">
+        <di:waypoint x="496" y="1930.0" />
+        <di:waypoint x="580" y="1930.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_198" bpmnElement="Flow_198">
+        <di:waypoint x="355.0" y="1795" />
+        <di:waypoint x="355.0" y="1855" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_212" bpmnElement="Flow_212">
+        <di:waypoint x="496" y="2065.0" />
+        <di:waypoint x="580" y="2065.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_213" bpmnElement="Flow_213">
+        <di:waypoint x="355.0" y="1930" />
+        <di:waypoint x="355.0" y="1990" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_214" bpmnElement="Flow_214">
+        <di:waypoint x="355.0" y="2065" />
+        <di:waypoint x="318.0" y="2125" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_215" bpmnElement="Flow_215">
+        <di:waypoint x="800.0" y="735" />
+        <di:waypoint x="798.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow_216" bpmnElement="Flow_216">
+        <di:waypoint x="504" y="971.0" />
+        <di:waypoint x="580" y="971.0" />
+        <di:waypoint x="580" y="692.5" />
+        <di:waypoint x="670" y="692.5" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
