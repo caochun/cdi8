@@ -16,4 +16,4 @@ dependencies = [
 include = ["gxlf_sim_system*"]
 
 [tool.setuptools.package-data]
-gxlf_sim_system = ["models/*.yaml"]
+gxlf_sim_system = ["models/*.yaml", "web/*.html"]

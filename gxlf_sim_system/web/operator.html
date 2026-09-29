@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GXLF · 实验操作台</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#1a3140;background:#eef2f5}body{margin:0}header{background:#142e3c;color:white;padding:24px 4vw;display:flex;justify-content:space-between;align-items:center}h1{font-size:24px;margin:0}small{color:#b8cbd5}main{max-width:1400px;margin:auto;padding:24px}section{background:white;border:1px solid #d5e0e6;border-radius:12px;padding:20px;margin-bottom:20px}h2{font-size:17px;margin:0 0 16px}.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,select,input{font:inherit;padding:9px;border:1px solid #c8d6df;border-radius:6px;background:white}button{cursor:pointer}button.primary{background:#17616b;color:white}button.danger{color:#b22a38}button:disabled{opacity:.4;cursor:default}#error{color:#aa2035;min-height:24px;margin:10px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.card{border:1px solid #dce5eb;padding:15px;border-radius:8px}.card strong{display:block;margin-bottom:10px}.badge{padding:5px 10px;border-radius:20px;background:#deedf0}.running{border-left:5px solid #2196b3}.failed{border-left:5px solid #d14151}.succeeded{border-left:5px solid #269b6d}.waiting{opacity:.65}#nodes{display:flex;gap:9px;overflow:auto;padding-bottom:8px}.node{white-space:pre-line;min-width:145px;padding:12px;background:#f4f7fa;border-radius:6px}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;border-bottom:1px solid #e5edf2;padding:9px;vertical-align:top;overflow-wrap:anywhere}.scroll{max-height:400px;overflow:auto}#timeline{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}a{color:#17616b}#mode{font-weight:bold}label{font-size:14px}
+</style>
+<header><div><h1>GXLF 实验操作台</h1><small>种子源 × 3 · 二倍频组件 × 1 · 联合仿真</small></div><span id="mode">实时</span></header>
+<main>
+<section><div class="bar"><span id="status" class="badge"></span><span id="flags"></span></div><p id="run"></p>
+<div class="bar" id="controls">
+<button class="primary" id="dispatch">启动 / 下发下一节点</button>
+<button class="danger" id="interlock">触发联锁</button>
+<button id="compensate">模拟安全条件满足并执行补偿</button>
+<button id="newrun">新建仿真实验</button>
+</div><div id="error" role="alert"></div><small style="color:#536c7a">反馈与补偿证据均为演示用模拟数据。新建实验会创建新的仿真实例；补偿不会将失败流程改为成功。</small>
+</section>
+<section><h2>流程节点</h2><div id="nodes"></div></section>
+<section><h2>分系统实例</h2><div id="machines" class="grid"></div></section>
+<section><h2>日志与回放</h2><div class="bar">
+<button id="live">返回实时</button><button id="play">播放回放</button><button id="prev">上一步</button><button id="next">下一步</button>
+<label>导入日志 <input id="file" type="file" accept=".jsonl,.ndjson"></label><a href="/api/log" download="experiment.jsonl">导出当前日志</a>
+</div><p id="position"></p><input id="timeline" type="range" min="0" max="0" value="0">
+<div class="bar"><input id="filter" placeholder="过滤运行 / 节点 / 实例 / 原因"><span id="count"></span></div>
+<div class="scroll"><table><thead><tr><th>序号 / 时间</th><th>事件</th><th>节点 / 实例</th><th>内容</th></tr></thead><tbody id="events"></tbody></table></div>
+<details><summary>选中快照详情</summary><pre id="detail"></pre></details>
+</section></main>
+<script>
+const token='__TOKEN__', $=id=>document.getElementById(id);
+const labels={idle:'未开始',running:'执行中',waiting:'等待',failed:'失败',succeeded:'成功',cancelled:'已取消'};
+let live=null,events=[],frames=[],replaying=false,imported=false,busy=false,timer=null;
+function el(tag,text,cls){const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;}
+function stop(){clearInterval(timer);timer=null;$('play').textContent='播放回放';}
+async function command(cmd,extra={}){
+ if(busy||replaying||!live)return;busy=true;$('error').textContent='';render(live);
+ try{const r=await fetch('/api/commands',{method:'POST',headers:{'Content-Type':'application/json','X-Operator-Token':token},body:JSON.stringify({command:cmd,command_id:crypto.randomUUID(),run_id:live.flow.run_id,...extra})});const result=await r.json();if(!r.ok)throw Error(result.error);await refresh();}
+ catch(e){$('error').textContent=e.message;}finally{busy=false;if(!replaying)render(live);}
+}
+function render(state){if(!state)return;
+ $('mode').textContent=replaying?'历史回放 · 只读':'实时';$('status').textContent=labels[state.flow.status]||state.flow.status;
+ $('flags').textContent=(state.flow.interlock_triggered?'联锁已锁定　':'')+(state.flow.compensation_required?'需要补偿':'');$('run').textContent='实验 '+state.flow.run_id;
+ $('dispatch').disabled=busy||replaying||!!state.flow.active||['failed','succeeded'].includes(state.flow.status);
+ $('interlock').disabled=busy||replaying||state.flow.interlock_triggered;
+ $('compensate').disabled=busy||replaying||!state.flow.compensation_required;
+ $('newrun').disabled=busy||replaying||!['failed','succeeded'].includes(state.flow.status)||state.flow.compensation_required;
+ $('nodes').replaceChildren();for(const [id,status] of state.flow.node_states){const node=state.nodes.find(n=>n.id===id);$('nodes').append(el('div',(node?.phase||'')+' · '+(node?.label||id)+'\n'+(labels[status]||status),'node '+status));}
+ $('machines').replaceChildren();for(const [target,s] of Object.entries(state.machines)){
+ const card=el('div','','card '+s.task_state);card.append(el('strong',target.replace('seed_source:', '种子源 · ').replace('shg_injector:', '二倍频 · ')),el('p','主状态：'+s.main_state+' · 当前：'+s.current_state),el('p','业务状态：'+s.business_state),el('p',s.state_definition+' · '+(labels[s.task_state]||s.task_state)),el('small',s.task_id||'尚无任务'));
+ if(state.pending.includes(target)){const row=el('div','','bar');for(const [cmd,text] of [['success','模拟成功'],['failure','模拟失败'],['fault','通信故障']]){const b=el('button',text);b.disabled=busy||replaying;b.onclick=()=>command(cmd,{target,task_id:s.task_id,exception:'communication_error'});row.append(b);}card.append(row);}
+ $('machines').append(card);}
+ $('detail').textContent=JSON.stringify(state,null,2);
+}
+function renderEvents(){const term=$('filter').value.trim();const rows=events.filter(e=>!term||JSON.stringify(e).includes(term));$('events').replaceChildren();for(const e of rows.slice(-300).reverse()){
+ const tr=document.createElement('tr');tr.append(el('td',e.seq+' · '+e.timestamp),el('td',e.kind),el('td',(e.node_id||'')+' '+(e.target||'')),el('td',e.reason||e.request?.command||e.outcome?.error||e.outcome||e.event||''));$('events').append(tr);}$('count').textContent=rows.length+' 条匹配（最多显示最近 300 条）';}
+function setEvents(list){events=list;frames=events.filter(e=>e.kind==='checkpoint');$('timeline').max=Math.max(0,frames.length-1);if(!replaying)$('timeline').value=frames.length-1;renderEvents();}
+function showFrame(index){if(!frames.length)return;replaying=true;index=Math.max(0,Math.min(frames.length-1,index));$('timeline').value=index;const f=frames[index];$('position').textContent=`快照 ${index+1}/${frames.length} · 事件 #${f.seq} · ${f.timestamp} · ${f.reason}`;render(f.state);}
+async function refresh(){const r=await fetch('/api/session');if(!r.ok)throw Error('无法读取服务状态');const d=await r.json();live=d.state;if(!imported)setEvents(d.events);if(!replaying){render(live);$('position').textContent='实时更新 · '+d.log;}}
+$('dispatch').onclick=()=>command('dispatch');$('interlock').onclick=()=>command('interlock');$('compensate').onclick=()=>command('compensate');$('newrun').onclick=()=>command('new_run');
+$('timeline').oninput=()=>{stop();showFrame(+$('timeline').value);};$('prev').onclick=()=>{stop();showFrame(+$('timeline').value-1);};$('next').onclick=()=>{stop();showFrame(+$('timeline').value+1);};
+$('play').onclick=()=>{if(timer){stop();return;}if(+$('timeline').value>=frames.length-1)showFrame(0);else showFrame(+$('timeline').value);$('play').textContent='暂停回放';timer=setInterval(()=>{const i=+$('timeline').value+1;if(i>=frames.length){stop();return;}showFrame(i);},800);};
+$('live').onclick=async()=>{stop();replaying=false;imported=false;await refresh();};$('filter').oninput=renderEvents;
+$('file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;if(f.size>20000000)throw Error('日志超过 20 MB');const list=(await f.text()).trim().split('\n').map(JSON.parse);for(let i=0;i<list.length;i++){if(list[i].version!==1||list[i].seq!==i+1)throw Error('日志版本或顺序无效');if(list[i].kind==='checkpoint'&&(!list[i].state?.flow||!list[i].state?.machines||!Array.isArray(list[i].state?.nodes)||!Array.isArray(list[i].state?.pending)))throw Error('快照不完整');}if(!list.some(x=>x.kind==='checkpoint'))throw Error('日志没有快照');stop();imported=true;replaying=true;setEvents(list);showFrame(0);}catch(err){$('error').textContent=err.message;}};
+refresh().catch(e=>$('error').textContent=e.message);setInterval(()=>refresh().catch(e=>$('error').textContent=e.message),1000);
+</script></html>

@@ -39,3 +39,8 @@ Run its tests from the repository root:
 ```bash
 make test
 ```
+
+Step 6 provides a loopback operator console and append-only JSONL journal for
+the joint fan-out experiment. Run `make operator` and open
+`http://127.0.0.1:8765`. Replay is read-only and does not dispatch commands.
+See [the operator guide](../reviews/operator-console.md) for scope and limitations.
