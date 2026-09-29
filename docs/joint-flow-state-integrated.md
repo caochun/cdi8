@@ -1,5 +1,9 @@
 # 实验流程与分系统状态：联合全周期图
 
+> 历史建模资料：文中的 Python 流程 YAML/演示入口已移除，历史可在 Git 提交 `2a0b17e` 中查看。
+> 当前运行定义以 [Flowable BPMN](../src/main/resources/processes/laser-joint.bpmn20.xml) 为准。
+
+
 本图依据 `laser-joint-fanout-experiment.yaml` 1.1 和两个分系统状态模型绘制。
 同一张图包含流程控制、三个种子源实例及一个二倍频实例；从上往下表示本次实验的执行顺序。
 这是一条模型允许的正常执行路径，不代表分系统的所有可选转移。

@@ -33,7 +33,7 @@ python3 -m unittest discover -s gxlf_sim_system/tests -t . -v
 `simulator/gxlf_sim_system/output/devices/`，可用 `--data` 指定其他目录。
 迁移保留了原数据库和日志；自定义 `--data` 绝对路径不受目录调整影响。
 
-## 核心文件与对照实现
+## 核心文件
 
 | 路径 | 职责 |
 |---|---|
@@ -43,19 +43,13 @@ python3 -m unittest discover -s gxlf_sim_system/tests -t . -v
 | gxlf_sim_system/subsystem_fsm.py | 单实例分系统状态机执行器 |
 | gxlf_sim_system/models/excel-*-state-machine.yaml | 两份分系统状态规则 |
 | gxlf_sim_system/simulation.py | 演示用反馈证据 |
-| gxlf_sim_system/tests/ | 分系统、协议、历史对照流程的回归测试 |
+| gxlf_sim_system/tests/ | 分系统状态机、设备持久化和 Tango 协议测试 |
 
-以下文件仅为迁移前的 Python 对照实现，Java 主应用不调用它们：
+实验流程唯一执行定义位于主项目 `src/main/resources/processes/laser-joint.bpmn20.xml`，由 Flowable 调度。
+本模块只保留两份分系统状态 YAML；Python 流程执行器、流程 YAML、操作台和演示入口已移除。
+`make operator` 启动 Java 操作台（8080）；原 8765 操作台及 JSONL 回放工具已退出，已有日志和设备数据库保留。
 
-- `joint_fanout_experiment.py` 和 `models/laser-joint-fanout-experiment.yaml`：旧流程编排。
-- `joint_fanout_demo.py` / `__main__.py`：旧完整周期命令行示例。
-- `operator.py`、`operator_server.py`、`web/operator.html`：旧操作台和 JSONL 回放。
+Java 对流程进行编排，DeviceRuntime 通过分系统状态机接受或拒绝动作、校验完成证据并保存结果。
+这里不再维护与 BPMN 并列的实验流程定义。
 
-从根目录运行 `make simulator-demo` 或 `make legacy-operator` 可使用这些对照工具。
-`make operator` 启动的是 Java 应用（8080），`make legacy-operator` 才是 Python 操作台（8765）。
-
-Java 使用 `src/main/resources/processes/laser-joint.bpmn20.xml`，不会执行 Python 流程 YAML。
-业务模型变更时仍需评审两者一致性；对照模型不是第二套生产流程配置。
-
-[主项目说明](../README.md) · [Python 对照说明](../docs/python-reference-guide.md) ·
-[日志回放说明](../docs/operator-console.md)
+[主项目说明](../README.md) · [模型验证计划](../docs/model-correctness-verification.md)

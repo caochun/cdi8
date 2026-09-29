@@ -1,7 +1,7 @@
 # GXLF 实验流程集中控制系统
 
 根项目为 Spring Boot + Flowable 应用，真正部署并执行 BPMN，覆盖 14 个动作节点、种子源三实例、二倍频单实例、联合门禁、结果等待、错误/定时器分支，以及联锁后的人工补偿。
-流程不再调用 Python `JointFanoutSequentialExperiment`。Python 只作为分系统仿真和 Tango 网关。
+流程完全由 Flowable 执行。Python 只作为分系统仿真和 Tango 网关。
 
 ## 仓库结构
 
@@ -14,7 +14,7 @@ cdi8/
 ├── simulator/
 │   ├── pyproject.toml          # 独立 Python 仿真包
 │   ├── README.md
-│   └── gxlf_sim_system/        # PyTango 服务、分系统模型、测试及对照实现
+│   └── gxlf_sim_system/        # PyTango 服务、分系统模型及测试
 ├── scripts/                    # 跨模块联调脚本
 ├── docs/                       # 架构、图示、进度与参考资料
 ├── Makefile
@@ -22,8 +22,7 @@ cdi8/
 ```
 
 主应用在根目录运行 `mvn test`、`mvn spring-boot:run`。Python 模块使用独立的包配置，
-详见 [仿真模块说明](simulator/README.md)。原 Python 流程执行器及操作台保留为对照实现，
-不参与 Java 主应用的流程调度。
+详见 [仿真模块说明](simulator/README.md)。旧 Python 流程执行器和操作台已移除，历史版本保存在 Git。
 
 [实施进度](docs/implementation-plan-progress.md) · [BPMN 设计说明](docs/laser-joint-fanout-bpmn.md) ·
 [模型验证计划](docs/model-correctness-verification.md)
@@ -72,7 +71,7 @@ java -jar target/control-server-0.1.0.jar
 ```
 
 访问 **http://127.0.0.1:8080**。这套页面由 Spring Boot 提供，实际驱动 Flowable。
-原 Python 操作台 `http://127.0.0.1:8765` 仍是旧执行器的对照演示，不会自动切换到 Flowable。
+原 Python 8765 操作台已移除；现有 JSONL 日志保留，Java 当前提供 Flowable 活动历史。
 
 网关地址可以修改：
 
@@ -119,7 +118,7 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 可直接将 `src/main/resources/processes/laser-joint.bpmn20.xml` 导入 bpmn.io 查看，并进入“完整实验周期”或“联锁与人工补偿”子流程。
 [运行版主图预览](docs/bpmn/laser-joint-runtime-overview.svg)。bpmn.io 用于查看/建模，不执行 Flowable 的 Java 表达式。
 之前版本只包含执行定义，bpmn-js 会报 `no diagram to display`；该报错是缺少布局，不是 Flowable 无法解析流程。
-旧 Python YAML 保留为对照基线，Java 不运行时解析它。两套流程定义的后续变更需要同步评审，不能视为自动同步。
+旧 Python 流程 YAML 已移除；`simulator` 中只保留两份分系统状态模型，与 BPMN 分别承担设备行为和实验编排职责。
 
 ## 执行与持久化语义
 
@@ -193,4 +192,4 @@ Java 集成测试使用独立 FakeAdapter 验证引擎行为；真实协议及�
 - 补偿暂未配置独立的超时和失败实例增量重试；定时参数是仿真值。
 - 设备复位后业务状态是未就绪；再次实验前需按业务规则关机再自检，程序不会偷偷重置真实设备状态。
 - 当前叶子状态规则在 Java 适配校验中有明确映射，尚未做自动生成或完整 complete/sound 证明。
-- 旧 Python 操作台的 JSONL 回放未迁移；Java 当前提供 Flowable 持久化活动历史。
+- 旧 Python 操作台与 JSONL 回放工具已移除，已有日志保留但回放功能尚未迁移；Java 当前提供 Flowable 持久化活动历史。

@@ -1,5 +1,9 @@
 # 当前联合实验 YAML 的 BPMN 定义
 
+> 历史建模资料：文中的 Python 流程 YAML/演示入口已移除，历史可在 Git 提交 `2a0b17e` 中查看。
+> 当前运行定义以 [Flowable BPMN](../src/main/resources/processes/laser-joint.bpmn20.xml) 为准。
+
+
 来源：`simulator/gxlf_sim_system/models/laser-joint-fanout-experiment.yaml` 1.1。
 模型文件：[laser-joint-fanout-experiment.bpmn](bpmn/laser-joint-fanout-experiment.bpmn)。
 预览：[BPMN 主流程 SVG](bpmn/laser-joint-fanout-overview.svg)。

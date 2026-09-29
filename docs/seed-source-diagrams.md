@@ -1,5 +1,9 @@
 # 光纤种子源组件：状态机与最小实验流程
 
+> 历史建模资料：文中的 Python 流程 YAML/演示入口已移除，历史可在 Git 提交 `2a0b17e` 中查看。
+> 当前运行定义以 [Flowable BPMN](../src/main/resources/processes/laser-joint.bpmn20.xml) 为准。
+
+
 完整的流程节点、fan-out 调用及四个实例状态变化放在同一张图中，见 [联合全周期图](joint-flow-state-integrated.md)。
 
 当前操作台采用联合 fan-out 模型 1.1。下文早期准备/出光示例属于阶段图；当前正常周期以本节为准。
@@ -214,7 +218,7 @@ sequenceDiagram
 这些路径没有被编排进当前实验。两者现在看起来相似，是因为只有一个分系统且采用串行流程。
 未来流程可以组合多个分系统，但不会把它们所有局部状态组合成一张巨大的状态表。
 
-演示运行：`python3 -m gxlf_sim_system`。其中完成证据是显式模拟数据，不来自真实设备。
+旧 Python 演示入口已移除；完整联调现使用 `python3 scripts/flowable_smoke.py`，需先启动 Java 与设备网关。
 
 ## 第 3 步：双分系统联合门禁
 
@@ -306,7 +310,7 @@ flowchart TB
 - 节点只在所有实例成功且反馈证据有效后才标记为 `succeeded`。
 - 这是 `all_success` 聚合，不是部分成功，也没有自动补发失败实例。
 
-上述为独立 fan-out 阶段示意，已合并进当前联合流程。运行：`python3 -m gxlf_sim_system`。
+上述为独立 fan-out 阶段示意；当前联合流程由 Flowable 执行。
 
 ## 第 4 步组合：种子源 fan-out + 二倍频单实例
 

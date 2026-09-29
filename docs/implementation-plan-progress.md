@@ -17,7 +17,7 @@
 | 3 | 加入多个分系统的前置条件组合 | 已完成 | 二倍频组件状态机、双分系统联合门禁、AND 条件测试 |
 | 4 | 加入并行执行和多实例扇出 | 已完成 | 三实例 fan-out、`all_success` 聚合、独立 task 和实例测试 |
 | 5 | 加入超时、故障、联锁和补偿 | 已完成 | 超时检查、故障注入、全局联锁、优先级补偿链 |
-| 6 | 加入操作员界面、日志回放 | 已完成本地联合 fan-out 版本 | HTTP 操作台、JSONL 日志、快照时间线与只读回放 |
+| 6 | 加入操作员界面、日志回放 | Python 版本曾完成；Java 操作台已迁移，回放待迁移 | Flowable 活动历史；旧 JSONL 保留，旧回放工具已退出 |
 
 ## 已完成内容
 
@@ -93,7 +93,7 @@ make simulator-test
 # 或运行两者：make test
 ```
 
-当前验证：**Python 50 项（含实际 PyTango 协议测试）及 Java 7 项（6 项引擎集成＋1 项布局完整性）均通过**。未安装 PyTango 时，Python 的协议测试会显式跳过。覆盖：
+当前验证：**Python 20 项（含实际 PyTango 协议测试）及 Java 7 项（6 项引擎集成＋1 项布局完整性）均通过**。未安装 PyTango 时，Python 的协议测试会显式跳过。覆盖：
 
 旧执行器清理后删除其专用测试 31 项，向当前联合流程迁移补充 5 项回归检查，测试总数由 71 调整为 45。
 
@@ -118,7 +118,7 @@ d3c0bbd  对齐 Excel 语义和异常处理
 6a5ed7b  超时、联锁和补偿
 ```
 
-## 第 6 步当前交付
+## 第 6 步历史交付（Python 实现现已移除）
 
 - `operator.py`：联合仿真会话、控制命令、幂等请求、状态历史采集、JSONL 日志及回放读取。
 - `operator_server.py`：loopback HTTP 服务、后台超时检查、只读回放和日志下载。
@@ -126,10 +126,10 @@ d3c0bbd  对齐 Excel 语义和异常处理
 - `test_operator.py`：新增 9 项测试，涵盖重放一致性、事件历史对照、命令去重、并发点击、超时、联锁补偿、失败审计及 HTTP 边界。
 - 已通过实际浏览器操作检查，包括窄屏、日志导入、历史只读与返回实时。
 
-运行 `make legacy-operator`，访问 `http://127.0.0.1:8765`。日志默认位于 `simulator/gxlf_sim_system/output/`。
+旧 `legacy-operator` 命令和 8765 服务已退出；原日志继续保存在 `simulator/gxlf_sim_system/output/`。
 完整说明见 [operator-console.md](operator-console.md)。
 
-当前交付以联合 fan-out 为唯一完整流程；早期三个演示执行器及 YAML 已清理。
+历史 Python 阶段以联合 fan-out 为完整流程；该执行器和 YAML 现已由 Flowable BPMN 替代并移除。
 日志在命令边界生成完整快照，回放不重新执行命令；并行事件的收集时间不代表物理执行时间。
 补偿按钮明确使用模拟证据，本版本仅供本机仿真，不提供真实设备权限或多用户认证。
 
@@ -166,6 +166,16 @@ Java 通过 HTTP 网关接入真实 Tango，当前结果回传为持久化查询
 - 旧 Python 编排与操作台明确为 legacy：`make legacy-operator` 启动 8765，`make operator` 启动 Java 8080。
 - H2 数据迁移至根 `data/`，原 Python 日志随模块迁移；自定义设备数据库绝对路径保持不变。
 - 已验证根 Maven 构建、6 项 Java 测试、50 项 Python 测试、模块独立安装及仓库外运行；文档相对链接全部有效。
+
+## simulator 职责收敛已完成
+
+Python 模块只保留分系统仿真、两份状态 YAML、Tango 封装/网关及对应测试。
+旧联合流程执行器、旧流程 YAML、演示入口、Python 操作台与相关测试已删除，历史保留在 Git。
+`__init__.py`、Makefile、Python 打包配置及当前文档已清理引用。设备数据库和 JSONL 文件未删除。
+JSONL 回放工具已退出，Java 当前只有持久化活动历史，回放迁移仍是待办。
+
+移除旧联合流程测试 21 项和旧操作台测试 9 项后，Python 测试从 50 项调整为 20 项；
+Java 的 6 项引擎集成测试及 1 项 BPMN 布局测试继续保留。
 
 ## 下一步任务（待确认后实施）
 

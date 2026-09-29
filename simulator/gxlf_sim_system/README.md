@@ -1,22 +1,13 @@
-# Python 联合实验对照实现
+# 分系统仿真包
 
-本包包含 Tango 分系统仿真及旧流程/操作台。当前主应用是仓库根目录的 Spring Boot + Flowable。
-更多说明见 [simulator 模块说明](../README.md)。
+本包只负责分系统行为仿真及 Tango 接口。流程执行与操作员界面由根目录 Spring Boot + Flowable 应用提供。
 
-当前保留一份完整流程模型和两份分系统状态模型：
+- `subsystem_fsm.py`：单实例状态转移与完成证据校验。
+- `simulation.py`：演示用成功证据。
+- `tango/runtime.py`：幂等命令、状态与结果持久化。
+- `tango/device.py`：PyTango Device Server。
+- `tango/gateway.py`：Java 到 Tango 的适配入口。
+- `models/excel-seed-source-state-machine.yaml`、`models/excel-shg-injector-state-machine.yaml`：两份分系统状态规则。
+- `tests/`：状态机、持久化与真实 Tango 协议验证。
 
-- `models/laser-joint-fanout-experiment.yaml`：14 个动作节点和 1 个联合门禁，自检至关机。
-- `models/excel-seed-source-state-machine.yaml`：种子源，实例数量由流程配置。
-- `models/excel-shg-injector-state-machine.yaml`：二倍频组件。
-
-`subsystem_fsm.py` 执行分系统动作和状态转移；`joint_fanout_experiment.py` 负责联合编排及 all_success 聚合。
-早期单系统、双单实例、独立扇出演示的 YAML、专用执行器和入口已删除，历史版本保留在 Git。
-
-```bash
-python3 -m gxlf_sim_system   # 完整联合周期演示
-make legacy-operator              # 本地操作台 http://127.0.0.1:8765
-make simulator-test                  # 当前模型回归测试
-```
-
-操作台、JSONL 日志和只读回放见 [使用说明](../../docs/operator-console.md)。
-模型正确性验证的设计见 [验证计划](../../docs/model-correctness-verification.md)。
+运行方式见 [模块说明](../README.md)。旧流程执行器、操作台与流程 YAML 已删除，历史可在 Git 中查看。
