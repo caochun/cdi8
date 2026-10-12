@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.*;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.*;
-import java.nio.file.Path;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,11 +81,12 @@ class ControlModelTest {
                                xml.replace("devices.enqueue(execution, 'shg_self_test', shgInstance)","devices.enqueue(execution, 'shg_self_test', deviceId)")))
             assertThrows(IllegalArgumentException.class,()->BpmnChecks.check(model,new ByteArrayInputStream(bad.getBytes(java.nio.charset.StandardCharsets.UTF_8))));
     }
-    @Test void contractSuccessAndAllowedPreconditionsMatchIndependentSimulatorModels() throws Exception {
+    @Test void legacyContractsMatchFrozenReferenceModels() throws Exception {
         var model=new ControlModel(bundle());model.validate();
         for(String type:List.of("seed","shg")) {
             String filename=type.equals("seed")?"excel-seed-source-state-machine.yaml":"excel-shg-injector-state-machine.yaml";
-            var reference=YAML.readTree(Path.of("simulator/gxlf_sim_system/models",filename).toFile());
+            // These fixtures describe the existing Java contract version, not the new seed simulator.
+            var reference=YAML.readTree(getClass().getResource("/legacy-device-models/"+filename));
             for(var action:reference.get("actions")) {
                 var contract=model.contract(type+"."+action.get("id").asText());
                 var expected=Conditions.fixedState(contract.get("completion")).orElseThrow();

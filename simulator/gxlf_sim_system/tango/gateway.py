@@ -1,86 +1,81 @@
-"""HTTP to Tango gateway. Local mode is an explicit protocol-independent simulator."""
+"""Seed-only gateway, with explicitly selected local or actual Tango transport."""
 import argparse
 from contextlib import ExitStack
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-from .runtime import DeviceRuntime
+
+from ..http import create_server
+from ..runtime import SeedRuntime, identifier
 
 
-def serve(devices, port, tango=False):
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *args):
-            pass
+class TangoAdapter:
+    def __init__(self, device):
+        self.device = device
 
-        def respond(self, code, value):
-            data = json.dumps(value, ensure_ascii=False).encode()
-            self.send_response(code); self.send_header('Content-Type', 'application/json; charset=utf-8')
-            self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+    def snapshot(self):
+        return json.loads(self.device.read_attribute("Snapshot").value)
 
-        def invoke(self, method, arg=None):
-            parts = self.path.split('/')
-            if len(parts)<3 or parts[1]!='devices' or parts[2] not in devices:
-                raise ValueError('unknown device')
-            device = devices[parts[2]]
-            if tango:
-                if method=='snapshot': return json.loads(device.read_attribute('Snapshot').value)
-                names={'execute':'Execute','result':'GetResult','cancel':'Cancel','simulate':'Simulate'}
-                return json.loads(device.command_inout(names[method], json.dumps(arg) if isinstance(arg, dict) else arg))
-            return getattr(device, method)(arg) if arg is not None else device.snapshot()
+    def call(self, name, payload):
+        argument = json.dumps(payload) if isinstance(payload, dict) else payload
+        return json.loads(self.device.command_inout(name, argument))
 
-        def do_GET(self):
-            try:
-                parts=self.path.split('/')
-                if len(parts)==3: result=self.invoke('snapshot')
-                elif len(parts)==5 and parts[3]=='commands': result=self.invoke('result',parts[4])
-                else: raise ValueError('unknown endpoint')
-                self.respond(200,result)
-            except Exception as ex: self.respond(409,dict(error=str(ex)))
+    def execute(self, payload):
+        return self.call("Execute", payload)
 
-        def do_POST(self):
-            try:
-                length=int(self.headers.get('Content-Length','0'))
-                if not 0<length<=16384: raise ValueError('invalid payload size')
-                request=json.loads(self.rfile.read(length)); endpoint=self.path.split('/')[-1]
-                if endpoint=='commands': result=self.invoke('execute',request)
-                elif endpoint=='cancel': result=self.invoke('cancel',request['command_id'])
-                elif endpoint=='simulate': result=self.invoke('simulate',request)
-                else: raise ValueError('unknown endpoint')
-                self.respond(200,result)
-            except Exception as ex: self.respond(409,dict(error=str(ex)))
-    server=ThreadingHTTPServer(('127.0.0.1',port),Handler)
-    print(f'Device gateway: http://127.0.0.1:{port} mode={"tango" if tango else "local"}',flush=True)
-    try: server.serve_forever()
-    except KeyboardInterrupt: pass
-    finally: server.server_close()
+    def complete(self, payload):
+        return self.call("Complete", payload)
+
+    def simulate(self, payload):
+        return self.call("Simulate", payload)
+
+    def report_event(self, payload):
+        return self.call("ReportEvent", payload)
+
+    def result(self, command_id):
+        return self.call("GetResult", command_id)
+
+    def history(self, limit=100):
+        return self.call("History", limit)
 
 
 def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument('--mode',choices=['local','tango'],default='local')
-    parser.add_argument('--port',type=int,default=8766)
-    parser.add_argument('--data',type=Path,default=Path(__file__).resolve().parents[1]/'output'/'devices')
-    parser.add_argument('--tango-devices',type=Path,help='JSON mapping of logical IDs to existing Tango Device names')
-    args=parser.parse_args()
-    root=Path(__file__).resolve().parents[1]/'models'
-    configs={d:dict(model_path=str(root/('excel-shg-injector-state-machine.yaml' if d=='shg_01' else 'excel-seed-source-state-machine.yaml')),
-                    database_path=str((args.data/(d+'.sqlite3')).resolve())) for d in ['seed_01','seed_02','seed_03','shg_01']}
+    parser = argparse.ArgumentParser(description="种子源 HTTP 网关；不包含二倍频或集中流程")
+    parser.add_argument("--mode", choices=("local", "tango"), default="local")
+    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--devices", nargs="+", default=["seed_01"], help="独立种子源实例的逻辑编号")
+    parser.add_argument("--data", type=Path, default=Path("seed-simulator-data"))
+    args = parser.parse_args()
+    for name in args.devices:
+        identifier(name)
+    if len(set(args.devices)) != len(args.devices):
+        parser.error("实例编号不能重复")
     with ExitStack() as stack:
-        if args.mode=='tango':
-            if args.tango_devices:
-                from tango import DeviceProxy
-                bindings=json.loads(args.tango_devices.read_text())
-                if set(bindings)!=set(configs):
-                    raise ValueError('Tango device bindings must include seed_01/02/03 and shg_01')
-                devices={d:DeviceProxy(name) for d,name in bindings.items()}
-            else:
+        if args.mode == "local":
+            devices = {}
+            for name in args.devices:
+                runtime = SeedRuntime(args.data / (name + ".sqlite3"))
+                stack.callback(runtime.close)
+                devices[name] = runtime
+        else:
+            try:
                 from tango.test_context import MultiDeviceTestContext
-                from .device import SubsystemDevice
-                # Development no-db Tango server; deployed servers use the Tango database.
-                context=stack.enter_context(MultiDeviceTestContext([{'class': SubsystemDevice, 'devices': [dict(name='gxlf/sim/'+d,properties=c) for d,c in configs.items()]}],process=True,host='127.0.0.1'))
-                devices={d:context.get_device('gxlf/sim/'+d) for d in configs}
-        else: devices={d:DeviceRuntime(c['model_path'],c['database_path']) for d,c in configs.items()}
-        serve(devices,args.port,tango=args.mode=='tango')
+                from .device import SeedSourceDevice
+            except ImportError:
+                parser.error("Tango 模式需要安装可选依赖：pip install -e './simulator[tango]'")
+            args.data.mkdir(parents=True, exist_ok=True)
+            definition = [{"class": SeedSourceDevice, "devices": [
+                {"name": "gxlf/seed/" + name, "properties": {"database_path": str((args.data / (name + ".sqlite3")).resolve())}}
+                for name in args.devices]}]
+            context = stack.enter_context(MultiDeviceTestContext(definition, process=True, host="127.0.0.1"))
+            devices = {name: TangoAdapter(context.get_device("gxlf/seed/" + name)) for name in args.devices}
+        server = create_server(devices, args.port)
+        stack.callback(server.server_close)
+        print(f"Seed simulator: http://127.0.0.1:{server.server_port} mode={args.mode} devices={','.join(devices)}", flush=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
 
 
-if __name__=='__main__': main()
+if __name__ == "__main__":
+    main()

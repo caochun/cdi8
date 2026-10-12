@@ -1,19 +1,6 @@
-"""Excel-derived subsystem state-machine simulation."""
+"""Seed-source simulator; no central workflow or SHG model."""
 
-from .subsystem_fsm import (
-    CompletionEvidence,
-    StateMachineError,
-    StateSnapshot,
-    SubsystemStateMachine,
-    TransitionRecord,
-    load_seed_source_state_machine,
-)
+from .runtime import SeedRuntime
+from .machine import TransitionError
 
-__all__ = [
-    "CompletionEvidence",
-    "StateMachineError",
-    "StateSnapshot",
-    "SubsystemStateMachine",
-    "TransitionRecord",
-    "load_seed_source_state_machine",
-]
+__all__ = ["SeedRuntime", "TransitionError"]

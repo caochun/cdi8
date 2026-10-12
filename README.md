@@ -1,5 +1,10 @@
 # GXLF 实验流程集中控制系统
 
+> 当前仿真模块已按新的嵌套状态机图重建为**种子源单分系统仿真**。
+> 运行 `make seed-demo` 可查看“采集失败仍保持出光”的演示，详见 [新仿真说明](simulator/README.md)。
+> 原生桌面可视化：安装 `./simulator[gui]` 后运行 `seed-panel --demo`，使用 Taurus / Qt 直接连接 Tango 仿真设备。
+> Java 双分系统流程仍使用旧契约，尚不能直接连接新仿真完成联合实验；下文的联合接入方式和联调结果属于此前实现。
+
 根项目为 Spring Boot + Flowable 应用，真正部署并执行 BPMN，覆盖 14 个动作节点、种子源三实例、二倍频单实例、联合门禁、结果等待、错误/定时器分支，以及联锁后的人工补偿。
 流程完全由 Flowable 执行。Python 只作为分系统仿真和 Tango 网关。
 
@@ -24,10 +29,10 @@ cdi8/
 主应用在根目录运行 `mvn test`、`mvn spring-boot:run`。Python 模块使用独立的包配置，
 详见 [仿真模块说明](simulator/README.md)。旧 Python 流程执行器和操作台已移除，历史版本保存在 Git。
 
-[实施进度](docs/implementation-plan-progress.md) · [BPMN 设计说明](docs/laser-joint-fanout-bpmn.md) ·
-[模型验证计划](docs/model-correctness-verification.md)
+[历史实施进度](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/implementation-plan-progress.md) · [历史 BPMN 设计说明](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/laser-joint-fanout-bpmn.md) ·
+[历史模型验证计划](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/model-correctness-verification.md)
 
-## 架构
+## 既有集中控制架构（旧模型接入）
 
 ```text
 浏览器 / REST API
@@ -49,7 +54,7 @@ PyTango SubsystemDevice ×4
 - `--mode local`：不经过 Tango，直接调用相同设备仿真行为，用于轻量开发。
 - `--mode tango`：真正调用 PyTango DeviceProxy。默认用 MultiDeviceTestContext 启动无数据库的开发 Device Server；这不是现场 Tango DB 部署。
 
-## 启动
+## 既有联合流程启动方式（新仿真接入待迁移）
 
 Java 编译目标 17，Maven 3.9+。依赖固定为 Flowable 7.1.0 / Spring Boot 3.3.4（该 Flowable 版本的兼容基线）。
 本次在 Java 27 上完成编译、启动和集成测试，部署前应在目标 JDK 环境再次验证。
@@ -73,7 +78,7 @@ java -jar target/control-server-0.1.0.jar
 访问 **http://127.0.0.1:8080**。这套页面由 Spring Boot 提供，实际驱动 Flowable。
 页面上方说明当前步骤和下一步操作，左侧显示完整进度，右侧显示当前实例反馈。
 仿真时逐个点击“此实例完成（仿真）”，系统会自动推进；历史实验从下拉框选择。
-异常中止及安全复位的操作说明见 [实验控制台使用指南](docs/flowable-operator-guide.md)。
+异常中止及安全复位的操作说明见 [实验控制台使用指南](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/flowable-operator-guide.md)。
 
 原 Python 8765 操作台已移除；现有 JSONL 日志保留，Java 当前提供 Flowable 活动历史。
 
@@ -136,7 +141,7 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 BPMN 保留流程顺序、并行、等待、超时及异常策略；Java 解释配置，设备仿真器执行自身状态机。
 每次实验冻结配置和输入参数，每条命令保存契约及参数，避免后续配置变更影响已有实验。
 启动时检查引用和正常路径的状态衔接；`GET /api/model/checks` 可查看报告。
-完整例子、参数接口、迁移限制见 [动作契约说明](docs/action-contracts.md)。
+完整例子、参数接口、迁移限制见 [动作契约说明](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/action-contracts.md)。
 
 ## 执行与持久化语义
 

@@ -1,1 +1,1 @@
-"""Device simulator and optional PyTango transport; no workflow orchestration."""
+"""Optional Tango transport; the state machine itself has no Tango dependency."""

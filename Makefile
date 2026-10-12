@@ -1,4 +1,4 @@
-.PHONY: test java-test simulator-test control-test control-package operator device-gateway device-gateway-local
+.PHONY: test java-test simulator-test seed-demo seed-panel control-test control-package operator device-gateway device-gateway-local
 
 PYTHON ?= python3
 # Source-tree development works without installing the simulator package.
@@ -11,6 +11,12 @@ java-test:
 
 simulator-test:
 	$(SIM_PYTHON) -m unittest discover -s simulator/gxlf_sim_system/tests -t simulator -v
+
+seed-demo:
+	$(SIM_PYTHON) -m gxlf_sim_system demo
+
+seed-panel:
+	$(SIM_PYTHON) -m gxlf_sim_system.gui --demo
 
 control-test: java-test
 

@@ -1,0 +1,69 @@
+stateDiagram-v2
+    direction TB
+
+    state "未就绪" as NotReady {
+        state "等待自检" as Idle
+        state "自检中" as Testing
+        state "自检成功" as TestOK
+        state "自检失败" as TestFailed
+        state "功能检查中" as Checking
+        state "功能检查失败" as CheckFailed
+
+        [*] --> Idle
+        Idle --> Testing: 开机自检请求
+        Testing --> TestOK: 自检成功反馈
+        Testing --> TestFailed: 自检失败反馈
+        TestFailed --> Testing: 自检重试请求
+        TestOK --> Checking: 功能检查请求
+        Checking --> CheckFailed: 功能检查失败反馈
+        CheckFailed --> Checking: 功能检查重试请求
+    }
+
+    state "就绪" as Ready {
+        state "等待参数下发" as ConfigIdle
+        state "参数下发中" as Configuring
+        state "参数下发成功" as ConfigOK
+        state "参数下发失败" as ConfigFailed
+        state "出光启动中" as Starting
+        state "出光启动失败" as StartFailed
+
+        [*] --> ConfigIdle
+        ConfigIdle --> Configuring: 参数下发请求
+        Configuring --> ConfigOK: 参数配置成功反馈
+        Configuring --> ConfigFailed: 参数下发或校验失败反馈
+        ConfigFailed --> Configuring: 参数下发重试请求
+        ConfigOK --> Configuring: 新的参数下发请求
+        ConfigOK --> Starting: 出光请求
+        Starting --> StartFailed: 出光失败且仍就绪的反馈
+        StartFailed --> Starting: 出光重试请求
+    }
+
+    state "出光" as Emitting {
+        state "等待采集" as CollectIdle
+        state "参数采集中" as Collecting
+        state "采集成功" as CollectOK
+        state "采集失败" as CollectFailed
+
+        [*] --> CollectIdle
+        CollectIdle --> Collecting: 参数采集请求
+        Collecting --> CollectOK: 采集成功反馈
+        Collecting --> CollectFailed: 采集失败反馈
+        CollectOK --> Collecting: 新的采集请求
+        CollectFailed --> Collecting: 采集重试请求
+    }
+
+    state "设备异常" as Fault
+
+    Checking --> Ready: 功能检查通过且业务就绪确认
+    Starting --> Emitting: 稳定出光确认
+    Emitting --> Ready: 正常复位完成且就绪确认
+
+    Ready --> NotReady: 关机完成且未就绪确认
+    Emitting --> NotReady: 关机完成且未就绪确认
+    Ready --> NotReady: 中止复位完成且未就绪确认
+    Emitting --> NotReady: 中止复位完成且未就绪确认
+
+    NotReady --> Fault: 设备故障确认
+    Ready --> Fault: 设备故障确认
+    Emitting --> Fault: 设备故障确认
+    Fault --> NotReady: 恢复后未就绪确认
