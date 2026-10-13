@@ -1,18 +1,19 @@
 # 种子源分系统仿真
 
-本模块已清空旧实现，按 [种子源状态机图](../docs/diagrams/seed-source-state-machine-draft.mmd)
-重新实现。仅包含种子源，不包含二倍频、集中控制流程或旧 YAML 解释器。
+本模块仅包含种子源，不包含二倍频、集中控制流程或旧 YAML 解释器。运行时从 [SCXML v2 状态机模型](../docs/seed-source-state-machine.scxml)加载层级状态和转换。
 
-业务状态是外层状态，动作执行过程和结果是内部状态：
+[种子源 v2 模型](../docs/seed-source-state-machine-draft.md)采用四个外层主状态和必要的内层子状态。SCXML 是唯一状态转换来源；任务进度、配置资格、数据资格和故障集合由独立记录保存。模拟器已经执行 v2，接受任务不会新增“执行中”设备状态。
 
-| 业务状态 | 内部状态 |
+外层主状态和内层子状态表达设备资格；动作执行过程和结果属于独立任务记录：
+
+| 外层主状态 | 内层子状态 |
 |---|---|
-| 未就绪 | 等待自检、自检中、自检成功、自检失败、功能检查中、功能检查失败 |
-| 就绪 | 等待参数下发、参数下发中、参数下发成功、参数下发失败、出光启动中、出光启动失败 |
-| 出光 | 等待采集、参数采集中、采集成功、采集失败 |
-| 异常 | 设备异常 |
+| 未就绪 | 待检查、自检通过、功能检查未通过 |
+| 就绪 | 参数待确认、参数已确认 |
+| 出光 | 尚无本次采集结果、采集完成、采集失败 |
+| 设备异常 | 异常待分类、故障锁定、通信异常、执行超时 |
 
-**采集成功或失败都保持出光。** 参数下发失败保持就绪；自检成功仍未就绪，功能检查成功且业务就绪确认后才进入就绪。
+**采集成功或失败都保持出光。** 参数下发失败保持就绪；自检成功仍未就绪，功能检查成功且就绪证据确认后才进入就绪。
 设备故障是单独的确认事件，不能由命令失败自动推断。这里仿真的是状态与事件，不计算真实光功率或波形。
 
 ## 先运行一次演示
@@ -67,8 +68,8 @@ make seed-panel PYTHON=.venv/bin/python
 
 界面操作：
 
-1. 等待连接完成。左侧同时高亮外层业务状态和当前内部状态。
-2. 右侧只启用当前状态允许的动作。点击动作后，等待设备进入执行状态。
+1. 等待连接完成。左侧同时高亮外层主状态和当前内层子状态。
+2. 右侧只启用当前状态允许的动作。点击动作后，等待任务反馈。
 3. 仿真模式下点击“模拟本次任务成功”或“模拟本次任务失败”。采集失败时外层保持出光，内部节点显示采集失败。
 4. 右侧下方“设备状态确认”通过 `ReportEvent` 注入已确认事实。它不执行真实关机、复位或故障修复动作。
 5. 下方查看最近 100 条设备事件及任务编号。图中橙色连线对应最近一次转换，鼠标悬停可看事件名称。
@@ -79,7 +80,7 @@ make seed-panel PYTHON=.venv/bin/python
 
 ## 手动驱动单个实例
 
-每次请求指定唯一 `command_id`；成功请求先进入执行中，再注入结果。
+每次请求指定唯一 `command_id`；请求创建独立任务，设备状态保持不变，再注入结果。
 
 ```bash
 PYTHONPATH=simulator python3 -m gxlf_sim_system --db /tmp/seed-demo.sqlite3 snapshot
@@ -95,35 +96,26 @@ PYTHONPATH=simulator python3 -m gxlf_sim_system --db /tmp/seed-demo.sqlite3 hist
 
 ## 动作和事件
 
-| 动作 ID | 可接受请求的内部状态 | 成功目标 | 失败目标 |
+| 动作 ID | 可接受请求的内层子状态 | 成功目标 | 失败目标 |
 |---|---|---|---|
-| `power_on_self_test` | 等待自检、自检失败 | 自检成功 | 自检失败 |
-| `function_check` | 自检成功、功能检查失败 | 就绪 / 等待参数下发 | 功能检查失败 |
-| `parameter_dispatch` | 等待参数下发、参数下发成功、参数下发失败 | 参数下发成功 | 参数下发失败 |
-| `seed_source_emit` | 参数下发成功、出光启动失败 | 出光 / 等待采集 | 出光启动失败 |
-| `laser_parameter_collect` | 等待采集、采集成功、采集失败 | 采集成功，保持出光 | 采集失败，保持出光 |
+| `power_on_self_test` | 待检查、功能检查未通过 | 自检通过 | 保持待检查或功能检查未通过，任务记录失败 |
+| `function_check` | 自检通过、功能检查未通过 | 就绪 / 参数待确认 | 功能检查未通过 |
+| `parameter_dispatch` | 参数待确认、参数已确认 | 参数已确认 | 保持当前子状态，配置资格记录失败 |
+| `seed_source_emit` | 参数已确认 | 出光 / 尚无本次采集结果 | 保持就绪，任务记录失败 |
+| `laser_parameter_collect` | 尚无本次采集结果、采集完成、采集失败 | 采集完成，保持出光 | 采集失败，保持出光 |
+| `shutdown` | 参数待确认、参数已确认、尚无本次采集结果、采集完成、采集失败 | 未就绪 / 待检查 | 保持当前状态，任务记录失败 |
 
-模型严格遵守图中的边。例如，从“出光启动失败”直接重新下发参数的边不在图中，因此拒绝该请求。
-`parameters` 是随命令保存的 JSON 对象，用于关联和幂等检查；目前不解释具体设备参数，也不模拟参数的物理效果。
+接受普通动作只创建任务，设备状态保持在当前子状态；反馈到达后才按 SCXML 事件转换。模型不包含自检中、参数下发中、出光启动中或采集中等设备状态。`parameters` 随命令保存，用于关联和幂等检查；目前不解释具体设备参数，也不模拟参数的物理效果。
 
-图中复位、关机和故障恢复只定义了确认后的状态转换，其内部执行过程尚未确定。因此提供以下**显式确认事件**，不将其冒充为待执行的关机或复位命令：
+复位、关机和故障恢复由已确认事件驱动状态转换：
 
-| 确认事件 | 来源业务状态 | 必须提供的 `observed_business_state` | 目标内部状态 |
+| 确认事件 | 来源外层主状态 | 必须提供的 `observed_business_state` | 目标内层子状态 |
 |---|---|---|---|
-| `standby_confirmed` | 出光 | 就绪 | ConfigIdle（等待参数下发） |
-| `shutdown_confirmed` | 就绪、出光 | 未就绪 | Idle（等待自检） |
-| `abort_reset_confirmed` | 就绪、出光 | 未就绪 | Idle（等待自检） |
-| `fault_confirmed` | 未就绪、就绪、出光 | 异常 | Fault（设备异常） |
-| `recovery_confirmed` | 异常 | 未就绪 | Idle（等待自检） |
-
-```bash
-PYTHONPATH=simulator python3 -m gxlf_sim_system --db /tmp/seed-demo.sqlite3 event shutdown_confirmed shutdown-1 --observed 未就绪
-```
-
-上述例子只有当前业务状态为就绪或出光才会成功。确认事件代表测试者明确注入“动作已经完成且设备状态已确认”的事实，不能代替真实设备动作或真实测量。
-
-外层转换发生时，如果原子状态内还有任务，任务会记为 `interrupted` 并保留原因；迟到反馈不能让它重新推进状态。
-这只是记录已确认转换对任务的影响，不实现硬件取消、抢占或安全复位策略。`Cancel`、自动超时以及关机/复位的请求阶段在图中未定义，当前不实现，也不静默借用旧仿真语义。
+| `standby_confirmed` | 出光 | 就绪 | `configIdle`（参数待确认） |
+| `shutdown_confirmed` | 就绪、出光 | 未就绪 | `unchecked`（待检查） |
+| `abort_reset_confirmed` | 就绪、出光 | 未就绪 | `unchecked`（待检查） |
+| `fault_confirmed` | 未就绪、就绪、出光 | 设备异常 | `faultDetected`（异常待分类） |
+| `recovery_confirmed` | 设备异常 | 未就绪 | `unchecked`（待检查） |
 
 ## HTTP 调试入口
 
@@ -142,7 +134,7 @@ PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.gateway --mode local --por
 | `POST /devices/seed_01/complete` | `{"command_id":"a1","outcome":"success"}`；需要时提供 `observed_business_state` |
 | `POST /devices/seed_01/simulate` | `{"command_id":"a1","outcome":"success"}`；仅支持 success/failure |
 | `GET /devices/seed_01/commands/a1` | 本次命令的持久化结果 |
-| `POST /devices/seed_01/events` | `{"event_id":"e1","event":"fault_confirmed","observed_business_state":"异常"}` |
+| `POST /devices/seed_01/events` | `{"event_id":"e1","event":"fault_confirmed","observed_business_state":"设备异常"}` |
 | `GET /devices/seed_01/history?limit=100` | 最近事件及来源、目标状态，按序号升序返回 |
 
 命令结果中的 `snapshot` 是该结果产生时的快照；实时状态应重新读取实例接口。

@@ -3,13 +3,13 @@ import argparse
 import json
 from pathlib import Path
 
-from .machine import ACTIONS, CONFIRMATIONS, TransitionError
+from .machine import ACTIONS, CONFIRMATIONS, MACHINE, TransitionError
 from .runtime import SeedRuntime
 
 
 def demo(runtime):
-    if runtime.snapshot()["state_id"] != "Idle":
-        raise TransitionError("演示需要初始 Idle 状态，请使用新的数据库路径")
+    if runtime.snapshot()["state_id"] != MACHINE.initial_leaf:
+        raise TransitionError("演示需要初始 SCXML 状态，请使用新的数据库路径")
     trace = [{"event": "初始", "snapshot": runtime.snapshot()}]
     for index, (action, outcome) in enumerate([
         ("power_on_self_test", "success"), ("function_check", "success"),
@@ -24,7 +24,7 @@ def demo(runtime):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="按 Mermaid 图运行种子源分系统仿真")
+    parser = argparse.ArgumentParser(description="按 SCXML 状态模型运行种子源分系统仿真")
     parser.add_argument("--db", type=Path, help="SQLite 文件；默认当前目录 seed-simulator.sqlite3，demo 默认内存数据库")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("snapshot")
@@ -41,7 +41,7 @@ def main():
     event = commands.add_parser("event")
     event.add_argument("event", choices=CONFIRMATIONS)
     event.add_argument("event_id")
-    event.add_argument("--observed", required=True, choices=("未就绪", "就绪", "出光", "异常"))
+    event.add_argument("--observed", required=True, choices=("未就绪", "就绪", "出光", "设备异常"))
     query = commands.add_parser("result")
     query.add_argument("command_id")
     history = commands.add_parser("history")

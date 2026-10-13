@@ -22,11 +22,11 @@ class TangoTest(unittest.TestCase):
                 adapter = TangoAdapter(proxy)
                 changed = Event()
                 def observe(event):
-                    if not event.err and json.loads(event.attr_value.value)["state_id"] == "CollectFailed":
+                    if not event.err and json.loads(event.attr_value.value)["state_id"] == "collectFailed":
                         changed.set()
                 subscription = proxy.subscribe_event("Snapshot", tango.EventType.CHANGE_EVENT, observe)
                 try:
-                    self.assertEqual(adapter.snapshot()["state_id"], "Idle")
+                    self.assertEqual(adapter.snapshot()["state_id"], "unchecked")
                     for index, action in enumerate(("power_on_self_test", "function_check", "parameter_dispatch", "seed_source_emit", "laser_parameter_collect")):
                         payload = {"command_id": f"tango-{index}", "action": action}
                         accepted = adapter.execute(payload)
@@ -34,11 +34,11 @@ class TangoTest(unittest.TestCase):
                         result = adapter.simulate({"command_id": payload["command_id"], "outcome": "failure" if index == 4 else "success"})
                         self.assertEqual(adapter.result(payload["command_id"]), result)
                     self.assertEqual(adapter.snapshot()["business_state"], "出光")
-                    self.assertEqual(adapter.snapshot()["state_id"], "CollectFailed")
+                    self.assertEqual(adapter.snapshot()["state_id"], "collectFailed")
                     self.assertTrue(changed.wait(3), "change event not received")
                     self.assertEqual(len(adapter.history()), 10)
                     adapter.report_event({"event_id": "shutdown", "event": "shutdown_confirmed", "observed_business_state": "未就绪"})
-                    self.assertEqual(adapter.snapshot()["state_id"], "Idle")
+                    self.assertEqual(adapter.snapshot()["state_id"], "unchecked")
                 finally:
                     proxy.unsubscribe_event(subscription)
 

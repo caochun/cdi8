@@ -19,19 +19,19 @@ class PanelProjectionTest(unittest.TestCase):
             self.assertEqual(available_actions(validate_snapshot(runtime.snapshot())), ["power_on_self_test"])
             trace = demo(runtime)
             failed = trace[-2]["result"]["snapshot"]
-            self.assertEqual(available_actions(failed), ["laser_parameter_collect"])
+            self.assertEqual(available_actions(failed), ["laser_parameter_collect", "shutdown"])
             self.assertIn("shutdown_confirmed", available_confirmations(failed))
             self.assertNotIn("recovery_confirmed", available_confirmations(failed))
             event = runtime.history()[-3]
             matches = [edge for edge in edges() if edge_matches(edge, event)]
             self.assertEqual(len(matches), 1)
-            self.assertEqual(matches[0].target, "CollectFailed")
+            self.assertEqual(matches[0].target, "collectFailed")
         finally:
             runtime.close()
 
     def test_unknown_or_inconsistent_remote_models_disable_control(self):
-        for snapshot in ({}, {"model": "other"}, {"model": "seed-hierarchical-v1", "state_id": "Idle", "business_state": "出光"},
-                         {"model": "seed-hierarchical-v1", "state_id": "Collecting", "business_state": "出光"}):
+        for snapshot in ({}, {"model": "other"}, {"model": "seed-hierarchical-v2", "state_id": "unchecked", "business_state": "出光"},
+                         {"model": "seed-hierarchical-v2", "state_id": "collecting", "business_state": "出光"}):
             with self.assertRaises(ValueError):
                 validate_snapshot(snapshot)
 
@@ -75,7 +75,7 @@ class NativePanelTest(unittest.TestCase):
                 self.window = SeedWindow(address, simulation_controls=True)
                 self.window.show()
                 try:
-                    self.wait_for(lambda: self.state_is("Idle"))
+                    self.wait_for(lambda: self.state_is("unchecked"))
                     self.assertTrue(self.window.action_buttons["power_on_self_test"].isEnabled())
                     self.assertFalse(self.window.action_buttons["seed_source_emit"].isEnabled())
                     self.window.parameters.setPlainText("[]")
@@ -84,10 +84,10 @@ class NativePanelTest(unittest.TestCase):
                     self.assertFalse(self.window.busy)
                     self.window.parameters.setPlainText("{}")
                     for action, running, result in [
-                        ("power_on_self_test", "Testing", "TestOK"),
-                        ("function_check", "Checking", "ConfigIdle"),
-                        ("parameter_dispatch", "Configuring", "ConfigOK"),
-                        ("seed_source_emit", "Starting", "CollectIdle"),
+                        ("power_on_self_test", "unchecked", "selfTestOk"),
+                        ("function_check", "selfTestOk", "configIdle"),
+                        ("parameter_dispatch", "configIdle", "configOk"),
+                        ("seed_source_emit", "configOk", "collectIdle"),
                     ]:
                         self.window.action_buttons[action].click()
                         self.wait_for(lambda: self.state_is(running))
@@ -95,33 +95,33 @@ class NativePanelTest(unittest.TestCase):
                         self.window.success_button.click()
                         self.wait_for(lambda: self.state_is(result))
                     self.window.action_buttons["laser_parameter_collect"].click()
-                    self.wait_for(lambda: self.state_is("Collecting"))
+                    self.wait_for(lambda: self.state_is("collectIdle"))
                     self.window.failure_button.click()
-                    self.wait_for(lambda: self.state_is("CollectFailed"))
+                    self.wait_for(lambda: self.state_is("collectFailed"))
                     self.assertEqual(self.window.snapshot["business_state"], "出光")
-                    self.assertTrue(self.window.diagram.nodes["CollectFailed"].active)
-                    self.assertFalse(self.window.diagram.nodes["Fault"].active)
+                    self.assertTrue(self.window.diagram.nodes["collectFailed"].active)
+                    self.assertFalse(self.window.diagram.nodes["faultDetected"].active)
                     self.assertTrue(self.window.action_buttons["laser_parameter_collect"].isEnabled())
                     self.window.grab().save("/tmp/cdi8-seed-panel-collection-failed.png")
                     self.window.action_buttons["laser_parameter_collect"].click()
-                    self.wait_for(lambda: self.state_is("Collecting"))
+                    self.wait_for(lambda: self.state_is("collectIdle"))
                     self.window.success_button.click()
-                    self.wait_for(lambda: self.state_is("CollectOK"))
+                    self.wait_for(lambda: self.state_is("collectOk"))
                     self.wait_for(lambda: self.window.history_table.rowCount() >= 12)
 
                     # A command from another Tango client must update this panel through Taurus.
                     proxy = context.get_device("gxlf/gui/seed")
-                    proxy.command_inout("ReportEvent", json.dumps({"event_id": "external-fault", "event": "fault_confirmed", "observed_business_state": "异常"}))
-                    self.wait_for(lambda: self.state_is("Fault"))
-                    self.assertTrue(self.window.diagram.nodes["Fault"].active)
+                    proxy.command_inout("ReportEvent", json.dumps({"event_id": "external-fault", "event": "fault_confirmed", "observed_business_state": "设备异常"}))
+                    self.wait_for(lambda: self.state_is("faultDetected"))
+                    self.assertTrue(self.window.diagram.nodes["faultDetected"].active)
                     self.assertEqual(self.window.event_choice.currentData(), "recovery_confirmed")
                     self.window.event_button.click()
-                    self.wait_for(lambda: self.state_is("Idle"))
+                    self.wait_for(lambda: self.state_is("unchecked"))
 
                     # Disabled simulation mode gates both buttons and direct widget callbacks.
                     self.window.simulation_controls = False
                     self.window.action_buttons["power_on_self_test"].click()
-                    self.wait_for(lambda: self.state_is("Testing"))
+                    self.wait_for(lambda: self.state_is("unchecked"))
                     self.assertFalse(self.window.success_button.isEnabled())
                     self.assertFalse(self.window.event_button.isEnabled())
                     self.window.simulate("success")
@@ -129,7 +129,7 @@ class NativePanelTest(unittest.TestCase):
                     self.window.simulation_controls = True
                     self.window.update_controls()
                     self.window.success_button.click()
-                    self.wait_for(lambda: self.state_is("TestOK"))
+                    self.wait_for(lambda: self.state_is("selfTestOk"))
 
                     # Disconnecting keeps stale observations clearly labelled and blocks commands.
                     self.window.address.setText("invalid-device-address")
@@ -139,7 +139,7 @@ class NativePanelTest(unittest.TestCase):
                     self.assertTrue(all(not b.isEnabled() for b in self.window.action_buttons.values()))
                     self.window.address.setText(address)
                     self.window.connect_device()
-                    self.wait_for(lambda: self.state_is("TestOK"))
+                    self.wait_for(lambda: self.state_is("selfTestOk"))
                     self.assertTrue(self.window.action_buttons["function_check"].isEnabled())
                 finally:
                     self.window.close()

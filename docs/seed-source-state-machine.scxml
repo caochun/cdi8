@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  种子源层级状态机 v2。
+
+  这是状态定义的权威 SCXML 1.0 描述。Mermaid 文件是与本模型对应的
+  展示图，不承担执行语义。
+
+  请求、执行进度、反馈、超时和抢占属于独立任务记录；配置资格、数据资格
+  和完整故障集合也属于状态机外部的上下文。只有经过分系统确认的资格变化
+  或结果事件才驱动这里的设备状态转换。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0"
+       initial="notReady">
+
+  <!-- 未就绪 -->
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked">
+      <transition event="selftest.passed" target="selfTestOk"/>
+    </state>
+    <state id="selfTestOk">
+      <transition event="function-check.failed" target="checkFailed"/>
+      <transition event="function-check.passed" target="ready"/>
+    </state>
+    <state id="checkFailed">
+      <transition event="selftest.qualification-lost" target="unchecked"/>
+      <transition event="function-check.retry-passed" target="ready"/>
+    </state>
+    <!-- 故障、通信异常或超时是外层安全转换。 -->
+    <transition event="fault.confirmed" target="fault"/>
+    <transition event="communication.failure-confirmed" target="fault"/>
+    <transition event="execution.timeout-confirmed" target="fault"/>
+  </state>
+
+  <!-- 就绪 -->
+  <state id="ready" initial="configIdle">
+    <state id="configIdle">
+      <transition event="configuration.validated" target="configOk"/>
+    </state>
+    <state id="configOk">
+      <transition event="configuration.invalidated" target="configIdle"/>
+      <transition event="configuration.reconfiguration-accepted" target="configIdle"/>
+      <transition event="emission.stable-confirmed" target="emitting"/>
+    </state>
+    <transition event="qualification.invalidated" target="notReady"/>
+    <transition event="shutdown.completed" target="notReady"/>
+    <transition event="abort.completed" target="notReady"/>
+    <transition event="fault.confirmed" target="fault"/>
+    <transition event="communication.failure-confirmed" target="fault"/>
+    <transition event="execution.timeout-confirmed" target="fault"/>
+  </state>
+
+  <!-- 出光 -->
+  <state id="emitting" initial="collectIdle">
+    <state id="collectIdle">
+      <transition event="collection.completed" target="collectOk"/>
+      <transition event="collection.failed" target="collectFailed"/>
+    </state>
+    <state id="collectOk">
+      <transition event="collection.request-accepted" target="collectIdle"/>
+    </state>
+    <state id="collectFailed">
+      <transition event="collection.retry-accepted" target="collectIdle"/>
+    </state>
+    <transition event="emission.stopped-confirmed" target="ready"/>
+    <transition event="emission.stopped-unready" target="notReady"/>
+    <transition event="shutdown.completed" target="notReady"/>
+    <transition event="abort.completed" target="notReady"/>
+    <transition event="qualification.invalidated" target="fault"/>
+    <transition event="fault.confirmed" target="fault"/>
+    <transition event="communication.failure-confirmed" target="fault"/>
+    <transition event="execution.timeout-confirmed" target="fault"/>
+  </state>
+
+  <!-- 设备异常 -->
+  <state id="fault" initial="faultDetected">
+    <state id="faultDetected">
+      <transition event="fault.locked" target="faultLock"/>
+      <transition event="communication.failure-confirmed" target="commFault"/>
+      <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    </state>
+    <state id="faultLock"/>
+    <state id="commFault"/>
+    <state id="timeoutFault"/>
+    <transition event="recovery.completed" target="notReady"/>
+    <transition event="fault.classification-updated" target="faultDetected"/>
+  </state>
+</scxml>

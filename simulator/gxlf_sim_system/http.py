@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 import json
 
-from .machine import TransitionError
+from .machine import MODEL_ID, TransitionError
 
 
 def create_server(devices, port=8766):
@@ -23,7 +23,7 @@ def create_server(devices, port=8766):
             parsed = urlsplit(self.path)
             parts = parsed.path.strip("/").split("/")
             if self.command == "GET" and parts == ["devices"]:
-                return {"model": "seed-hierarchical-v1", "devices": sorted(devices)}
+                return {"model": MODEL_ID, "devices": sorted(devices)}
             if len(parts) < 2 or parts[0] != "devices" or parts[1] not in devices:
                 raise LookupError("未知种子源实例")
             device = devices[parts[1]]

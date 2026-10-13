@@ -1,7 +1,7 @@
 """Read-only projection of the simulator's own transition definitions."""
 from dataclasses import dataclass
 
-from ..machine import ACTIONS, CONFIRMATIONS, STATES
+from ..machine import ACTIONS, CONFIRMATIONS, MACHINE, MODEL_ID, STATES, request_transition
 
 
 @dataclass(frozen=True)
@@ -12,29 +12,30 @@ class Edge:
 
 
 def edges():
+    # Every drawable device-state edge comes from SCXML. Request events that
+    # leave the state unchanged are added as self-edges for task visibility.
     result = []
-    for action in ACTIONS.values():
-        result.extend(Edge(source, action.running, event) for source, event in action.requests.items())
-        result.extend((Edge(action.running, action.success, action.success_event),
-                       Edge(action.running, action.failure, action.failure_event)))
-    for event in CONFIRMATIONS.values():
-        result.extend(Edge("business:" + source, event.target, event.label) for source in sorted(event.sources))
+    for transition in MACHINE.transitions():
+        source = transition.source
+        if source in MACHINE.composites:
+            source = "business:" + STATES[MACHINE.enter(source)][0]
+        result.append(Edge(source, MACHINE.enter(transition.target), transition.event))
+    for action_name, action in ACTIONS.items():
+        for source, event in action.requests.items():
+            target, _ = request_transition(source, action_name)
+            if target == source and not any(edge.source == source and edge.target == target and edge.event == event for edge in result):
+                result.append(Edge(source, target, event))
     return result
 
 
 def validate_snapshot(value):
-    if not isinstance(value, dict) or value.get("model") != "seed-hierarchical-v1":
+    if not isinstance(value, dict) or value.get("model") != MODEL_ID:
         raise ValueError("设备不是当前种子源模型，已禁用操作")
-    leaf = value.get("state_id")
-    if leaf not in STATES or value.get("business_state") != STATES[leaf][0]:
+    leaf = value.get("inner_state", value.get("state_id"))
+    if leaf not in STATES or value.get("outer_state_label", value.get("business_state")) != STATES[leaf][0]:
         raise ValueError("设备状态与本地状态图不一致，已禁用操作")
-    active = value.get("active_command_id")
-    running = {a.running: key for key, a in ACTIONS.items()}
-    if leaf in running:
-        if not isinstance(active, str) or not active or value.get("active_action") != running[leaf]:
-            raise ValueError("执行状态缺少匹配的任务编号或动作，已禁用操作")
-    elif active or value.get("active_action"):
-        raise ValueError("非执行状态却包含活动任务，已禁用操作")
+    if value.get("active_command_id") and not value.get("active_action"):
+        raise ValueError("任务编号存在但缺少动作，已禁用操作")
     return value
 
 
@@ -47,11 +48,13 @@ def available_actions(snapshot):
 def available_confirmations(snapshot):
     if not snapshot:
         return []
-    return [key for key, spec in CONFIRMATIONS.items() if snapshot["business_state"] in spec.sources]
+    return [key for key, spec in CONFIRMATIONS.items() if snapshot.get("outer_state_label", snapshot["business_state"]) in spec.sources]
 
 
 def edge_matches(edge, event):
     if not event or edge.event != event.get("event") or edge.target != event.get("target"):
         return False
     source = event.get("source")
-    return edge.source == source or (source in STATES and edge.source == "business:" + STATES[source][0])
+    if edge.source == source:
+        return True
+    return edge.source.startswith("business:") and source in STATES and edge.source == "business:" + STATES[source][0]

@@ -73,7 +73,7 @@ class SeedWindow(Qt.QMainWindow):
         self.connection_label.setWordWrap(True)
         self.connection_label.setMaximumHeight(55)
         outer.addWidget(self.connection_label)
-        self.state_label = Qt.QLabel("业务状态：—    内部状态：—")
+        self.state_label = Qt.QLabel("外层主状态：—    内层子状态：—")
         self.state_label.setStyleSheet("background: #e6eff2; padding: 12px; border-radius: 6px; font-size: 18px; font-weight: bold;")
         outer.addWidget(self.state_label)
         splitter = Qt.QSplitter(Qt.Qt.Orientation.Horizontal)
@@ -92,7 +92,7 @@ class SeedWindow(Qt.QMainWindow):
         fit.clicked.connect(self.diagram.fit)
         self.labels_toggle.toggled.connect(self.toggle_labels)
         graph_layout.addWidget(self.diagram, 1)
-        self.node_label = Qt.QLabel("高亮框表示当前业务状态，实色节点表示当前内部状态；橙色连线表示最近一次转换。")
+        self.node_label = Qt.QLabel("高亮框表示当前外层主状态，实色节点表示当前内层子状态；橙色连线表示最近一次转换。")
         self.node_label.setWordWrap(True)
         self.node_label.setMinimumHeight(40)
         self.diagram.selected.connect(self.show_node)
@@ -222,7 +222,7 @@ class SeedWindow(Qt.QMainWindow):
         self.history_table.setRowCount(0)
         self.diagram.latest_event = None
         self.diagram.update_state(None, False)
-        self.state_label.setText("业务状态：—    内部状态：—")
+        self.state_label.setText("外层主状态：—    内层子状态：—")
         self.task_label.setText("正在读取设备")
         self.last_result_label.setText("尚未读取结果")
         self.latest_label.setText("最近转换：—")
@@ -240,7 +240,7 @@ class SeedWindow(Qt.QMainWindow):
         self.connection_label.setToolTip(message)
         self.diagram.update_state(self.snapshot["state_id"] if self.snapshot else None, connected)
         if not connected and self.snapshot:
-            self.state_label.setText("连接不可用 · 上次状态：" + self.snapshot["business_state"] + " / " + self.snapshot["current_state"])
+            self.state_label.setText("连接不可用 · 上次状态：" + self.snapshot["outer_state_label"] + " / " + self.snapshot["inner_state_label"])
         self.update_controls()
 
     @Qt.pyqtSlot(int, object)
@@ -248,7 +248,7 @@ class SeedWindow(Qt.QMainWindow):
         if generation != self.generation:
             return
         self.snapshot = snapshot
-        self.state_label.setText(f"业务状态：{snapshot['business_state']}    内部状态：{snapshot['current_state']}")
+        self.state_label.setText(f"外层主状态：{snapshot['outer_state_label']}    内层子状态：{snapshot['inner_state_label']}")
         self.diagram.update_state(snapshot["state_id"], self.connected)
         command_id = snapshot.get("active_command_id")
         action = snapshot.get("active_action")
