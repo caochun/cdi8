@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  再生与双程放大组件状态机。
+
+  本模型依据《集中管控系统与分系统状态梳理清单》中的
+  STATE-PREAMP-001 至 STATE-PREAMP-015 建立。外层主状态表示持续工作阶段；
+  内层子状态只保留会影响后续放行、响应或结果判断的局部条件。
+
+  “预放待机/复位”“流程终止（异常中止）”和“关机”是动作及其结果，
+  不单独形成持久设备状态：成功反馈分别把组件送回就绪或未就绪，动作来源
+  和结果保存在任务记录中。任务请求、执行进度、超时和发次上下文也不增加
+  “唤醒中”“闭环中”等设备状态。
+
+  流程文档规定第一次精闭环完成后进入发射准备汇合；正式发射准备阶段还会
+  再次精闭环、切换预放单次配方并清零能量计。因此第二次精闭环和单次配方
+  切换在“精闭环达标”状态上保持资格，能量计清零后进入本发次可触发状态。
+  粗闭环、精闭环和能量计条件失效时回退到需要重新建立资格的状态。
+
+  文档没有规定故障复位后的具体目标状态；这里按“重新检查”语义回到
+  未就绪/基础服务未就绪。安全联锁、出光、同步配方和服务健康是事件守卫
+  或流程上下文，不额外拆成设备状态。
+
+  SCXML datamodel 保存本组件的标签、动作绑定、确认事件和上下文默认值；模拟器
+  不再维护该模型的组件专用 Python 定义。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0"
+       initial="notReady">
+
+  <!-- 未就绪：开机自检前、关机完成后或故障恢复后的基础状态。 -->
+  <state id="notReady" initial="baseNotReady">
+    <state id="baseNotReady"/>
+
+    <transition event="selftest.passed" target="ready"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 就绪：具备能量闭环能力，且可进一步确认参数配置。 -->
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="function-check.passed" target="functionReady"/>
+      <transition event="function-check.failed" target="notReady"/>
+      <transition event="configuration.validated" target="parameterOk"/>
+    </state>
+    <state id="parameterOk">
+      <transition event="configuration.invalidated" target="functionReady"/>
+      <transition event="configuration.reconfiguration-accepted" target="functionReady"/>
+      <transition event="preamp.wakeup.completed" target="wakeup"/>
+    </state>
+
+    <transition event="abort.completed" target="functionReady"/>
+    <transition event="shutdown.completed" target="notReady"/>
+    <transition event="qualification.invalidated" target="notReady"/>
+    <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 唤醒：保持预放唤醒，逐级建立闭环和本发次测量资格。 -->
+  <state id="wakeup" initial="wakeupReady">
+    <state id="wakeupReady">
+      <transition event="energy.coarse-loop.completed" target="coarseLoopOk"/>
+      <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
+    </state>
+    <state id="coarseLoopOk">
+      <transition event="energy.coarse-loop.invalidated" target="wakeupReady"/>
+      <transition event="energy.fine-loop.completed" target="fineLoopOk"/>
+    </state>
+    <state id="fineLoopOk">
+      <transition event="energy.fine-loop.invalidated" target="wakeupReady"/>
+      <!-- 正式发射准备阶段的第二次精闭环不改变设备资格。 -->
+      <transition event="energy.fine-loop.second-completed" target="fineLoopOk"/>
+      <transition event="single-shot.recipe.completed" target="fineLoopOk"/>
+      <transition event="energy-meter.cleared" target="energyMeterCleared"/>
+    </state>
+    <state id="energyMeterCleared">
+      <transition event="energy-meter.invalidated" target="fineLoopOk"/>
+      <transition event="energy.collection.completed" target="energyDataCollected"/>
+    </state>
+    <state id="energyDataCollected">
+      <!-- 正常待机在本发次能量数据采集完成后发生。 -->
+      <transition event="preamp.standby.completed" target="functionReady"/>
+    </state>
+
+    <transition event="abort.completed" target="functionReady"/>
+    <transition event="shutdown.completed" target="notReady"/>
+    <transition event="qualification.invalidated" target="faultLock"/>
+    <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 设备异常：异常期间阻断流程放行。 -->
+  <state id="fault" initial="faultLock">
+    <state id="wakeupFailed"/>
+    <state id="commFault"/>
+    <state id="timeoutFault"/>
+    <state id="faultLock"/>
+    <transition event="recovery.completed" target="notReady"/>
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "model_id": "preamp-hierarchical-v1",
+  "model_version": 1,
+  "display_name": "再生与双程放大组件",
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "wakeup": "唤醒",
+    "fault": "设备异常"
+  },
+  "inner_labels": {
+    "baseNotReady": "基础服务未就绪",
+    "functionReady": "业务就绪",
+    "parameterOk": "参数配置生效",
+    "wakeupReady": "预放唤醒完成",
+    "coarseLoopOk": "预放能量粗闭环达标",
+    "fineLoopOk": "预放能量精闭环达标",
+    "energyMeterCleared": "能量计已清零可触发",
+    "energyDataCollected": "能量数据采集完成",
+    "wakeupFailed": "预放唤醒失败",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时",
+    "faultLock": "故障锁定"
+  },
+  "context_defaults": {
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "faults": []
+  },
+  "actions": {
+    "power_on_self_test": {
+      "label": "开机自检",
+      "requests": {
+        "baseNotReady": "selftest.requested"
+      },
+      "success_events": {
+        "baseNotReady": "selftest.passed"
+      },
+      "failure_events": {
+        "baseNotReady": null
+      },
+      "success_key": "自检通过",
+      "failure_key": "自检失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "function_check": {
+      "label": "功能检查",
+      "requests": {
+        "functionReady": "function-check.requested"
+      },
+      "success_events": {
+        "functionReady": "function-check.passed"
+      },
+      "failure_events": {
+        "functionReady": "function-check.failed"
+      },
+      "success_key": "功能检查通过",
+      "failure_key": "功能检查未通过",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "requests": {
+        "functionReady": "parameter-dispatch.requested",
+        "parameterOk": "configuration.reconfiguration-accepted"
+      },
+      "success_events": {
+        "functionReady": "configuration.validated",
+        "parameterOk": "configuration.validated"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null
+      },
+      "success_key": "参数配置正常",
+      "failure_key": "参数下发失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "preamp_wakeup": {
+      "label": "预放唤醒",
+      "requests": {
+        "parameterOk": "preamp.wakeup.requested"
+      },
+      "success_events": {
+        "parameterOk": "preamp.wakeup.completed"
+      },
+      "failure_events": {
+        "parameterOk": "preamp.wakeup.failed"
+      },
+      "success_key": "预放唤醒完成",
+      "failure_key": "预放唤醒失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "coarse_loop": {
+      "label": "预放能量粗闭环",
+      "requests": {
+        "wakeupReady": "energy.coarse-loop.requested"
+      },
+      "success_events": {
+        "wakeupReady": "energy.coarse-loop.completed"
+      },
+      "failure_events": {
+        "wakeupReady": null
+      },
+      "success_key": "粗闭环达标",
+      "failure_key": "粗闭环失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "fine_loop": {
+      "label": "预放能量精闭环",
+      "requests": {
+        "coarseLoopOk": "energy.fine-loop.requested",
+        "fineLoopOk": "energy.fine-loop.second-requested"
+      },
+      "success_events": {
+        "coarseLoopOk": "energy.fine-loop.completed",
+        "fineLoopOk": "energy.fine-loop.second-completed"
+      },
+      "failure_events": {
+        "coarseLoopOk": null,
+        "fineLoopOk": null
+      },
+      "success_key": "精闭环达标",
+      "failure_key": "精闭环失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "single_shot_recipe": {
+      "label": "单次配方切换",
+      "requests": {
+        "fineLoopOk": "single-shot.recipe.requested"
+      },
+      "success_events": {
+        "fineLoopOk": "single-shot.recipe.completed"
+      },
+      "failure_events": {
+        "fineLoopOk": null
+      },
+      "success_key": "单次配方生效",
+      "failure_key": "单次配方失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "energy_meter_clear": {
+      "label": "能量计清零",
+      "requests": {
+        "fineLoopOk": "energy-meter.clear-requested"
+      },
+      "success_events": {
+        "fineLoopOk": "energy-meter.cleared"
+      },
+      "failure_events": {
+        "fineLoopOk": null
+      },
+      "success_key": "能量计已清零",
+      "failure_key": "能量计清零失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "energy_collect": {
+      "label": "能量数据采集",
+      "requests": {
+        "energyMeterCleared": "energy.collection.requested"
+      },
+      "success_events": {
+        "energyMeterCleared": "energy.collection.completed"
+      },
+      "failure_events": {
+        "energyMeterCleared": null
+      },
+      "success_key": "能量数据采集完成",
+      "failure_key": "能量数据采集失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "standby": {
+      "label": "预放待机",
+      "requests": {
+        "energyDataCollected": "preamp.standby.requested"
+      },
+      "success_events": {
+        "energyDataCollected": "preamp.standby.completed"
+      },
+      "failure_events": {
+        "energyDataCollected": null
+      },
+      "success_key": "预放待机完成",
+      "failure_key": "预放待机失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "shutdown": {
+      "label": "关机",
+      "requests": {
+        "functionReady": "shutdown.requested",
+        "parameterOk": "shutdown.requested",
+        "wakeupReady": "shutdown.requested",
+        "coarseLoopOk": "shutdown.requested",
+        "fineLoopOk": "shutdown.requested",
+        "energyMeterCleared": "shutdown.requested",
+        "energyDataCollected": "shutdown.requested"
+      },
+      "success_events": {
+        "functionReady": "shutdown.completed",
+        "parameterOk": "shutdown.completed",
+        "wakeupReady": "shutdown.completed",
+        "coarseLoopOk": "shutdown.completed",
+        "fineLoopOk": "shutdown.completed",
+        "energyMeterCleared": "shutdown.completed",
+        "energyDataCollected": "shutdown.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "wakeupReady": null,
+        "coarseLoopOk": null,
+        "fineLoopOk": null,
+        "energyMeterCleared": null,
+        "energyDataCollected": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "abort_reset": {
+      "label": "异常中止复位",
+      "requests": {
+        "functionReady": "abort.requested",
+        "parameterOk": "abort.requested",
+        "wakeupReady": "abort.requested",
+        "coarseLoopOk": "abort.requested",
+        "fineLoopOk": "abort.requested",
+        "energyMeterCleared": "abort.requested",
+        "energyDataCollected": "abort.requested"
+      },
+      "success_events": {
+        "functionReady": "abort.completed",
+        "parameterOk": "abort.completed",
+        "wakeupReady": "abort.completed",
+        "coarseLoopOk": "abort.completed",
+        "fineLoopOk": "abort.completed",
+        "energyMeterCleared": "abort.completed",
+        "energyDataCollected": "abort.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "wakeupReady": null,
+        "coarseLoopOk": null,
+        "fineLoopOk": null,
+        "energyMeterCleared": null,
+        "energyDataCollected": null
+      },
+      "success_key": "异常中止复位完成",
+      "failure_key": "异常中止复位失败",
+      "success_observation": null,
+      "failure_observation": null
+    }
+  },
+  "confirmations": {
+    "fault_confirmed": {
+      "label": "设备故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "设备异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "设备异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "设备异常"
+    },
+    "recovery_confirmed": {
+      "label": "恢复后未就绪确认",
+      "source_outer": [
+        "fault"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "未就绪"
+    }
+  }
+}
+  ]]></data>
+  </datamodel>
+</scxml>

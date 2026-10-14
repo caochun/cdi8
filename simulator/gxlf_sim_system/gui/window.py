@@ -4,20 +4,21 @@ import uuid
 
 from taurus.external.qt import Qt
 
-from ..machine import ACTIONS, CONFIRMATIONS, STATES
+from ..component_model import ComponentModel
 from .bridge import DeviceWorker
 from .diagram import DiagramView
 from .model import available_actions, available_confirmations
 
 
-class SeedWindow(Qt.QMainWindow):
+class ComponentWindow(Qt.QMainWindow):
     connect_requested = Qt.pyqtSignal(str, int)
     command_requested = Qt.pyqtSignal(int, str, object)
     refresh_requested = Qt.pyqtSignal()
 
-    def __init__(self, address="", simulation_controls=False):
+    def __init__(self, profile: ComponentModel, address="", simulation_controls=False):
         super().__init__()
-        self.setWindowTitle("种子源仿真操作台 · Taurus / Tango")
+        self.profile = profile
+        self.setWindowTitle(profile.display_name + "仿真操作台 · Taurus / Tango")
         self.resize(1500, 1000)
         self.setMinimumSize(1000, 720)
         self.snapshot = None
@@ -47,7 +48,7 @@ class SeedWindow(Qt.QMainWindow):
         outer = Qt.QVBoxLayout(content)
         outer.setContentsMargins(18, 14, 18, 14)
         header = Qt.QHBoxLayout()
-        title = Qt.QLabel("种子源分系统")
+        title = Qt.QLabel(profile.display_name)
         title.setStyleSheet("font-size: 23px; font-weight: bold;")
         header.addWidget(title)
         header.addStretch()
@@ -88,7 +89,7 @@ class SeedWindow(Qt.QMainWindow):
         fit = Qt.QPushButton("适应窗口")
         toolbar.addWidget(fit)
         graph_layout.addLayout(toolbar)
-        self.diagram = DiagramView()
+        self.diagram = DiagramView(profile)
         fit.clicked.connect(self.diagram.fit)
         self.labels_toggle.toggled.connect(self.toggle_labels)
         graph_layout.addWidget(self.diagram, 1)
@@ -109,7 +110,7 @@ class SeedWindow(Qt.QMainWindow):
         actions_layout = Qt.QVBoxLayout(action_group)
         actions_layout.addWidget(Qt.QLabel("仅当前状态允许的动作可以点击"))
         self.action_buttons = {}
-        for key, spec in ACTIONS.items():
+        for key, spec in profile.actions.items():
             button = Qt.QPushButton(spec.label)
             button.setObjectName("action_" + key)
             button.setProperty("primary", True)
@@ -187,7 +188,7 @@ class SeedWindow(Qt.QMainWindow):
         outer.addWidget(self.message)
 
         self.worker_thread = Qt.QThread(self)
-        self.worker = DeviceWorker()
+        self.worker = DeviceWorker(profile)
         self.worker.moveToThread(self.worker_thread)
         self.connect_requested.connect(self.worker.connect_device)
         self.command_requested.connect(self.worker.invoke)
@@ -205,11 +206,20 @@ class SeedWindow(Qt.QMainWindow):
 
     def toggle_labels(self, checked):
         self.diagram.show_labels = checked
+        self.diagram.page().runJavaScript("window.setShowLabels(%s);" % ("true" if checked else "false"))
         self.diagram.update_edges()
 
     def show_node(self, state_id):
-        actions = [a.label for a in ACTIONS.values() if state_id in a.requests]
-        self.node_label.setText(f"选中：{STATES[state_id][0]} / {STATES[state_id][1]}；该状态可接受：{'、'.join(actions) or '等待反馈或业务状态确认事件'}。操作按钮始终以设备当前状态为准。")
+        if state_id in self.profile.states:
+            outer, inner = self.profile.states[state_id]
+            actions = [a.label for a in self.profile.actions.values() if state_id in a.requests]
+            description = f"{outer} / {inner}"
+        elif state_id in self.profile.outer_labels:
+            description = self.profile.outer_labels[state_id] + " / 外层主状态"
+            actions = []
+        else:
+            return
+        self.node_label.setText(f"选中：{description}；该状态可接受：{'、'.join(actions) or '等待反馈或业务状态确认事件'}。操作按钮始终以设备当前状态为准。")
 
     def connect_device(self):
         address = self.address.text().strip()
@@ -252,7 +262,7 @@ class SeedWindow(Qt.QMainWindow):
         self.diagram.update_state(snapshot["state_id"], self.connected)
         command_id = snapshot.get("active_command_id")
         action = snapshot.get("active_action")
-        self.task_label.setText(f"{ACTIONS[action].label}\n任务编号：{command_id}" if command_id else "当前无执行中的任务")
+        self.task_label.setText(f"{self.profile.actions[action].label}\n任务编号：{command_id}" if command_id else "当前无执行中的任务")
         last = snapshot.get("last_result")
         self.last_result_label.setText(f"上次结果：{last.get('key_state') or last.get('status')}\n任务编号：{last.get('command_id')}" if last else "尚无最终结果")
         self.update_controls()
@@ -265,7 +275,7 @@ class SeedWindow(Qt.QMainWindow):
         self.history_table.setRowCount(len(rows))
         for row_index, event in enumerate(rows):
             values = [str(event["sequence"]) + " / " + event["occurred_at"], event["event"],
-                      STATES.get(event["source"], ("", event["source"]))[1], STATES.get(event["target"], ("", event["target"]))[1],
+                      self.profile.states.get(event["source"], ("", event["source"]))[1], self.profile.states.get(event["target"], ("", event["target"]))[1],
                       event.get("command_id") or event.get("event_id") or ""]
             for column, value in enumerate(values):
                 item = Qt.QTableWidgetItem(value)
@@ -273,7 +283,7 @@ class SeedWindow(Qt.QMainWindow):
                 self.history_table.setItem(row_index, column, item)
         if rows:
             event = rows[-1]
-            self.latest_label.setText(f"最近转换：{event['event']} · {STATES[event['source']][1]} → {STATES[event['target']][1]}")
+            self.latest_label.setText(f"最近转换：{event['event']} · {self.profile.states[event['source']][1]} → {self.profile.states[event['target']][1]}")
             self.diagram.update_edges(event)
             self.history_table.scrollToBottom()
 
@@ -289,19 +299,19 @@ class SeedWindow(Qt.QMainWindow):
 
     def update_controls(self):
         enabled = self.connected and self.snapshot is not None and not self.busy
-        allowed = available_actions(self.snapshot) if enabled else []
+        allowed = available_actions(self.snapshot, self.profile) if enabled else []
         for key, button in self.action_buttons.items():
             button.setEnabled(key in allowed)
         feedback = bool(enabled and self.simulation_controls and self.snapshot.get("active_command_id"))
         self.success_button.setEnabled(feedback)
         self.failure_button.setEnabled(feedback)
-        event_keys = available_confirmations(self.snapshot) if self.snapshot else []
+        event_keys = available_confirmations(self.snapshot, self.profile) if self.snapshot else []
         old = self.event_choice.currentData()
         current_keys = [self.event_choice.itemData(i) for i in range(self.event_choice.count())]
         if event_keys != current_keys:
             self.event_choice.clear()
             for key in event_keys:
-                self.event_choice.addItem(CONFIRMATIONS[key].label, key)
+                self.event_choice.addItem(self.profile.confirmations[key].label, key)
             found = self.event_choice.findData(old)
             if found >= 0:
                 self.event_choice.setCurrentIndex(found)
@@ -320,7 +330,7 @@ class SeedWindow(Qt.QMainWindow):
         self.command_requested.emit(self.generation, command, payload)
 
     def execute_action(self, action):
-        if action not in available_actions(self.snapshot):
+        if action not in available_actions(self.snapshot, self.profile):
             return
         try:
             parameters = json.loads(self.parameters.toPlainText())
@@ -337,9 +347,9 @@ class SeedWindow(Qt.QMainWindow):
 
     def confirm_event(self):
         event = self.event_choice.currentData()
-        if self.simulation_controls and event in available_confirmations(self.snapshot):
+        if self.simulation_controls and event in available_confirmations(self.snapshot, self.profile):
             self.submit("ReportEvent", {"event_id": "gui-event-" + uuid.uuid4().hex, "event": event,
-                                        "observed_business_state": CONFIRMATIONS[event].observation})
+                                        "observed_outer_state": self.profile.confirmations[event].observation})
 
     def closeEvent(self, event):
         if not self._closing:

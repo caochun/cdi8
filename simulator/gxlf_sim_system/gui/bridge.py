@@ -6,6 +6,7 @@ import taurus
 from taurus.external.qt import Qt
 
 from .model import validate_snapshot
+from ..component_model import ComponentModel
 
 
 class Listener:
@@ -30,8 +31,9 @@ class DeviceWorker(Qt.QObject):
     completed = Qt.pyqtSignal(int, bool, str)
     notice = Qt.pyqtSignal(int)
 
-    def __init__(self):
+    def __init__(self, profile: ComponentModel):
         super().__init__()
+        self.profile = profile
         self.generation = 0
         self.device = self.attribute = self.listener = self.timer = None
         self.dirty = True
@@ -85,7 +87,7 @@ class DeviceWorker(Qt.QObject):
             return
         try:
             value = self.attribute.read(cache=False)
-            snapshot = validate_snapshot(json.loads(str(value.rvalue)))
+            snapshot = validate_snapshot(json.loads(str(value.rvalue)), self.profile)
             history = json.loads(self.device.getDeviceProxy().command_inout("History", 100))
             if not isinstance(history, list):
                 raise ValueError("设备返回的历史格式不正确")
@@ -105,7 +107,7 @@ class DeviceWorker(Qt.QObject):
             if self.device is None:
                 raise ValueError("尚未连接设备")
             # Recheck the model before every mutation; the device rechecks transition guards.
-            validate_snapshot(json.loads(str(self.attribute.read(cache=False).rvalue)))
+            validate_snapshot(json.loads(str(self.attribute.read(cache=False).rvalue)), self.profile)
             self.device.getDeviceProxy().command_inout(command, json.dumps(payload, ensure_ascii=True))
             self.refresh()
             self.completed.emit(generation, True, "操作已提交，状态以设备反馈为准")

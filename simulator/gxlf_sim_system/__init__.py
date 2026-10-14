@@ -1,6 +1,10 @@
-"""Seed-source simulator; no central workflow or SHG model."""
+"""SCXML-driven simulator for the supported component models."""
 
-from .runtime import SeedRuntime
-from .machine import TransitionError
+from .component_runtime import ComponentRuntime
+from .component_model import ComponentModel, PREAMP_MODEL, SEED_MODEL, SHG_MODEL, model_by_id, model_by_name
+from .scxml_machine import SCXMLMachine, TransitionError
 
-__all__ = ["SeedRuntime", "TransitionError"]
+__all__ = [
+    "ComponentRuntime", "ComponentModel", "SCXMLMachine", "TransitionError",
+    "SEED_MODEL", "PREAMP_MODEL", "SHG_MODEL", "model_by_id", "model_by_name",
+]

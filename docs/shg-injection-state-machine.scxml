@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  二倍频宽带激光注入组件状态机。
+
+  本文件按《集中管控系统与分系统状态梳理清单》中的 11 个条目整理。
+  外层状态表示持续工作阶段；内层状态表示该阶段中影响后续放行的局部条件。
+  请求、执行进度和超时属于独立任务记录，不在这里增加“执行中”设备状态。
+
+  文档没有给出“自检通过但功能检查尚未通过”的独立持久状态，因此自检通过
+  直接进入“就绪/业务就绪完成”，功能检查作为资格确认事件保留在该状态内。
+  故障复位后的目标状态也未明确，这里按“重新检查”语义回到未就绪/未上电离线。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0"
+       initial="notReady">
+
+  <!-- 未就绪：未上电/离线、异常中止复位完成或正常关机完成。 -->
+  <state id="notReady" initial="offline">
+    <state id="offline"/>
+    <state id="abortReset"/>
+    <state id="shutdownNormal"/>
+
+    <transition event="selftest.passed" target="ready"/>
+    <transition event="abort.completed" target="abortReset"/>
+    <transition event="shutdown.completed" target="shutdownNormal"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 就绪：功能能力具备，参数配置是进入出光的必要条件。 -->
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="function-check.passed" target="functionReady"/>
+      <transition event="function-check.failed" target="notReady"/>
+      <transition event="configuration.validated" target="parameterOk"/>
+    </state>
+    <state id="parameterOk">
+      <transition event="configuration.invalidated" target="functionReady"/>
+      <transition event="configuration.reconfiguration-accepted" target="functionReady"/>
+      <transition event="emission.stable-confirmed" target="emitting"/>
+    </state>
+    <state id="standbyReset"/>
+
+    <transition event="shutdown.completed" target="shutdownNormal"/>
+    <transition event="abort.completed" target="notReady"/>
+    <transition event="qualification.invalidated" target="notReady"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 出光：稳定出光持续保持；采集是其内部局部状态变化。 -->
+  <state id="emitting" initial="stableEmission">
+    <state id="stableEmission">
+      <transition event="collection.completed" target="collectionOk"/>
+    </state>
+    <state id="collectionOk">
+      <transition event="collection.requested" target="stableEmission"/>
+    </state>
+
+    <transition event="emission.stopped-confirmed" target="standbyReset"/>
+    <transition event="emission.stopped-unready" target="abortReset"/>
+    <transition event="shutdown.completed" target="shutdownNormal"/>
+    <transition event="abort.completed" target="abortReset"/>
+    <transition event="qualification.invalidated" target="faultLock"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 设备异常：三类异常子状态均阻断流程放行。 -->
+  <state id="fault" initial="faultLock">
+    <state id="faultLock"/>
+    <state id="commFault"/>
+    <state id="timeoutFault"/>
+    <transition event="recovery.completed" target="notReady"/>
+    <transition event="fault.classification-updated" target="faultLock"/>
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "model_id": "shg-injection-hierarchical-v1",
+  "model_version": 1,
+  "display_name": "二倍频宽带激光注入组件",
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "emitting": "出光",
+    "fault": "设备异常"
+  },
+  "inner_labels": {
+    "offline": "未上电/离线",
+    "abortReset": "异常中止复位完成",
+    "shutdownNormal": "关机正常",
+    "functionReady": "业务就绪",
+    "parameterOk": "参数配置生效",
+    "standbyReset": "复位/待机完成",
+    "stableEmission": "稳定出光",
+    "collectionOk": "采集完成",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时"
+  },
+  "context_defaults": {
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "data_qualification": "unknown",
+    "faults": []
+  },
+  "actions": {
+    "power_on_self_test": {
+      "label": "开机自检",
+      "requests": {
+        "offline": "selftest.requested",
+        "abortReset": "selftest.requested",
+        "shutdownNormal": "selftest.requested"
+      },
+      "success_events": {
+        "offline": "selftest.passed",
+        "abortReset": "selftest.passed",
+        "shutdownNormal": "selftest.passed"
+      },
+      "failure_events": {
+        "offline": null,
+        "abortReset": null,
+        "shutdownNormal": null
+      },
+      "success_key": "自检通过",
+      "failure_key": "自检失败"
+    },
+    "function_check": {
+      "label": "功能检查",
+      "requests": {
+        "functionReady": "function-check.requested"
+      },
+      "success_events": {
+        "functionReady": "function-check.passed"
+      },
+      "failure_events": {
+        "functionReady": "function-check.failed"
+      },
+      "success_key": "功能检查通过",
+      "failure_key": "功能检查未通过"
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "requests": {
+        "functionReady": "parameter-dispatch.requested",
+        "parameterOk": "configuration.reconfiguration-accepted"
+      },
+      "success_events": {
+        "functionReady": "configuration.validated",
+        "parameterOk": "configuration.validated"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null
+      },
+      "success_key": "参数配置正常",
+      "failure_key": "参数下发失败"
+    },
+    "frequency_doubled_emit": {
+      "label": "二倍频出光",
+      "requests": {
+        "parameterOk": "emission.requested"
+      },
+      "success_events": {
+        "parameterOk": "emission.stable-confirmed"
+      },
+      "failure_events": {
+        "parameterOk": null
+      },
+      "success_key": "稳定出光确认",
+      "failure_key": "出光失败且仍就绪",
+      "success_observation": "出光",
+      "failure_observation": "就绪"
+    },
+    "laser_parameter_collect": {
+      "label": "激光参数采集",
+      "requests": {
+        "stableEmission": "collection.requested",
+        "collectionOk": "collection.requested"
+      },
+      "success_events": {
+        "stableEmission": "collection.completed",
+        "collectionOk": "collection.completed"
+      },
+      "failure_events": {
+        "stableEmission": null,
+        "collectionOk": null
+      },
+      "success_key": "采集完成",
+      "failure_key": "采集失败"
+    },
+    "standby_reset": {
+      "label": "复位/待机",
+      "requests": {
+        "stableEmission": "standby.requested",
+        "collectionOk": "standby.requested"
+      },
+      "success_events": {
+        "stableEmission": "emission.stopped-confirmed",
+        "collectionOk": "emission.stopped-confirmed"
+      },
+      "failure_events": {
+        "stableEmission": null,
+        "collectionOk": null
+      },
+      "success_key": "复位/待机完成",
+      "failure_key": "复位/待机失败",
+      "success_observation": "就绪"
+    },
+    "abort_reset": {
+      "label": "异常中止复位",
+      "requests": {
+        "functionReady": "abort.requested",
+        "parameterOk": "abort.requested",
+        "standbyReset": "abort.requested",
+        "stableEmission": "abort.requested",
+        "collectionOk": "abort.requested"
+      },
+      "success_events": {
+        "functionReady": "abort.completed",
+        "parameterOk": "abort.completed",
+        "standbyReset": "abort.completed",
+        "stableEmission": "abort.completed",
+        "collectionOk": "abort.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "standbyReset": null,
+        "stableEmission": null,
+        "collectionOk": null
+      },
+      "success_key": "异常中止复位完成",
+      "failure_key": "异常中止复位失败",
+      "success_observation": "未就绪"
+    },
+    "shutdown": {
+      "label": "关机",
+      "requests": {
+        "functionReady": "shutdown.requested",
+        "parameterOk": "shutdown.requested",
+        "standbyReset": "shutdown.requested",
+        "stableEmission": "shutdown.requested",
+        "collectionOk": "shutdown.requested"
+      },
+      "success_events": {
+        "functionReady": "shutdown.completed",
+        "parameterOk": "shutdown.completed",
+        "standbyReset": "shutdown.completed",
+        "stableEmission": "shutdown.completed",
+        "collectionOk": "shutdown.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "standbyReset": null,
+        "stableEmission": null,
+        "collectionOk": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": "未就绪"
+    }
+  },
+  "confirmations": {
+    "standby_confirmed": {
+      "label": "正常关光完成且就绪确认",
+      "source_outer": [
+        "emitting"
+      ],
+      "machine_event": "emission.stopped-confirmed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "关机完成且未就绪确认",
+      "source_outer": [
+        "ready",
+        "emitting"
+      ],
+      "machine_event": "shutdown.completed",
+      "observation": "未就绪"
+    },
+    "abort_reset_confirmed": {
+      "label": "中止复位完成且未就绪确认",
+      "source_outer": [
+        "ready",
+        "emitting"
+      ],
+      "machine_event": "abort.completed",
+      "observation": "未就绪"
+    },
+    "fault_confirmed": {
+      "label": "设备故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "设备异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "设备异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "设备异常"
+    },
+    "recovery_confirmed": {
+      "label": "恢复后未就绪确认",
+      "source_outer": [
+        "fault"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "未就绪"
+    }
+  }
+}
+  ]]></data>
+  </datamodel>
+</scxml>

@@ -5,6 +5,9 @@
   这是状态定义的权威 SCXML 1.0 描述。Mermaid 文件是与本模型对应的
   展示图，不承担执行语义。
 
+  SCXML datamodel 同时保存组件标签、动作绑定、确认事件和运行时上下文默认值，
+  因此该 SCXML 文件是模拟器的完整模型来源。
+
   请求、执行进度、反馈、超时和抢占属于独立任务记录；配置资格、数据资格
   和完整故障集合也属于状态机外部的上下文。只有经过分系统确认的资格变化
   或结果事件才驱动这里的设备状态转换。
@@ -85,4 +88,232 @@
     <transition event="recovery.completed" target="notReady"/>
     <transition event="fault.classification-updated" target="faultDetected"/>
   </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "model_id": "seed-source-hierarchical-v2",
+  "model_version": 2,
+  "display_name": "种子源分系统",
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "emitting": "出光",
+    "fault": "设备异常"
+  },
+  "inner_labels": {
+    "unchecked": "待检查",
+    "selfTestOk": "自检通过",
+    "checkFailed": "功能检查未通过",
+    "configIdle": "参数待确认",
+    "configOk": "参数已确认",
+    "collectIdle": "尚无本次采集结果",
+    "collectOk": "采集完成",
+    "collectFailed": "采集失败",
+    "faultDetected": "异常待分类",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时"
+  },
+  "context_defaults": {
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "data_qualification": "unknown",
+    "faults": []
+  },
+  "actions": {
+    "power_on_self_test": {
+      "label": "开机自检",
+      "requests": {
+        "unchecked": "selftest.requested",
+        "checkFailed": "selftest.retry-requested"
+      },
+      "success_events": {
+        "unchecked": "selftest.passed",
+        "checkFailed": "selftest.passed"
+      },
+      "failure_events": {
+        "unchecked": null,
+        "checkFailed": null
+      },
+      "success_key": "自检通过",
+      "failure_key": "自检失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "function_check": {
+      "label": "功能检查",
+      "requests": {
+        "selfTestOk": "function-check.requested",
+        "checkFailed": "function-check.retry-requested"
+      },
+      "success_events": {
+        "selfTestOk": "function-check.passed",
+        "checkFailed": "function-check.retry-passed"
+      },
+      "failure_events": {
+        "selfTestOk": "function-check.failed",
+        "checkFailed": null
+      },
+      "success_key": "功能检查通过",
+      "failure_key": "功能检查未通过",
+      "success_observation": "就绪",
+      "failure_observation": null
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "requests": {
+        "configIdle": "parameter-dispatch.requested",
+        "configOk": "configuration.reconfiguration-accepted"
+      },
+      "success_events": {
+        "configIdle": "configuration.validated",
+        "configOk": "configuration.validated"
+      },
+      "failure_events": {
+        "configIdle": null,
+        "configOk": null
+      },
+      "success_key": "参数配置正常",
+      "failure_key": "参数下发失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "seed_source_emit": {
+      "label": "种子源出光",
+      "requests": {
+        "configOk": "emission.requested"
+      },
+      "success_events": {
+        "configOk": "emission.stable-confirmed"
+      },
+      "failure_events": {
+        "configOk": null
+      },
+      "success_key": "稳定出光确认",
+      "failure_key": "出光失败且仍就绪",
+      "success_observation": "出光",
+      "failure_observation": "就绪"
+    },
+    "laser_parameter_collect": {
+      "label": "激光参数采集",
+      "requests": {
+        "collectIdle": "collection.requested",
+        "collectOk": "collection.request-accepted",
+        "collectFailed": "collection.retry-accepted"
+      },
+      "success_events": {
+        "collectIdle": "collection.completed",
+        "collectOk": "collection.completed",
+        "collectFailed": "collection.completed"
+      },
+      "failure_events": {
+        "collectIdle": "collection.failed",
+        "collectOk": "collection.failed",
+        "collectFailed": "collection.failed"
+      },
+      "success_key": "采集完成",
+      "failure_key": "采集失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "shutdown": {
+      "label": "关机",
+      "requests": {
+        "configIdle": "shutdown.requested",
+        "configOk": "shutdown.requested",
+        "collectIdle": "shutdown.requested",
+        "collectOk": "shutdown.requested",
+        "collectFailed": "shutdown.requested"
+      },
+      "success_events": {
+        "configIdle": "shutdown.completed",
+        "configOk": "shutdown.completed",
+        "collectIdle": "shutdown.completed",
+        "collectOk": "shutdown.completed",
+        "collectFailed": "shutdown.completed"
+      },
+      "failure_events": {
+        "configIdle": null,
+        "configOk": null,
+        "collectIdle": null,
+        "collectOk": null,
+        "collectFailed": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": null,
+      "failure_observation": null
+    }
+  },
+  "confirmations": {
+    "standby_confirmed": {
+      "label": "正常关光完成且就绪确认",
+      "source_outer": [
+        "emitting"
+      ],
+      "machine_event": "emission.stopped-confirmed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "关机完成且未就绪确认",
+      "source_outer": [
+        "emitting",
+        "ready"
+      ],
+      "machine_event": "shutdown.completed",
+      "observation": "未就绪"
+    },
+    "abort_reset_confirmed": {
+      "label": "中止复位完成且未就绪确认",
+      "source_outer": [
+        "emitting",
+        "ready"
+      ],
+      "machine_event": "abort.completed",
+      "observation": "未就绪"
+    },
+    "fault_confirmed": {
+      "label": "设备故障确认",
+      "source_outer": [
+        "emitting",
+        "notReady",
+        "ready"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "设备异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "emitting",
+        "notReady",
+        "ready"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "设备异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "emitting",
+        "notReady",
+        "ready"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "设备异常"
+    },
+    "recovery_confirmed": {
+      "label": "恢复后未就绪确认",
+      "source_outer": [
+        "fault"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "未就绪"
+    }
+  }
+}
+  ]]></data>
+  </datamodel>
 </scxml>

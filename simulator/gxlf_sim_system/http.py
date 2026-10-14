@@ -3,10 +3,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 import json
 
-from .machine import MODEL_ID, TransitionError
+from .component_model import ComponentModel
+from .scxml_machine import TransitionError
 
 
-def create_server(devices, port=8766):
+def create_server(devices, model: ComponentModel, port=8766):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -23,7 +24,7 @@ def create_server(devices, port=8766):
             parsed = urlsplit(self.path)
             parts = parsed.path.strip("/").split("/")
             if self.command == "GET" and parts == ["devices"]:
-                return {"model": MODEL_ID, "devices": sorted(devices)}
+                return {"model": model.model_id, "devices": sorted(devices)}
             if len(parts) < 2 or parts[0] != "devices" or parts[1] not in devices:
                 raise LookupError("未知种子源实例")
             device = devices[parts[1]]
@@ -39,7 +40,7 @@ def create_server(devices, port=8766):
                 method = {"commands": "execute", "complete": "complete", "simulate": "simulate", "events": "report_event"}.get(parts[2])
                 if method:
                     return getattr(device, method)(payload)
-            raise LookupError("未知接口；图中未定义 Cancel 或关机请求过程")
+            raise LookupError("未知接口；动作和事件以所选 SCXML 模型为准")
 
         def handle_request(self):
             try:

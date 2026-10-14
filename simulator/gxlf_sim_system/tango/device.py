@@ -1,11 +1,14 @@
-"""PyTango seed device. All mutating commands use the same durable runtime."""
+"""Generic PyTango device backed by an SCXML component model."""
+
 import json
 from tango.server import Device, attribute, command, device_property
 
-from ..runtime import SeedRuntime
+from ..component_runtime import ComponentRuntime
+from ..component_model import model_by_id
 
 
-class SeedSourceDevice(Device):
+class ComponentDevice(Device):
+    component_model = device_property(dtype=str)
     database_path = device_property(dtype=str)
 
     def init_device(self):
@@ -13,9 +16,10 @@ class SeedSourceDevice(Device):
         old = getattr(self, "runtime", None)
         if old is not None:
             old.close()
-        if not self.database_path:
-            raise ValueError("database_path is required for a persistent seed device")
-        self.runtime = SeedRuntime(self.database_path)
+        if not self.component_model or not self.database_path:
+            raise ValueError("component_model and database_path are required")
+        self.model = model_by_id(self.component_model)
+        self.runtime = ComponentRuntime(self.model, self.database_path)
         self.set_change_event("Snapshot", True, False)
 
     def delete_device(self):
@@ -58,4 +62,4 @@ class SeedSourceDevice(Device):
 
 
 if __name__ == "__main__":
-    SeedSourceDevice.run_server()
+    ComponentDevice.run_server()

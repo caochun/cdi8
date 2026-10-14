@@ -1,0 +1,74 @@
+stateDiagram-v2
+    direction TB
+    %% 再生与双程放大组件：外层主状态与内层子状态。
+    %% 动作结果、任务进度、发次上下文和安全联锁条件由事件/任务/流程上下文描述。
+    [*] --> notReady
+
+    state "未就绪" as notReady {
+        state "待检查/基础服务未就绪" as baseNotReady
+        [*] --> baseNotReady
+    }
+
+    state "就绪" as ready {
+        state "业务就绪（具备能量闭环能力）" as functionReady
+        state "参数配置生效" as parameterOk
+        [*] --> functionReady
+    }
+
+    state "唤醒" as wakeup {
+        state "预放唤醒完成并具备闭环条件" as wakeupReady
+        state "预放能量粗闭环达标" as coarseLoopOk
+        state "预放能量精闭环达标" as fineLoopOk
+        state "能量计已清零可触发" as energyMeterCleared
+        state "能量数据采集完成" as energyDataCollected
+        [*] --> wakeupReady
+    }
+
+    state "设备异常" as fault {
+        state "预放唤醒失败" as wakeupFailed
+        state "通信异常" as commFault
+        state "执行超时" as timeoutFault
+        state "故障锁定" as faultLock
+        [*] --> faultLock
+    }
+
+    notReady --> ready: selftest.passed
+    functionReady --> functionReady: function-check.passed
+    functionReady --> notReady: function-check.failed
+    functionReady --> parameterOk: configuration.validated
+    parameterOk --> functionReady: configuration.invalidated
+    parameterOk --> functionReady: configuration.reconfiguration-accepted
+    parameterOk --> wakeup: preamp.wakeup.completed
+
+    wakeupReady --> coarseLoopOk: energy.coarse-loop.completed
+    wakeupReady --> wakeupFailed: preamp.wakeup.failed
+    coarseLoopOk --> wakeupReady: energy.coarse-loop.invalidated
+    coarseLoopOk --> fineLoopOk: energy.fine-loop.completed
+    fineLoopOk --> wakeupReady: energy.fine-loop.invalidated
+    fineLoopOk --> fineLoopOk: energy.fine-loop.second-completed
+    fineLoopOk --> fineLoopOk: single-shot.recipe.completed
+    fineLoopOk --> energyMeterCleared: energy-meter.cleared
+    energyMeterCleared --> fineLoopOk: energy-meter.invalidated
+    energyMeterCleared --> energyDataCollected: energy.collection.completed
+    energyDataCollected --> functionReady: preamp.standby.completed
+
+    ready --> functionReady: abort.completed
+    ready --> notReady: shutdown.completed
+    ready --> notReady: qualification.invalidated
+    ready --> wakeupFailed: preamp.wakeup.failed
+    wakeup --> functionReady: abort.completed
+    wakeup --> notReady: shutdown.completed
+    wakeup --> faultLock: qualification.invalidated
+    wakeup --> wakeupFailed: preamp.wakeup.failed
+
+    notReady --> faultLock: fault.confirmed
+    notReady --> commFault: communication.failure-confirmed
+    notReady --> timeoutFault: execution.timeout-confirmed
+    ready --> faultLock: fault.confirmed
+    ready --> commFault: communication.failure-confirmed
+    ready --> timeoutFault: execution.timeout-confirmed
+    wakeup --> faultLock: fault.confirmed
+    wakeup --> commFault: communication.failure-confirmed
+    wakeup --> timeoutFault: execution.timeout-confirmed
+
+    fault --> notReady: recovery.completed

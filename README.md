@@ -1,8 +1,8 @@
 # GXLF 实验流程集中控制系统
 
-> 当前仿真模块已按新的嵌套状态机图重建为**种子源单分系统仿真**。
-> 运行 `make seed-demo` 可查看“采集失败仍保持出光”的演示，详见 [新仿真说明](simulator/README.md)。
-> 原生桌面可视化：安装 `./simulator[gui]` 后运行 `seed-panel --demo`，使用 Taurus / Qt 直接连接 Tango 仿真设备。
+> 当前仿真模块已统一为 **SCXML 驱动的分系统仿真**，种子源、二倍频注入组件与再生/双程放大组件共享同一个状态机解释器和持久化运行时。
+> 运行 `make component-demo` 或 `component-sim --component preamp demo` 可查看演示，详见 [仿真说明](simulator/README.md)。
+> 原生桌面可视化：安装 `./simulator[gui]` 后运行 `component-panel --component seed --demo`，使用 Taurus / Qt WebEngine 直接连接 Tango 仿真设备，并用 SCHVIZ 渲染 SCXML 状态图。
 > Java 双分系统流程仍使用旧契约，尚不能直接连接新仿真完成联合实验；下文的联合接入方式和联调结果属于此前实现。
 
 根项目为 Spring Boot + Flowable 应用，真正部署并执行 BPMN，覆盖 14 个动作节点、种子源三实例、二倍频单实例、联合门禁、结果等待、错误/定时器分支，以及联锁后的人工补偿。
@@ -120,7 +120,9 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 | `RunService.java` | 实验启动幂等、设备占用、联锁、人工补偿和运行查询 |
 | `ControlApi.java` | REST 接口 |
 | `simulator/gxlf_sim_system/tango/device.py` | 实际 PyTango Device Server 类 |
-| `simulator/gxlf_sim_system/tango/runtime.py` | 持久化仿真状态与幂等设备命令 |
+| `simulator/gxlf_sim_system/scxml_machine.py` | 通用 SCXML 1.0 状态机解释器 |
+| `simulator/gxlf_sim_system/component_runtime.py` | 所有 SCXML 模型共用的持久化运行时 |
+| `simulator/gxlf_sim_system/component_model.py` | 从 SCXML 元数据加载完整组件模型 |
 | `simulator/gxlf_sim_system/tango/gateway.py` | HTTP 到 Tango 适配；不编排实验 |
 
 `docs/bpmn/` 目录里的 `.bpmn` 仍为引擎无关设计稿；运行时加载的是本模块 `.bpmn20.xml`。

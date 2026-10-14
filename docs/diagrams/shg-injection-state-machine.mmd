@@ -1,0 +1,66 @@
+stateDiagram-v2
+    direction TB
+    %% 二倍频宽带激光注入组件：外层主状态与内层子状态。
+    %% 请求、执行进度和超时由独立任务记录保存，不增加“执行中”设备状态。
+    [*] --> notReady
+
+    state "未就绪" as notReady {
+        state "未上电/离线" as offline
+        state "异常中止复位完成" as abortReset
+        state "关机正常" as shutdownNormal
+        [*] --> offline
+    }
+
+    state "就绪" as ready {
+        state "业务就绪完成" as functionReady
+        state "参数配置正常" as parameterOk
+        state "正常待机/复位完成" as standbyReset
+        [*] --> functionReady
+    }
+
+    state "出光" as emitting {
+        state "稳定出光正常" as stableEmission
+        state "采集正常" as collectionOk
+        [*] --> stableEmission
+    }
+
+    state "设备异常" as fault {
+        state "故障锁定" as faultLock
+        state "通信异常" as commFault
+        state "执行超时" as timeoutFault
+        [*] --> faultLock
+    }
+
+    notReady --> ready: selftest.passed
+    notReady --> abortReset: abort.completed
+    notReady --> shutdownNormal: shutdown.completed
+    functionReady --> functionReady: function-check.passed
+    functionReady --> notReady: function-check.failed
+    functionReady --> parameterOk: configuration.validated
+    parameterOk --> functionReady: configuration.invalidated
+    parameterOk --> functionReady: configuration.reconfiguration-accepted
+    parameterOk --> emitting: emission.stable-confirmed
+    stableEmission --> collectionOk: collection.completed
+    collectionOk --> stableEmission: collection.requested
+
+    emitting --> standbyReset: emission.stopped-confirmed
+    emitting --> abortReset: emission.stopped-unready
+    ready --> shutdownNormal: shutdown.completed
+    ready --> notReady: abort.completed
+    emitting --> shutdownNormal: shutdown.completed
+    emitting --> abortReset: abort.completed
+    ready --> notReady: qualification.invalidated
+
+    notReady --> faultLock: fault.confirmed
+    notReady --> commFault: communication.failure-confirmed
+    notReady --> timeoutFault: execution.timeout-confirmed
+    ready --> faultLock: fault.confirmed
+    ready --> commFault: communication.failure-confirmed
+    ready --> timeoutFault: execution.timeout-confirmed
+    emitting --> faultLock: qualification.invalidated
+    emitting --> faultLock: fault.confirmed
+    emitting --> commFault: communication.failure-confirmed
+    emitting --> timeoutFault: execution.timeout-confirmed
+
+    fault --> notReady: recovery.completed
+    fault --> faultLock: fault.classification-updated
