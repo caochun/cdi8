@@ -24,8 +24,8 @@ PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component preamp --db /tmp
 手动驱动实例：
 
 ```bash
-PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component seed --db /tmp/seed.sqlite3 request power_on_self_test selftest-1
-PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component seed --db /tmp/seed.sqlite3 simulate selftest-1 success
+PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component seed --db /tmp/seed.sqlite3 request power_on_check power-check-1
+PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component seed --db /tmp/seed.sqlite3 simulate power-check-1 success
 PYTHONPATH=simulator python3 -m gxlf_sim_system.cli --component seed --db /tmp/seed.sqlite3 snapshot
 ```
 
@@ -57,3 +57,25 @@ GUI 将 SCHVIZ 和 SCION 的浏览器资源随 Python 包一起安装，因此�
 ```bash
 PYTHONPATH=simulator python3 -m unittest discover -s simulator/gxlf_sim_system/tests -v
 ```
+
+
+## Flowable 总控适配服务
+
+总控使用独立的多类型 Tango 适配服务，单模型 `tango.gateway` 仍用于组件调试：
+
+```bash
+PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --demo
+```
+
+默认启动四类真实 Tango 组件各一个，以及显式的演示同步/环境条件设备。启动输出包含各设备 Tango 地址，可让组件 GUI 通过 `component-panel --component preamp --device <Tango地址> --allow-simulation` 连接同一实例。服务通过 `DeviceProxy.subscribe_event` 订阅 `Snapshot CHANGE_EVENT`，将事件以 NDJSON 长连接转发给 Java，不执行 BPMN，也不自动生成完成反馈。
+
+组件 `Snapshot.state_revision` 为持久化事件序号，重复反馈不增加版本，重启后继续保留。初始化资格网关使用这个字段区分旧事件与资格建立后的失效事件。
+
+组件自身继续使用 SCXML 与 SQLite；演示条件设备独立于 SCXML，初始条件均为 false。更多接口、反馈操作和业务范围见[总控说明](../README.md)。
+
+
+## 上电检查与功能检查（2026-10-15）
+
+四类组件统一执行 `power_on_check → function_check → parameter_dispatch`。上电检查确认所辖设备均已上电，不执行上电操作；功能检查测试设备功能是否正常。上电检查通过后处于 `notReady/powerOnOk`，功能检查通过后才进入 `ready/functionReady`；参数配置生效为 `ready/parameterOk`。未知反馈不代表检查通过。
+
+`power_on_self_test`、`selfTestOk`、种子源的 `configIdle/configOk` 已替换。种子源模型升级为 `seed-source-hierarchical-v3`，二倍频、预放、多程升级为各自 `hierarchical-v2`。旧模型数据库因资格语义变化拒绝复用，不自动把历史自检结果迁移为新上电/功能资格。默认 CLI、GUI、组件网关和总控演示适配服务均使用带模型版本的新数据库路径，原文件保留；显式指定旧路径时请改用新路径并重新完成初始化。

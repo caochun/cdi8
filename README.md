@@ -1,223 +1,132 @@
-# GXLF 实验流程集中控制系统
+# GXLF 集中管控与组件仿真
 
-> 当前仿真模块已统一为 **SCXML 驱动的分系统仿真**，种子源、二倍频注入组件、再生/双程放大组件与多程放大系统共享同一个状态机解释器和持久化运行时。
-> 运行 `make component-demo` 或 `component-sim --component preamp demo` 可查看演示，详见 [仿真说明](simulator/README.md)。
-> 原生桌面可视化：安装 `./simulator[gui]` 后运行 `component-panel --component seed --demo`，使用 Taurus / Qt WebEngine 直接连接 Tango 仿真设备，并用 SCHVIZ 渲染 SCXML 状态图。
-> Java 双分系统流程仍使用旧契约，尚不能直接连接新仿真完成联合实验；下文的联合接入方式和联调结果属于此前实现。
-
-根项目为 Spring Boot + Flowable 应用，真正部署并执行 BPMN，覆盖 14 个动作节点、种子源三实例、二倍频单实例、联合门禁、结果等待、错误/定时器分支，以及联锁后的人工补偿。
-流程完全由 Flowable 执行。Python 只作为分系统仿真和 Tango 网关。
-
-## 仓库结构
+总控使用 **Java 17+ / Spring Boot / Flowable** 执行 BPMN，浏览器显示流程图、当前节点、命令结果和历史。设备通信由独立的 Python / PyTango 适配服务负责：通过 Tango Command 发送命令，订阅 `Snapshot` 的 `CHANGE_EVENT`，再将事件转发给总控。
 
 ```text
-cdi8/
-├── pom.xml                     # 根 Maven 项目
-├── src/main/java/              # Spring Boot + Flowable 后端
-├── src/main/resources/         # 配置、可执行 BPMN、SQL、操作页面
-├── src/test/java/              # Java 引擎集成测试
-├── simulator/
-│   ├── pyproject.toml          # 独立 Python 仿真包
-│   ├── README.md
-│   └── gxlf_sim_system/        # PyTango 服务、分系统模型及测试
-├── scripts/                    # 跨模块联调脚本
-├── docs/                       # 架构、图示、进度与参考资料
-├── Makefile
-└── README.md
+浏览器：BPMN 图与运行状态
+  │ REST（页面定时刷新）
+Spring Boot + Flowable + H2：流程执行、等待、超时、历史
+  │ HTTP 命令 / 长连接 NDJSON 事件订阅
+Python Tango 适配服务：协议转换、订阅、重连及状态补读
+  │ PyTango DeviceProxy：Command / CHANGE_EVENT
+ComponentDevice：SCXML 组件状态机 + SQLite 命令记录
 ```
 
-主应用在根目录运行 `mvn test`、`mvn spring-boot:run`。Python 模块使用独立的包配置，
-详见 [仿真模块说明](simulator/README.md)。旧 Python 流程执行器和操作台已移除，历史版本保存在 Git。
+`src` 已替换为这套实现。旧控制器、YAML 契约解释层、自定义 outbox/inbox 和旧流程不再参与运行；历史实现可从 Git 查看。四类组件状态机及其 GUI 保留。
 
-[历史实施进度](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/implementation-plan-progress.md) · [历史 BPMN 设计说明](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/laser-joint-fanout-bpmn.md) ·
-[历史模型验证计划](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/model-correctness-verification.md)
+## 启动
 
-## 既有集中控制架构（旧模型接入）
-
-```text
-浏览器 / REST API
-      ↓
-Spring Boot + Flowable + H2
-      ├─ BPMN 调度、并行多实例、接收任务、定时器、用户任务和历史
-      ├─ 数据库命令 outbox / 设备结果 inbox
-      └─ DeviceAdapter（HTTP）
-             ↓
-Python Tango 网关（协议适配，无流程编排）
-             ↓ DeviceProxy：Command / Attribute
-PyTango SubsystemDevice ×4
-      └─ 原有 YAML 状态机 + 每实例 SQLite 持久化
-```
-
-第一版采用 Python 网关接入 Tango，以复用 PyTango 和分系统状态机。Java 没有直接链接 JTango；
-`DeviceAdapter` 可替换为未来的 Java Tango 客户端实现。网关有两个显式模式：
-
-- `--mode local`：不经过 Tango，直接调用相同设备仿真行为，用于轻量开发。
-- `--mode tango`：真正调用 PyTango DeviceProxy。默认用 MultiDeviceTestContext 启动无数据库的开发 Device Server；这不是现场 Tango DB 部署。
-
-## 既有联合流程启动方式（新仿真接入待迁移）
-
-Java 编译目标 17，Maven 3.9+。依赖固定为 Flowable 7.1.0 / Spring Boot 3.3.4（该 Flowable 版本的兼容基线）。
-本次在 Java 27 上完成编译、启动和集成测试，部署前应在目标 JDK 环境再次验证。
-
-终端一，在仓库根目录：
+终端一，在项目根目录启动真实 Tango 演示设备及适配服务：
 
 ```bash
 python3 -m pip install -e './simulator[tango]'
-python3 -m gxlf_sim_system.tango.gateway --mode tango --port 8766
+PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --demo
+# 已有 .venv 时也可：make tango-bridge PYTHON=.venv/bin/python
 ```
-
-没有 PyTango 时可先用 `--mode local`，但不能将该模式的通过结果当作 Tango 通信验证。
 
 终端二：
 
 ```bash
-mvn test package
+mvn clean test package
 java -jar target/control-server-0.1.0.jar
 ```
 
-访问 **http://127.0.0.1:8080**。这套页面由 Spring Boot 提供，实际驱动 Flowable。
-页面上方说明当前步骤和下一步操作，左侧显示完整进度，右侧显示当前实例反馈。
-仿真时逐个点击“此实例完成（仿真）”，系统会自动推进；历史实验从下拉框选择。
-异常中止及安全复位的操作说明见 [实验控制台使用指南](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/flowable-operator-guide.md)。
+访问 **http://127.0.0.1:8080**。先选择“组件初始化”，完成各组件上电检查、功能检查；再选择“种子源至多程放大前期准备”。出光组件可选择种子源、二倍频或两者。双击流程图中的子流程，或使用层级下拉框查看命令等待节点。
 
-原 Python 8765 操作台已移除；现有 JSONL 日志保留，Java 当前提供 Flowable 活动历史。
+默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，所有外部条件初始为 false，不会自动通过。`--preamp-count 10 --multipass-count 60` 可扩大实例数量。
 
-网关地址可以修改：
+总控只发命令和等待反馈，不生成仿真成功结果。可用组件 GUI 连接适配服务启动时打印的 Tango 地址进行反馈，GUI 接入说明见 [simulator/README.md](simulator/README.md)。也可在适配服务的演示接口操作：
 
 ```bash
-DEVICE_ADAPTER_URL=http://127.0.0.1:8767 java -jar target/control-server-0.1.0.jar
+# 查询设备状态，找到 active_command_id
+curl http://127.0.0.1:8766/devices
+# 显式注入该命令的硬件完成反馈（仅演示）
+curl -X POST http://127.0.0.1:8766/devices/seed_01/simulate \
+  -H 'Content-Type: application/json' \
+  -d '{"command_id":"替换为实际命令ID","outcome":"success"}'
+# 显式提供外部许可、环境条件；重频模式由对应命令完成结果建立
+curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
+  -H 'Content-Type: application/json' \
+  -d '{"safety_permit":true,"collimation_environment_ready":true}'
 ```
 
-默认 H2 文件在启动目录的 `data/control`；设备 SQLite 默认在仓库 `simulator/gxlf_sim_system/output/devices/`。
-重启使用相同路径可恢复已有任务与结果。不要在未结束的流程中切换设备网关或清空设备数据库。
+## 流程与实现
 
-接入已有 Tango Server 时，创建逻辑 ID 到 Device 地址的 JSON：
+| 文件 | 职责 |
+|---|---|
+| [初始化 BPMN](src/main/resources/processes/component_initialization.bpmn20.xml) | 两个独立的资格汇合网关：等待全体成功、核验当前资格、监控期间失效 |
+| [QualificationGateway.java](src/main/java/cn/cdi8/control/QualificationGateway.java) | 自定义资格网关的命令聚合、持久化、资格核验和失效锁存 |
+| [前期准备 BPMN](src/main/resources/processes/optical_frontend_preparation.bpmn20.xml) | 参数 → 安全许可 → 出光与同步/唤醒并行 → 闭环与准直并行 → 最终复核 |
+| [TangoTasks.java](src/main/java/cn/cdi8/control/TangoTasks.java) | 登记命令、核验任务结果及当前组件状态 |
+| [WorkflowService.java](src/main/java/cn/cdi8/control/WorkflowService.java) | 事件关联、等待唤醒、资格监测、恢复查询、运行历史 |
+| [TangoGateway.java](src/main/java/cn/cdi8/control/TangoGateway.java) | 适配服务客户端及事件长连接 |
+| [control_bridge.py](simulator/gxlf_sim_system/tango/control_bridge.py) | PyTango 命令调用、属性事件订阅、快照重放 |
+| [preparation_context.py](simulator/gxlf_sim_system/tango/preparation_context.py) | 显式可控的演示同步/环境条件设备 |
+| [组件模型](simulator/gxlf_sim_system/component_model.py) | 直接从 SCXML 读取动作及状态定义 |
+
+准备流程的子流程 `documentation` 声明动作、目标状态，`multiInstance` 声明设备集合。初始化流程通过 `gxlf:qualificationGateway` 配置独立的菱形资格汇合节点，见[节点语义与配置](docs/bpmn/qualification-gateway.md)。浏览器使用仓库内置的 bpmn-js 18.6.3 及资格网关渲染扩展，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
+
+完整业务设计见 [前期准备流程说明](docs/process-control/种子源至多程放大前期准备流程.md)。`docs/bpmn` 是业务设计稿；运行定义以 `src/main/resources/processes` 为准。
+
+## 命令与事件语义
+
+1. Flowable 先保存命令 ID 和接收等待节点，事务提交后才发送 Tango 命令。设备 ID、动作、结果均保存在引擎变量/历史中。
+2. `Execute` 返回 `accepted` 只表示受理。命令 ID 在重试和恢复时保持不变，组件运行时按 ID 去重。
+3. 适配服务订阅 `Snapshot` 属性变化。收到事件后，总控按设备与命令 ID 调用 `GetResult`，核验 `succeeded` 以及当前目标状态，才唤醒后续节点。
+4. 漏事件及重启时每 5 秒补查等待中的任务；适配服务也每 5 秒补读设备快照。重连先重放快照，再开放事件通道。事件断开期间暂停放行，BPMN 超时仍有效。
+5. 任一命令失败、设备故障、已建立的安全/供光/同步/唤醒/准直环境资格失效或等待超时，将结束本次流程并中断其他分支。
+
+`accepted/succeeded/failed/interrupted` 是现有 `ComponentRuntime` 的任务协议，**不是 Tango 标准，也不是 SCXML 设备状态**。SCXML 决定组件资格；任务结果决定某条命令是否完成。
+
+**停止流程只终止后续编排。** 当前组件没有取消在途命令的 Tango 接口，已受理动作仍可能继续。总控不自动关光或复位；下一次启动会拒绝仍有活动任务的设备。
+
+## 接入与配置
+
+连接已有 Tango 服务时，创建 `devices.json`：
 
 ```json
 {
-  "seed_01": "gxlf/seed/01",
-  "seed_02": "gxlf/seed/02",
-  "seed_03": "gxlf/seed/03",
-  "shg_01": "gxlf/shg/01"
+  "seed_01": {"component":"seed", "address":"gxlf/seed/01"},
+  "shg_01": {"component":"shg", "address":"gxlf/shg/01"},
+  "preamp_01": {"component":"preamp", "address":"gxlf/preamp/01"},
+  "multipass_01": {"component":"multipass", "address":"gxlf/multipass/01"},
+  "context_01": {"component":"context", "address":"gxlf/context/01"}
 }
 ```
 
 ```bash
-python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.json
+PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --devices devices.json
 ```
 
-已有服务需实现下述契约。设备数据库注册、权限、地址与属性配置由部署环境提供；可用
-`python3 -m gxlf_sim_system.tango.device <server-instance>` 启动注册好的仿真 Device Server。
+设备需实现与当前组件运行时兼容的 `Execute`、`GetResult`、`Snapshot` JSON 及 CHANGE_EVENT；`context` 还需提供 `preamp_repeat` 动作和 `conditions` 三个条件。真实同步/环境系统需由适配层转换成此接口。`Simulate/Complete/SetConditions` 是演示反馈入口，接入现场时应按实际接口替换。
 
-## 关键文件
-
-| 文件 | 职责 |
+| 环境变量 | 默认值 |
 |---|---|
-| `src/main/resources/processes/laser-joint.bpmn20.xml` | 已可部署的 Flowable BPMN；现在是 Java 侧唯一流程编排来源 |
-| `Devices.java` | 分系统前置校验、入队、反馈验证、联合门禁及结果记录 |
-| `src/main/resources/processes/prepare-restart.bpmn20.xml` | 仿真重新准备流程：关机、超时、结果验证与启动条件复核 |
-| `CommandWorker.java` | outbox 发送、查询结果、关联唤醒、取消确认 |
-| `RunService.java` | 实验启动幂等、设备占用、联锁、人工补偿和运行查询 |
-| `ControlApi.java` | REST 接口 |
-| `simulator/gxlf_sim_system/tango/device.py` | 实际 PyTango Device Server 类 |
-| `simulator/gxlf_sim_system/scxml_machine.py` | 通用 SCXML 1.0 状态机解释器 |
-| `simulator/gxlf_sim_system/component_runtime.py` | 所有 SCXML 模型共用的持久化运行时 |
-| `simulator/gxlf_sim_system/component_model.py` | 从 SCXML 元数据加载完整组件模型 |
-| `simulator/gxlf_sim_system/tango/gateway.py` | HTTP 到 Tango 适配；不编排实验 |
+| `TANGO_BRIDGE_URL` | `http://127.0.0.1:8766` |
+| `CONTROL_DB_URL` | `jdbc:h2:file:./data/control-v2` |
+| `CONTROL_DB_PASSWORD` | 空 |
+| `COMMAND_TIMEOUT` / `WORKFLOW_TIMEOUT` | `PT15M` / `PT45M` |
 
-`docs/bpmn/` 目录里的 `.bpmn` 仍为引擎无关设计稿；运行时加载的是本模块 `.bpmn20.xml`。
-运行版现在也包含 BPMN DI：主图及各层子流程的节点坐标、边界事件位置和连线路径。
-可直接将 `src/main/resources/processes/laser-joint.bpmn20.xml` 导入 bpmn.io 查看，并进入“完整实验周期”或“联锁与人工补偿”子流程。
-[运行版主图预览](docs/bpmn/laser-joint-runtime-overview.svg)。bpmn.io 用于查看/建模，不执行 Flowable 的 Java 表达式。
-之前版本只包含执行定义，bpmn-js 会报 `no diagram to display`；该报错是缺少布局，不是 Flowable 无法解析流程。
-旧 Python 流程 YAML 已移除；`simulator` 中只保留四份分系统状态模型，与 BPMN 分别承担设备行为和实验编排职责。
+演示组件 SQLite 在 `data/tango-demo/`，文件名包含模型版本；演示条件设备不持久化，重启后条件重新确认。总控数据库使用新路径，与旧控制器数据隔离。部署为单个总控实例，一次只运行一个流程。
 
-## 动作契约与流程绑定
-
-业务条件已从 `Devices.java` 提取到 `src/main/resources/control-model/`：
-
-- `action-contracts.yaml`：单设备动作的参数、前置条件和完成状态。
-- `device-catalog.yaml`：实例、类型、网关逻辑 ID 和分组。
-- `workflow-bindings.yaml`：BPMN 节点到契约/分组的映射、联合门禁和流程变量来源。
-
-BPMN 保留流程顺序、并行、等待、超时及异常策略；Java 解释配置，设备仿真器执行自身状态机。
-每次实验冻结配置和输入参数，每条命令保存契约及参数，避免后续配置变更影响已有实验。
-启动时检查引用和正常路径的状态衔接；`GET /api/model/checks` 可查看报告。
-完整例子、参数接口、迁移限制见 [动作契约说明](https://github.com/caochun/cdi8/blob/9b2d6f4/docs/action-contracts.md)。
-
-## 执行与持久化语义
-
-1. BPMN 的发送服务任务只在与 Flowable 相同的数据库事务中写 `device_command`，随后进入 receiveTask。
-2. 后台 worker 从已提交的 outbox 发送命令，command ID 在重试时不变。
-3. Device 的 Execute 按 command ID 去重，返回 accepted 或 rejected；accepted 不表示动作完成。
-4. 分系统独立产生最终结果，保存后由网关查询。Java worker 保存结果，并唤醒数据库记录的对应 execution。
-5. `verify` 核对命令、动作、任务结果、主状态、当前状态和业务状态；实例失败抛出 BPMN Error。
-6. 并行多实例必须全部成功。边界错误终止整组，取消请求进入 outbox 等待设备确认，旧反馈不会重新推进已经结束的节点。
-
-首版使用 **GetResult 轮询**，并未在 Java 侧接 Tango Event 订阅。Device 的 Snapshot CHANGE_EVENT 已实现并实测，
-后续可用于加速反馈；持久化 GetResult 仍可作为漏事件和重启后的恢复来源。
-
-Flowable 并行多实例表示任务生命周期并行；本版 worker 顺序发送短命令，设备接受后异步等待，不保证多个 Command 同时抵达设备。
-当前只允许一组物理绑定被一个活动实验占用，H2 的 lease 行锁防止两个实验同时启动。
-
-## API 与操作
-
-- `POST /api/runs`，`{"requestId":"run-001"}`：创建实验，重复相同编号返回同一实例。
-- `POST /api/runs/prepare-restart`，`{"requestId":"prepare-001"}`：在仿真模式下创建独立关机准备记录，自动提供仿真成功反馈并验证结果；旧流程/取消确认/联锁人工复位未完成时拒绝。同编号重试返回原记录，不自动创建下一次实验。
-- `GET /api/runs/startup-checks`：只读启动条件检查，返回是否可启动、逐实例阻塞原因及 `preparationAvailable`（是否可以准备重新实验）。创建实验前也会重新检查，条件不满足不创建运行记录。
-- `GET /api/runs`：最近 20 次实验的编号、结果和创建时间。
-- `GET /api/runs/run-001`：运行结果、活动任务、设备命令错误、人工任务及 Flowable 活动历史。
-- `POST /api/runs/run-001/commands/<commandId>/simulate`，`{"outcome":"success"}`：在设备端注入模拟反馈。
-- `outcome` 也支持 `failure`、`communication_error`、`fault_lock`。
-- `POST /api/runs/run-001/interlock`：向该流程发送关联的 Interlock 消息，中断当前执行，保留 FAILED 结果。
-- `POST /api/runs/run-001/compensate`：完成人工审批任务，按 seed_01/02/03、shg_01 顺序执行 abort_reset。
-
-补偿审批前必须等待取消请求全部确认；审批不是补偿成功，每个复位动作还需要自己的设备结果。
-补偿失败后重新进入人工审批，当前策略是重跑整条链；补偿成功不把实验改回 SUCCEEDED。
-普通失败直接结束流程，不自动补偿。流程结束后的现场联锁应由独立安全管理处理，不能向已结束的 BPMN 实例发消息。
-
-Device 契约：
-
-| Tango 接口 | 输入 / 输出 |
-|---|---|
-| Execute | JSON `{command_id, action, parameters}` → 关联结果及 accepted/rejected 状态 |
-| GetResult | command ID → 持久化结果 `{command_id, action, status, snapshot}` |
-| Cancel | command ID → 幂等取消结果；先取消后迟到的发送也会被拒绝执行 |
-| Simulate | JSON `{command_id, outcome}` → 仿真结果；真实设备服务不应暴露该测试命令 |
-| Snapshot | JSON 字符串属性及 CHANGE_EVENT，包含分系统状态和当前任务 |
-
-Tango DevString JSON 使用 ASCII 转义，避免中文状态在底层字符串编码中丢失；HTTP JSON 解码后仍显示中文。
-
-## 验证
+主要接口：`GET /api/processes`、`GET /api/processes/{key}/xml`、`GET /api/devices`、`GET /api/connection`、`GET /api/runs`、`GET /api/runs/{id}`、`POST /api/runs/{id}/stop`。
 
 ```bash
-make control-test                      # 引擎集成、契约/模型校验与 BPMN 布局测试
-make simulator-test                    # Python 回归；无 PyTango 时仅协议测试跳过
-make test                              # Java 与 Python 全部测试
-python3 -m unittest gxlf_sim_system.tests.test_pytango_device -v
-python3 scripts/flowable_smoke.py        # 运行中的 Java + 网关，全周期联调
+curl -X POST http://127.0.0.1:8080/api/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"processKey":"optical_frontend_preparation","sources":["seed"]}'
 ```
 
-本次已验证：
+## 验证与当前范围
 
-- 14 个 BPMN 动作节点，28 次实例命令，全部设备关机后才 SUCCEEDED；
-- 多实例等待、重复启动、设备互斥、任一实例失败、Flowable 定时器和状态失效门禁；
-- 真实 Tango Command/Attribute/CHANGE_EVENT；
-- 实际 Java 重启：参数节点等待期间停机，设备在 Java 离线时完成，重启后续跑至成功，无重复实例命令；
-- 真实 Tango 联锁→取消确认→人工审批→四次串行补偿，最终实验仍 FAILED；
-- 浏览器逐实例反馈跑通完整周期。
+```bash
+mvn test
+make simulator-test PYTHON=.venv/bin/python
+# 用全新演示数据启动两个服务后，显式模拟反馈跑完整流程：
+python3 scripts/flowable_smoke.py
+# 两类光源都出光：添加 --sources seed shg
+```
 
-Java 集成测试使用独立 FakeAdapter 验证引擎行为；真实协议及重启验证是额外联调结果，不能互相替代。
+Java 测试使用真实 Flowable 引擎与测试设备客户端，覆盖并行、失败、命令关联、丢事件恢复、外部资格失效、停止和定时器。Python 测试覆盖 SCXML 运行时及真实 Tango 命令、CHANGE_EVENT 和订阅重放。联调脚本通过真实 Tango 注入成功反馈并核对最终状态。
 
-## 当前边界
-
-这是首个可运行的迁移版本，不是生产部署完成：
-
-- HTTP 服务与设备网关均监听 loopback；尚无多用户认证、分级权限、TLS 或网络故障下的 HA 部署。
-- `SIMULATION_CONTROLS=false` 可关闭 Java 仿真入口，但真实网关也必须禁用/移除 Simulate。
-- 真正的硬安全联锁仍须在设备/专用控制层执行；取消软件任务不能证明物理设备已关光。
-- BPMN 定时器存在调度延迟，超时与成功同时发生时由事务先后决定；尚未实现硬截止时间优先的仲裁。
-- 补偿暂未配置独立的超时和失败实例增量重试；定时参数是仿真值。
-- 设备复位后业务状态是未就绪；仿真页面提供独立关机准备入口，真实设备恢复仍需现场操作，程序不会清空设备状态。
-- 业务条件由动作契约和流程绑定配置解释；已有正常路径一致性检查，尚未完成完整 complete/sound 证明。
-- 旧 Python 操作台与 JSONL 回放工具已移除，已有日志保留但回放功能尚未迁移；Java 当前提供 Flowable 持久化活动历史。
+本版实现前期准备流程骨架，按设备集合执行，动作参数暂为空对象；完整配方参数、束线/能量拓扑、发次证据和细分环境条件尚未接入。初始化要求全部组件处于未就绪；上电检查仅确认设备均已上电，通过后仍须完成功能检查。种子源 v3、其他三类 v2 使用新的持久化文件，旧模型文件保留并拒绝复用。本段完成表示所选光源保持出光、预放精闭环达标、多程准直达标，不表示全设施准备完成。

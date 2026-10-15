@@ -17,6 +17,7 @@ gui = ["PyTango>=10,<11", "taurus>=5.4.1,<6", "PyQt6>=6.7,<7", "PyQt6-WebEngine>
 [project.scripts]
 component-sim = "gxlf_sim_system.cli:main"
 component-panel = "gxlf_sim_system.gui.app:main"
+control-tango-bridge = "gxlf_sim_system.tango.control_bridge:main"
 
 [tool.setuptools.packages.find]
 include = ["gxlf_sim_system*"]

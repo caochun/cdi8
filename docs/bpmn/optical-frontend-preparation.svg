@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="510" viewBox="0 0 2940 940" role="img" aria-labelledby="title desc">
+<title id="title">种子源至多程放大前期准备流程</title>
+<desc id="desc">参数下发与安全确认后，出光和同步预放唤醒并行；两者完成后，粗闭环及第一次精闭环与多程光路准直并行。本段结束保持供光与唤醒。</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#435b70"/></marker></defs>
+<style>text{font-family:"PingFang SC","Microsoft YaHei",sans-serif;fill:#243e52;font-size:21px}.title{font-size:35px;font-weight:600}.note{font-size:23px}.edge{fill:none;stroke:#435b70;stroke-width:3;marker-end:url(#arrow)}.task{fill:#fff;stroke:#327a8b;stroke-width:3}.external{fill:#fff7df;stroke:#b58933;stroke-width:3}.gate{fill:#e5f2f4;stroke:#327a8b;stroke-width:3}</style>
+<rect width="2940" height="940" fill="#f5f8fb"/>
+<text class="title" x="60" y="60">种子源至多程放大：前期准备流程</text>
+<polyline class="edge" points="81,360.0 130,360.0"/>
+<polyline class="edge" points="310,360.0 365,360.0"/>
+<polyline class="edge" points="545,360.0 600,360.0"/>
+<polyline class="edge" points="780,360.0 835,360.0"/>
+<polyline class="edge" points="1015,360.0 1060,360.0"/>
+<polyline class="edge" points="1110,360.0 1152.5,360.0 1152.5,180.0 1195,180.0"/>
+<polyline class="edge" points="1375,180.0 1517.5,180.0 1517.5,360.0 1660,360.0"/>
+<polyline class="edge" points="1110,360.0 1152.5,360.0 1152.5,560.0 1195,560.0"/>
+<polyline class="edge" points="1375,560.0 1430,560.0"/>
+<polyline class="edge" points="1610,560.0 1635.0,560.0 1635.0,360.0 1660,360.0"/>
+<polyline class="edge" points="1710,360.0 1760,360.0"/>
+<polyline class="edge" points="1810,360.0 1852.5,360.0 1852.5,180.0 1895,180.0"/>
+<polyline class="edge" points="2075,180.0 2130,180.0"/>
+<polyline class="edge" points="2310,180.0 2350.0,180.0 2350.0,360.0 2390,360.0"/>
+<polyline class="edge" points="1810,360.0 1852.5,360.0 1852.5,560.0 1895,560.0"/>
+<polyline class="edge" points="2075,560.0 2130,560.0"/>
+<polyline class="edge" points="2310,560.0 2350.0,560.0 2350.0,360.0 2390,360.0"/>
+<polyline class="edge" points="2440,360.0 2510,360.0"/>
+<polyline class="edge" points="2720,360.0 2810,360.0"/>
+<circle class="task" cx="63.0" cy="360.0" r="18.0"/>
+<text x="63.0" y="408" text-anchor="middle">开始</text>
+<rect class="task" x="130" y="320" width="180" height="80" rx="10"/>
+<text x="220.0" y="354.0" text-anchor="middle">校验并冻结配方与</text>
+<text x="220.0" y="380.0" text-anchor="middle">束线拓扑</text>
+<rect class="task" x="365" y="320" width="180" height="80" rx="10"/>
+<text x="455.0" y="354.0" text-anchor="middle">预约设备并检查基</text>
+<text x="455.0" y="380.0" text-anchor="middle">础资格</text>
+<rect class="external" x="835" y="320" width="180" height="80" rx="10"/>
+<text x="925.0" y="354.0" text-anchor="middle">等待本发次有效安</text>
+<text x="925.0" y="380.0" text-anchor="middle">全许可</text>
+<path class="gate" d="M1085.0,335 L1110,360.0 L1085.0,385 L1060,360.0 Z"/>
+<text x="1085.0" y="368.0" text-anchor="middle" style="font-size:35px">+</text>
+<text x="1085.0" y="317" text-anchor="middle">并行出光与唤醒</text>
+<path class="gate" d="M1685.0,335 L1710,360.0 L1685.0,385 L1660,360.0 Z"/>
+<text x="1685.0" y="368.0" text-anchor="middle" style="font-size:35px">+</text>
+<text x="1685.0" y="415" text-anchor="middle">出光与唤醒全部</text>
+<text x="1685.0" y="442" text-anchor="middle">完成</text>
+<path class="gate" d="M1785.0,335 L1810,360.0 L1785.0,385 L1760,360.0 Z"/>
+<text x="1785.0" y="368.0" text-anchor="middle" style="font-size:35px">+</text>
+<text x="1785.0" y="317" text-anchor="middle">并行闭环与准直</text>
+<rect class="external" x="1895" y="520" width="180" height="80" rx="10"/>
+<text x="1985.0" y="554.0" text-anchor="middle">等待门禁清场及吹</text>
+<text x="1985.0" y="580.0" text-anchor="middle">扫停止确认</text>
+<path class="gate" d="M2415.0,335 L2440,360.0 L2415.0,385 L2390,360.0 Z"/>
+<text x="2415.0" y="368.0" text-anchor="middle" style="font-size:35px">+</text>
+<text x="2415.0" y="415" text-anchor="middle">精闭环与准直全</text>
+<text x="2415.0" y="442" text-anchor="middle">部完成</text>
+<rect class="task" x="2510" y="320" width="210" height="80" rx="10"/>
+<text x="2615.0" y="354.0" text-anchor="middle">重读并核验本段全部持</text>
+<text x="2615.0" y="380.0" text-anchor="middle">续资格</text>
+<circle class="task" cx="2828.0" cy="360.0" r="18.0"/>
+<text x="2828.0" y="408" text-anchor="middle">本段资格建立</text>
+<rect class="task" x="600" y="320" width="180" height="80" rx="10"/>
+<text x="690.0" y="354.0" text-anchor="middle">四类组件参数下发</text>
+<text x="690.0" y="380.0" text-anchor="middle">并校验生效</text>
+<text x="690.0" y="396" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="task" x="1195" y="140" width="180" height="80" rx="10"/>
+<text x="1285.0" y="174.0" text-anchor="middle">按路由稳定出光（</text>
+<text x="1285.0" y="200.0" text-anchor="middle">所需光源）</text>
+<text x="1285.0" y="216" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="external" x="1195" y="520" width="180" height="80" rx="10"/>
+<text x="1285.0" y="554.0" text-anchor="middle">同步预放重频配方</text>
+<text x="1285.0" y="580.0" text-anchor="middle">确认生效</text>
+<text x="1285.0" y="596" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="task" x="1430" y="520" width="180" height="80" rx="10"/>
+<text x="1520.0" y="554.0" text-anchor="middle">预放唤醒（全部实</text>
+<text x="1520.0" y="580.0" text-anchor="middle">例）</text>
+<text x="1520.0" y="596" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="task" x="1895" y="140" width="180" height="80" rx="10"/>
+<text x="1985.0" y="174.0" text-anchor="middle">预放能量粗闭环（</text>
+<text x="1985.0" y="200.0" text-anchor="middle">全部实例）</text>
+<text x="1985.0" y="216" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="task" x="2130" y="140" width="180" height="80" rx="10"/>
+<text x="2220.0" y="174.0" text-anchor="middle">第一次精闭环（全</text>
+<text x="2220.0" y="200.0" text-anchor="middle">部实例）</text>
+<text x="2220.0" y="216" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect class="task" x="2130" y="520" width="180" height="80" rx="10"/>
+<text x="2220.0" y="554.0" text-anchor="middle">多程光路准直（全</text>
+<text x="2220.0" y="580.0" text-anchor="middle">部实例）</text>
+<text x="2220.0" y="596" text-anchor="middle" style="font-size:16px">⊞</text>
+<rect x="60" y="705" width="2820" height="185" rx="14" fill="#e8f1f5"/>
+<text class="note" x="90" y="745">数量：种子源 ×1，二倍频 ×1，预放 ×10，多程 ×60；出光目标按本次束线路由选择并去重。</text>
+<text class="note" x="90" y="785">黄色：外部同步动作或条件等待。任一失败、超时、联锁或持续资格失效，中断整个准备作用域并进入停止确认。</text>
+<text class="note" x="90" y="825">准直不等待粗/精闭环完成。AND 汇合后仍须重读当前资格；本段完成不等于整个发射准备完成。</text>
+<text class="note" x="90" y="865">设计定义，尚未绑定 Java 执行服务。完整动作展开、时限和异常路径见同名 BPMN 文件及流程说明。</text>
+</svg>

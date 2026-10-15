@@ -46,7 +46,7 @@ def main():
         if args.mode == "local":
             devices = {}
             for name in args.devices:
-                runtime = ComponentRuntime(model, args.data / args.component / (name + ".sqlite3"))
+                runtime = ComponentRuntime(model, args.data / args.component / (name + "-v" + str(model.model_version) + ".sqlite3"))
                 stack.callback(runtime.close)
                 devices[name] = runtime
         else:
@@ -59,7 +59,7 @@ def main():
             definition = [{"class": ComponentDevice, "devices": [
                 {"name": f"gxlf/{args.component}/{name}", "properties": {
                     "component_model": model.model_id,
-                    "database_path": str((args.data / args.component / (name + ".sqlite3")).resolve())}}
+                    "database_path": str((args.data / args.component / (name + "-v" + str(model.model_version) + ".sqlite3")).resolve())}}
                 for name in args.devices]}]
             context = stack.enter_context(MultiDeviceTestContext(definition, process=True, host="127.0.0.1"))
             devices = {name: TangoAdapter(context.get_device(f"gxlf/{args.component}/{name}")) for name in args.devices}

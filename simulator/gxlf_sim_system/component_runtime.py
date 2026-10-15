@@ -104,6 +104,7 @@ class ComponentRuntime:
         result = self._command(state["last_result_id"]) if state["last_result_id"] else None
         context = self._context()
         value = {
+            "state_revision": self.db.execute("SELECT COALESCE(MAX(sequence),0) FROM component_events").fetchone()[0],
             "model": self.model.model_id,
             "model_version": self.model.model_version,
             "component": self.model.display_name,

@@ -1,87 +1,84 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  二倍频宽带激光注入组件状态机。
-
-  本文件按《集中管控系统与分系统状态梳理清单》中的 11 个条目整理。
-  外层状态表示持续工作阶段；内层状态表示该阶段中影响后续放行的局部条件。
-  请求、执行进度和超时属于独立任务记录，不在这里增加“执行中”设备状态。
-
-  文档没有给出“自检通过但功能检查尚未通过”的独立持久状态，因此自检通过
-  直接进入“就绪/业务就绪完成”，功能检查作为资格确认事件保留在该状态内。
-  故障复位后的目标状态也未明确，这里按“重新检查”语义回到未就绪/未上电离线。
+  二倍频宽带激光注入组件层级状态机 v2。
+  依据《集中管控系统与分系统状态梳理清单》及 2026-10-15 用户确认口径：
+  上电检查只确认本系统所辖设备是否均已上电，不执行上电操作；
+  功能检查测试设备功能是否正常。上电检查通过仍处于未就绪，
+  功能检查通过才进入业务就绪；业务参数配置生效后才放行专有动作。
+  四组件共同资格：notReady/unchecked → notReady/powerOnOk
+  → ready/functionReady → ready/parameterOk。
+  动作请求、执行进度、结果及超时保存在独立任务记录中。
+  datamodel 保存动作绑定、标签、确认事件和上下文；Mermaid 仅用于展示。
 -->
-<scxml xmlns="http://www.w3.org/2005/07/scxml"
-       version="1.0"
-       initial="notReady">
-
-  <!-- 未就绪：未上电/离线、异常中止复位完成或正常关机完成。 -->
-  <state id="notReady" initial="offline">
-    <state id="offline"/>
-    <state id="abortReset"/>
-    <state id="shutdownNormal"/>
-
-    <transition event="selftest.passed" target="ready"/>
-    <transition event="abort.completed" target="abortReset"/>
-    <transition event="shutdown.completed" target="shutdownNormal"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked" />
+    <state id="powerOnOk">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+    </state>
+    <state id="checkFailed">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+    </state>
+    <state id="abortReset" />
+    <state id="shutdownNormal" />
+    <transition event="abort.completed" target="abortReset" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="power-check.passed" target="powerOnOk" />
+    <transition event="power-check.failed" target="unchecked" />
+    <transition event="power-check.invalidated" target="unchecked" />
   </state>
-
-  <!-- 就绪：功能能力具备，参数配置是进入出光的必要条件。 -->
   <state id="ready" initial="functionReady">
     <state id="functionReady">
-      <transition event="function-check.passed" target="functionReady"/>
-      <transition event="function-check.failed" target="notReady"/>
-      <transition event="configuration.validated" target="parameterOk"/>
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+      <transition event="configuration.validated" target="parameterOk" />
     </state>
     <state id="parameterOk">
-      <transition event="configuration.invalidated" target="functionReady"/>
-      <transition event="configuration.reconfiguration-accepted" target="functionReady"/>
-      <transition event="emission.stable-confirmed" target="emitting"/>
+      <transition event="configuration.invalidated" target="functionReady" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="emission.stable-confirmed" target="emitting" />
     </state>
-    <state id="standbyReset"/>
-
-    <transition event="shutdown.completed" target="shutdownNormal"/>
-    <transition event="abort.completed" target="notReady"/>
-    <transition event="qualification.invalidated" target="notReady"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <state id="standbyReset" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="abort.completed" target="notReady" />
+    <transition event="qualification.invalidated" target="notReady" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 出光：稳定出光持续保持；采集是其内部局部状态变化。 -->
   <state id="emitting" initial="stableEmission">
     <state id="stableEmission">
-      <transition event="collection.completed" target="collectionOk"/>
+      <transition event="collection.completed" target="collectionOk" />
     </state>
     <state id="collectionOk">
-      <transition event="collection.requested" target="stableEmission"/>
+      <transition event="collection.requested" target="stableEmission" />
     </state>
-
-    <transition event="emission.stopped-confirmed" target="standbyReset"/>
-    <transition event="emission.stopped-unready" target="abortReset"/>
-    <transition event="shutdown.completed" target="shutdownNormal"/>
-    <transition event="abort.completed" target="abortReset"/>
-    <transition event="qualification.invalidated" target="faultLock"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <transition event="emission.stopped-confirmed" target="standbyReset" />
+    <transition event="emission.stopped-unready" target="abortReset" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="abort.completed" target="abortReset" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 设备异常：三类异常子状态均阻断流程放行。 -->
   <state id="fault" initial="faultLock">
-    <state id="faultLock"/>
-    <state id="commFault"/>
-    <state id="timeoutFault"/>
-    <transition event="recovery.completed" target="notReady"/>
-    <transition event="fault.classification-updated" target="faultLock"/>
+    <state id="faultLock" />
+    <state id="commFault" />
+    <state id="timeoutFault" />
+    <transition event="recovery.completed" target="notReady" />
+    <transition event="fault.classification-updated" target="faultLock" />
   </state>
   <datamodel>
     <data id="componentMetadata"><![CDATA[
 {
-  "model_id": "shg-injection-hierarchical-v1",
-  "model_version": 1,
+  "model_id": "shg-injection-hierarchical-v2",
+  "model_version": 2,
   "display_name": "二倍频宽带激光注入组件",
   "outer_labels": {
     "notReady": "未就绪",
@@ -90,17 +87,19 @@
     "fault": "设备异常"
   },
   "inner_labels": {
-    "offline": "未上电/离线",
+    "unchecked": "待上电检查",
     "abortReset": "异常中止复位完成",
     "shutdownNormal": "关机正常",
-    "functionReady": "业务就绪",
+    "functionReady": "功能正常，业务就绪",
     "parameterOk": "参数配置生效",
     "standbyReset": "复位/待机完成",
     "stableEmission": "稳定出光",
     "collectionOk": "采集完成",
     "faultLock": "故障锁定",
     "commFault": "通信异常",
-    "timeoutFault": "执行超时"
+    "timeoutFault": "执行超时",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过"
   },
   "context_defaults": {
     "configuration": {
@@ -111,39 +110,52 @@
     "faults": []
   },
   "actions": {
-    "power_on_self_test": {
-      "label": "开机自检",
+    "power_on_check": {
+      "label": "上电检查",
       "requests": {
-        "offline": "selftest.requested",
-        "abortReset": "selftest.requested",
-        "shutdownNormal": "selftest.requested"
+        "unchecked": "power-check.requested",
+        "powerOnOk": "power-check.requested",
+        "checkFailed": "power-check.requested",
+        "abortReset": "power-check.requested",
+        "shutdownNormal": "power-check.requested"
       },
       "success_events": {
-        "offline": "selftest.passed",
-        "abortReset": "selftest.passed",
-        "shutdownNormal": "selftest.passed"
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "abortReset": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
       },
       "failure_events": {
-        "offline": null,
-        "abortReset": null,
-        "shutdownNormal": null
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "abortReset": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
       },
-      "success_key": "自检通过",
-      "failure_key": "自检失败"
+      "success_key": "上电检查通过",
+      "failure_key": "上电检查未通过"
     },
     "function_check": {
       "label": "功能检查",
       "requests": {
+        "powerOnOk": "function-check.requested",
+        "checkFailed": "function-check.requested",
         "functionReady": "function-check.requested"
       },
       "success_events": {
+        "powerOnOk": "function-check.passed",
+        "checkFailed": "function-check.passed",
         "functionReady": "function-check.passed"
       },
       "failure_events": {
+        "powerOnOk": "function-check.failed",
+        "checkFailed": "function-check.failed",
         "functionReady": "function-check.failed"
       },
       "success_key": "功能检查通过",
-      "failure_key": "功能检查未通过"
+      "failure_key": "功能检查未通过",
+      "success_observation": "就绪"
     },
     "parameter_dispatch": {
       "label": "参数下发",

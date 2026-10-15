@@ -7,6 +7,26 @@ from gxlf_sim_system import ComponentRuntime, MULTIPASS_MODEL, PREAMP_MODEL, SEE
 
 
 class ComponentRuntimeTest(unittest.TestCase):
+    def test_state_revision_survives_restart_and_duplicate_feedback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = Path(folder) / "revision.sqlite3"
+            runtime = ComponentRuntime(SEED_MODEL, database)
+            self.assertEqual(runtime.snapshot()["state_revision"], 0)
+            request = {"command_id": "power", "action": "power_on_check"}
+            accepted = runtime.execute(request)
+            completed = runtime.simulate({"command_id": "power", "outcome": "success"})
+            revision = completed["snapshot"]["state_revision"]
+            self.assertGreater(revision, accepted["snapshot"]["state_revision"])
+            runtime.close()
+            restored = ComponentRuntime(SEED_MODEL, database)
+            try:
+                self.assertEqual(restored.snapshot()["state_revision"], revision)
+                restored.execute(request)
+                restored.simulate({"command_id": "power", "outcome": "success"})
+                self.assertEqual(restored.snapshot()["state_revision"], revision)
+            finally:
+                restored.close()
+
     def drive(self, runtime, actions, prefix="task"):
         for index, (action, outcome) in enumerate(actions):
             command_id = f"{prefix}-{index}"
@@ -17,9 +37,9 @@ class ComponentRuntimeTest(unittest.TestCase):
         runtime = ComponentRuntime(SEED_MODEL)
         self.addCleanup(runtime.close)
         self.assertEqual(runtime.snapshot()["state_id"], "unchecked")
-        accepted = runtime.execute({"command_id": "selftest", "action": "power_on_self_test"})
+        accepted = runtime.execute({"command_id": "power-check", "action": "power_on_check"})
         self.assertEqual(accepted["snapshot"]["state_id"], "unchecked")
-        self.assertEqual(runtime.simulate({"command_id": "selftest", "outcome": "success"})["snapshot"]["state_id"], "selfTestOk")
+        self.assertEqual(runtime.simulate({"command_id": "power-check", "outcome": "success"})["snapshot"]["state_id"], "powerOnOk")
         self.drive(runtime, [("function_check", "success"), ("parameter_dispatch", "success"), ("seed_source_emit", "success")], "seed")
         self.assertEqual(runtime.snapshot()["outer_state_label"], "出光")
         self.drive(runtime, [("laser_parameter_collect", "failure"), ("laser_parameter_collect", "success")], "collect")
@@ -28,17 +48,17 @@ class ComponentRuntimeTest(unittest.TestCase):
     def test_preamp_model_and_fault_recovery(self):
         runtime = ComponentRuntime(PREAMP_MODEL)
         self.addCleanup(runtime.close)
-        self.drive(runtime, [("power_on_self_test", "success"), ("parameter_dispatch", "success"), ("preamp_wakeup", "success"), ("coarse_loop", "success"), ("fine_loop", "success"), ("energy_meter_clear", "success")], "preamp")
+        self.drive(runtime, [("power_on_check", "success"), ("function_check", "success"), ("parameter_dispatch", "success"), ("preamp_wakeup", "success"), ("coarse_loop", "success"), ("fine_loop", "success"), ("energy_meter_clear", "success")], "preamp")
         self.assertEqual(runtime.snapshot()["state_id"], "energyMeterCleared")
         event = runtime.report_event({"event_id": "fault-1", "event": "fault_confirmed", "observed_outer_state": "设备异常"})
         self.assertEqual(event["snapshot"]["outer_state"], "fault")
-        self.assertEqual(runtime.report_event({"event_id": "recover-1", "event": "recovery_confirmed", "observed_outer_state": "未就绪"})["snapshot"]["state_id"], "baseNotReady")
+        self.assertEqual(runtime.report_event({"event_id": "recover-1", "event": "recovery_confirmed", "observed_outer_state": "未就绪"})["snapshot"]["state_id"], "unchecked")
 
     def test_shg_model_uses_the_same_runtime(self):
         runtime = ComponentRuntime(SHG_MODEL)
         self.addCleanup(runtime.close)
         self.drive(runtime, [
-            ("power_on_self_test", "success"),
+            ("power_on_check", "success"),
             ("function_check", "success"),
             ("parameter_dispatch", "success"),
             ("frequency_doubled_emit", "success"),
@@ -51,8 +71,8 @@ class ComponentRuntimeTest(unittest.TestCase):
     def test_multipass_model_covers_collimation_and_shot_readiness(self):
         runtime = ComponentRuntime(MULTIPASS_MODEL)
         self.addCleanup(runtime.close)
-        self.drive(runtime, [("power_on_self_test", "success")], "multipass-selftest")
-        self.assertEqual(runtime.snapshot()["state_id"], "selfTestOk")
+        self.drive(runtime, [("power_on_check", "success")], "multipass-power-check")
+        self.assertEqual(runtime.snapshot()["state_id"], "powerOnOk")
         with self.assertRaises(TransitionError):
             runtime.execute({"command_id": "blocked-parameter", "action": "parameter_dispatch"})
         self.drive(runtime, [
@@ -72,22 +92,81 @@ class ComponentRuntimeTest(unittest.TestCase):
         shutdown = runtime.execute({"command_id": "multipass-shutdown", "action": "shutdown"})
         self.assertEqual(runtime.simulate({"command_id": "multipass-shutdown", "outcome": "success"})["snapshot"]["state_id"], "shutdownNormal")
         self.assertEqual(shutdown["snapshot"]["inner_state_label"], "复位/待机完成")
-        self.drive(runtime, [("power_on_self_test", "failure")], "multipass-restart-failure")
-        self.assertEqual(runtime.snapshot()["state_id"], "shutdownNormal")
-        self.drive(runtime, [("power_on_self_test", "success")], "multipass-restart")
-        self.assertEqual(runtime.snapshot()["state_id"], "selfTestOk")
+        self.drive(runtime, [("power_on_check", "failure")], "multipass-restart-failure")
+        self.assertEqual(runtime.snapshot()["state_id"], "unchecked")
+        self.drive(runtime, [("power_on_check", "success")], "multipass-restart")
+        self.assertEqual(runtime.snapshot()["state_id"], "powerOnOk")
+
+    def test_all_components_require_power_then_function_before_parameters(self):
+        for model in (SEED_MODEL, SHG_MODEL, PREAMP_MODEL, MULTIPASS_MODEL):
+            with self.subTest(model=model.model_id):
+                runtime = ComponentRuntime(model)
+                self.addCleanup(runtime.close)
+                for action in ("function_check", "parameter_dispatch", "power_on_self_test"):
+                    with self.assertRaises(TransitionError):
+                        runtime.execute({"command_id": "blocked-" + action, "action": action})
+                self.drive(runtime, [("power_on_check", "failure")], "power-fail")
+                self.assertEqual(runtime.snapshot()["state_id"], "unchecked")
+                accepted = runtime.execute({"command_id": "power-ok", "action": "power_on_check"})
+                self.assertEqual(accepted["status"], "accepted")
+                self.assertEqual(accepted["snapshot"]["state_id"], "unchecked")
+                runtime.simulate({"command_id": "power-ok", "outcome": "success"})
+                self.assertEqual(runtime.snapshot()["outer_state"], "notReady")
+                self.assertEqual(runtime.snapshot()["state_id"], "powerOnOk")
+                with self.assertRaises(TransitionError):
+                    runtime.execute({"command_id": "parameter-too-early", "action": "parameter_dispatch"})
+                self.drive(runtime, [("function_check", "failure")], "function-fail")
+                self.assertEqual(runtime.snapshot()["outer_state"], "notReady")
+                self.assertEqual(runtime.snapshot()["state_id"], "checkFailed")
+                with self.assertRaises(TransitionError):
+                    runtime.execute({"command_id": "parameter-after-failure", "action": "parameter_dispatch"})
+                self.drive(runtime, [("function_check", "success")], "function-retry")
+                self.assertEqual(runtime.snapshot()["outer_state"], "ready")
+                self.assertEqual(runtime.snapshot()["state_id"], "functionReady")
+                self.drive(runtime, [("parameter_dispatch", "success")], "parameters")
+                self.assertEqual(runtime.snapshot()["state_id"], "parameterOk")
+                self.assertEqual(runtime.snapshot()["configuration"]["status"], "valid")
+
+    def test_failed_power_recheck_revokes_previous_power_evidence(self):
+        for model in (SEED_MODEL, SHG_MODEL, PREAMP_MODEL, MULTIPASS_MODEL):
+            with self.subTest(model=model.model_id):
+                runtime = ComponentRuntime(model)
+                self.addCleanup(runtime.close)
+                self.drive(runtime, [("power_on_check", "success"), ("function_check", "failure"),
+                                     ("power_on_check", "failure")])
+                self.assertEqual(runtime.snapshot()["state_id"], "unchecked")
+                with self.assertRaises(TransitionError):
+                    runtime.execute({"command_id": "cannot-reuse-old-power", "action": "function_check"})
+
+    def test_power_qualification_survives_restart_without_becoming_ready(self):
+        for model in (SEED_MODEL, SHG_MODEL, PREAMP_MODEL, MULTIPASS_MODEL):
+            with self.subTest(model=model.model_id), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "component.sqlite3"
+                runtime = ComponentRuntime(model, path)
+                self.drive(runtime, [("power_on_check", "success")])
+                runtime.close()
+                recovered = ComponentRuntime(model, path)
+                try:
+                    self.assertEqual(recovered.snapshot()["outer_state"], "notReady")
+                    self.assertEqual(recovered.snapshot()["state_id"], "powerOnOk")
+                    with self.assertRaises(TransitionError):
+                        recovered.execute({"command_id": "blocked-after-restart", "action": "parameter_dispatch"})
+                    self.drive(recovered, [("function_check", "success")], "after-restart")
+                    self.assertEqual(recovered.snapshot()["state_id"], "functionReady")
+                finally:
+                    recovered.close()
 
     def test_task_idempotency_and_persistence(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "component.sqlite3"
             first = ComponentRuntime(SEED_MODEL, path)
-            request = {"command_id": "same", "action": "power_on_self_test", "parameters": {"recipe": "a"}}
+            request = {"command_id": "same", "action": "power_on_check", "parameters": {"recipe": "a"}}
             self.assertEqual(first.execute(request), first.execute(request))
             first.close()
             second = ComponentRuntime(SEED_MODEL, path)
             self.assertEqual(second.snapshot()["active_command_id"], "same")
             with self.assertRaises(TransitionError):
-                second.execute({"command_id": "same", "action": "power_on_self_test", "parameters": {"recipe": "b"}})
+                second.execute({"command_id": "same", "action": "power_on_check", "parameters": {"recipe": "b"}})
             second.close()
 
     def test_database_isolation_and_model_mismatch(self):
@@ -106,7 +185,7 @@ class ComponentRuntimeTest(unittest.TestCase):
                 def submit(pair):
                     runtime, command_id = pair
                     try:
-                        return runtime.execute({"command_id": command_id, "action": "power_on_self_test"})["status"]
+                        return runtime.execute({"command_id": command_id, "action": "power_on_check"})["status"]
                     except TransitionError:
                         return "blocked"
                 with concurrent.futures.ThreadPoolExecutor(2) as pool:

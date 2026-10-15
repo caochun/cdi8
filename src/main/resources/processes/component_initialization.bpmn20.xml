@@ -1,0 +1,294 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:gxlf="https://cdi8.cn/bpmn/qualification" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="https://cdi8.cn/control/v2">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:error id="qualification_error" errorCode="QUALIFICATION_INVALID" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
+  <bpmn:message id="qualification_lost_message" name="QualificationLost" />
+  <bpmn:process id="component_initialization" isExecutable="true" name="组件初始化">
+    <bpmn:startEvent id="start" name="开始" />
+    <bpmn:subProcess id="normal" name="组件初始化">
+      <bpmn:startEvent id="scope_start" name="开始" />
+      <bpmn:endEvent id="scope_end" name="初始化完成" />
+      <bpmn:serviceTask id="prepare_power" name="启动全体上电检查" flowable:expression="${qualification.prepare(execution, 'power_gate')}" />
+      <bpmn:receiveTask id="power_gate" name="全体上电资格汇合">
+        <bpmn:documentation>资格汇合网关：等待本轮全部命令成功，核验全体当前资格，并监控已取得资格失效。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <gxlf:qualificationGateway targets="allComponents" action="power_on_check" state="powerOnOk" outer="notReady" continuationStates="notReady/powerOnOk notReady/checkFailed ready/functionReady" timeout="${commandTimeout}" />
+        </bpmn:extensionElements>
+      </bpmn:receiveTask>
+      <bpmn:boundaryEvent id="power_gate_timeout" attachedToRef="power_gate" cancelActivity="true" name="上电资格等待超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${qualificationTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="power_timeout_reason" name="记录上电等待超时" flowable:expression="${qualification.timeout(execution, 'power_gate')}" />
+      <bpmn:sequenceFlow id="power_gate_timeout__power_timeout_reason" sourceRef="power_gate_timeout" targetRef="power_timeout_reason" />
+      <bpmn:sequenceFlow id="power_timeout_reason__raise_timeout" sourceRef="power_timeout_reason" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="prepare_power__power_gate" sourceRef="prepare_power" targetRef="power_gate" />
+      <bpmn:sequenceFlow id="power_gate__prepare_function" sourceRef="power_gate" targetRef="prepare_function" name="全部有效">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${qualificationGatePassed}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="power_gate__raise_failure" sourceRef="power_gate" targetRef="raise_failure" name="检查未通过">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${!qualificationGatePassed}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:serviceTask id="prepare_function" name="启动全体功能检查" flowable:expression="${qualification.prepare(execution, 'function_gate')}" />
+      <bpmn:receiveTask id="function_gate" name="全体功能资格汇合">
+        <bpmn:documentation>资格汇合网关：等待本轮全部命令成功，核验全体当前资格，并监控已取得资格失效。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <gxlf:qualificationGateway targets="allComponents" action="function_check" state="functionReady" outer="ready" continuationStates="ready/functionReady" timeout="${commandTimeout}" />
+        </bpmn:extensionElements>
+      </bpmn:receiveTask>
+      <bpmn:boundaryEvent id="function_gate_timeout" attachedToRef="function_gate" cancelActivity="true" name="功能资格等待超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${qualificationTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="function_timeout_reason" name="记录功能等待超时" flowable:expression="${qualification.timeout(execution, 'function_gate')}" />
+      <bpmn:sequenceFlow id="function_gate_timeout__function_timeout_reason" sourceRef="function_gate_timeout" targetRef="function_timeout_reason" />
+      <bpmn:sequenceFlow id="function_timeout_reason__raise_timeout" sourceRef="function_timeout_reason" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="prepare_function__function_gate" sourceRef="prepare_function" targetRef="function_gate" />
+      <bpmn:sequenceFlow id="function_gate__finish" sourceRef="function_gate" targetRef="finish" name="全部有效">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${qualificationGatePassed}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="function_gate__raise_failure" sourceRef="function_gate" targetRef="raise_failure" name="检查未通过">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${!qualificationGatePassed}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:serviceTask id="finish" name="确认初始化完成" flowable:expression="${qualification.finish(execution)}" />
+      <bpmn:endEvent id="raise_failure" name="检查未通过">
+        <bpmn:errorEventDefinition errorRef="device_error" />
+      </bpmn:endEvent>
+      <bpmn:endEvent id="raise_timeout" name="等待超时">
+        <bpmn:errorEventDefinition errorRef="device_error" />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="scope_start__prepare_power" sourceRef="scope_start" targetRef="prepare_power" />
+      <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="success" name="流程成功" />
+    <bpmn:serviceTask id="failure" name="记录流程失败" flowable:expression="${tango.failed(execution)}" />
+    <bpmn:endEvent id="failed_end" name="流程停止">
+      <bpmn:terminateEventDefinition />
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="error_boundary" attachedToRef="normal" cancelActivity="true" name="设备或动作失败">
+      <bpmn:errorEventDefinition errorRef="device_error" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="error_boundary__failure" sourceRef="error_boundary" targetRef="failure" />
+    <bpmn:boundaryEvent id="qualification_error_boundary" attachedToRef="normal" cancelActivity="true" name="资格核验失败">
+      <bpmn:errorEventDefinition errorRef="qualification_error" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="qualification_error_boundary__failure" sourceRef="qualification_error_boundary" targetRef="failure" />
+    <bpmn:boundaryEvent id="qualification_lost" attachedToRef="normal" cancelActivity="true" name="已取得资格失效">
+      <bpmn:messageEventDefinition messageRef="qualification_lost_message" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="qualification_lost__failure" sourceRef="qualification_lost" targetRef="failure" />
+    <bpmn:boundaryEvent id="stop_boundary" attachedToRef="normal" cancelActivity="true" name="停止流程">
+      <bpmn:messageEventDefinition messageRef="stop_message" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure" />
+    <bpmn:boundaryEvent id="workflow_timeout" attachedToRef="normal" cancelActivity="true" name="流程超时">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="workflow_timeout__failure" sourceRef="workflow_timeout" targetRef="failure" />
+    <bpmn:sequenceFlow id="start__normal" sourceRef="start" targetRef="normal" />
+    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success" />
+    <bpmn:sequenceFlow id="failure__failed_end" sourceRef="failure" targetRef="failed_end" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_component_initialization">
+    <bpmndi:BPMNPlane id="plane_component_initialization" bpmnElement="component_initialization">
+      <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
+        <dc:Bounds x="40" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_normal" bpmnElement="normal" isExpanded="false">
+        <dc:Bounds x="180" y="78" width="350" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_success" bpmnElement="success">
+        <dc:Bounds x="650" y="110" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failure" bpmnElement="failure">
+        <dc:Bounds x="560" y="340" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end">
+        <dc:Bounds x="800" y="362" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_error_boundary" bpmnElement="error_boundary">
+        <dc:Bounds x="195" y="163" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_qualification_error_boundary" bpmnElement="qualification_error_boundary">
+        <dc:Bounds x="265" y="163" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_qualification_lost" bpmnElement="qualification_lost">
+        <dc:Bounds x="335" y="163" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_stop_boundary" bpmnElement="stop_boundary">
+        <dc:Bounds x="405" y="163" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_workflow_timeout" bpmnElement="workflow_timeout">
+        <dc:Bounds x="475" y="163" width="30" height="30" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_error_boundary__failure" bpmnElement="error_boundary__failure">
+        <di:waypoint x="210.0" y="193" />
+        <di:waypoint x="210.0" y="275" />
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="635" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_qualification_error_boundary__failure" bpmnElement="qualification_error_boundary__failure">
+        <di:waypoint x="280.0" y="193" />
+        <di:waypoint x="280.0" y="275" />
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="635" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_qualification_lost__failure" bpmnElement="qualification_lost__failure">
+        <di:waypoint x="350.0" y="193" />
+        <di:waypoint x="350.0" y="275" />
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="635" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_stop_boundary__failure" bpmnElement="stop_boundary__failure">
+        <di:waypoint x="420.0" y="193" />
+        <di:waypoint x="420.0" y="275" />
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="635" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_workflow_timeout__failure" bpmnElement="workflow_timeout__failure">
+        <di:waypoint x="490.0" y="193" />
+        <di:waypoint x="490.0" y="275" />
+        <di:waypoint x="635" y="275" />
+        <di:waypoint x="635" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_start__normal" bpmnElement="start__normal">
+        <di:waypoint x="76" y="118.0" />
+        <di:waypoint x="180" y="128.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_normal__success" bpmnElement="normal__success">
+        <di:waypoint x="530" y="128.0" />
+        <di:waypoint x="650" y="128.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_failure__failed_end" bpmnElement="failure__failed_end">
+        <di:waypoint x="710" y="380.0" />
+        <di:waypoint x="800" y="380.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_normal">
+    <bpmndi:BPMNPlane id="plane_normal" bpmnElement="normal">
+      <bpmndi:BPMNShape id="shape_scope_start" bpmnElement="scope_start">
+        <dc:Bounds x="35" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_scope_end" bpmnElement="scope_end">
+        <dc:Bounds x="1100" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prepare_power" bpmnElement="prepare_power">
+        <dc:Bounds x="115" y="118" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_power_gate" bpmnElement="power_gate">
+        <dc:Bounds x="320" y="108" width="100" height="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="295" y="216" width="150" height="35" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_power_gate_timeout" bpmnElement="power_gate_timeout">
+        <dc:Bounds x="385" y="183" width="30" height="30" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="445" y="230" width="100" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_power_timeout_reason" bpmnElement="power_timeout_reason">
+        <dc:Bounds x="300" y="450" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prepare_function" bpmnElement="prepare_function">
+        <dc:Bounds x="480" y="118" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_function_gate" bpmnElement="function_gate">
+        <dc:Bounds x="685" y="108" width="100" height="100" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="660" y="216" width="150" height="35" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_function_gate_timeout" bpmnElement="function_gate_timeout">
+        <dc:Bounds x="750" y="183" width="30" height="30" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="810" y="230" width="100" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_function_timeout_reason" bpmnElement="function_timeout_reason">
+        <dc:Bounds x="680" y="450" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_finish" bpmnElement="finish">
+        <dc:Bounds x="865" y="118" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_raise_failure" bpmnElement="raise_failure">
+        <dc:Bounds x="560" y="330" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_raise_timeout" bpmnElement="raise_timeout">
+        <dc:Bounds x="570" y="600" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_power_gate_timeout__power_timeout_reason" bpmnElement="power_gate_timeout__power_timeout_reason">
+        <di:waypoint x="400" y="213" />
+        <di:waypoint x="440" y="250" />
+        <di:waypoint x="440" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_power_timeout_reason__raise_timeout" bpmnElement="power_timeout_reason__raise_timeout">
+        <di:waypoint x="390" y="530" />
+        <di:waypoint x="390" y="618" />
+        <di:waypoint x="570" y="618" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prepare_power__power_gate" bpmnElement="prepare_power__power_gate">
+        <di:waypoint x="265" y="158.0" />
+        <di:waypoint x="320" y="158.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_power_gate__prepare_function" bpmnElement="power_gate__prepare_function">
+        <di:waypoint x="420" y="158.0" />
+        <di:waypoint x="480" y="158.0" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="415" y="130" width="60" height="22" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_power_gate__raise_failure" bpmnElement="power_gate__raise_failure">
+        <di:waypoint x="370" y="208" />
+        <di:waypoint x="370" y="348" />
+        <di:waypoint x="560" y="348" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="380" y="280" width="90" height="24" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_function_gate_timeout__function_timeout_reason" bpmnElement="function_gate_timeout__function_timeout_reason">
+        <di:waypoint x="765" y="213" />
+        <di:waypoint x="810" y="250" />
+        <di:waypoint x="810" y="450" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_function_timeout_reason__raise_timeout" bpmnElement="function_timeout_reason__raise_timeout">
+        <di:waypoint x="770" y="530" />
+        <di:waypoint x="770" y="618" />
+        <di:waypoint x="606" y="618" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prepare_function__function_gate" bpmnElement="prepare_function__function_gate">
+        <di:waypoint x="630" y="158.0" />
+        <di:waypoint x="685" y="158.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_function_gate__finish" bpmnElement="function_gate__finish">
+        <di:waypoint x="785" y="158.0" />
+        <di:waypoint x="865" y="158.0" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="789" y="130" width="70" height="22" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_function_gate__raise_failure" bpmnElement="function_gate__raise_failure">
+        <di:waypoint x="735" y="208" />
+        <di:waypoint x="735" y="348" />
+        <di:waypoint x="596" y="348" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="745" y="280" width="90" height="24" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_scope_start__prepare_power" bpmnElement="scope_start__prepare_power">
+        <di:waypoint x="71" y="158.0" />
+        <di:waypoint x="115" y="158.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_finish__scope_end" bpmnElement="finish__scope_end">
+        <di:waypoint x="1015" y="158" />
+        <di:waypoint x="1100" y="158" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

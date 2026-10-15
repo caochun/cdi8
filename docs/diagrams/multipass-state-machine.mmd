@@ -1,68 +1,65 @@
 stateDiagram-v2
     direction TB
-    %% 多程放大系统：外层主状态与内层子状态。
-    %% 动作执行过程、流程前置条件和安全联锁由任务/事件/流程上下文描述。
+    %% Generated from multipass-state-machine.scxml; SCXML is the execution source.
     [*] --> notReady
-
     state "未就绪" as notReady {
-        state "基础服务未就绪" as baseNotReady
+        state "待上电检查" as unchecked
+        state "上电检查通过，待功能检查" as powerOnOk
+        state "功能检查未通过" as checkFailed
         state "关机正常" as shutdownNormal
-        [*] --> baseNotReady
+        [*] --> unchecked
     }
-
     state "就绪" as ready {
-        state "开机自检通过，待功能检查" as selfTestOk
-        state "业务就绪（具备光路准直能力）" as functionReady
+        state "功能正常，业务就绪" as functionReady
         state "参数配置生效" as parameterOk
         state "进入打靶状态完成" as shotReady
         state "复位/待机完成" as resetReady
-        [*] --> selfTestOk
+        [*] --> functionReady
     }
-
     state "准直" as collimated {
         state "光路准直达标" as collimationReady
         [*] --> collimationReady
     }
-
     state "设备异常" as fault {
         state "故障锁定" as faultLock
         state "通信异常" as commFault
         state "执行超时" as timeoutFault
         [*] --> faultLock
     }
-
-    notReady --> selfTestOk: selftest.passed
-    selfTestOk --> functionReady: function-check.passed
-    selfTestOk --> notReady: function-check.failed
-    functionReady --> functionReady: function-check.passed
-    resetReady --> functionReady: function-check.passed
-    functionReady --> notReady: function-check.failed
-    resetReady --> notReady: function-check.failed
-    functionReady --> parameterOk: configuration.validated
-    resetReady --> parameterOk: configuration.validated
-    parameterOk --> parameterOk: configuration.validated
-    parameterOk --> functionReady: configuration.invalidated
-    parameterOk --> collimated: multipass.collimation.completed
-    collimationReady --> shotReady: multipass.enter-shot.completed
-    collimationReady --> resetReady: multipass.standby.completed
-    collimated --> resetReady: abort.completed
-    shotReady --> resetReady: multipass.standby.completed
-    resetReady --> resetReady: multipass.standby.completed
-    ready --> resetReady: abort.completed
-
-    ready --> shutdownNormal: shutdown.completed
-    collimated --> shutdownNormal: shutdown.completed
-    ready --> notReady: qualification.invalidated
-    collimated --> faultLock: qualification.invalidated
-
     notReady --> faultLock: fault.confirmed
     notReady --> commFault: communication.failure-confirmed
     notReady --> timeoutFault: execution.timeout-confirmed
+    notReady --> shutdownNormal: shutdown.completed
+    notReady --> unchecked: abort.completed
+    notReady --> powerOnOk: power-check.passed
+    notReady --> unchecked: power-check.failed
+    notReady --> unchecked: power-check.invalidated
+    powerOnOk --> functionReady: function-check.passed
+    powerOnOk --> checkFailed: function-check.failed
+    checkFailed --> functionReady: function-check.passed
+    checkFailed --> checkFailed: function-check.failed
+    ready --> resetReady: abort.completed
+    ready --> shutdownNormal: shutdown.completed
+    ready --> notReady: qualification.invalidated
     ready --> faultLock: fault.confirmed
     ready --> commFault: communication.failure-confirmed
     ready --> timeoutFault: execution.timeout-confirmed
+    functionReady --> functionReady: function-check.passed
+    functionReady --> checkFailed: function-check.failed
+    functionReady --> parameterOk: configuration.validated
+    parameterOk --> functionReady: configuration.invalidated
+    parameterOk --> parameterOk: configuration.validated
+    parameterOk --> collimated: multipass.collimation.completed
+    shotReady --> resetReady: multipass.standby.completed
+    resetReady --> resetReady: multipass.standby.completed
+    resetReady --> functionReady: function-check.passed
+    resetReady --> checkFailed: function-check.failed
+    collimated --> shotReady: multipass.enter-shot.completed
+    collimated --> resetReady: multipass.standby.completed
+    collimated --> resetReady: abort.completed
+    collimated --> shutdownNormal: shutdown.completed
+    collimated --> faultLock: qualification.invalidated
     collimated --> faultLock: fault.confirmed
     collimated --> commFault: communication.failure-confirmed
     collimated --> timeoutFault: execution.timeout-confirmed
-
     fault --> notReady: recovery.completed

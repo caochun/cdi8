@@ -1,66 +1,65 @@
 stateDiagram-v2
     direction TB
-    %% 二倍频宽带激光注入组件：外层主状态与内层子状态。
-    %% 请求、执行进度和超时由独立任务记录保存，不增加“执行中”设备状态。
+    %% Generated from shg-injection-state-machine.scxml; SCXML is the execution source.
     [*] --> notReady
-
     state "未就绪" as notReady {
-        state "未上电/离线" as offline
+        state "待上电检查" as unchecked
+        state "上电检查通过，待功能检查" as powerOnOk
+        state "功能检查未通过" as checkFailed
         state "异常中止复位完成" as abortReset
         state "关机正常" as shutdownNormal
-        [*] --> offline
+        [*] --> unchecked
     }
-
     state "就绪" as ready {
-        state "业务就绪完成" as functionReady
-        state "参数配置正常" as parameterOk
-        state "正常待机/复位完成" as standbyReset
+        state "功能正常，业务就绪" as functionReady
+        state "参数配置生效" as parameterOk
+        state "复位/待机完成" as standbyReset
         [*] --> functionReady
     }
-
     state "出光" as emitting {
-        state "稳定出光正常" as stableEmission
-        state "采集正常" as collectionOk
+        state "稳定出光" as stableEmission
+        state "采集完成" as collectionOk
         [*] --> stableEmission
     }
-
     state "设备异常" as fault {
         state "故障锁定" as faultLock
         state "通信异常" as commFault
         state "执行超时" as timeoutFault
         [*] --> faultLock
     }
-
-    notReady --> ready: selftest.passed
     notReady --> abortReset: abort.completed
     notReady --> shutdownNormal: shutdown.completed
+    notReady --> faultLock: fault.confirmed
+    notReady --> commFault: communication.failure-confirmed
+    notReady --> timeoutFault: execution.timeout-confirmed
+    notReady --> powerOnOk: power-check.passed
+    notReady --> unchecked: power-check.failed
+    notReady --> unchecked: power-check.invalidated
+    powerOnOk --> functionReady: function-check.passed
+    powerOnOk --> checkFailed: function-check.failed
+    checkFailed --> functionReady: function-check.passed
+    checkFailed --> checkFailed: function-check.failed
+    ready --> shutdownNormal: shutdown.completed
+    ready --> notReady: abort.completed
+    ready --> notReady: qualification.invalidated
+    ready --> faultLock: fault.confirmed
+    ready --> commFault: communication.failure-confirmed
+    ready --> timeoutFault: execution.timeout-confirmed
     functionReady --> functionReady: function-check.passed
-    functionReady --> notReady: function-check.failed
+    functionReady --> checkFailed: function-check.failed
     functionReady --> parameterOk: configuration.validated
     parameterOk --> functionReady: configuration.invalidated
     parameterOk --> functionReady: configuration.reconfiguration-accepted
     parameterOk --> emitting: emission.stable-confirmed
-    stableEmission --> collectionOk: collection.completed
-    collectionOk --> stableEmission: collection.requested
-
     emitting --> standbyReset: emission.stopped-confirmed
     emitting --> abortReset: emission.stopped-unready
-    ready --> shutdownNormal: shutdown.completed
-    ready --> notReady: abort.completed
     emitting --> shutdownNormal: shutdown.completed
     emitting --> abortReset: abort.completed
-    ready --> notReady: qualification.invalidated
-
-    notReady --> faultLock: fault.confirmed
-    notReady --> commFault: communication.failure-confirmed
-    notReady --> timeoutFault: execution.timeout-confirmed
-    ready --> faultLock: fault.confirmed
-    ready --> commFault: communication.failure-confirmed
-    ready --> timeoutFault: execution.timeout-confirmed
     emitting --> faultLock: qualification.invalidated
     emitting --> faultLock: fault.confirmed
     emitting --> commFault: communication.failure-confirmed
     emitting --> timeoutFault: execution.timeout-confirmed
-
+    stableEmission --> collectionOk: collection.completed
+    collectionOk --> stableEmission: collection.requested
     fault --> notReady: recovery.completed
     fault --> faultLock: fault.classification-updated

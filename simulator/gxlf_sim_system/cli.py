@@ -14,26 +14,26 @@ def demo(runtime, model):
     trace = [{"event": "初始", "snapshot": runtime.snapshot()}]
     if model is SEED_MODEL:
         actions = [
-            ("power_on_self_test", "success"), ("function_check", "success"),
+            ("power_on_check", "success"), ("function_check", "success"),
             ("parameter_dispatch", "success"), ("seed_source_emit", "success"),
             ("laser_parameter_collect", "failure"), ("laser_parameter_collect", "success"),
         ]
     elif model is PREAMP_MODEL:
         actions = [
-            ("power_on_self_test", "success"), ("parameter_dispatch", "success"),
+            ("power_on_check", "success"), ("function_check", "success"), ("parameter_dispatch", "success"),
             ("preamp_wakeup", "success"), ("coarse_loop", "success"),
             ("fine_loop", "success"), ("energy_meter_clear", "success"),
             ("energy_collect", "success"), ("standby", "success"),
         ]
     elif model is MULTIPASS_MODEL:
         actions = [
-            ("power_on_self_test", "success"), ("function_check", "success"),
+            ("power_on_check", "success"), ("function_check", "success"),
             ("parameter_dispatch", "success"), ("optical_collimation", "success"),
             ("enter_shot_state", "success"), ("standby_reset", "success"),
         ]
     else:
         actions = [
-            ("power_on_self_test", "success"), ("function_check", "success"),
+            ("power_on_check", "success"), ("function_check", "success"),
             ("parameter_dispatch", "success"), ("frequency_doubled_emit", "success"),
             ("laser_parameter_collect", "success"), ("standby_reset", "success"),
             ("shutdown", "success"),
@@ -75,7 +75,7 @@ def main():
     model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[args.component]
     runtime = None
     try:
-        runtime = ComponentRuntime(model, args.db or (":memory:" if args.command == "demo" else f"{args.component}-simulator.sqlite3"))
+        runtime = ComponentRuntime(model, args.db or (":memory:" if args.command == "demo" else f"{args.component}-simulator-v{model.model_version}.sqlite3"))
         if args.command == "snapshot":
             value = runtime.snapshot()
         elif args.command == "demo":

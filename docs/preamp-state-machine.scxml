@@ -1,112 +1,94 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  再生与双程放大组件状态机。
-
-  本模型依据《集中管控系统与分系统状态梳理清单》中的
-  STATE-PREAMP-001 至 STATE-PREAMP-015 建立。外层主状态表示持续工作阶段；
-  内层子状态只保留会影响后续放行、响应或结果判断的局部条件。
-
-  “预放待机/复位”“流程终止（异常中止）”和“关机”是动作及其结果，
-  不单独形成持久设备状态：成功反馈分别把组件送回就绪或未就绪，动作来源
-  和结果保存在任务记录中。任务请求、执行进度、超时和发次上下文也不增加
-  “唤醒中”“闭环中”等设备状态。
-
-  流程文档规定第一次精闭环完成后进入发射准备汇合；正式发射准备阶段还会
-  再次精闭环、切换预放单次配方并清零能量计。因此第二次精闭环和单次配方
-  切换在“精闭环达标”状态上保持资格，能量计清零后进入本发次可触发状态。
-  粗闭环、精闭环和能量计条件失效时回退到需要重新建立资格的状态。
-
-  文档没有规定故障复位后的具体目标状态；这里按“重新检查”语义回到
-  未就绪/基础服务未就绪。安全联锁、出光、同步配方和服务健康是事件守卫
-  或流程上下文，不额外拆成设备状态。
-
-  SCXML datamodel 保存本组件的标签、动作绑定、确认事件和上下文默认值；模拟器
-  不再维护该模型的组件专用 Python 定义。
+  再生与双程放大组件层级状态机 v2。
+  依据《集中管控系统与分系统状态梳理清单》及 2026-10-15 用户确认口径：
+  上电检查只确认本系统所辖设备是否均已上电，不执行上电操作；
+  功能检查测试设备功能是否正常。上电检查通过仍处于未就绪，
+  功能检查通过才进入业务就绪；业务参数配置生效后才放行专有动作。
+  四组件共同资格：notReady/unchecked → notReady/powerOnOk
+  → ready/functionReady → ready/parameterOk。
+  动作请求、执行进度、结果及超时保存在独立任务记录中。
+  datamodel 保存动作绑定、标签、确认事件和上下文；Mermaid 仅用于展示。
 -->
-<scxml xmlns="http://www.w3.org/2005/07/scxml"
-       version="1.0"
-       initial="notReady">
-
-  <!-- 未就绪：开机自检前、关机完成后或故障恢复后的基础状态。 -->
-  <state id="notReady" initial="baseNotReady">
-    <state id="baseNotReady"/>
-
-    <transition event="selftest.passed" target="ready"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked" />
+    <state id="powerOnOk">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+    </state>
+    <state id="checkFailed">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="power-check.passed" target="powerOnOk" />
+    <transition event="power-check.failed" target="unchecked" />
+    <transition event="power-check.invalidated" target="unchecked" />
   </state>
-
-  <!-- 就绪：具备能量闭环能力，且可进一步确认参数配置。 -->
   <state id="ready" initial="functionReady">
     <state id="functionReady">
-      <transition event="function-check.passed" target="functionReady"/>
-      <transition event="function-check.failed" target="notReady"/>
-      <transition event="configuration.validated" target="parameterOk"/>
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+      <transition event="configuration.validated" target="parameterOk" />
     </state>
     <state id="parameterOk">
-      <transition event="configuration.invalidated" target="functionReady"/>
-      <transition event="configuration.reconfiguration-accepted" target="functionReady"/>
-      <transition event="preamp.wakeup.completed" target="wakeup"/>
+      <transition event="configuration.invalidated" target="functionReady" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="preamp.wakeup.completed" target="wakeup" />
     </state>
-
-    <transition event="abort.completed" target="functionReady"/>
-    <transition event="shutdown.completed" target="notReady"/>
-    <transition event="qualification.invalidated" target="notReady"/>
-    <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <transition event="abort.completed" target="functionReady" />
+    <transition event="shutdown.completed" target="notReady" />
+    <transition event="qualification.invalidated" target="notReady" />
+    <transition event="preamp.wakeup.failed" target="wakeupFailed" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 唤醒：保持预放唤醒，逐级建立闭环和本发次测量资格。 -->
   <state id="wakeup" initial="wakeupReady">
     <state id="wakeupReady">
-      <transition event="energy.coarse-loop.completed" target="coarseLoopOk"/>
-      <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
+      <transition event="energy.coarse-loop.completed" target="coarseLoopOk" />
+      <transition event="preamp.wakeup.failed" target="wakeupFailed" />
     </state>
     <state id="coarseLoopOk">
-      <transition event="energy.coarse-loop.invalidated" target="wakeupReady"/>
-      <transition event="energy.fine-loop.completed" target="fineLoopOk"/>
+      <transition event="energy.coarse-loop.invalidated" target="wakeupReady" />
+      <transition event="energy.fine-loop.completed" target="fineLoopOk" />
     </state>
     <state id="fineLoopOk">
-      <transition event="energy.fine-loop.invalidated" target="wakeupReady"/>
-      <!-- 正式发射准备阶段的第二次精闭环不改变设备资格。 -->
-      <transition event="energy.fine-loop.second-completed" target="fineLoopOk"/>
-      <transition event="single-shot.recipe.completed" target="fineLoopOk"/>
-      <transition event="energy-meter.cleared" target="energyMeterCleared"/>
+      <transition event="energy.fine-loop.invalidated" target="wakeupReady" />
+      <transition event="energy.fine-loop.second-completed" target="fineLoopOk" />
+      <transition event="single-shot.recipe.completed" target="fineLoopOk" />
+      <transition event="energy-meter.cleared" target="energyMeterCleared" />
     </state>
     <state id="energyMeterCleared">
-      <transition event="energy-meter.invalidated" target="fineLoopOk"/>
-      <transition event="energy.collection.completed" target="energyDataCollected"/>
+      <transition event="energy-meter.invalidated" target="fineLoopOk" />
+      <transition event="energy.collection.completed" target="energyDataCollected" />
     </state>
     <state id="energyDataCollected">
-      <!-- 正常待机在本发次能量数据采集完成后发生。 -->
-      <transition event="preamp.standby.completed" target="functionReady"/>
+      <transition event="preamp.standby.completed" target="functionReady" />
     </state>
-
-    <transition event="abort.completed" target="functionReady"/>
-    <transition event="shutdown.completed" target="notReady"/>
-    <transition event="qualification.invalidated" target="faultLock"/>
-    <transition event="preamp.wakeup.failed" target="wakeupFailed"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <transition event="abort.completed" target="functionReady" />
+    <transition event="shutdown.completed" target="notReady" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="preamp.wakeup.failed" target="wakeupFailed" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 设备异常：异常期间阻断流程放行。 -->
   <state id="fault" initial="faultLock">
-    <state id="wakeupFailed"/>
-    <state id="commFault"/>
-    <state id="timeoutFault"/>
-    <state id="faultLock"/>
-    <transition event="recovery.completed" target="notReady"/>
+    <state id="wakeupFailed" />
+    <state id="commFault" />
+    <state id="timeoutFault" />
+    <state id="faultLock" />
+    <transition event="recovery.completed" target="notReady" />
   </state>
   <datamodel>
     <data id="componentMetadata"><![CDATA[
 {
-  "model_id": "preamp-hierarchical-v1",
-  "model_version": 1,
+  "model_id": "preamp-hierarchical-v2",
+  "model_version": 2,
   "display_name": "再生与双程放大组件",
   "outer_labels": {
     "notReady": "未就绪",
@@ -115,8 +97,8 @@
     "fault": "设备异常"
   },
   "inner_labels": {
-    "baseNotReady": "基础服务未就绪",
-    "functionReady": "业务就绪",
+    "unchecked": "待上电检查",
+    "functionReady": "功能正常，业务就绪",
     "parameterOk": "参数配置生效",
     "wakeupReady": "预放唤醒完成",
     "coarseLoopOk": "预放能量粗闭环达标",
@@ -126,7 +108,9 @@
     "wakeupFailed": "预放唤醒失败",
     "commFault": "通信异常",
     "timeoutFault": "执行超时",
-    "faultLock": "故障锁定"
+    "faultLock": "故障锁定",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过"
   },
   "context_defaults": {
     "configuration": {
@@ -136,37 +120,46 @@
     "faults": []
   },
   "actions": {
-    "power_on_self_test": {
-      "label": "开机自检",
+    "power_on_check": {
+      "label": "上电检查",
       "requests": {
-        "baseNotReady": "selftest.requested"
+        "unchecked": "power-check.requested",
+        "powerOnOk": "power-check.requested",
+        "checkFailed": "power-check.requested"
       },
       "success_events": {
-        "baseNotReady": "selftest.passed"
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed"
       },
       "failure_events": {
-        "baseNotReady": null
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed"
       },
-      "success_key": "自检通过",
-      "failure_key": "自检失败",
-      "success_observation": null,
-      "failure_observation": null
+      "success_key": "上电检查通过",
+      "failure_key": "上电检查未通过"
     },
     "function_check": {
       "label": "功能检查",
       "requests": {
+        "powerOnOk": "function-check.requested",
+        "checkFailed": "function-check.requested",
         "functionReady": "function-check.requested"
       },
       "success_events": {
+        "powerOnOk": "function-check.passed",
+        "checkFailed": "function-check.passed",
         "functionReady": "function-check.passed"
       },
       "failure_events": {
+        "powerOnOk": "function-check.failed",
+        "checkFailed": "function-check.failed",
         "functionReady": "function-check.failed"
       },
       "success_key": "功能检查通过",
       "failure_key": "功能检查未通过",
-      "success_observation": null,
-      "failure_observation": null
+      "success_observation": "就绪"
     },
     "parameter_dispatch": {
       "label": "参数下发",

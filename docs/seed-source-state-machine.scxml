@@ -1,98 +1,88 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  种子源层级状态机 v2。
-
-  这是状态定义的权威 SCXML 1.0 描述。Mermaid 文件是与本模型对应的
-  展示图，不承担执行语义。
-
-  SCXML datamodel 同时保存组件标签、动作绑定、确认事件和运行时上下文默认值，
-  因此该 SCXML 文件是模拟器的完整模型来源。
-
-  请求、执行进度、反馈、超时和抢占属于独立任务记录；配置资格、数据资格
-  和完整故障集合也属于状态机外部的上下文。只有经过分系统确认的资格变化
-  或结果事件才驱动这里的设备状态转换。
+  种子源分系统层级状态机 v3。
+  依据《集中管控系统与分系统状态梳理清单》及 2026-10-15 用户确认口径：
+  上电检查只确认本系统所辖设备是否均已上电，不执行上电操作；
+  功能检查测试设备功能是否正常。上电检查通过仍处于未就绪，
+  功能检查通过才进入业务就绪；业务参数配置生效后才放行专有动作。
+  四组件共同资格：notReady/unchecked → notReady/powerOnOk
+  → ready/functionReady → ready/parameterOk。
+  动作请求、执行进度、结果及超时保存在独立任务记录中。
+  datamodel 保存动作绑定、标签、确认事件和上下文；Mermaid 仅用于展示。
 -->
-<scxml xmlns="http://www.w3.org/2005/07/scxml"
-       version="1.0"
-       initial="notReady">
-
-  <!-- 未就绪 -->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
   <state id="notReady" initial="unchecked">
-    <state id="unchecked">
-      <transition event="selftest.passed" target="selfTestOk"/>
-    </state>
-    <state id="selfTestOk">
-      <transition event="function-check.failed" target="checkFailed"/>
-      <transition event="function-check.passed" target="ready"/>
+    <state id="unchecked" />
+    <state id="powerOnOk">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
     </state>
     <state id="checkFailed">
-      <transition event="selftest.qualification-lost" target="unchecked"/>
-      <transition event="function-check.retry-passed" target="ready"/>
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
     </state>
-    <!-- 故障、通信异常或超时是外层安全转换。 -->
-    <transition event="fault.confirmed" target="fault"/>
-    <transition event="communication.failure-confirmed" target="fault"/>
-    <transition event="execution.timeout-confirmed" target="fault"/>
+    <transition event="fault.confirmed" target="fault" />
+    <transition event="communication.failure-confirmed" target="fault" />
+    <transition event="execution.timeout-confirmed" target="fault" />
+    <transition event="power-check.passed" target="powerOnOk" />
+    <transition event="power-check.failed" target="unchecked" />
+    <transition event="power-check.invalidated" target="unchecked" />
   </state>
-
-  <!-- 就绪 -->
-  <state id="ready" initial="configIdle">
-    <state id="configIdle">
-      <transition event="configuration.validated" target="configOk"/>
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
     </state>
-    <state id="configOk">
-      <transition event="configuration.invalidated" target="configIdle"/>
-      <transition event="configuration.reconfiguration-accepted" target="configIdle"/>
-      <transition event="emission.stable-confirmed" target="emitting"/>
+    <state id="parameterOk">
+      <transition event="configuration.invalidated" target="functionReady" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="emission.stable-confirmed" target="emitting" />
     </state>
-    <transition event="qualification.invalidated" target="notReady"/>
-    <transition event="shutdown.completed" target="notReady"/>
-    <transition event="abort.completed" target="notReady"/>
-    <transition event="fault.confirmed" target="fault"/>
-    <transition event="communication.failure-confirmed" target="fault"/>
-    <transition event="execution.timeout-confirmed" target="fault"/>
+    <transition event="qualification.invalidated" target="notReady" />
+    <transition event="shutdown.completed" target="notReady" />
+    <transition event="abort.completed" target="notReady" />
+    <transition event="fault.confirmed" target="fault" />
+    <transition event="communication.failure-confirmed" target="fault" />
+    <transition event="execution.timeout-confirmed" target="fault" />
   </state>
-
-  <!-- 出光 -->
   <state id="emitting" initial="collectIdle">
     <state id="collectIdle">
-      <transition event="collection.completed" target="collectOk"/>
-      <transition event="collection.failed" target="collectFailed"/>
+      <transition event="collection.completed" target="collectOk" />
+      <transition event="collection.failed" target="collectFailed" />
     </state>
     <state id="collectOk">
-      <transition event="collection.request-accepted" target="collectIdle"/>
+      <transition event="collection.request-accepted" target="collectIdle" />
     </state>
     <state id="collectFailed">
-      <transition event="collection.retry-accepted" target="collectIdle"/>
+      <transition event="collection.retry-accepted" target="collectIdle" />
     </state>
-    <transition event="emission.stopped-confirmed" target="ready"/>
-    <transition event="emission.stopped-unready" target="notReady"/>
-    <transition event="shutdown.completed" target="notReady"/>
-    <transition event="abort.completed" target="notReady"/>
-    <transition event="qualification.invalidated" target="fault"/>
-    <transition event="fault.confirmed" target="fault"/>
-    <transition event="communication.failure-confirmed" target="fault"/>
-    <transition event="execution.timeout-confirmed" target="fault"/>
+    <transition event="emission.stopped-confirmed" target="ready" />
+    <transition event="emission.stopped-unready" target="notReady" />
+    <transition event="shutdown.completed" target="notReady" />
+    <transition event="abort.completed" target="notReady" />
+    <transition event="qualification.invalidated" target="fault" />
+    <transition event="fault.confirmed" target="fault" />
+    <transition event="communication.failure-confirmed" target="fault" />
+    <transition event="execution.timeout-confirmed" target="fault" />
   </state>
-
-  <!-- 设备异常 -->
   <state id="fault" initial="faultDetected">
     <state id="faultDetected">
-      <transition event="fault.locked" target="faultLock"/>
-      <transition event="communication.failure-confirmed" target="commFault"/>
-      <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+      <transition event="fault.locked" target="faultLock" />
+      <transition event="communication.failure-confirmed" target="commFault" />
+      <transition event="execution.timeout-confirmed" target="timeoutFault" />
     </state>
-    <state id="faultLock"/>
-    <state id="commFault"/>
-    <state id="timeoutFault"/>
-    <transition event="recovery.completed" target="notReady"/>
-    <transition event="fault.classification-updated" target="faultDetected"/>
+    <state id="faultLock" />
+    <state id="commFault" />
+    <state id="timeoutFault" />
+    <transition event="recovery.completed" target="notReady" />
+    <transition event="fault.classification-updated" target="faultDetected" />
   </state>
   <datamodel>
     <data id="componentMetadata"><![CDATA[
 {
-  "model_id": "seed-source-hierarchical-v2",
-  "model_version": 2,
+  "model_id": "seed-source-hierarchical-v3",
+  "model_version": 3,
   "display_name": "种子源分系统",
   "outer_labels": {
     "notReady": "未就绪",
@@ -101,11 +91,11 @@
     "fault": "设备异常"
   },
   "inner_labels": {
-    "unchecked": "待检查",
-    "selfTestOk": "自检通过",
+    "unchecked": "待上电检查",
+    "powerOnOk": "上电检查通过，待功能检查",
     "checkFailed": "功能检查未通过",
-    "configIdle": "参数待确认",
-    "configOk": "参数已确认",
+    "functionReady": "功能正常，业务就绪",
+    "parameterOk": "参数配置生效",
     "collectIdle": "尚无本次采集结果",
     "collectOk": "采集完成",
     "collectFailed": "采集失败",
@@ -123,57 +113,60 @@
     "faults": []
   },
   "actions": {
-    "power_on_self_test": {
-      "label": "开机自检",
+    "power_on_check": {
+      "label": "上电检查",
       "requests": {
-        "unchecked": "selftest.requested",
-        "checkFailed": "selftest.retry-requested"
+        "unchecked": "power-check.requested",
+        "powerOnOk": "power-check.requested",
+        "checkFailed": "power-check.requested"
       },
       "success_events": {
-        "unchecked": "selftest.passed",
-        "checkFailed": "selftest.passed"
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed"
       },
       "failure_events": {
-        "unchecked": null,
-        "checkFailed": null
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed"
       },
-      "success_key": "自检通过",
-      "failure_key": "自检失败",
-      "success_observation": null,
-      "failure_observation": null
+      "success_key": "上电检查通过",
+      "failure_key": "上电检查未通过"
     },
     "function_check": {
       "label": "功能检查",
       "requests": {
-        "selfTestOk": "function-check.requested",
-        "checkFailed": "function-check.retry-requested"
+        "powerOnOk": "function-check.requested",
+        "checkFailed": "function-check.requested",
+        "functionReady": "function-check.requested"
       },
       "success_events": {
-        "selfTestOk": "function-check.passed",
-        "checkFailed": "function-check.retry-passed"
+        "powerOnOk": "function-check.passed",
+        "checkFailed": "function-check.passed",
+        "functionReady": "function-check.passed"
       },
       "failure_events": {
-        "selfTestOk": "function-check.failed",
-        "checkFailed": null
+        "powerOnOk": "function-check.failed",
+        "checkFailed": "function-check.failed",
+        "functionReady": "function-check.failed"
       },
       "success_key": "功能检查通过",
       "failure_key": "功能检查未通过",
-      "success_observation": "就绪",
-      "failure_observation": null
+      "success_observation": "就绪"
     },
     "parameter_dispatch": {
       "label": "参数下发",
       "requests": {
-        "configIdle": "parameter-dispatch.requested",
-        "configOk": "configuration.reconfiguration-accepted"
+        "functionReady": "parameter-dispatch.requested",
+        "parameterOk": "configuration.reconfiguration-accepted"
       },
       "success_events": {
-        "configIdle": "configuration.validated",
-        "configOk": "configuration.validated"
+        "functionReady": "configuration.validated",
+        "parameterOk": "configuration.validated"
       },
       "failure_events": {
-        "configIdle": null,
-        "configOk": null
+        "functionReady": null,
+        "parameterOk": null
       },
       "success_key": "参数配置正常",
       "failure_key": "参数下发失败",
@@ -183,13 +176,13 @@
     "seed_source_emit": {
       "label": "种子源出光",
       "requests": {
-        "configOk": "emission.requested"
+        "parameterOk": "emission.requested"
       },
       "success_events": {
-        "configOk": "emission.stable-confirmed"
+        "parameterOk": "emission.stable-confirmed"
       },
       "failure_events": {
-        "configOk": null
+        "parameterOk": null
       },
       "success_key": "稳定出光确认",
       "failure_key": "出光失败且仍就绪",
@@ -221,22 +214,22 @@
     "shutdown": {
       "label": "关机",
       "requests": {
-        "configIdle": "shutdown.requested",
-        "configOk": "shutdown.requested",
+        "functionReady": "shutdown.requested",
+        "parameterOk": "shutdown.requested",
         "collectIdle": "shutdown.requested",
         "collectOk": "shutdown.requested",
         "collectFailed": "shutdown.requested"
       },
       "success_events": {
-        "configIdle": "shutdown.completed",
-        "configOk": "shutdown.completed",
+        "functionReady": "shutdown.completed",
+        "parameterOk": "shutdown.completed",
         "collectIdle": "shutdown.completed",
         "collectOk": "shutdown.completed",
         "collectFailed": "shutdown.completed"
       },
       "failure_events": {
-        "configIdle": null,
-        "configOk": null,
+        "functionReady": null,
+        "parameterOk": null,
         "collectIdle": null,
         "collectOk": null,
         "collectFailed": null

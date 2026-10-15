@@ -23,7 +23,7 @@ def main():
         parser.exit(2, "桌面依赖不可用（Taurus / Qt WebEngine / PyTango），请安装 pip install -e './simulator[gui]'\n" + str(ex) + "\n")
     with ExitStack() as stack:
         profile = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[args.component]
-        database = args.database or Path(f"{args.component}-panel-data/{args.component}_01.sqlite3")
+        database = args.database or Path(f"{args.component}-panel-data/v{profile.model_version}/{args.component}_01.sqlite3")
         address = args.device
         if not address:
             from tango.test_context import MultiDeviceTestContext

@@ -1,4 +1,4 @@
-.PHONY: test java-test simulator-test component-demo component-panel control-test control-package operator device-gateway device-gateway-local
+.PHONY: test java-test simulator-test component-demo component-panel control-test control-package operator device-gateway device-gateway-local tango-bridge
 
 PYTHON ?= python3
 # Source-tree development works without installing the simulator package.
@@ -31,3 +31,7 @@ device-gateway:
 
 device-gateway-local:
 	$(SIM_PYTHON) -m gxlf_sim_system.tango.gateway --mode local
+
+# Four SCXML component types plus explicit demo synchronization/environment device.
+tango-bridge:
+	$(SIM_PYTHON) -m gxlf_sim_system.tango.control_bridge --demo

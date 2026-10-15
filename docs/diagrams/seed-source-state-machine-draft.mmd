@@ -1,69 +1,67 @@
 stateDiagram-v2
     direction TB
-    %% 四个外层主状态；子状态只保留影响后续操作的局部条件。
-    %% 任务执行进度、配置/数据资格和故障集合由独立记录描述。
+    %% Generated from seed-source-state-machine.scxml; SCXML is the execution source.
     [*] --> notReady
-
     state "未就绪" as notReady {
-        state "待检查" as unchecked
-        state "自检通过" as selfTestOk
+        state "待上电检查" as unchecked
+        state "上电检查通过，待功能检查" as powerOnOk
         state "功能检查未通过" as checkFailed
         [*] --> unchecked
-        unchecked --> selfTestOk: selftest.passed
-        selfTestOk --> checkFailed: function-check.failed
-        checkFailed --> unchecked: selftest.qualification-lost
     }
-
     state "就绪" as ready {
-        state "参数待确认" as configIdle
-        state "参数已确认" as configOk
-        [*] --> configIdle
-        configIdle --> configOk: configuration.validated
-        configOk --> configIdle: configuration.invalidated
-        configOk --> configIdle: configuration.reconfiguration-accepted
+        state "功能正常，业务就绪" as functionReady
+        state "参数配置生效" as parameterOk
+        [*] --> functionReady
     }
-
     state "出光" as emitting {
         state "尚无本次采集结果" as collectIdle
         state "采集完成" as collectOk
         state "采集失败" as collectFailed
         [*] --> collectIdle
-        collectIdle --> collectOk: collection.completed
-        collectIdle --> collectFailed: collection.failed
-        collectOk --> collectIdle: collection.request-accepted
-        collectFailed --> collectIdle: collection.retry-accepted
     }
-
     state "设备异常" as fault {
         state "异常待分类" as faultDetected
         state "故障锁定" as faultLock
         state "通信异常" as commFault
         state "执行超时" as timeoutFault
         [*] --> faultDetected
-        faultDetected --> faultLock: fault.locked
-        faultDetected --> commFault: communication.failure-confirmed
-        faultDetected --> timeoutFault: execution.timeout-confirmed
     }
-
-    selfTestOk --> ready: function-check.passed
-    checkFailed --> ready: function-check.retry-passed
-    configOk --> emitting: emission.stable-confirmed
-    emitting --> ready: emission.stopped-confirmed
-    emitting --> notReady: emission.stopped-unready
-    ready --> notReady: qualification.invalidated
-    ready --> notReady: shutdown.completed
-    ready --> notReady: abort.completed
-    emitting --> notReady: shutdown.completed
-    emitting --> notReady: abort.completed
     notReady --> fault: fault.confirmed
     notReady --> fault: communication.failure-confirmed
     notReady --> fault: execution.timeout-confirmed
+    notReady --> powerOnOk: power-check.passed
+    notReady --> unchecked: power-check.failed
+    notReady --> unchecked: power-check.invalidated
+    powerOnOk --> functionReady: function-check.passed
+    powerOnOk --> checkFailed: function-check.failed
+    checkFailed --> functionReady: function-check.passed
+    checkFailed --> checkFailed: function-check.failed
+    ready --> notReady: qualification.invalidated
+    ready --> notReady: shutdown.completed
+    ready --> notReady: abort.completed
     ready --> fault: fault.confirmed
     ready --> fault: communication.failure-confirmed
     ready --> fault: execution.timeout-confirmed
+    functionReady --> parameterOk: configuration.validated
+    functionReady --> functionReady: function-check.passed
+    functionReady --> checkFailed: function-check.failed
+    parameterOk --> functionReady: configuration.invalidated
+    parameterOk --> functionReady: configuration.reconfiguration-accepted
+    parameterOk --> emitting: emission.stable-confirmed
+    emitting --> ready: emission.stopped-confirmed
+    emitting --> notReady: emission.stopped-unready
+    emitting --> notReady: shutdown.completed
+    emitting --> notReady: abort.completed
     emitting --> fault: qualification.invalidated
     emitting --> fault: fault.confirmed
     emitting --> fault: communication.failure-confirmed
     emitting --> fault: execution.timeout-confirmed
+    collectIdle --> collectOk: collection.completed
+    collectIdle --> collectFailed: collection.failed
+    collectOk --> collectIdle: collection.request-accepted
+    collectFailed --> collectIdle: collection.retry-accepted
     fault --> notReady: recovery.completed
     fault --> faultDetected: fault.classification-updated
+    faultDetected --> faultLock: fault.locked
+    faultDetected --> commFault: communication.failure-confirmed
+    faultDetected --> timeoutFault: execution.timeout-confirmed

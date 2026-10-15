@@ -1,101 +1,84 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  多程放大系统状态机。
-
-  本模型依据《集中管控系统与分系统状态梳理清单》中的
-  STATE-MULTIPASS-001 至 STATE-MULTIPASS-011 建立。外层主状态表示系统
-  当前的持续资格或工作阶段，内层子状态表示业务放行所需的具体结果。
-  开机自检、功能检查、参数下发、光路准直、进入打靶状态、待机/复位和关机
-  都是动作；动作执行过程、超时和反馈保存在任务记录中，不额外增加“进行中”状态。
-
-  开机自检完成后只获得“自检通过、待功能检查”资格；功能检查通过后才进入
-  “业务就绪”。光路准直完成后进入“准直”外层状态；进入打靶状态完成后回到“就绪”外层，
-  但保留“进入打靶状态完成”这个内层资格。待机/复位成功后保留“复位/待机完成”
-  内层状态，便于总控判断资源是否释放以及是否可以衔接下一发。
-
-  “进入打靶状态”是多程放大系统的实际控制动作，但总控只能在流程层完成光束引导
-  等跨系统前置条件后下发；本组件状态机只负责校验本地已达成准直资格。
-
-  出光、预放唤醒、片放吹扫停止、安全联锁和真空条件是流程上下文或事件守卫，
-  不在本组件中重复建模。多程放大系统的流程前置条件是由集中管控流程判断的。
-  SCXML datamodel 保存组件标签、动作绑定、确认事件和上下文默认值；模拟器不再
-  维护组件专用 Python 状态定义。
+  多程放大系统层级状态机 v2。
+  依据《集中管控系统与分系统状态梳理清单》及 2026-10-15 用户确认口径：
+  上电检查只确认本系统所辖设备是否均已上电，不执行上电操作；
+  功能检查测试设备功能是否正常。上电检查通过仍处于未就绪，
+  功能检查通过才进入业务就绪；业务参数配置生效后才放行专有动作。
+  四组件共同资格：notReady/unchecked → notReady/powerOnOk
+  → ready/functionReady → ready/parameterOk。
+  动作请求、执行进度、结果及超时保存在独立任务记录中。
+  datamodel 保存动作绑定、标签、确认事件和上下文；Mermaid 仅用于展示。
 -->
-<scxml xmlns="http://www.w3.org/2005/07/scxml"
-       version="1.0"
-       initial="notReady">
-
-  <!-- 未就绪：开机自检前、关机完成后或故障恢复后的基础状态。 -->
-  <state id="notReady" initial="baseNotReady">
-    <state id="baseNotReady"/>
-    <state id="shutdownNormal"/>
-
-    <transition event="selftest.passed" target="ready"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
-  </state>
-
-  <!-- 就绪：具备光路准直前的基础业务资格，或已完成打靶/复位。 -->
-  <state id="ready" initial="selfTestOk">
-    <state id="selfTestOk">
-      <transition event="function-check.passed" target="functionReady"/>
-      <transition event="function-check.failed" target="notReady"/>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked" />
+    <state id="powerOnOk">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
     </state>
+    <state id="checkFailed">
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+    </state>
+    <state id="shutdownNormal" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="abort.completed" target="unchecked" />
+    <transition event="power-check.passed" target="powerOnOk" />
+    <transition event="power-check.failed" target="unchecked" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="ready" initial="functionReady">
     <state id="functionReady">
-      <transition event="function-check.passed" target="functionReady"/>
-      <transition event="function-check.failed" target="notReady"/>
-      <transition event="configuration.validated" target="parameterOk"/>
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
+      <transition event="configuration.validated" target="parameterOk" />
     </state>
     <state id="parameterOk">
-      <transition event="configuration.invalidated" target="functionReady"/>
-      <transition event="configuration.validated" target="parameterOk"/>
-      <transition event="multipass.collimation.completed" target="collimated"/>
+      <transition event="configuration.invalidated" target="functionReady" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="multipass.collimation.completed" target="collimated" />
     </state>
     <state id="shotReady">
-      <transition event="multipass.standby.completed" target="resetReady"/>
+      <transition event="multipass.standby.completed" target="resetReady" />
     </state>
     <state id="resetReady">
-      <transition event="multipass.standby.completed" target="resetReady"/>
-      <transition event="function-check.passed" target="functionReady"/>
-      <transition event="function-check.failed" target="notReady"/>
+      <transition event="multipass.standby.completed" target="resetReady" />
+      <transition event="function-check.passed" target="functionReady" />
+      <transition event="function-check.failed" target="checkFailed" />
     </state>
-
-    <transition event="abort.completed" target="resetReady"/>
-    <transition event="shutdown.completed" target="shutdownNormal"/>
-    <transition event="qualification.invalidated" target="notReady"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <transition event="abort.completed" target="resetReady" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="qualification.invalidated" target="notReady" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 准直：光路准直已经达标，允许进入打靶状态。 -->
   <state id="collimated" initial="collimationReady">
-    <state id="collimationReady"/>
-
-    <transition event="multipass.enter-shot.completed" target="shotReady"/>
-    <transition event="multipass.standby.completed" target="resetReady"/>
-    <transition event="abort.completed" target="resetReady"/>
-    <transition event="shutdown.completed" target="shutdownNormal"/>
-    <transition event="qualification.invalidated" target="faultLock"/>
-    <transition event="fault.confirmed" target="faultLock"/>
-    <transition event="communication.failure-confirmed" target="commFault"/>
-    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+    <state id="collimationReady" />
+    <transition event="multipass.enter-shot.completed" target="shotReady" />
+    <transition event="multipass.standby.completed" target="resetReady" />
+    <transition event="abort.completed" target="resetReady" />
+    <transition event="shutdown.completed" target="shutdownNormal" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
-
-  <!-- 设备异常：异常期间阻断流程放行。 -->
   <state id="fault" initial="faultLock">
-    <state id="faultLock"/>
-    <state id="commFault"/>
-    <state id="timeoutFault"/>
-    <transition event="recovery.completed" target="notReady"/>
+    <state id="faultLock" />
+    <state id="commFault" />
+    <state id="timeoutFault" />
+    <transition event="recovery.completed" target="notReady" />
   </state>
-
   <datamodel>
     <data id="componentMetadata"><![CDATA[
 {
-  "model_id": "multipass-hierarchical-v1",
-  "model_version": 1,
+  "model_id": "multipass-hierarchical-v2",
+  "model_version": 2,
   "display_name": "多程放大系统",
   "outer_labels": {
     "notReady": "未就绪",
@@ -104,17 +87,18 @@
     "fault": "设备异常"
   },
   "inner_labels": {
-    "baseNotReady": "基础服务未就绪",
+    "unchecked": "待上电检查",
     "shutdownNormal": "关机正常",
-    "selfTestOk": "开机自检通过，待功能检查",
-    "functionReady": "业务就绪（具备光路准直能力）",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "functionReady": "功能正常，业务就绪",
     "parameterOk": "参数配置生效",
     "shotReady": "进入打靶状态完成",
     "resetReady": "复位/待机完成",
     "collimationReady": "光路准直达标",
     "faultLock": "故障锁定",
     "commFault": "通信异常",
-    "timeoutFault": "执行超时"
+    "timeoutFault": "执行超时",
+    "checkFailed": "功能检查未通过"
   },
   "context_defaults": {
     "configuration": {
@@ -124,46 +108,52 @@
     "faults": []
   },
   "actions": {
-    "power_on_self_test": {
-      "label": "开机自检",
+    "power_on_check": {
+      "label": "上电检查",
       "requests": {
-        "baseNotReady": "selftest.requested",
-        "shutdownNormal": "selftest.requested"
+        "unchecked": "power-check.requested",
+        "powerOnOk": "power-check.requested",
+        "checkFailed": "power-check.requested",
+        "shutdownNormal": "power-check.requested"
       },
       "success_events": {
-        "baseNotReady": "selftest.passed",
-        "shutdownNormal": "selftest.passed"
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
       },
       "failure_events": {
-        "baseNotReady": null,
-        "shutdownNormal": null
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
       },
-      "success_key": "自检通过",
-      "failure_key": "自检失败",
-      "success_observation": null,
-      "failure_observation": null
+      "success_key": "上电检查通过",
+      "failure_key": "上电检查未通过"
     },
     "function_check": {
       "label": "功能检查",
       "requests": {
-        "selfTestOk": "function-check.requested",
+        "powerOnOk": "function-check.requested",
+        "checkFailed": "function-check.requested",
         "functionReady": "function-check.requested",
         "resetReady": "function-check.requested"
       },
       "success_events": {
-        "selfTestOk": "function-check.passed",
+        "powerOnOk": "function-check.passed",
+        "checkFailed": "function-check.passed",
         "functionReady": "function-check.passed",
         "resetReady": "function-check.passed"
       },
       "failure_events": {
-        "selfTestOk": "function-check.failed",
+        "powerOnOk": "function-check.failed",
+        "checkFailed": "function-check.failed",
         "functionReady": "function-check.failed",
         "resetReady": "function-check.failed"
       },
       "success_key": "功能检查通过",
       "failure_key": "功能检查未通过",
-      "success_observation": null,
-      "failure_observation": null
+      "success_observation": "就绪"
     },
     "parameter_dispatch": {
       "label": "参数下发",
@@ -205,7 +195,10 @@
     },
     "enter_shot_state": {
       "label": "进入打靶状态",
-      "preconditions": ["光束引导完成", "流程层安全联锁正常"],
+      "preconditions": [
+        "光束引导完成",
+        "流程层安全联锁正常"
+      ],
       "requests": {
         "collimationReady": "multipass.enter-shot.requested"
       },
@@ -245,26 +238,28 @@
     "shutdown": {
       "label": "关机",
       "requests": {
-        "selfTestOk": "shutdown.requested",
         "functionReady": "shutdown.requested",
         "parameterOk": "shutdown.requested",
         "shotReady": "shutdown.requested",
         "resetReady": "shutdown.requested",
-        "collimationReady": "shutdown.requested"
+        "collimationReady": "shutdown.requested",
+        "powerOnOk": "shutdown.requested"
       },
       "success_events": {
         "functionReady": "shutdown.completed",
         "parameterOk": "shutdown.completed",
         "shotReady": "shutdown.completed",
         "resetReady": "shutdown.completed",
-        "collimationReady": "shutdown.completed"
+        "collimationReady": "shutdown.completed",
+        "powerOnOk": "shutdown.completed"
       },
       "failure_events": {
         "functionReady": null,
         "parameterOk": null,
         "shotReady": null,
         "resetReady": null,
-        "collimationReady": null
+        "collimationReady": null,
+        "powerOnOk": null
       },
       "success_key": "关机正常",
       "failure_key": "关机失败",
@@ -274,26 +269,28 @@
     "abort_reset": {
       "label": "流程终止（异常中止）",
       "requests": {
-        "selfTestOk": "abort.requested",
         "functionReady": "abort.requested",
         "parameterOk": "abort.requested",
         "shotReady": "abort.requested",
         "resetReady": "abort.requested",
-        "collimationReady": "abort.requested"
+        "collimationReady": "abort.requested",
+        "powerOnOk": "abort.requested"
       },
       "success_events": {
         "functionReady": "abort.completed",
         "parameterOk": "abort.completed",
         "shotReady": "abort.completed",
         "resetReady": "abort.completed",
-        "collimationReady": "abort.completed"
+        "collimationReady": "abort.completed",
+        "powerOnOk": "abort.completed"
       },
       "failure_events": {
         "functionReady": null,
         "parameterOk": null,
         "shotReady": null,
         "resetReady": null,
-        "collimationReady": null
+        "collimationReady": null,
+        "powerOnOk": null
       },
       "success_key": "异常中止复位完成",
       "failure_key": "异常中止复位失败",
@@ -304,30 +301,44 @@
   "confirmations": {
     "fault_confirmed": {
       "label": "设备故障确认",
-      "source_outer": ["notReady", "ready", "collimated"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "collimated"
+      ],
       "machine_event": "fault.confirmed",
       "observation": "设备异常"
     },
     "communication_fault_confirmed": {
       "label": "通信异常确认",
-      "source_outer": ["notReady", "ready", "collimated"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "collimated"
+      ],
       "machine_event": "communication.failure-confirmed",
       "observation": "设备异常"
     },
     "timeout_confirmed": {
       "label": "执行超时确认",
-      "source_outer": ["notReady", "ready", "collimated"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "collimated"
+      ],
       "machine_event": "execution.timeout-confirmed",
       "observation": "设备异常"
     },
     "recovery_confirmed": {
       "label": "恢复后未就绪确认",
-      "source_outer": ["fault"],
+      "source_outer": [
+        "fault"
+      ],
       "machine_event": "recovery.completed",
       "observation": "未就绪"
     }
   }
 }
-    ]]></data>
+  ]]></data>
   </datamodel>
 </scxml>

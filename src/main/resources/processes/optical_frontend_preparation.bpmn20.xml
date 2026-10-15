@@ -1,0 +1,768 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://cdi8.cn/control/v2">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
+  <bpmn:process id="optical_frontend_preparation" isExecutable="true" name="种子源至多程放大前期准备">
+    <bpmn:startEvent id="start" name="开始" />
+    <bpmn:subProcess id="normal" name="前期准备">
+      <bpmn:startEvent id="scope_start" name="开始" />
+      <bpmn:endEvent id="scope_end" name="准备完成" />
+      <bpmn:endEvent id="raise_timeout" name="动作超时">
+        <bpmn:errorEventDefinition errorRef="device_error" />
+      </bpmn:endEvent>
+      <bpmn:subProcess id="configure" name="各组件参数下发">
+        <bpmn:documentation>{"actions": {"seed": "parameter_dispatch", "shg": "parameter_dispatch", "preamp": "parameter_dispatch", "multipass": "parameter_dispatch"}, "states": {"seed": "parameterOk", "shg": "parameterOk", "preamp": "parameterOk", "multipass": "parameterOk"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${allComponents}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="configure_start" />
+        <bpmn:serviceTask id="configure_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="configure_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="configure_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="configure_end" />
+        <bpmn:sequenceFlow id="configure_start__configure_send" sourceRef="configure_start" targetRef="configure_send" />
+        <bpmn:sequenceFlow id="configure_send__configure_wait" sourceRef="configure_send" targetRef="configure_wait" />
+        <bpmn:sequenceFlow id="configure_wait__configure_verify" sourceRef="configure_wait" targetRef="configure_verify" />
+        <bpmn:sequenceFlow id="configure_verify__configure_end" sourceRef="configure_verify" targetRef="configure_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="configure_timeout" attachedToRef="configure" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="configure_timeout__raise_timeout" sourceRef="configure_timeout" targetRef="raise_timeout" />
+      <bpmn:receiveTask id="wait_safety" name="等待安全许可" />
+      <bpmn:parallelGateway id="split_light" name="并行供光与唤醒" />
+      <bpmn:parallelGateway id="join_light" name="供光与唤醒均完成" />
+      <bpmn:parallelGateway id="split_loop" name="并行闭环与准直" />
+      <bpmn:parallelGateway id="join_loop" name="闭环与准直均完成" />
+      <bpmn:subProcess id="emit" name="所选光源出光">
+        <bpmn:documentation>{"actions": {"seed": "seed_source_emit", "shg": "frequency_doubled_emit"}, "states": {"seed": "collectIdle", "shg": "stableEmission"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${sourceTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="emit_start" />
+        <bpmn:serviceTask id="emit_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="emit_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="emit_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="emit_end" />
+        <bpmn:sequenceFlow id="emit_start__emit_send" sourceRef="emit_start" targetRef="emit_send" />
+        <bpmn:sequenceFlow id="emit_send__emit_wait" sourceRef="emit_send" targetRef="emit_wait" />
+        <bpmn:sequenceFlow id="emit_wait__emit_verify" sourceRef="emit_wait" targetRef="emit_verify" />
+        <bpmn:sequenceFlow id="emit_verify__emit_end" sourceRef="emit_verify" targetRef="emit_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="emit_timeout" attachedToRef="emit" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="emit_timeout__raise_timeout" sourceRef="emit_timeout" targetRef="raise_timeout" />
+      <bpmn:serviceTask id="source_guard" flowable:expression="${tango.mark(execution,'sourcesRequired')}" name="保持供光资格" />
+      <bpmn:subProcess id="repeat" name="同步预放重频模式">
+        <bpmn:documentation>{"actions": {"context": "preamp_repeat"}, "states": {}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${contextTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="repeat_start" />
+        <bpmn:serviceTask id="repeat_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="repeat_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="repeat_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="repeat_end" />
+        <bpmn:sequenceFlow id="repeat_start__repeat_send" sourceRef="repeat_start" targetRef="repeat_send" />
+        <bpmn:sequenceFlow id="repeat_send__repeat_wait" sourceRef="repeat_send" targetRef="repeat_wait" />
+        <bpmn:sequenceFlow id="repeat_wait__repeat_verify" sourceRef="repeat_wait" targetRef="repeat_verify" />
+        <bpmn:sequenceFlow id="repeat_verify__repeat_end" sourceRef="repeat_verify" targetRef="repeat_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="repeat_timeout" attachedToRef="repeat" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="repeat_timeout__raise_timeout" sourceRef="repeat_timeout" targetRef="raise_timeout" />
+      <bpmn:serviceTask id="repeat_guard" flowable:expression="${tango.mark(execution,'repeatRequired')}" name="保持同步资格" />
+      <bpmn:subProcess id="wake" name="预放唤醒">
+        <bpmn:documentation>{"actions": {"preamp": "preamp_wakeup"}, "states": {"preamp": "wakeupReady"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="wake_start" />
+        <bpmn:serviceTask id="wake_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="wake_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="wake_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="wake_end" />
+        <bpmn:sequenceFlow id="wake_start__wake_send" sourceRef="wake_start" targetRef="wake_send" />
+        <bpmn:sequenceFlow id="wake_send__wake_wait" sourceRef="wake_send" targetRef="wake_wait" />
+        <bpmn:sequenceFlow id="wake_wait__wake_verify" sourceRef="wake_wait" targetRef="wake_verify" />
+        <bpmn:sequenceFlow id="wake_verify__wake_end" sourceRef="wake_verify" targetRef="wake_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="wake_timeout" attachedToRef="wake" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="wake_timeout__raise_timeout" sourceRef="wake_timeout" targetRef="raise_timeout" />
+      <bpmn:serviceTask id="wake_guard" flowable:expression="${tango.mark(execution,'wakeupRequired')}" name="保持预放唤醒" />
+      <bpmn:subProcess id="coarse" name="预放能量粗闭环">
+        <bpmn:documentation>{"actions": {"preamp": "coarse_loop"}, "states": {"preamp": "coarseLoopOk"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="coarse_start" />
+        <bpmn:serviceTask id="coarse_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="coarse_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="coarse_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="coarse_end" />
+        <bpmn:sequenceFlow id="coarse_start__coarse_send" sourceRef="coarse_start" targetRef="coarse_send" />
+        <bpmn:sequenceFlow id="coarse_send__coarse_wait" sourceRef="coarse_send" targetRef="coarse_wait" />
+        <bpmn:sequenceFlow id="coarse_wait__coarse_verify" sourceRef="coarse_wait" targetRef="coarse_verify" />
+        <bpmn:sequenceFlow id="coarse_verify__coarse_end" sourceRef="coarse_verify" targetRef="coarse_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="coarse_timeout" attachedToRef="coarse" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="coarse_timeout__raise_timeout" sourceRef="coarse_timeout" targetRef="raise_timeout" />
+      <bpmn:subProcess id="fine" name="第一次能量精闭环">
+        <bpmn:documentation>{"actions": {"preamp": "fine_loop"}, "states": {"preamp": "fineLoopOk"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="fine_start" />
+        <bpmn:serviceTask id="fine_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="fine_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="fine_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="fine_end" />
+        <bpmn:sequenceFlow id="fine_start__fine_send" sourceRef="fine_start" targetRef="fine_send" />
+        <bpmn:sequenceFlow id="fine_send__fine_wait" sourceRef="fine_send" targetRef="fine_wait" />
+        <bpmn:sequenceFlow id="fine_wait__fine_verify" sourceRef="fine_wait" targetRef="fine_verify" />
+        <bpmn:sequenceFlow id="fine_verify__fine_end" sourceRef="fine_verify" targetRef="fine_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="fine_timeout" attachedToRef="fine" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="fine_timeout__raise_timeout" sourceRef="fine_timeout" targetRef="raise_timeout" />
+      <bpmn:receiveTask id="wait_environment" name="等待准直环境条件" />
+      <bpmn:subProcess id="collimate" name="多程光路准直">
+        <bpmn:documentation>{"actions": {"multipass": "optical_collimation"}, "states": {"multipass": "collimationReady"}}</bpmn:documentation>
+        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" />
+        <bpmn:startEvent id="collimate_start" />
+        <bpmn:serviceTask id="collimate_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
+        <bpmn:receiveTask id="collimate_wait" name="等待 Tango 命令结果" />
+        <bpmn:serviceTask id="collimate_verify" flowable:expression="${tango.verify(execution)}" name="核验结果与组件状态" />
+        <bpmn:endEvent id="collimate_end" />
+        <bpmn:sequenceFlow id="collimate_start__collimate_send" sourceRef="collimate_start" targetRef="collimate_send" />
+        <bpmn:sequenceFlow id="collimate_send__collimate_wait" sourceRef="collimate_send" targetRef="collimate_wait" />
+        <bpmn:sequenceFlow id="collimate_wait__collimate_verify" sourceRef="collimate_wait" targetRef="collimate_verify" />
+        <bpmn:sequenceFlow id="collimate_verify__collimate_end" sourceRef="collimate_verify" targetRef="collimate_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="collimate_timeout" attachedToRef="collimate" cancelActivity="true" name="动作超时">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="collimate_timeout__raise_timeout" sourceRef="collimate_timeout" targetRef="raise_timeout" />
+      <bpmn:serviceTask id="finish" flowable:expression="${tango.finish(execution)}" name="复核本段准备状态" />
+      <bpmn:sequenceFlow id="scope_start__configure" sourceRef="scope_start" targetRef="configure" />
+      <bpmn:sequenceFlow id="configure__wait_safety" sourceRef="configure" targetRef="wait_safety" />
+      <bpmn:sequenceFlow id="wait_safety__split_light" sourceRef="wait_safety" targetRef="split_light" />
+      <bpmn:sequenceFlow id="split_light__emit" sourceRef="split_light" targetRef="emit" />
+      <bpmn:sequenceFlow id="emit__source_guard" sourceRef="emit" targetRef="source_guard" />
+      <bpmn:sequenceFlow id="source_guard__join_light" sourceRef="source_guard" targetRef="join_light" />
+      <bpmn:sequenceFlow id="split_light__repeat" sourceRef="split_light" targetRef="repeat" />
+      <bpmn:sequenceFlow id="repeat__repeat_guard" sourceRef="repeat" targetRef="repeat_guard" />
+      <bpmn:sequenceFlow id="repeat_guard__wake" sourceRef="repeat_guard" targetRef="wake" />
+      <bpmn:sequenceFlow id="wake__wake_guard" sourceRef="wake" targetRef="wake_guard" />
+      <bpmn:sequenceFlow id="wake_guard__join_light" sourceRef="wake_guard" targetRef="join_light" />
+      <bpmn:sequenceFlow id="join_light__split_loop" sourceRef="join_light" targetRef="split_loop" />
+      <bpmn:sequenceFlow id="split_loop__coarse" sourceRef="split_loop" targetRef="coarse" />
+      <bpmn:sequenceFlow id="coarse__fine" sourceRef="coarse" targetRef="fine" />
+      <bpmn:sequenceFlow id="fine__join_loop" sourceRef="fine" targetRef="join_loop" />
+      <bpmn:sequenceFlow id="split_loop__wait_environment" sourceRef="split_loop" targetRef="wait_environment" />
+      <bpmn:sequenceFlow id="wait_environment__collimate" sourceRef="wait_environment" targetRef="collimate" />
+      <bpmn:sequenceFlow id="collimate__join_loop" sourceRef="collimate" targetRef="join_loop" />
+      <bpmn:sequenceFlow id="join_loop__finish" sourceRef="join_loop" targetRef="finish" />
+      <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="success" name="流程成功" />
+    <bpmn:serviceTask id="failure" flowable:expression="${tango.failed(execution)}" name="记录流程失败" />
+    <bpmn:endEvent id="failed_end" name="流程停止">
+      <bpmn:terminateEventDefinition />
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="error_boundary" attachedToRef="normal" cancelActivity="true" name="设备或动作失败">
+      <bpmn:errorEventDefinition errorRef="device_error" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="error_boundary__failure" sourceRef="error_boundary" targetRef="failure" />
+    <bpmn:boundaryEvent id="stop_boundary" attachedToRef="normal" cancelActivity="true" name="停止流程">
+      <bpmn:messageEventDefinition messageRef="stop_message" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure" />
+    <bpmn:boundaryEvent id="workflow_timeout" attachedToRef="normal" cancelActivity="true" name="流程超时">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="workflow_timeout__failure" sourceRef="workflow_timeout" targetRef="failure" />
+    <bpmn:sequenceFlow id="start__normal" sourceRef="start" targetRef="normal" />
+    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success" />
+    <bpmn:sequenceFlow id="failure__failed_end" sourceRef="failure" targetRef="failed_end" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_optical_frontend_preparation">
+    <bpmndi:BPMNPlane id="plane_optical_frontend_preparation" bpmnElement="optical_frontend_preparation">
+      <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_normal" bpmnElement="normal" isExpanded="false">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_success" bpmnElement="success">
+        <dc:Bounds x="450" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failure" bpmnElement="failure">
+        <dc:Bounds x="640" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end">
+        <dc:Bounds x="830" y="430" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_error_boundary" bpmnElement="error_boundary">
+        <dc:Bounds x="360" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_stop_boundary" bpmnElement="stop_boundary">
+        <dc:Bounds x="360" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_workflow_timeout" bpmnElement="workflow_timeout">
+        <dc:Bounds x="360" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_error_boundary__failure" bpmnElement="error_boundary__failure">
+        <di:waypoint x="396" y="170.0" />
+        <di:waypoint x="518.0" y="170.0" />
+        <di:waypoint x="518.0" y="470.0" />
+        <di:waypoint x="640" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_stop_boundary__failure" bpmnElement="stop_boundary__failure">
+        <di:waypoint x="396" y="170.0" />
+        <di:waypoint x="518.0" y="170.0" />
+        <di:waypoint x="518.0" y="470.0" />
+        <di:waypoint x="640" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_workflow_timeout__failure" bpmnElement="workflow_timeout__failure">
+        <di:waypoint x="396" y="170.0" />
+        <di:waypoint x="518.0" y="170.0" />
+        <di:waypoint x="518.0" y="470.0" />
+        <di:waypoint x="640" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_start__normal" bpmnElement="start__normal">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_normal__success" bpmnElement="normal__success">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="422.5" y="130.0" />
+        <di:waypoint x="422.5" y="108.0" />
+        <di:waypoint x="450" y="108.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_failure__failed_end" bpmnElement="failure__failed_end">
+        <di:waypoint x="775" y="470.0" />
+        <di:waypoint x="802.5" y="470.0" />
+        <di:waypoint x="802.5" y="448.0" />
+        <di:waypoint x="830" y="448.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_normal">
+    <bpmndi:BPMNPlane id="plane_normal" bpmnElement="normal">
+      <bpmndi:BPMNShape id="shape_scope_start" bpmnElement="scope_start">
+        <dc:Bounds x="70" y="260" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_scope_end" bpmnElement="scope_end">
+        <dc:Bounds x="2730" y="260" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_raise_timeout" bpmnElement="raise_timeout">
+        <dc:Bounds x="1400" y="770" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure" bpmnElement="configure" isExpanded="false">
+        <dc:Bounds x="260" y="260" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure_timeout" bpmnElement="configure_timeout">
+        <dc:Bounds x="360" y="322" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wait_safety" bpmnElement="wait_safety">
+        <dc:Bounds x="450" y="260" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_split_light" bpmnElement="split_light">
+        <dc:Bounds x="640" y="260" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_join_light" bpmnElement="join_light">
+        <dc:Bounds x="1590" y="260" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_split_loop" bpmnElement="split_loop">
+        <dc:Bounds x="1780" y="260" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_join_loop" bpmnElement="join_loop">
+        <dc:Bounds x="2350" y="260" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit" bpmnElement="emit" isExpanded="false">
+        <dc:Bounds x="830" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_timeout" bpmnElement="emit_timeout">
+        <dc:Bounds x="930" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_source_guard" bpmnElement="source_guard">
+        <dc:Bounds x="1020" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat" bpmnElement="repeat" isExpanded="false">
+        <dc:Bounds x="830" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_timeout" bpmnElement="repeat_timeout">
+        <dc:Bounds x="930" y="492" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_guard" bpmnElement="repeat_guard">
+        <dc:Bounds x="1020" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake" bpmnElement="wake" isExpanded="false">
+        <dc:Bounds x="1210" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_timeout" bpmnElement="wake_timeout">
+        <dc:Bounds x="1310" y="492" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_guard" bpmnElement="wake_guard">
+        <dc:Bounds x="1400" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse" bpmnElement="coarse" isExpanded="false">
+        <dc:Bounds x="1970" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_timeout" bpmnElement="coarse_timeout">
+        <dc:Bounds x="2070" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine" bpmnElement="fine" isExpanded="false">
+        <dc:Bounds x="2160" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_timeout" bpmnElement="fine_timeout">
+        <dc:Bounds x="2260" y="152" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wait_environment" bpmnElement="wait_environment">
+        <dc:Bounds x="1970" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate" bpmnElement="collimate" isExpanded="false">
+        <dc:Bounds x="2160" y="430" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate_timeout" bpmnElement="collimate_timeout">
+        <dc:Bounds x="2260" y="492" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_finish" bpmnElement="finish">
+        <dc:Bounds x="2540" y="260" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_configure_timeout__raise_timeout" bpmnElement="configure_timeout__raise_timeout">
+        <di:waypoint x="396" y="340.0" />
+        <di:waypoint x="898.0" y="340.0" />
+        <di:waypoint x="898.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit_timeout__raise_timeout" bpmnElement="emit_timeout__raise_timeout">
+        <di:waypoint x="966" y="170.0" />
+        <di:waypoint x="1183.0" y="170.0" />
+        <di:waypoint x="1183.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_timeout__raise_timeout" bpmnElement="repeat_timeout__raise_timeout">
+        <di:waypoint x="966" y="510.0" />
+        <di:waypoint x="1183.0" y="510.0" />
+        <di:waypoint x="1183.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake_timeout__raise_timeout" bpmnElement="wake_timeout__raise_timeout">
+        <di:waypoint x="1346" y="510.0" />
+        <di:waypoint x="1373.0" y="510.0" />
+        <di:waypoint x="1373.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_timeout__raise_timeout" bpmnElement="coarse_timeout__raise_timeout">
+        <di:waypoint x="2106" y="170.0" />
+        <di:waypoint x="1753.0" y="170.0" />
+        <di:waypoint x="1753.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_timeout__raise_timeout" bpmnElement="fine_timeout__raise_timeout">
+        <di:waypoint x="2296" y="170.0" />
+        <di:waypoint x="1848.0" y="170.0" />
+        <di:waypoint x="1848.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate_timeout__raise_timeout" bpmnElement="collimate_timeout__raise_timeout">
+        <di:waypoint x="2296" y="510.0" />
+        <di:waypoint x="1848.0" y="510.0" />
+        <di:waypoint x="1848.0" y="788.0" />
+        <di:waypoint x="1400" y="788.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_scope_start__configure" bpmnElement="scope_start__configure">
+        <di:waypoint x="106" y="278.0" />
+        <di:waypoint x="183.0" y="278.0" />
+        <di:waypoint x="183.0" y="300.0" />
+        <di:waypoint x="260" y="300.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_configure__wait_safety" bpmnElement="configure__wait_safety">
+        <di:waypoint x="395" y="300.0" />
+        <di:waypoint x="450" y="300.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wait_safety__split_light" bpmnElement="wait_safety__split_light">
+        <di:waypoint x="585" y="300.0" />
+        <di:waypoint x="612.5" y="300.0" />
+        <di:waypoint x="612.5" y="285.0" />
+        <di:waypoint x="640" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_split_light__emit" bpmnElement="split_light__emit">
+        <di:waypoint x="690" y="285.0" />
+        <di:waypoint x="760.0" y="285.0" />
+        <di:waypoint x="760.0" y="130.0" />
+        <di:waypoint x="830" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit__source_guard" bpmnElement="emit__source_guard">
+        <di:waypoint x="965" y="130.0" />
+        <di:waypoint x="1020" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_source_guard__join_light" bpmnElement="source_guard__join_light">
+        <di:waypoint x="1155" y="130.0" />
+        <di:waypoint x="1372.5" y="130.0" />
+        <di:waypoint x="1372.5" y="285.0" />
+        <di:waypoint x="1590" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_split_light__repeat" bpmnElement="split_light__repeat">
+        <di:waypoint x="690" y="285.0" />
+        <di:waypoint x="760.0" y="285.0" />
+        <di:waypoint x="760.0" y="470.0" />
+        <di:waypoint x="830" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat__repeat_guard" bpmnElement="repeat__repeat_guard">
+        <di:waypoint x="965" y="470.0" />
+        <di:waypoint x="1020" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_guard__wake" bpmnElement="repeat_guard__wake">
+        <di:waypoint x="1155" y="470.0" />
+        <di:waypoint x="1210" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake__wake_guard" bpmnElement="wake__wake_guard">
+        <di:waypoint x="1345" y="470.0" />
+        <di:waypoint x="1400" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake_guard__join_light" bpmnElement="wake_guard__join_light">
+        <di:waypoint x="1535" y="470.0" />
+        <di:waypoint x="1562.5" y="470.0" />
+        <di:waypoint x="1562.5" y="285.0" />
+        <di:waypoint x="1590" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_join_light__split_loop" bpmnElement="join_light__split_loop">
+        <di:waypoint x="1640" y="285.0" />
+        <di:waypoint x="1780" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_split_loop__coarse" bpmnElement="split_loop__coarse">
+        <di:waypoint x="1830" y="285.0" />
+        <di:waypoint x="1900.0" y="285.0" />
+        <di:waypoint x="1900.0" y="130.0" />
+        <di:waypoint x="1970" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse__fine" bpmnElement="coarse__fine">
+        <di:waypoint x="2105" y="130.0" />
+        <di:waypoint x="2160" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine__join_loop" bpmnElement="fine__join_loop">
+        <di:waypoint x="2295" y="130.0" />
+        <di:waypoint x="2322.5" y="130.0" />
+        <di:waypoint x="2322.5" y="285.0" />
+        <di:waypoint x="2350" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_split_loop__wait_environment" bpmnElement="split_loop__wait_environment">
+        <di:waypoint x="1830" y="285.0" />
+        <di:waypoint x="1900.0" y="285.0" />
+        <di:waypoint x="1900.0" y="470.0" />
+        <di:waypoint x="1970" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wait_environment__collimate" bpmnElement="wait_environment__collimate">
+        <di:waypoint x="2105" y="470.0" />
+        <di:waypoint x="2160" y="470.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate__join_loop" bpmnElement="collimate__join_loop">
+        <di:waypoint x="2295" y="470.0" />
+        <di:waypoint x="2322.5" y="470.0" />
+        <di:waypoint x="2322.5" y="285.0" />
+        <di:waypoint x="2350" y="285.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_join_loop__finish" bpmnElement="join_loop__finish">
+        <di:waypoint x="2400" y="285.0" />
+        <di:waypoint x="2470.0" y="285.0" />
+        <di:waypoint x="2470.0" y="300.0" />
+        <di:waypoint x="2540" y="300.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_finish__scope_end" bpmnElement="finish__scope_end">
+        <di:waypoint x="2675" y="300.0" />
+        <di:waypoint x="2702.5" y="300.0" />
+        <di:waypoint x="2702.5" y="278.0" />
+        <di:waypoint x="2730" y="278.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_configure">
+    <bpmndi:BPMNPlane id="plane_configure" bpmnElement="configure">
+      <bpmndi:BPMNShape id="shape_configure_start" bpmnElement="configure_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure_send" bpmnElement="configure_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure_wait" bpmnElement="configure_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure_verify" bpmnElement="configure_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure_end" bpmnElement="configure_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_configure_start__configure_send" bpmnElement="configure_start__configure_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_configure_send__configure_wait" bpmnElement="configure_send__configure_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_configure_wait__configure_verify" bpmnElement="configure_wait__configure_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_configure_verify__configure_end" bpmnElement="configure_verify__configure_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_emit">
+    <bpmndi:BPMNPlane id="plane_emit" bpmnElement="emit">
+      <bpmndi:BPMNShape id="shape_emit_start" bpmnElement="emit_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_send" bpmnElement="emit_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_wait" bpmnElement="emit_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_verify" bpmnElement="emit_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_end" bpmnElement="emit_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_emit_start__emit_send" bpmnElement="emit_start__emit_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit_send__emit_wait" bpmnElement="emit_send__emit_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit_wait__emit_verify" bpmnElement="emit_wait__emit_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit_verify__emit_end" bpmnElement="emit_verify__emit_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_repeat">
+    <bpmndi:BPMNPlane id="plane_repeat" bpmnElement="repeat">
+      <bpmndi:BPMNShape id="shape_repeat_start" bpmnElement="repeat_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_send" bpmnElement="repeat_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_wait" bpmnElement="repeat_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_verify" bpmnElement="repeat_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_end" bpmnElement="repeat_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_repeat_start__repeat_send" bpmnElement="repeat_start__repeat_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_send__repeat_wait" bpmnElement="repeat_send__repeat_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_wait__repeat_verify" bpmnElement="repeat_wait__repeat_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_verify__repeat_end" bpmnElement="repeat_verify__repeat_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_wake">
+    <bpmndi:BPMNPlane id="plane_wake" bpmnElement="wake">
+      <bpmndi:BPMNShape id="shape_wake_start" bpmnElement="wake_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_send" bpmnElement="wake_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_wait" bpmnElement="wake_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_verify" bpmnElement="wake_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wake_end" bpmnElement="wake_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_wake_start__wake_send" bpmnElement="wake_start__wake_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake_send__wake_wait" bpmnElement="wake_send__wake_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake_wait__wake_verify" bpmnElement="wake_wait__wake_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wake_verify__wake_end" bpmnElement="wake_verify__wake_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_coarse">
+    <bpmndi:BPMNPlane id="plane_coarse" bpmnElement="coarse">
+      <bpmndi:BPMNShape id="shape_coarse_start" bpmnElement="coarse_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_send" bpmnElement="coarse_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_wait" bpmnElement="coarse_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_verify" bpmnElement="coarse_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_end" bpmnElement="coarse_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_coarse_start__coarse_send" bpmnElement="coarse_start__coarse_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_send__coarse_wait" bpmnElement="coarse_send__coarse_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_wait__coarse_verify" bpmnElement="coarse_wait__coarse_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_verify__coarse_end" bpmnElement="coarse_verify__coarse_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_fine">
+    <bpmndi:BPMNPlane id="plane_fine" bpmnElement="fine">
+      <bpmndi:BPMNShape id="shape_fine_start" bpmnElement="fine_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_send" bpmnElement="fine_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_wait" bpmnElement="fine_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_verify" bpmnElement="fine_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_end" bpmnElement="fine_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_fine_start__fine_send" bpmnElement="fine_start__fine_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_send__fine_wait" bpmnElement="fine_send__fine_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_wait__fine_verify" bpmnElement="fine_wait__fine_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_verify__fine_end" bpmnElement="fine_verify__fine_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_collimate">
+    <bpmndi:BPMNPlane id="plane_collimate" bpmnElement="collimate">
+      <bpmndi:BPMNShape id="shape_collimate_start" bpmnElement="collimate_start">
+        <dc:Bounds x="70" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate_send" bpmnElement="collimate_send">
+        <dc:Bounds x="260" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate_wait" bpmnElement="collimate_wait">
+        <dc:Bounds x="450" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate_verify" bpmnElement="collimate_verify">
+        <dc:Bounds x="640" y="90" width="135" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate_end" bpmnElement="collimate_end">
+        <dc:Bounds x="830" y="90" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_collimate_start__collimate_send" bpmnElement="collimate_start__collimate_send">
+        <di:waypoint x="106" y="108.0" />
+        <di:waypoint x="183.0" y="108.0" />
+        <di:waypoint x="183.0" y="130.0" />
+        <di:waypoint x="260" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate_send__collimate_wait" bpmnElement="collimate_send__collimate_wait">
+        <di:waypoint x="395" y="130.0" />
+        <di:waypoint x="450" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate_wait__collimate_verify" bpmnElement="collimate_wait__collimate_verify">
+        <di:waypoint x="585" y="130.0" />
+        <di:waypoint x="640" y="130.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate_verify__collimate_end" bpmnElement="collimate_verify__collimate_end">
+        <di:waypoint x="775" y="130.0" />
+        <di:waypoint x="802.5" y="130.0" />
+        <di:waypoint x="802.5" y="108.0" />
+        <di:waypoint x="830" y="108.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

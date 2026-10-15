@@ -1,0 +1,1639 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="OpticalFrontendDefinitions" targetNamespace="urn:gxlf:optical-frontend:design">
+  <bpmn:error id="PreparationFailed" errorCode="PREPARATION_FAILED" name="准备动作失败、超时或资格无效" />
+  <bpmn:error id="StopFailed" errorCode="STOP_FAILED" name="停止或安全核验失败" />
+  <bpmn:message id="TaskResult" name="PreparationTaskResult" />
+  <bpmn:message id="ExternalEvidence" name="PreparationExternalEvidence" />
+  <bpmn:message id="Interlock" name="Interlock" />
+  <bpmn:message id="QualificationLost" name="FrontendQualificationLost" />
+  <bpmn:process id="optical_frontend_preparation" name="种子源至多程放大前期准备（设计定义）" isExecutable="false">
+    <bpmn:documentation>依据 docs/process-control/种子源至多程放大前期准备流程.md。仅定义参数下发至第一次精闭环/光路准直；本段结束保持供光与唤醒，不代表全部发射准备完成。服务、消息关联、时限策略与停止策略待实现；不自动部署。所有外部条件必须提供本发次的有效证据。</bpmn:documentation>
+    <bpmn:startEvent id="start" name="开始本段准备" />
+    <bpmn:subProcess id="preparation_scope" name="参数、出光、预放闭环与多程准直">
+      <bpmn:startEvent id="prepare_start" name="开始" />
+      <bpmn:serviceTask id="validate_manifest" name="校验并冻结配方与束线拓扑">
+        <bpmn:documentation>{
+  "required": [
+    "run_id",
+    "shot_id",
+    "recipe_version",
+    "parameterTargets",
+    "beamRoutes",
+    "shgCapableBeamIds",
+    "emissionTargets",
+    "preampTargets",
+    "multipassTargets",
+    "syncTargets",
+    "targetEnergy",
+    "timeouts",
+    "evidencePolicy"
+  ],
+  "rules": [
+    "非空集合，按设备去重，路由覆盖参与束线，所有动作目标属于预约清单",
+    "二倍频只能用于固定8条允许束线；物理映射必须来自配置",
+    "超时及证据有效期无隐式默认值；缺失或冲突抛出 PREPARATION_FAILED"
+  ]
+}</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="reserve_and_preflight" name="预约设备并检查基础资格">
+        <bpmn:documentation>检查全部服务、预约和活动任务；要求四类组件均为 ready/functionReady 或 ready/parameterOk。notReady/powerOnOk 尚需先完成功能检查。失败抛出 PREPARATION_FAILED。预约成功后持续监控至上层接管。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:receiveTask id="wait_safety_permit" name="等待本发次有效安全许可" messageRef="ExternalEvidence">
+        <bpmn:documentation>由外部安全服务建立许可；仅由适配层在核验本发次、版本、目标及有效期后唤醒。早到证据先存储；失效/触发联锁中断整个准备作用域。</bpmn:documentation>
+      </bpmn:receiveTask>
+      <bpmn:parallelGateway id="source_wakeup_split" name="并行出光与唤醒" gatewayDirection="Diverging" />
+      <bpmn:parallelGateway id="source_wakeup_join" name="出光与唤醒全部完成" gatewayDirection="Converging" />
+      <bpmn:parallelGateway id="loop_collimation_split" name="并行闭环与准直" gatewayDirection="Diverging" />
+      <bpmn:receiveTask id="wait_collimation_environment" name="等待门禁清场及吹扫停止确认" messageRef="ExternalEvidence">
+        <bpmn:documentation>外部清场/门禁/人员/真空及吹扫事实确认；不在本段执行清场或关门。适配层核验后唤醒；准直发送前和段末仍需重读。风淋门策略须显式配置。</bpmn:documentation>
+      </bpmn:receiveTask>
+      <bpmn:parallelGateway id="loop_collimation_join" name="精闭环与准直全部完成" gatewayDirection="Converging" />
+      <bpmn:serviceTask id="verify_frontend_ready" name="重读并核验本段全部持续资格">
+        <bpmn:documentation>{
+  "checks": [
+    "所有所需光源本次命令成功、当前 outer_state=emitting、无活动任务及路由有效",
+    "全部预放本次唤醒/粗闭环/第一次精闭环成功，当前 wakeup/fineLoopOk",
+    "全部多程本次准直成功，当前 collimated/collimationReady",
+    "本次参数成功证据、配方与清单一致，同步重频、服务、安全及准直环境仍有效",
+    "未知、过期或不匹配抛出 PREPARATION_FAILED；不能只用历史成功或 AND token 放行"
+  ],
+  "output": "frontend_prepared及本次结果/预约/持续监测交接信息；不是全流程准备完成"
+}</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="prepare_done" name="本段资格建立" />
+      <bpmn:endEvent id="action_timeout_failure" name="传播节点超时失败">
+        <bpmn:errorEventDefinition errorRef="PreparationFailed" />
+      </bpmn:endEvent>
+      <bpmn:subProcess id="configure_components" name="四类组件参数下发并校验生效">
+        <bpmn:documentation>{
+  "collection": "parameterTargets",
+  "action_by_model": {
+    "seed": "parameter_dispatch",
+    "shg": "parameter_dispatch",
+    "preamp": "parameter_dispatch",
+    "multipass": "parameter_dispatch"
+  },
+  "postcondition_by_model": {
+    "seed": {
+      "outer_state": "ready",
+      "state_id": "parameterOk"
+    },
+    "shg": {
+      "outer_state": "ready",
+      "state_id": "parameterOk"
+    },
+    "preamp": {
+      "outer_state": "ready",
+      "state_id": "parameterOk"
+    },
+    "multipass": {
+      "outer_state": "ready",
+      "state_id": "parameterOk"
+    }
+  },
+  "guards": [
+    "manifest_valid",
+    "service_health",
+    "reservation_valid",
+    "base_qualification"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "parameter_dispatch",
+  "configuration_status": "valid"
+}</bpmn:documentation>
+        <bpmn:startEvent id="configure_components_start" name="开始本节点" />
+        <bpmn:serviceTask id="configure_components_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="configure_components_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${parameterTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="configure_components_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="configure_components_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="configure_components_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="configure_components_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="configure_components_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="configure_components_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="configure_components_instance_start_to_configure_components_recheck" sourceRef="configure_components_instance_start" targetRef="configure_components_recheck" />
+          <bpmn:sequenceFlow id="configure_components_recheck_to_configure_components_enqueue" sourceRef="configure_components_recheck" targetRef="configure_components_enqueue" />
+          <bpmn:sequenceFlow id="configure_components_enqueue_to_configure_components_wait" sourceRef="configure_components_enqueue" targetRef="configure_components_wait" />
+          <bpmn:sequenceFlow id="configure_components_wait_to_configure_components_verify" sourceRef="configure_components_wait" targetRef="configure_components_verify" />
+          <bpmn:sequenceFlow id="configure_components_verify_to_configure_components_instance_done" sourceRef="configure_components_verify" targetRef="configure_components_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="configure_components_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="configure_components_start_to_configure_components_preflight" sourceRef="configure_components_start" targetRef="configure_components_preflight" />
+        <bpmn:sequenceFlow id="configure_components_preflight_to_configure_components_instances" sourceRef="configure_components_preflight" targetRef="configure_components_instances" />
+        <bpmn:sequenceFlow id="configure_components_instances_to_configure_components_done" sourceRef="configure_components_instances" targetRef="configure_components_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="configure_components_timeout" name="整组/等待超时" attachedToRef="configure_components" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.parameter_dispatch}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="configure_components_timeout_to_action_timeout_failure" sourceRef="configure_components_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="emit_sources" name="按路由稳定出光（所需光源）">
+        <bpmn:documentation>{
+  "collection": "emissionTargets",
+  "action_by_model": {
+    "seed": "seed_source_emit",
+    "shg": "frequency_doubled_emit"
+  },
+  "postcondition_by_model": {
+    "seed": {
+      "outer_state": "emitting",
+      "state_id": "collectIdle"
+    },
+    "shg": {
+      "outer_state": "emitting",
+      "state_id": "stableEmission"
+    }
+  },
+  "guards": [
+    "current_configuration",
+    "service_health",
+    "safety_permit",
+    "routing_valid"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "emit_sources"
+}</bpmn:documentation>
+        <bpmn:startEvent id="emit_sources_start" name="开始本节点" />
+        <bpmn:serviceTask id="emit_sources_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="emit_sources_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${emissionTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="emit_sources_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="emit_sources_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="emit_sources_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="emit_sources_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="emit_sources_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="emit_sources_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="emit_sources_instance_start_to_emit_sources_recheck" sourceRef="emit_sources_instance_start" targetRef="emit_sources_recheck" />
+          <bpmn:sequenceFlow id="emit_sources_recheck_to_emit_sources_enqueue" sourceRef="emit_sources_recheck" targetRef="emit_sources_enqueue" />
+          <bpmn:sequenceFlow id="emit_sources_enqueue_to_emit_sources_wait" sourceRef="emit_sources_enqueue" targetRef="emit_sources_wait" />
+          <bpmn:sequenceFlow id="emit_sources_wait_to_emit_sources_verify" sourceRef="emit_sources_wait" targetRef="emit_sources_verify" />
+          <bpmn:sequenceFlow id="emit_sources_verify_to_emit_sources_instance_done" sourceRef="emit_sources_verify" targetRef="emit_sources_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="emit_sources_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="emit_sources_start_to_emit_sources_preflight" sourceRef="emit_sources_start" targetRef="emit_sources_preflight" />
+        <bpmn:sequenceFlow id="emit_sources_preflight_to_emit_sources_instances" sourceRef="emit_sources_preflight" targetRef="emit_sources_instances" />
+        <bpmn:sequenceFlow id="emit_sources_instances_to_emit_sources_done" sourceRef="emit_sources_instances" targetRef="emit_sources_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="emit_sources_timeout" name="整组/等待超时" attachedToRef="emit_sources" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.emit_sources}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="emit_sources_timeout_to_action_timeout_failure" sourceRef="emit_sources_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="sync_preamp_repeat" name="同步预放重频配方确认生效">
+        <bpmn:documentation>{
+  "collection": "syncTargets",
+  "action_by_model": {},
+  "postcondition_by_model": {},
+  "guards": [
+    "all_configuration_valid",
+    "service_health",
+    "safety_permit"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "sync_preamp_repeat",
+  "external_action": "同步预放重频配方",
+  "external_completion": "所有参与通道本发次预放重频模式已生效，非仅收到命令"
+}</bpmn:documentation>
+        <bpmn:startEvent id="sync_preamp_repeat_start" name="开始本节点" />
+        <bpmn:serviceTask id="sync_preamp_repeat_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="sync_preamp_repeat_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${syncTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="sync_preamp_repeat_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="sync_preamp_repeat_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="sync_preamp_repeat_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="sync_preamp_repeat_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="sync_preamp_repeat_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="sync_preamp_repeat_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="sync_preamp_repeat_instance_start_to_sync_preamp_repeat_recheck" sourceRef="sync_preamp_repeat_instance_start" targetRef="sync_preamp_repeat_recheck" />
+          <bpmn:sequenceFlow id="sync_preamp_repeat_recheck_to_sync_preamp_repeat_enqueue" sourceRef="sync_preamp_repeat_recheck" targetRef="sync_preamp_repeat_enqueue" />
+          <bpmn:sequenceFlow id="sync_preamp_repeat_enqueue_to_sync_preamp_repeat_wait" sourceRef="sync_preamp_repeat_enqueue" targetRef="sync_preamp_repeat_wait" />
+          <bpmn:sequenceFlow id="sync_preamp_repeat_wait_to_sync_preamp_repeat_verify" sourceRef="sync_preamp_repeat_wait" targetRef="sync_preamp_repeat_verify" />
+          <bpmn:sequenceFlow id="sync_preamp_repeat_verify_to_sync_preamp_repeat_instance_done" sourceRef="sync_preamp_repeat_verify" targetRef="sync_preamp_repeat_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="sync_preamp_repeat_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="sync_preamp_repeat_start_to_sync_preamp_repeat_preflight" sourceRef="sync_preamp_repeat_start" targetRef="sync_preamp_repeat_preflight" />
+        <bpmn:sequenceFlow id="sync_preamp_repeat_preflight_to_sync_preamp_repeat_instances" sourceRef="sync_preamp_repeat_preflight" targetRef="sync_preamp_repeat_instances" />
+        <bpmn:sequenceFlow id="sync_preamp_repeat_instances_to_sync_preamp_repeat_done" sourceRef="sync_preamp_repeat_instances" targetRef="sync_preamp_repeat_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="sync_preamp_repeat_timeout" name="整组/等待超时" attachedToRef="sync_preamp_repeat" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.sync_preamp_repeat}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="sync_preamp_repeat_timeout_to_action_timeout_failure" sourceRef="sync_preamp_repeat_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="wake_preamp" name="预放唤醒（全部实例）">
+        <bpmn:documentation>{
+  "collection": "preampTargets",
+  "action_by_model": {
+    "preamp": "preamp_wakeup"
+  },
+  "postcondition_by_model": {
+    "preamp": {
+      "outer_state": "wakeup",
+      "state_id": "wakeupReady"
+    }
+  },
+  "guards": [
+    "current_configuration",
+    "preamp_repeat_ready",
+    "service_health",
+    "safety_permit"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "wake_preamp"
+}</bpmn:documentation>
+        <bpmn:startEvent id="wake_preamp_start" name="开始本节点" />
+        <bpmn:serviceTask id="wake_preamp_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="wake_preamp_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="wake_preamp_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="wake_preamp_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="wake_preamp_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="wake_preamp_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="wake_preamp_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="wake_preamp_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="wake_preamp_instance_start_to_wake_preamp_recheck" sourceRef="wake_preamp_instance_start" targetRef="wake_preamp_recheck" />
+          <bpmn:sequenceFlow id="wake_preamp_recheck_to_wake_preamp_enqueue" sourceRef="wake_preamp_recheck" targetRef="wake_preamp_enqueue" />
+          <bpmn:sequenceFlow id="wake_preamp_enqueue_to_wake_preamp_wait" sourceRef="wake_preamp_enqueue" targetRef="wake_preamp_wait" />
+          <bpmn:sequenceFlow id="wake_preamp_wait_to_wake_preamp_verify" sourceRef="wake_preamp_wait" targetRef="wake_preamp_verify" />
+          <bpmn:sequenceFlow id="wake_preamp_verify_to_wake_preamp_instance_done" sourceRef="wake_preamp_verify" targetRef="wake_preamp_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="wake_preamp_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="wake_preamp_start_to_wake_preamp_preflight" sourceRef="wake_preamp_start" targetRef="wake_preamp_preflight" />
+        <bpmn:sequenceFlow id="wake_preamp_preflight_to_wake_preamp_instances" sourceRef="wake_preamp_preflight" targetRef="wake_preamp_instances" />
+        <bpmn:sequenceFlow id="wake_preamp_instances_to_wake_preamp_done" sourceRef="wake_preamp_instances" targetRef="wake_preamp_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="wake_preamp_timeout" name="整组/等待超时" attachedToRef="wake_preamp" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.wake_preamp}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="wake_preamp_timeout_to_action_timeout_failure" sourceRef="wake_preamp_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="coarse_loop" name="预放能量粗闭环（全部实例）">
+        <bpmn:documentation>{
+  "collection": "preampTargets",
+  "action_by_model": {
+    "preamp": "coarse_loop"
+  },
+  "postcondition_by_model": {
+    "preamp": {
+      "outer_state": "wakeup",
+      "state_id": "coarseLoopOk"
+    }
+  },
+  "guards": [
+    "source_route_ready",
+    "preamp_awake",
+    "preamp_repeat_ready",
+    "service_health",
+    "safety_permit",
+    "target_energy_valid"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "coarse_loop"
+}</bpmn:documentation>
+        <bpmn:startEvent id="coarse_loop_start" name="开始本节点" />
+        <bpmn:serviceTask id="coarse_loop_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="coarse_loop_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="coarse_loop_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="coarse_loop_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="coarse_loop_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="coarse_loop_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="coarse_loop_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="coarse_loop_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="coarse_loop_instance_start_to_coarse_loop_recheck" sourceRef="coarse_loop_instance_start" targetRef="coarse_loop_recheck" />
+          <bpmn:sequenceFlow id="coarse_loop_recheck_to_coarse_loop_enqueue" sourceRef="coarse_loop_recheck" targetRef="coarse_loop_enqueue" />
+          <bpmn:sequenceFlow id="coarse_loop_enqueue_to_coarse_loop_wait" sourceRef="coarse_loop_enqueue" targetRef="coarse_loop_wait" />
+          <bpmn:sequenceFlow id="coarse_loop_wait_to_coarse_loop_verify" sourceRef="coarse_loop_wait" targetRef="coarse_loop_verify" />
+          <bpmn:sequenceFlow id="coarse_loop_verify_to_coarse_loop_instance_done" sourceRef="coarse_loop_verify" targetRef="coarse_loop_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="coarse_loop_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="coarse_loop_start_to_coarse_loop_preflight" sourceRef="coarse_loop_start" targetRef="coarse_loop_preflight" />
+        <bpmn:sequenceFlow id="coarse_loop_preflight_to_coarse_loop_instances" sourceRef="coarse_loop_preflight" targetRef="coarse_loop_instances" />
+        <bpmn:sequenceFlow id="coarse_loop_instances_to_coarse_loop_done" sourceRef="coarse_loop_instances" targetRef="coarse_loop_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="coarse_loop_timeout" name="整组/等待超时" attachedToRef="coarse_loop" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.coarse_loop}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="coarse_loop_timeout_to_action_timeout_failure" sourceRef="coarse_loop_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="first_fine_loop" name="第一次精闭环（全部实例）">
+        <bpmn:documentation>{
+  "collection": "preampTargets",
+  "action_by_model": {
+    "preamp": "fine_loop"
+  },
+  "postcondition_by_model": {
+    "preamp": {
+      "outer_state": "wakeup",
+      "state_id": "fineLoopOk"
+    }
+  },
+  "guards": [
+    "all_coarse_loop_valid",
+    "source_route_ready",
+    "preamp_awake",
+    "preamp_repeat_ready",
+    "service_health",
+    "safety_permit",
+    "target_energy_valid"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "first_fine_loop"
+}</bpmn:documentation>
+        <bpmn:startEvent id="first_fine_loop_start" name="开始本节点" />
+        <bpmn:serviceTask id="first_fine_loop_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="first_fine_loop_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="first_fine_loop_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="first_fine_loop_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="first_fine_loop_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="first_fine_loop_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="first_fine_loop_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="first_fine_loop_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="first_fine_loop_instance_start_to_first_fine_loop_recheck" sourceRef="first_fine_loop_instance_start" targetRef="first_fine_loop_recheck" />
+          <bpmn:sequenceFlow id="first_fine_loop_recheck_to_first_fine_loop_enqueue" sourceRef="first_fine_loop_recheck" targetRef="first_fine_loop_enqueue" />
+          <bpmn:sequenceFlow id="first_fine_loop_enqueue_to_first_fine_loop_wait" sourceRef="first_fine_loop_enqueue" targetRef="first_fine_loop_wait" />
+          <bpmn:sequenceFlow id="first_fine_loop_wait_to_first_fine_loop_verify" sourceRef="first_fine_loop_wait" targetRef="first_fine_loop_verify" />
+          <bpmn:sequenceFlow id="first_fine_loop_verify_to_first_fine_loop_instance_done" sourceRef="first_fine_loop_verify" targetRef="first_fine_loop_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="first_fine_loop_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="first_fine_loop_start_to_first_fine_loop_preflight" sourceRef="first_fine_loop_start" targetRef="first_fine_loop_preflight" />
+        <bpmn:sequenceFlow id="first_fine_loop_preflight_to_first_fine_loop_instances" sourceRef="first_fine_loop_preflight" targetRef="first_fine_loop_instances" />
+        <bpmn:sequenceFlow id="first_fine_loop_instances_to_first_fine_loop_done" sourceRef="first_fine_loop_instances" targetRef="first_fine_loop_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="first_fine_loop_timeout" name="整组/等待超时" attachedToRef="first_fine_loop" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.first_fine_loop}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="first_fine_loop_timeout_to_action_timeout_failure" sourceRef="first_fine_loop_timeout" targetRef="action_timeout_failure" />
+      <bpmn:subProcess id="collimate_multipass" name="多程光路准直（全部实例）">
+        <bpmn:documentation>{
+  "collection": "multipassTargets",
+  "action_by_model": {
+    "multipass": "optical_collimation"
+  },
+  "postcondition_by_model": {
+    "multipass": {
+      "outer_state": "collimated",
+      "state_id": "collimationReady"
+    }
+  },
+  "guards": [
+    "current_configuration",
+    "source_route_ready",
+    "preamp_awake",
+    "preamp_repeat_ready",
+    "service_health",
+    "safety_permit",
+    "collimation_environment_ready"
+  ],
+  "completion": "全部目标最终成功、关联正确、无活动命令；accepted不表示完成",
+  "timeout": "collimate_multipass"
+}</bpmn:documentation>
+        <bpmn:startEvent id="collimate_multipass_start" name="开始本节点" />
+        <bpmn:serviceTask id="collimate_multipass_preflight" name="整组预检：设备与跨系统守卫">
+          <bpmn:documentation>任一不满足抛出 PREPARATION_FAILED；整组预检不承诺分发期间设备状态不变。</bpmn:documentation>
+        </bpmn:serviceTask>
+        <bpmn:subProcess id="collimate_multipass_instances" name="并行多实例：全部目标成功">
+          <bpmn:documentation>目标集合按物理设备去重且非空，不设提前完成条件。每台校验失败即抛出 PREPARATION_FAILED，中断整个准备作用域。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" />
+          <bpmn:startEvent id="collimate_multipass_instance_start" name="开始本实例" />
+          <bpmn:serviceTask id="collimate_multipass_recheck" name="发送前重读本地及跨系统条件">
+            <bpmn:documentation>对当前target重读守卫并验证设备占用、配方/路由及本次关联。不是仅检查本地状态机。失效抛出 PREPARATION_FAILED。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:serviceTask id="collimate_multipass_enqueue" name="事务入队，登记命令与等待关联">
+            <bpmn:documentation>沿用旧outbox模式；提交后worker发送Tango Command，同一命令重试不改编号。同步外部接口由专用适配器处理，不能假定当前ComponentDevice已实现同步模型。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:receiveTask id="collimate_multipass_wait" name="等待本实例最终结果" messageRef="TaskResult">
+            <bpmn:documentation>accepted/executing不推进。早到结果先存储，再关联唤醒；设备、命令、动作、节点、发次和配方必须匹配。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:serviceTask id="collimate_multipass_verify" name="核验关联、最终结果与后状态">
+            <bpmn:documentation>最终status须为succeeded，设备无活动任务，后状态与本节点文档匹配。失败、interrupted、拒绝、不匹配或证据无效抛出 PREPARATION_FAILED。同步节点还须验证模式已生效。</bpmn:documentation>
+          </bpmn:serviceTask>
+          <bpmn:endEvent id="collimate_multipass_instance_done" name="本实例成功" />
+          <bpmn:sequenceFlow id="collimate_multipass_instance_start_to_collimate_multipass_recheck" sourceRef="collimate_multipass_instance_start" targetRef="collimate_multipass_recheck" />
+          <bpmn:sequenceFlow id="collimate_multipass_recheck_to_collimate_multipass_enqueue" sourceRef="collimate_multipass_recheck" targetRef="collimate_multipass_enqueue" />
+          <bpmn:sequenceFlow id="collimate_multipass_enqueue_to_collimate_multipass_wait" sourceRef="collimate_multipass_enqueue" targetRef="collimate_multipass_wait" />
+          <bpmn:sequenceFlow id="collimate_multipass_wait_to_collimate_multipass_verify" sourceRef="collimate_multipass_wait" targetRef="collimate_multipass_verify" />
+          <bpmn:sequenceFlow id="collimate_multipass_verify_to_collimate_multipass_instance_done" sourceRef="collimate_multipass_verify" targetRef="collimate_multipass_instance_done" />
+        </bpmn:subProcess>
+        <bpmn:endEvent id="collimate_multipass_done" name="全部目标成功" />
+        <bpmn:sequenceFlow id="collimate_multipass_start_to_collimate_multipass_preflight" sourceRef="collimate_multipass_start" targetRef="collimate_multipass_preflight" />
+        <bpmn:sequenceFlow id="collimate_multipass_preflight_to_collimate_multipass_instances" sourceRef="collimate_multipass_preflight" targetRef="collimate_multipass_instances" />
+        <bpmn:sequenceFlow id="collimate_multipass_instances_to_collimate_multipass_done" sourceRef="collimate_multipass_instances" targetRef="collimate_multipass_done" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="collimate_multipass_timeout" name="整组/等待超时" attachedToRef="collimate_multipass" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.collimate_multipass}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="collimate_multipass_timeout_to_action_timeout_failure" sourceRef="collimate_multipass_timeout" targetRef="action_timeout_failure" />
+      <bpmn:boundaryEvent id="safety_permit_timeout" name="整组/等待超时" attachedToRef="wait_safety_permit" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.safety_permit}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="safety_permit_timeout_to_action_timeout_failure" sourceRef="safety_permit_timeout" targetRef="action_timeout_failure" />
+      <bpmn:boundaryEvent id="collimation_environment_timeout" name="整组/等待超时" attachedToRef="wait_collimation_environment" cancelActivity="true">
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.collimation_environment}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="collimation_environment_timeout_to_action_timeout_failure" sourceRef="collimation_environment_timeout" targetRef="action_timeout_failure" />
+      <bpmn:sequenceFlow id="prepare_start_to_validate_manifest" sourceRef="prepare_start" targetRef="validate_manifest" />
+      <bpmn:sequenceFlow id="validate_manifest_to_reserve_and_preflight" sourceRef="validate_manifest" targetRef="reserve_and_preflight" />
+      <bpmn:sequenceFlow id="reserve_and_preflight_to_configure_components" sourceRef="reserve_and_preflight" targetRef="configure_components" />
+      <bpmn:sequenceFlow id="configure_components_to_wait_safety_permit" sourceRef="configure_components" targetRef="wait_safety_permit" />
+      <bpmn:sequenceFlow id="wait_safety_permit_to_source_wakeup_split" sourceRef="wait_safety_permit" targetRef="source_wakeup_split" />
+      <bpmn:sequenceFlow id="source_wakeup_split_to_emit_sources" sourceRef="source_wakeup_split" targetRef="emit_sources" />
+      <bpmn:sequenceFlow id="emit_sources_to_source_wakeup_join" sourceRef="emit_sources" targetRef="source_wakeup_join" />
+      <bpmn:sequenceFlow id="source_wakeup_split_to_sync_preamp_repeat" sourceRef="source_wakeup_split" targetRef="sync_preamp_repeat" />
+      <bpmn:sequenceFlow id="sync_preamp_repeat_to_wake_preamp" sourceRef="sync_preamp_repeat" targetRef="wake_preamp" />
+      <bpmn:sequenceFlow id="wake_preamp_to_source_wakeup_join" sourceRef="wake_preamp" targetRef="source_wakeup_join" />
+      <bpmn:sequenceFlow id="source_wakeup_join_to_loop_collimation_split" sourceRef="source_wakeup_join" targetRef="loop_collimation_split" />
+      <bpmn:sequenceFlow id="loop_collimation_split_to_coarse_loop" sourceRef="loop_collimation_split" targetRef="coarse_loop" />
+      <bpmn:sequenceFlow id="coarse_loop_to_first_fine_loop" sourceRef="coarse_loop" targetRef="first_fine_loop" />
+      <bpmn:sequenceFlow id="first_fine_loop_to_loop_collimation_join" sourceRef="first_fine_loop" targetRef="loop_collimation_join" />
+      <bpmn:sequenceFlow id="loop_collimation_split_to_wait_collimation_environment" sourceRef="loop_collimation_split" targetRef="wait_collimation_environment" />
+      <bpmn:sequenceFlow id="wait_collimation_environment_to_collimate_multipass" sourceRef="wait_collimation_environment" targetRef="collimate_multipass" />
+      <bpmn:sequenceFlow id="collimate_multipass_to_loop_collimation_join" sourceRef="collimate_multipass" targetRef="loop_collimation_join" />
+      <bpmn:sequenceFlow id="loop_collimation_join_to_verify_frontend_ready" sourceRef="loop_collimation_join" targetRef="verify_frontend_ready" />
+      <bpmn:sequenceFlow id="verify_frontend_ready_to_prepare_done" sourceRef="verify_frontend_ready" targetRef="prepare_done" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="frontend_prepared" name="本段准备完成，保持供光与唤醒">
+      <bpmn:documentation>向上层交付本段结果、预约及持续监测；不关光、不待机、不释放给其他实验。上层接管失败应撤销资格并停止。</bpmn:documentation>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="start_to_preparation_scope" sourceRef="start" targetRef="preparation_scope" />
+    <bpmn:sequenceFlow id="preparation_scope_to_frontend_prepared" sourceRef="preparation_scope" targetRef="frontend_prepared" />
+    <bpmn:exclusiveGateway id="failure_merge" name="统一失败入口" />
+    <bpmn:serviceTask id="record_failure" name="锁存失败，撤销放行">
+      <bpmn:documentation>持久化原因及本次命令清单；使所有过期反馈失去推进资格。不得将 BPMN 中断当作物理设备停止。</bpmn:documentation>
+    </bpmn:serviceTask>
+    <bpmn:subProcess id="stop_and_confirm" name="请求实际停止并核验结果">
+      <bpmn:startEvent id="stop_start" name="开始安全处置" />
+      <bpmn:serviceTask id="request_physical_stop" name="按停止策略请求设备实际停止">
+        <bpmn:documentation>待实现的停止协调器：先处理活动任务抢占/中断，再按物理依赖停止或复位。当前 ComponentDevice 无 Cancel，不能直接向活动任务设备发送 abort_reset，也不能用 ReportEvent 代替真实停止。拒绝或失败抛出 STOP_FAILED。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:receiveTask id="wait_stop_confirmation" name="等待各目标真实停止确认" messageRef="TaskResult">
+        <bpmn:documentation>按运行及停止请求编号持久化关联。未确认前保持占用；重复或迟到正常任务反馈不能代替停止证据。</bpmn:documentation>
+      </bpmn:receiveTask>
+      <bpmn:serviceTask id="verify_physical_stop" name="核验设备状态及停止证据">
+        <bpmn:documentation>未知、失败、不匹配、证据失效均抛出 STOP_FAILED。物理安全判据和处置顺序由停止策略提供。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="stop_confirmed" name="停止已确认，本段仍失败" />
+      <bpmn:sequenceFlow id="stop_start_to_request_physical_stop" sourceRef="stop_start" targetRef="request_physical_stop" />
+      <bpmn:sequenceFlow id="request_physical_stop_to_wait_stop_confirmation" sourceRef="request_physical_stop" targetRef="wait_stop_confirmation" />
+      <bpmn:sequenceFlow id="wait_stop_confirmation_to_verify_physical_stop" sourceRef="wait_stop_confirmation" targetRef="verify_physical_stop" />
+      <bpmn:sequenceFlow id="verify_physical_stop_to_stop_confirmed" sourceRef="verify_physical_stop" targetRef="stop_confirmed" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="preparation_failed" name="准备失败，保留处置证据" />
+    <bpmn:userTask id="manual_recovery" name="人工处置并确认现场状态">
+      <bpmn:documentation>保持设备占用和失败锁存；处置、核验和资源释放由独立策略确定。不得通过点击完成把本段改为成功，也不得自动重启。</bpmn:documentation>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="failure_merge_to_record_failure" sourceRef="failure_merge" targetRef="record_failure" />
+    <bpmn:sequenceFlow id="record_failure_to_stop_and_confirm" sourceRef="record_failure" targetRef="stop_and_confirm" />
+    <bpmn:sequenceFlow id="stop_and_confirm_to_preparation_failed" sourceRef="stop_and_confirm" targetRef="preparation_failed" />
+    <bpmn:sequenceFlow id="manual_recovery_to_preparation_failed" sourceRef="manual_recovery" targetRef="preparation_failed" />
+    <bpmn:boundaryEvent id="preparation_error" name="动作或资格校验失败" attachedToRef="preparation_scope" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="PreparationFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="preparation_error_to_failure_merge" sourceRef="preparation_error" targetRef="failure_merge" />
+    <bpmn:boundaryEvent id="preparation_interlock" name="安全联锁中断" attachedToRef="preparation_scope" cancelActivity="true">
+      <bpmn:messageEventDefinition messageRef="Interlock" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="preparation_interlock_to_failure_merge" sourceRef="preparation_interlock" targetRef="failure_merge" />
+    <bpmn:boundaryEvent id="preparation_qualification_lost" name="持续资格失效" attachedToRef="preparation_scope" cancelActivity="true">
+      <bpmn:messageEventDefinition messageRef="QualificationLost" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="preparation_qualification_lost_to_failure_merge" sourceRef="preparation_qualification_lost" targetRef="failure_merge" />
+    <bpmn:boundaryEvent id="preparation_total_timeout" name="整组/等待超时" attachedToRef="preparation_scope" cancelActivity="true">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.preparation_total}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="preparation_total_timeout_to_failure_merge" sourceRef="preparation_total_timeout" targetRef="failure_merge" />
+    <bpmn:boundaryEvent id="stop_error" name="停止或核验失败" attachedToRef="stop_and_confirm" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="StopFailed" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="stop_error_to_manual_recovery" sourceRef="stop_error" targetRef="manual_recovery" />
+    <bpmn:boundaryEvent id="stop_timeout" name="整组/等待超时" attachedToRef="stop_and_confirm" cancelActivity="true">
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${timeouts.stop_confirmation}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="stop_timeout_to_manual_recovery" sourceRef="stop_timeout" targetRef="manual_recovery" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_optical_frontend_preparation" name="种子源至多程放大前期准备（设计定义）">
+    <bpmndi:BPMNPlane id="Plane_optical_frontend_preparation" bpmnElement="optical_frontend_preparation">
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_preparation_scope" bpmnElement="preparation_scope" isExpanded="false">
+        <dc:Bounds x="200" y="78" width="250" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_frontend_prepared" bpmnElement="frontend_prepared">
+        <dc:Bounds x="620" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="558.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_start_to_preparation_scope" bpmnElement="start_to_preparation_scope">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="148.0" y="118.0" />
+        <di:waypoint x="148.0" y="128.0" />
+        <di:waypoint x="200" y="128.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_preparation_scope_to_frontend_prepared" bpmnElement="preparation_scope_to_frontend_prepared">
+        <di:waypoint x="450" y="128.0" />
+        <di:waypoint x="535.0" y="128.0" />
+        <di:waypoint x="535.0" y="118.0" />
+        <di:waypoint x="620" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_failure_merge" bpmnElement="failure_merge">
+        <dc:Bounds x="500" y="330" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="445.0" y="387" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_record_failure" bpmnElement="record_failure">
+        <dc:Bounds x="620" y="315" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_stop_and_confirm" bpmnElement="stop_and_confirm" isExpanded="false">
+        <dc:Bounds x="880" y="315" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_preparation_failed" bpmnElement="preparation_failed">
+        <dc:Bounds x="1340" y="335" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1278.0" y="378" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_manual_recovery" bpmnElement="manual_recovery">
+        <dc:Bounds x="1120" y="525" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_failure_merge_to_record_failure" bpmnElement="failure_merge_to_record_failure">
+        <di:waypoint x="550" y="355.0" />
+        <di:waypoint x="620" y="355.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_record_failure_to_stop_and_confirm" bpmnElement="record_failure_to_stop_and_confirm">
+        <di:waypoint x="800" y="355.0" />
+        <di:waypoint x="880" y="355.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_stop_and_confirm_to_preparation_failed" bpmnElement="stop_and_confirm_to_preparation_failed">
+        <di:waypoint x="1090" y="355.0" />
+        <di:waypoint x="1215.0" y="355.0" />
+        <di:waypoint x="1215.0" y="353.0" />
+        <di:waypoint x="1340" y="353.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_manual_recovery_to_preparation_failed" bpmnElement="manual_recovery_to_preparation_failed">
+        <di:waypoint x="1330" y="565.0" />
+        <di:waypoint x="1335.0" y="565.0" />
+        <di:waypoint x="1335.0" y="353.0" />
+        <di:waypoint x="1340" y="353.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_preparation_error" bpmnElement="preparation_error">
+        <dc:Bounds x="240" y="160" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="178.0" y="203" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_preparation_error_to_failure_merge" bpmnElement="preparation_error_to_failure_merge">
+        <di:waypoint x="258.0" y="196" />
+        <di:waypoint x="258.0" y="263.0" />
+        <di:waypoint x="525.0" y="263.0" />
+        <di:waypoint x="525.0" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_preparation_interlock" bpmnElement="preparation_interlock">
+        <dc:Bounds x="300" y="160" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="238.0" y="203" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_preparation_interlock_to_failure_merge" bpmnElement="preparation_interlock_to_failure_merge">
+        <di:waypoint x="318.0" y="196" />
+        <di:waypoint x="318.0" y="263.0" />
+        <di:waypoint x="525.0" y="263.0" />
+        <di:waypoint x="525.0" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_preparation_qualification_lost" bpmnElement="preparation_qualification_lost">
+        <dc:Bounds x="360" y="160" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="298.0" y="203" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_preparation_qualification_lost_to_failure_merge" bpmnElement="preparation_qualification_lost_to_failure_merge">
+        <di:waypoint x="378.0" y="196" />
+        <di:waypoint x="378.0" y="263.0" />
+        <di:waypoint x="525.0" y="263.0" />
+        <di:waypoint x="525.0" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_preparation_total_timeout" bpmnElement="preparation_total_timeout">
+        <dc:Bounds x="420" y="160" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="358.0" y="203" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_preparation_total_timeout_to_failure_merge" bpmnElement="preparation_total_timeout_to_failure_merge">
+        <di:waypoint x="438.0" y="196" />
+        <di:waypoint x="438.0" y="263.0" />
+        <di:waypoint x="525.0" y="263.0" />
+        <di:waypoint x="525.0" y="330" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_stop_error" bpmnElement="stop_error">
+        <dc:Bounds x="900" y="375" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="838.0" y="418" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_stop_error_to_manual_recovery" bpmnElement="stop_error_to_manual_recovery">
+        <di:waypoint x="918.0" y="411" />
+        <di:waypoint x="918.0" y="468.0" />
+        <di:waypoint x="1225.0" y="468.0" />
+        <di:waypoint x="1225.0" y="525" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_stop_timeout" bpmnElement="stop_timeout">
+        <dc:Bounds x="1035" y="375" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="973.0" y="418" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_stop_timeout_to_manual_recovery" bpmnElement="stop_timeout_to_manual_recovery">
+        <di:waypoint x="1053.0" y="411" />
+        <di:waypoint x="1053.0" y="468.0" />
+        <di:waypoint x="1225.0" y="468.0" />
+        <di:waypoint x="1225.0" y="525" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_preparation_scope" name="参数、出光、预放闭环与多程准直">
+    <bpmndi:BPMNPlane id="Plane_preparation_scope" bpmnElement="preparation_scope">
+      <bpmndi:BPMNShape id="Shape_prepare_start" bpmnElement="prepare_start">
+        <dc:Bounds x="45" y="342" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-17.0" y="385" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_validate_manifest" bpmnElement="validate_manifest">
+        <dc:Bounds x="130" y="320" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_reserve_and_preflight" bpmnElement="reserve_and_preflight">
+        <dc:Bounds x="365" y="320" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wait_safety_permit" bpmnElement="wait_safety_permit">
+        <dc:Bounds x="835" y="320" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_source_wakeup_split" bpmnElement="source_wakeup_split">
+        <dc:Bounds x="1060" y="335" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1005.0" y="275" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_source_wakeup_join" bpmnElement="source_wakeup_join">
+        <dc:Bounds x="1660" y="335" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1605.0" y="392" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_loop_collimation_split" bpmnElement="loop_collimation_split">
+        <dc:Bounds x="1760" y="335" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1705.0" y="275" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wait_collimation_environment" bpmnElement="wait_collimation_environment">
+        <dc:Bounds x="1895" y="520" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_loop_collimation_join" bpmnElement="loop_collimation_join">
+        <dc:Bounds x="2390" y="335" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2335.0" y="392" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_verify_frontend_ready" bpmnElement="verify_frontend_ready">
+        <dc:Bounds x="2510" y="320" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_prepare_done" bpmnElement="prepare_done">
+        <dc:Bounds x="2810" y="342" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2748.0" y="385" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_action_timeout_failure" bpmnElement="action_timeout_failure">
+        <dc:Bounds x="2390" y="790" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2328.0" y="833" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components" bpmnElement="configure_components" isExpanded="false">
+        <dc:Bounds x="600" y="320" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_timeout" bpmnElement="configure_components_timeout">
+        <dc:Bounds x="735" y="382" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="673.0" y="425" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_configure_components_timeout_to_action_timeout_failure" bpmnElement="configure_components_timeout_to_action_timeout_failure">
+        <di:waypoint x="753.0" y="418" />
+        <di:waypoint x="753.0" y="604.0" />
+        <di:waypoint x="2408.0" y="604.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_emit_sources" bpmnElement="emit_sources" isExpanded="false">
+        <dc:Bounds x="1195" y="140" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_timeout" bpmnElement="emit_sources_timeout">
+        <dc:Bounds x="1330" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1268.0" y="245" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_timeout_to_action_timeout_failure" bpmnElement="emit_sources_timeout_to_action_timeout_failure">
+        <di:waypoint x="1348.0" y="238" />
+        <di:waypoint x="1348.0" y="514.0" />
+        <di:waypoint x="2408.0" y="514.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat" bpmnElement="sync_preamp_repeat" isExpanded="false">
+        <dc:Bounds x="1195" y="520" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_timeout" bpmnElement="sync_preamp_repeat_timeout">
+        <dc:Bounds x="1330" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1268.0" y="625" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_timeout_to_action_timeout_failure" bpmnElement="sync_preamp_repeat_timeout_to_action_timeout_failure">
+        <di:waypoint x="1348.0" y="618" />
+        <di:waypoint x="1348.0" y="704.0" />
+        <di:waypoint x="2408.0" y="704.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_wake_preamp" bpmnElement="wake_preamp" isExpanded="false">
+        <dc:Bounds x="1430" y="520" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_timeout" bpmnElement="wake_preamp_timeout">
+        <dc:Bounds x="1565" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1503.0" y="625" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_timeout_to_action_timeout_failure" bpmnElement="wake_preamp_timeout_to_action_timeout_failure">
+        <di:waypoint x="1583.0" y="618" />
+        <di:waypoint x="1583.0" y="704.0" />
+        <di:waypoint x="2408.0" y="704.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_coarse_loop" bpmnElement="coarse_loop" isExpanded="false">
+        <dc:Bounds x="1895" y="140" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_timeout" bpmnElement="coarse_loop_timeout">
+        <dc:Bounds x="2030" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1968.0" y="245" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_timeout_to_action_timeout_failure" bpmnElement="coarse_loop_timeout_to_action_timeout_failure">
+        <di:waypoint x="2048.0" y="238" />
+        <di:waypoint x="2048.0" y="514.0" />
+        <di:waypoint x="2408.0" y="514.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop" bpmnElement="first_fine_loop" isExpanded="false">
+        <dc:Bounds x="2130" y="140" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_timeout" bpmnElement="first_fine_loop_timeout">
+        <dc:Bounds x="2265" y="202" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2203.0" y="245" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_timeout_to_action_timeout_failure" bpmnElement="first_fine_loop_timeout_to_action_timeout_failure">
+        <di:waypoint x="2283.0" y="238" />
+        <di:waypoint x="2283.0" y="514.0" />
+        <di:waypoint x="2408.0" y="514.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass" bpmnElement="collimate_multipass" isExpanded="false">
+        <dc:Bounds x="2130" y="520" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_timeout" bpmnElement="collimate_multipass_timeout">
+        <dc:Bounds x="2265" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="2203.0" y="625" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_timeout_to_action_timeout_failure" bpmnElement="collimate_multipass_timeout_to_action_timeout_failure">
+        <di:waypoint x="2283.0" y="618" />
+        <di:waypoint x="2283.0" y="704.0" />
+        <di:waypoint x="2408.0" y="704.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_safety_permit_timeout" bpmnElement="safety_permit_timeout">
+        <dc:Bounds x="970" y="382" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="908.0" y="425" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_safety_permit_timeout_to_action_timeout_failure" bpmnElement="safety_permit_timeout_to_action_timeout_failure">
+        <di:waypoint x="988.0" y="418" />
+        <di:waypoint x="988.0" y="604.0" />
+        <di:waypoint x="2408.0" y="604.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Shape_collimation_environment_timeout" bpmnElement="collimation_environment_timeout">
+        <dc:Bounds x="2030" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1968.0" y="625" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_collimation_environment_timeout_to_action_timeout_failure" bpmnElement="collimation_environment_timeout_to_action_timeout_failure">
+        <di:waypoint x="2048.0" y="618" />
+        <di:waypoint x="2048.0" y="704.0" />
+        <di:waypoint x="2408.0" y="704.0" />
+        <di:waypoint x="2408.0" y="790" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_prepare_start_to_validate_manifest" bpmnElement="prepare_start_to_validate_manifest">
+        <di:waypoint x="81" y="360.0" />
+        <di:waypoint x="130" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_validate_manifest_to_reserve_and_preflight" bpmnElement="validate_manifest_to_reserve_and_preflight">
+        <di:waypoint x="310" y="360.0" />
+        <di:waypoint x="365" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_reserve_and_preflight_to_configure_components" bpmnElement="reserve_and_preflight_to_configure_components">
+        <di:waypoint x="545" y="360.0" />
+        <di:waypoint x="600" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_to_wait_safety_permit" bpmnElement="configure_components_to_wait_safety_permit">
+        <di:waypoint x="780" y="360.0" />
+        <di:waypoint x="835" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wait_safety_permit_to_source_wakeup_split" bpmnElement="wait_safety_permit_to_source_wakeup_split">
+        <di:waypoint x="1015" y="360.0" />
+        <di:waypoint x="1060" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_source_wakeup_split_to_emit_sources" bpmnElement="source_wakeup_split_to_emit_sources">
+        <di:waypoint x="1110" y="360.0" />
+        <di:waypoint x="1152.5" y="360.0" />
+        <di:waypoint x="1152.5" y="180.0" />
+        <di:waypoint x="1195" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_to_source_wakeup_join" bpmnElement="emit_sources_to_source_wakeup_join">
+        <di:waypoint x="1375" y="180.0" />
+        <di:waypoint x="1517.5" y="180.0" />
+        <di:waypoint x="1517.5" y="360.0" />
+        <di:waypoint x="1660" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_source_wakeup_split_to_sync_preamp_repeat" bpmnElement="source_wakeup_split_to_sync_preamp_repeat">
+        <di:waypoint x="1110" y="360.0" />
+        <di:waypoint x="1152.5" y="360.0" />
+        <di:waypoint x="1152.5" y="560.0" />
+        <di:waypoint x="1195" y="560.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_to_wake_preamp" bpmnElement="sync_preamp_repeat_to_wake_preamp">
+        <di:waypoint x="1375" y="560.0" />
+        <di:waypoint x="1430" y="560.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_to_source_wakeup_join" bpmnElement="wake_preamp_to_source_wakeup_join">
+        <di:waypoint x="1610" y="560.0" />
+        <di:waypoint x="1635.0" y="560.0" />
+        <di:waypoint x="1635.0" y="360.0" />
+        <di:waypoint x="1660" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_source_wakeup_join_to_loop_collimation_split" bpmnElement="source_wakeup_join_to_loop_collimation_split">
+        <di:waypoint x="1710" y="360.0" />
+        <di:waypoint x="1760" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_loop_collimation_split_to_coarse_loop" bpmnElement="loop_collimation_split_to_coarse_loop">
+        <di:waypoint x="1810" y="360.0" />
+        <di:waypoint x="1852.5" y="360.0" />
+        <di:waypoint x="1852.5" y="180.0" />
+        <di:waypoint x="1895" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_to_first_fine_loop" bpmnElement="coarse_loop_to_first_fine_loop">
+        <di:waypoint x="2075" y="180.0" />
+        <di:waypoint x="2130" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_to_loop_collimation_join" bpmnElement="first_fine_loop_to_loop_collimation_join">
+        <di:waypoint x="2310" y="180.0" />
+        <di:waypoint x="2350.0" y="180.0" />
+        <di:waypoint x="2350.0" y="360.0" />
+        <di:waypoint x="2390" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_loop_collimation_split_to_wait_collimation_environment" bpmnElement="loop_collimation_split_to_wait_collimation_environment">
+        <di:waypoint x="1810" y="360.0" />
+        <di:waypoint x="1852.5" y="360.0" />
+        <di:waypoint x="1852.5" y="560.0" />
+        <di:waypoint x="1895" y="560.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wait_collimation_environment_to_collimate_multipass" bpmnElement="wait_collimation_environment_to_collimate_multipass">
+        <di:waypoint x="2075" y="560.0" />
+        <di:waypoint x="2130" y="560.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_to_loop_collimation_join" bpmnElement="collimate_multipass_to_loop_collimation_join">
+        <di:waypoint x="2310" y="560.0" />
+        <di:waypoint x="2350.0" y="560.0" />
+        <di:waypoint x="2350.0" y="360.0" />
+        <di:waypoint x="2390" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_loop_collimation_join_to_verify_frontend_ready" bpmnElement="loop_collimation_join_to_verify_frontend_ready">
+        <di:waypoint x="2440" y="360.0" />
+        <di:waypoint x="2510" y="360.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_verify_frontend_ready_to_prepare_done" bpmnElement="verify_frontend_ready_to_prepare_done">
+        <di:waypoint x="2720" y="360.0" />
+        <di:waypoint x="2810" y="360.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_stop_and_confirm" name="请求实际停止并核验结果">
+    <bpmndi:BPMNPlane id="Plane_stop_and_confirm" bpmnElement="stop_and_confirm">
+      <bpmndi:BPMNShape id="Shape_stop_start" bpmnElement="stop_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_request_physical_stop" bpmnElement="request_physical_stop">
+        <dc:Bounds x="180" y="78" width="230" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wait_stop_confirmation" bpmnElement="wait_stop_confirmation">
+        <dc:Bounds x="490" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_verify_physical_stop" bpmnElement="verify_physical_stop">
+        <dc:Bounds x="780" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_stop_confirmed" bpmnElement="stop_confirmed">
+        <dc:Bounds x="1080" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1018.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_stop_start_to_request_physical_stop" bpmnElement="stop_start_to_request_physical_stop">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_request_physical_stop_to_wait_stop_confirmation" bpmnElement="request_physical_stop_to_wait_stop_confirmation">
+        <di:waypoint x="410" y="118.0" />
+        <di:waypoint x="490" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wait_stop_confirmation_to_verify_physical_stop" bpmnElement="wait_stop_confirmation_to_verify_physical_stop">
+        <di:waypoint x="700" y="118.0" />
+        <di:waypoint x="780" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_verify_physical_stop_to_stop_confirmed" bpmnElement="verify_physical_stop_to_stop_confirmed">
+        <di:waypoint x="990" y="118.0" />
+        <di:waypoint x="1080" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_configure_components" name="四类组件参数下发并校验生效">
+    <bpmndi:BPMNPlane id="Plane_configure_components" bpmnElement="configure_components">
+      <bpmndi:BPMNShape id="Shape_configure_components_start" bpmnElement="configure_components_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_preflight" bpmnElement="configure_components_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_instances" bpmnElement="configure_components_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_done" bpmnElement="configure_components_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_configure_components_start_to_configure_components_preflight" bpmnElement="configure_components_start_to_configure_components_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_preflight_to_configure_components_instances" bpmnElement="configure_components_preflight_to_configure_components_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_instances_to_configure_components_done" bpmnElement="configure_components_instances_to_configure_components_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_configure_components_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_configure_components_instances" bpmnElement="configure_components_instances">
+      <bpmndi:BPMNShape id="Shape_configure_components_instance_start" bpmnElement="configure_components_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_recheck" bpmnElement="configure_components_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_enqueue" bpmnElement="configure_components_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_wait" bpmnElement="configure_components_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_verify" bpmnElement="configure_components_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_configure_components_instance_done" bpmnElement="configure_components_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_configure_components_instance_start_to_configure_components_recheck" bpmnElement="configure_components_instance_start_to_configure_components_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_recheck_to_configure_components_enqueue" bpmnElement="configure_components_recheck_to_configure_components_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_enqueue_to_configure_components_wait" bpmnElement="configure_components_enqueue_to_configure_components_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_wait_to_configure_components_verify" bpmnElement="configure_components_wait_to_configure_components_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_configure_components_verify_to_configure_components_instance_done" bpmnElement="configure_components_verify_to_configure_components_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_emit_sources" name="按路由稳定出光（所需光源）">
+    <bpmndi:BPMNPlane id="Plane_emit_sources" bpmnElement="emit_sources">
+      <bpmndi:BPMNShape id="Shape_emit_sources_start" bpmnElement="emit_sources_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_preflight" bpmnElement="emit_sources_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_instances" bpmnElement="emit_sources_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_done" bpmnElement="emit_sources_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_start_to_emit_sources_preflight" bpmnElement="emit_sources_start_to_emit_sources_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_preflight_to_emit_sources_instances" bpmnElement="emit_sources_preflight_to_emit_sources_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_instances_to_emit_sources_done" bpmnElement="emit_sources_instances_to_emit_sources_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_emit_sources_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_emit_sources_instances" bpmnElement="emit_sources_instances">
+      <bpmndi:BPMNShape id="Shape_emit_sources_instance_start" bpmnElement="emit_sources_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_recheck" bpmnElement="emit_sources_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_enqueue" bpmnElement="emit_sources_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_wait" bpmnElement="emit_sources_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_verify" bpmnElement="emit_sources_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emit_sources_instance_done" bpmnElement="emit_sources_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_instance_start_to_emit_sources_recheck" bpmnElement="emit_sources_instance_start_to_emit_sources_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_recheck_to_emit_sources_enqueue" bpmnElement="emit_sources_recheck_to_emit_sources_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_enqueue_to_emit_sources_wait" bpmnElement="emit_sources_enqueue_to_emit_sources_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_wait_to_emit_sources_verify" bpmnElement="emit_sources_wait_to_emit_sources_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_emit_sources_verify_to_emit_sources_instance_done" bpmnElement="emit_sources_verify_to_emit_sources_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_sync_preamp_repeat" name="同步预放重频配方确认生效">
+    <bpmndi:BPMNPlane id="Plane_sync_preamp_repeat" bpmnElement="sync_preamp_repeat">
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_start" bpmnElement="sync_preamp_repeat_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_preflight" bpmnElement="sync_preamp_repeat_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_instances" bpmnElement="sync_preamp_repeat_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_done" bpmnElement="sync_preamp_repeat_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_start_to_sync_preamp_repeat_preflight" bpmnElement="sync_preamp_repeat_start_to_sync_preamp_repeat_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_preflight_to_sync_preamp_repeat_instances" bpmnElement="sync_preamp_repeat_preflight_to_sync_preamp_repeat_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_instances_to_sync_preamp_repeat_done" bpmnElement="sync_preamp_repeat_instances_to_sync_preamp_repeat_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_sync_preamp_repeat_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_sync_preamp_repeat_instances" bpmnElement="sync_preamp_repeat_instances">
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_instance_start" bpmnElement="sync_preamp_repeat_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_recheck" bpmnElement="sync_preamp_repeat_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_enqueue" bpmnElement="sync_preamp_repeat_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_wait" bpmnElement="sync_preamp_repeat_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_verify" bpmnElement="sync_preamp_repeat_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_sync_preamp_repeat_instance_done" bpmnElement="sync_preamp_repeat_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_instance_start_to_sync_preamp_repeat_recheck" bpmnElement="sync_preamp_repeat_instance_start_to_sync_preamp_repeat_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_recheck_to_sync_preamp_repeat_enqueue" bpmnElement="sync_preamp_repeat_recheck_to_sync_preamp_repeat_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_enqueue_to_sync_preamp_repeat_wait" bpmnElement="sync_preamp_repeat_enqueue_to_sync_preamp_repeat_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_wait_to_sync_preamp_repeat_verify" bpmnElement="sync_preamp_repeat_wait_to_sync_preamp_repeat_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_sync_preamp_repeat_verify_to_sync_preamp_repeat_instance_done" bpmnElement="sync_preamp_repeat_verify_to_sync_preamp_repeat_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_wake_preamp" name="预放唤醒（全部实例）">
+    <bpmndi:BPMNPlane id="Plane_wake_preamp" bpmnElement="wake_preamp">
+      <bpmndi:BPMNShape id="Shape_wake_preamp_start" bpmnElement="wake_preamp_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_preflight" bpmnElement="wake_preamp_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_instances" bpmnElement="wake_preamp_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_done" bpmnElement="wake_preamp_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_start_to_wake_preamp_preflight" bpmnElement="wake_preamp_start_to_wake_preamp_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_preflight_to_wake_preamp_instances" bpmnElement="wake_preamp_preflight_to_wake_preamp_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_instances_to_wake_preamp_done" bpmnElement="wake_preamp_instances_to_wake_preamp_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_wake_preamp_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_wake_preamp_instances" bpmnElement="wake_preamp_instances">
+      <bpmndi:BPMNShape id="Shape_wake_preamp_instance_start" bpmnElement="wake_preamp_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_recheck" bpmnElement="wake_preamp_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_enqueue" bpmnElement="wake_preamp_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_wait" bpmnElement="wake_preamp_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_verify" bpmnElement="wake_preamp_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_wake_preamp_instance_done" bpmnElement="wake_preamp_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_instance_start_to_wake_preamp_recheck" bpmnElement="wake_preamp_instance_start_to_wake_preamp_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_recheck_to_wake_preamp_enqueue" bpmnElement="wake_preamp_recheck_to_wake_preamp_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_enqueue_to_wake_preamp_wait" bpmnElement="wake_preamp_enqueue_to_wake_preamp_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_wait_to_wake_preamp_verify" bpmnElement="wake_preamp_wait_to_wake_preamp_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_wake_preamp_verify_to_wake_preamp_instance_done" bpmnElement="wake_preamp_verify_to_wake_preamp_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_coarse_loop" name="预放能量粗闭环（全部实例）">
+    <bpmndi:BPMNPlane id="Plane_coarse_loop" bpmnElement="coarse_loop">
+      <bpmndi:BPMNShape id="Shape_coarse_loop_start" bpmnElement="coarse_loop_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_preflight" bpmnElement="coarse_loop_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_instances" bpmnElement="coarse_loop_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_done" bpmnElement="coarse_loop_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_start_to_coarse_loop_preflight" bpmnElement="coarse_loop_start_to_coarse_loop_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_preflight_to_coarse_loop_instances" bpmnElement="coarse_loop_preflight_to_coarse_loop_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_instances_to_coarse_loop_done" bpmnElement="coarse_loop_instances_to_coarse_loop_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_coarse_loop_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_coarse_loop_instances" bpmnElement="coarse_loop_instances">
+      <bpmndi:BPMNShape id="Shape_coarse_loop_instance_start" bpmnElement="coarse_loop_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_recheck" bpmnElement="coarse_loop_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_enqueue" bpmnElement="coarse_loop_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_wait" bpmnElement="coarse_loop_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_verify" bpmnElement="coarse_loop_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_coarse_loop_instance_done" bpmnElement="coarse_loop_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_instance_start_to_coarse_loop_recheck" bpmnElement="coarse_loop_instance_start_to_coarse_loop_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_recheck_to_coarse_loop_enqueue" bpmnElement="coarse_loop_recheck_to_coarse_loop_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_enqueue_to_coarse_loop_wait" bpmnElement="coarse_loop_enqueue_to_coarse_loop_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_wait_to_coarse_loop_verify" bpmnElement="coarse_loop_wait_to_coarse_loop_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_coarse_loop_verify_to_coarse_loop_instance_done" bpmnElement="coarse_loop_verify_to_coarse_loop_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_first_fine_loop" name="第一次精闭环（全部实例）">
+    <bpmndi:BPMNPlane id="Plane_first_fine_loop" bpmnElement="first_fine_loop">
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_start" bpmnElement="first_fine_loop_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_preflight" bpmnElement="first_fine_loop_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_instances" bpmnElement="first_fine_loop_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_done" bpmnElement="first_fine_loop_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_start_to_first_fine_loop_preflight" bpmnElement="first_fine_loop_start_to_first_fine_loop_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_preflight_to_first_fine_loop_instances" bpmnElement="first_fine_loop_preflight_to_first_fine_loop_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_instances_to_first_fine_loop_done" bpmnElement="first_fine_loop_instances_to_first_fine_loop_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_first_fine_loop_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_first_fine_loop_instances" bpmnElement="first_fine_loop_instances">
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_instance_start" bpmnElement="first_fine_loop_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_recheck" bpmnElement="first_fine_loop_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_enqueue" bpmnElement="first_fine_loop_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_wait" bpmnElement="first_fine_loop_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_verify" bpmnElement="first_fine_loop_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_first_fine_loop_instance_done" bpmnElement="first_fine_loop_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_instance_start_to_first_fine_loop_recheck" bpmnElement="first_fine_loop_instance_start_to_first_fine_loop_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_recheck_to_first_fine_loop_enqueue" bpmnElement="first_fine_loop_recheck_to_first_fine_loop_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_enqueue_to_first_fine_loop_wait" bpmnElement="first_fine_loop_enqueue_to_first_fine_loop_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_wait_to_first_fine_loop_verify" bpmnElement="first_fine_loop_wait_to_first_fine_loop_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_first_fine_loop_verify_to_first_fine_loop_instance_done" bpmnElement="first_fine_loop_verify_to_first_fine_loop_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_collimate_multipass" name="多程光路准直（全部实例）">
+    <bpmndi:BPMNPlane id="Plane_collimate_multipass" bpmnElement="collimate_multipass">
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_start" bpmnElement="collimate_multipass_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_preflight" bpmnElement="collimate_multipass_preflight">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_instances" bpmnElement="collimate_multipass_instances" isExpanded="false">
+        <dc:Bounds x="480" y="78" width="240" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_done" bpmnElement="collimate_multipass_done">
+        <dc:Bounds x="820" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="758.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_start_to_collimate_multipass_preflight" bpmnElement="collimate_multipass_start_to_collimate_multipass_preflight">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_preflight_to_collimate_multipass_instances" bpmnElement="collimate_multipass_preflight_to_collimate_multipass_instances">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="480" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_instances_to_collimate_multipass_done" bpmnElement="collimate_multipass_instances_to_collimate_multipass_done">
+        <di:waypoint x="720" y="118.0" />
+        <di:waypoint x="820" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="Diagram_collimate_multipass_instances" name="并行多实例：全部目标成功">
+    <bpmndi:BPMNPlane id="Plane_collimate_multipass_instances" bpmnElement="collimate_multipass_instances">
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_instance_start" bpmnElement="collimate_multipass_instance_start">
+        <dc:Bounds x="60" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-2.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_recheck" bpmnElement="collimate_multipass_recheck">
+        <dc:Bounds x="180" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_enqueue" bpmnElement="collimate_multipass_enqueue">
+        <dc:Bounds x="470" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_wait" bpmnElement="collimate_multipass_wait">
+        <dc:Bounds x="760" y="78" width="200" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_verify" bpmnElement="collimate_multipass_verify">
+        <dc:Bounds x="1040" y="78" width="210" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_collimate_multipass_instance_done" bpmnElement="collimate_multipass_instance_done">
+        <dc:Bounds x="1350" y="100" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1288.0" y="143" width="160" height="50" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_instance_start_to_collimate_multipass_recheck" bpmnElement="collimate_multipass_instance_start_to_collimate_multipass_recheck">
+        <di:waypoint x="96" y="118.0" />
+        <di:waypoint x="180" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_recheck_to_collimate_multipass_enqueue" bpmnElement="collimate_multipass_recheck_to_collimate_multipass_enqueue">
+        <di:waypoint x="390" y="118.0" />
+        <di:waypoint x="470" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_enqueue_to_collimate_multipass_wait" bpmnElement="collimate_multipass_enqueue_to_collimate_multipass_wait">
+        <di:waypoint x="680" y="118.0" />
+        <di:waypoint x="760" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_wait_to_collimate_multipass_verify" bpmnElement="collimate_multipass_wait_to_collimate_multipass_verify">
+        <di:waypoint x="960" y="118.0" />
+        <di:waypoint x="1040" y="118.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_collimate_multipass_verify_to_collimate_multipass_instance_done" bpmnElement="collimate_multipass_verify_to_collimate_multipass_instance_done">
+        <di:waypoint x="1250" y="118.0" />
+        <di:waypoint x="1350" y="118.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

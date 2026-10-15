@@ -1,30 +1,31 @@
 package cn.cdi8.control;
 
-import java.util.Map;
-import org.springframework.http.ResponseEntity;
+import java.util.*;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/runs")
+@RequestMapping("/api")
 public class ControlApi {
-    private final RunService runs;
-    public ControlApi(RunService runs) { this.runs=runs; }
-    public record StartRequest(String requestId,Map<String,Map<String,Object>> parameters) {}
-    @GetMapping public java.util.List<Map<String,Object>> recent() { return runs.recent(); }
-    @GetMapping("/startup-checks") public Map<String,Object> startupChecks() { return runs.startupChecks(); }
-    @PostMapping("/prepare-restart") public Map<String,Object> prepareRestart(@RequestBody StartRequest request) {
-        if(request.parameters()!=null&&!request.parameters().isEmpty())throw new IllegalArgumentException("preparation does not accept experiment parameters");
-        return runs.prepareRestart(request.requestId());
+    private final WorkflowService workflows;
+    private final TangoGateway tango;
+    public ControlApi(WorkflowService workflows, TangoGateway tango) { this.workflows = workflows; this.tango = tango; }
+    public record Start(String processKey, List<String> sources) {}
+    @GetMapping("/processes") public Object processes() { return workflows.definitions(); }
+    @GetMapping(value="/processes/{key}/xml", produces="application/xml")
+    public String xml(@PathVariable String key) { return workflows.xml(key); }
+    @GetMapping("/connection") public Object connection() { return tango.status(); }
+    @GetMapping("/devices") public Object devices() { return tango.catalog(); }
+    @GetMapping("/runs") public Object recent() { return workflows.recent(); }
+    @GetMapping("/runs/{id}") public Object view(@PathVariable String id) { return workflows.view(id); }
+    @PostMapping("/runs") public Object start(@RequestBody Start request) {
+        return workflows.start(request.processKey(), request.sources()==null ? List.of("seed") : request.sources());
     }
-    @PostMapping public Map<String,Object> start(@RequestBody StartRequest request) {
-        return runs.start(request.requestId(),request.parameters()==null?Map.of():request.parameters());
+    @PostMapping("/runs/{id}/stop") public Object stop(@PathVariable String id) {
+        workflows.stop(id, "操作员停止流程；设备状态请在组件端确认"); return workflows.view(id);
     }
-    @GetMapping("/{id}") public Map<String,Object> view(@PathVariable String id) { return runs.view(id); }
-    @PostMapping("/{id}/interlock") public Map<String,Boolean> interlock(@PathVariable String id) { runs.interlock(id);return Map.of("accepted",true); }
-    @PostMapping("/{id}/compensate") public Map<String,Boolean> compensate(@PathVariable String id) { runs.compensate(id);return Map.of("accepted",true); }
-    @PostMapping("/{id}/commands/{task}/simulate") public Map<String,Boolean> simulate(@PathVariable String id,@PathVariable String task,@RequestBody Map<String,String> request) {
-        runs.simulate(id,task,request.get("outcome"));return Map.of("accepted",true);
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, TangoGateway.GatewayException.class})
+    public ResponseEntity<?> error(RuntimeException ex) {
+        return ResponseEntity.status(409).body(Map.of("error", Objects.toString(ex.getMessage(), ex.toString())));
     }
-    @ExceptionHandler({IllegalStateException.class,IllegalArgumentException.class})
-    public ResponseEntity<Map<String,String>> invalid(RuntimeException ex) { return ResponseEntity.status(409).body(Map.of("error",ex.getMessage())); }
 }
