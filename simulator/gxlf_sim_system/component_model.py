@@ -159,20 +159,21 @@ ROOT = Path(__file__).resolve().parents[2]
 SEED_MODEL = ComponentModel(ROOT / "docs" / "seed-source-state-machine.scxml")
 PREAMP_MODEL = ComponentModel(ROOT / "docs" / "preamp-state-machine.scxml")
 SHG_MODEL = ComponentModel(ROOT / "docs" / "shg-injection-state-machine.scxml")
+MULTIPASS_MODEL = ComponentModel(ROOT / "docs" / "multipass-state-machine.scxml")
 
 
 def model_by_name(name):
     try:
-        return {"seed": SEED_MODEL, "preamp": PREAMP_MODEL, "shg": SHG_MODEL}[name]
+        return {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[name]
     except KeyError as exc:
         raise TransitionError("未知组件模型：" + str(name)) from exc
 
 
 def model_by_id(model_id):
-    for model in (SEED_MODEL, PREAMP_MODEL, SHG_MODEL):
+    for model in (SEED_MODEL, PREAMP_MODEL, SHG_MODEL, MULTIPASS_MODEL):
         if model.model_id == model_id:
             return model
     raise TransitionError("未知组件模型：" + str(model_id))
 
 
-__all__ = ["ActionSpec", "ConfirmationSpec", "ComponentModel", "SEED_MODEL", "PREAMP_MODEL", "SHG_MODEL", "model_by_name", "model_by_id"]
+__all__ = ["ActionSpec", "ConfirmationSpec", "ComponentModel", "SEED_MODEL", "PREAMP_MODEL", "SHG_MODEL", "MULTIPASS_MODEL", "model_by_name", "model_by_id"]

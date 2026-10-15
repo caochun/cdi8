@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..component_runtime import ComponentRuntime, identifier
 from ..http import create_server
-from ..component_model import PREAMP_MODEL, SEED_MODEL, SHG_MODEL
+from ..component_model import MULTIPASS_MODEL, PREAMP_MODEL, SEED_MODEL, SHG_MODEL
 
 
 class TangoAdapter:
@@ -31,13 +31,13 @@ class TangoAdapter:
 
 def main():
     parser = argparse.ArgumentParser(description="SCXML 组件 HTTP 网关")
-    parser.add_argument("--component", choices=("seed", "shg", "preamp"), default="seed")
+    parser.add_argument("--component", choices=("seed", "shg", "preamp", "multipass"), default="seed")
     parser.add_argument("--mode", choices=("local", "tango"), default="local")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--devices", nargs="+", default=["01"], help="独立组件实例编号")
     parser.add_argument("--data", type=Path, default=Path("component-simulator-data"))
     args = parser.parse_args()
-    model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL}[args.component]
+    model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[args.component]
     for name in args.devices:
         identifier(name)
     if len(set(args.devices)) != len(args.devices):

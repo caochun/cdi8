@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  多程放大系统状态机。
+
+  本模型依据《集中管控系统与分系统状态梳理清单》中的
+  STATE-MULTIPASS-001 至 STATE-MULTIPASS-011 建立。外层主状态表示系统
+  当前的持续资格或工作阶段，内层子状态表示业务放行所需的具体结果。
+  开机自检、功能检查、参数下发、光路准直、进入打靶状态、待机/复位和关机
+  都是动作；动作执行过程、超时和反馈保存在任务记录中，不额外增加“进行中”状态。
+
+  开机自检完成后只获得“自检通过、待功能检查”资格；功能检查通过后才进入
+  “业务就绪”。光路准直完成后进入“准直”外层状态；进入打靶状态完成后回到“就绪”外层，
+  但保留“进入打靶状态完成”这个内层资格。待机/复位成功后保留“复位/待机完成”
+  内层状态，便于总控判断资源是否释放以及是否可以衔接下一发。
+
+  “进入打靶状态”是多程放大系统的实际控制动作，但总控只能在流程层完成光束引导
+  等跨系统前置条件后下发；本组件状态机只负责校验本地已达成准直资格。
+
+  出光、预放唤醒、片放吹扫停止、安全联锁和真空条件是流程上下文或事件守卫，
+  不在本组件中重复建模。多程放大系统的流程前置条件是由集中管控流程判断的。
+  SCXML datamodel 保存组件标签、动作绑定、确认事件和上下文默认值；模拟器不再
+  维护组件专用 Python 状态定义。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml"
+       version="1.0"
+       initial="notReady">
+
+  <!-- 未就绪：开机自检前、关机完成后或故障恢复后的基础状态。 -->
+  <state id="notReady" initial="baseNotReady">
+    <state id="baseNotReady"/>
+    <state id="shutdownNormal"/>
+
+    <transition event="selftest.passed" target="ready"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 就绪：具备光路准直前的基础业务资格，或已完成打靶/复位。 -->
+  <state id="ready" initial="selfTestOk">
+    <state id="selfTestOk">
+      <transition event="function-check.passed" target="functionReady"/>
+      <transition event="function-check.failed" target="notReady"/>
+    </state>
+    <state id="functionReady">
+      <transition event="function-check.passed" target="functionReady"/>
+      <transition event="function-check.failed" target="notReady"/>
+      <transition event="configuration.validated" target="parameterOk"/>
+    </state>
+    <state id="parameterOk">
+      <transition event="configuration.invalidated" target="functionReady"/>
+      <transition event="configuration.validated" target="parameterOk"/>
+      <transition event="multipass.collimation.completed" target="collimated"/>
+    </state>
+    <state id="shotReady">
+      <transition event="multipass.standby.completed" target="resetReady"/>
+    </state>
+    <state id="resetReady">
+      <transition event="multipass.standby.completed" target="resetReady"/>
+      <transition event="function-check.passed" target="functionReady"/>
+      <transition event="function-check.failed" target="notReady"/>
+    </state>
+
+    <transition event="abort.completed" target="resetReady"/>
+    <transition event="shutdown.completed" target="shutdownNormal"/>
+    <transition event="qualification.invalidated" target="notReady"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 准直：光路准直已经达标，允许进入打靶状态。 -->
+  <state id="collimated" initial="collimationReady">
+    <state id="collimationReady"/>
+
+    <transition event="multipass.enter-shot.completed" target="shotReady"/>
+    <transition event="multipass.standby.completed" target="resetReady"/>
+    <transition event="abort.completed" target="resetReady"/>
+    <transition event="shutdown.completed" target="shutdownNormal"/>
+    <transition event="qualification.invalidated" target="faultLock"/>
+    <transition event="fault.confirmed" target="faultLock"/>
+    <transition event="communication.failure-confirmed" target="commFault"/>
+    <transition event="execution.timeout-confirmed" target="timeoutFault"/>
+  </state>
+
+  <!-- 设备异常：异常期间阻断流程放行。 -->
+  <state id="fault" initial="faultLock">
+    <state id="faultLock"/>
+    <state id="commFault"/>
+    <state id="timeoutFault"/>
+    <transition event="recovery.completed" target="notReady"/>
+  </state>
+
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "model_id": "multipass-hierarchical-v1",
+  "model_version": 1,
+  "display_name": "多程放大系统",
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "collimated": "准直",
+    "fault": "设备异常"
+  },
+  "inner_labels": {
+    "baseNotReady": "基础服务未就绪",
+    "shutdownNormal": "关机正常",
+    "selfTestOk": "开机自检通过，待功能检查",
+    "functionReady": "业务就绪（具备光路准直能力）",
+    "parameterOk": "参数配置生效",
+    "shotReady": "进入打靶状态完成",
+    "resetReady": "复位/待机完成",
+    "collimationReady": "光路准直达标",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时"
+  },
+  "context_defaults": {
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "faults": []
+  },
+  "actions": {
+    "power_on_self_test": {
+      "label": "开机自检",
+      "requests": {
+        "baseNotReady": "selftest.requested",
+        "shutdownNormal": "selftest.requested"
+      },
+      "success_events": {
+        "baseNotReady": "selftest.passed",
+        "shutdownNormal": "selftest.passed"
+      },
+      "failure_events": {
+        "baseNotReady": null,
+        "shutdownNormal": null
+      },
+      "success_key": "自检通过",
+      "failure_key": "自检失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "function_check": {
+      "label": "功能检查",
+      "requests": {
+        "selfTestOk": "function-check.requested",
+        "functionReady": "function-check.requested",
+        "resetReady": "function-check.requested"
+      },
+      "success_events": {
+        "selfTestOk": "function-check.passed",
+        "functionReady": "function-check.passed",
+        "resetReady": "function-check.passed"
+      },
+      "failure_events": {
+        "selfTestOk": "function-check.failed",
+        "functionReady": "function-check.failed",
+        "resetReady": "function-check.failed"
+      },
+      "success_key": "功能检查通过",
+      "failure_key": "功能检查未通过",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "requests": {
+        "functionReady": "parameter-dispatch.requested",
+        "resetReady": "parameter-dispatch.requested",
+        "parameterOk": "parameter-dispatch.requested"
+      },
+      "success_events": {
+        "functionReady": "configuration.validated",
+        "resetReady": "configuration.validated",
+        "parameterOk": "configuration.validated"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "resetReady": null,
+        "parameterOk": "configuration.invalidated"
+      },
+      "success_key": "参数配置正常",
+      "failure_key": "参数下发失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "optical_collimation": {
+      "label": "光路准直",
+      "requests": {
+        "parameterOk": "multipass.collimation.requested"
+      },
+      "success_events": {
+        "parameterOk": "multipass.collimation.completed"
+      },
+      "failure_events": {
+        "parameterOk": null
+      },
+      "success_key": "光路准直达标",
+      "failure_key": "光路准直失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "enter_shot_state": {
+      "label": "进入打靶状态",
+      "preconditions": ["光束引导完成", "流程层安全联锁正常"],
+      "requests": {
+        "collimationReady": "multipass.enter-shot.requested"
+      },
+      "success_events": {
+        "collimationReady": "multipass.enter-shot.completed"
+      },
+      "failure_events": {
+        "collimationReady": null
+      },
+      "success_key": "进入打靶状态完成",
+      "failure_key": "进入打靶状态失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "standby_reset": {
+      "label": "多程待机/复位",
+      "requests": {
+        "collimationReady": "multipass.standby.requested",
+        "shotReady": "multipass.standby.requested",
+        "resetReady": "multipass.standby.requested"
+      },
+      "success_events": {
+        "collimationReady": "multipass.standby.completed",
+        "shotReady": "multipass.standby.completed",
+        "resetReady": "multipass.standby.completed"
+      },
+      "failure_events": {
+        "collimationReady": null,
+        "shotReady": null,
+        "resetReady": null
+      },
+      "success_key": "复位/待机完成",
+      "failure_key": "复位/待机失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "shutdown": {
+      "label": "关机",
+      "requests": {
+        "selfTestOk": "shutdown.requested",
+        "functionReady": "shutdown.requested",
+        "parameterOk": "shutdown.requested",
+        "shotReady": "shutdown.requested",
+        "resetReady": "shutdown.requested",
+        "collimationReady": "shutdown.requested"
+      },
+      "success_events": {
+        "functionReady": "shutdown.completed",
+        "parameterOk": "shutdown.completed",
+        "shotReady": "shutdown.completed",
+        "resetReady": "shutdown.completed",
+        "collimationReady": "shutdown.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "shotReady": null,
+        "resetReady": null,
+        "collimationReady": null
+      },
+      "success_key": "关机正常",
+      "failure_key": "关机失败",
+      "success_observation": null,
+      "failure_observation": null
+    },
+    "abort_reset": {
+      "label": "流程终止（异常中止）",
+      "requests": {
+        "selfTestOk": "abort.requested",
+        "functionReady": "abort.requested",
+        "parameterOk": "abort.requested",
+        "shotReady": "abort.requested",
+        "resetReady": "abort.requested",
+        "collimationReady": "abort.requested"
+      },
+      "success_events": {
+        "functionReady": "abort.completed",
+        "parameterOk": "abort.completed",
+        "shotReady": "abort.completed",
+        "resetReady": "abort.completed",
+        "collimationReady": "abort.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "shotReady": null,
+        "resetReady": null,
+        "collimationReady": null
+      },
+      "success_key": "异常中止复位完成",
+      "failure_key": "异常中止复位失败",
+      "success_observation": null,
+      "failure_observation": null
+    }
+  },
+  "confirmations": {
+    "fault_confirmed": {
+      "label": "设备故障确认",
+      "source_outer": ["notReady", "ready", "collimated"],
+      "machine_event": "fault.confirmed",
+      "observation": "设备异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": ["notReady", "ready", "collimated"],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "设备异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": ["notReady", "ready", "collimated"],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "设备异常"
+    },
+    "recovery_confirmed": {
+      "label": "恢复后未就绪确认",
+      "source_outer": ["fault"],
+      "machine_event": "recovery.completed",
+      "observation": "未就绪"
+    }
+  }
+}
+    ]]></data>
+  </datamodel>
+</scxml>

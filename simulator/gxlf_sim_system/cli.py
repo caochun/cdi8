@@ -3,7 +3,7 @@ import argparse
 import json
 from pathlib import Path
 
-from . import PREAMP_MODEL, SEED_MODEL, SHG_MODEL
+from . import MULTIPASS_MODEL, PREAMP_MODEL, SEED_MODEL, SHG_MODEL
 from .component_runtime import ComponentRuntime
 from .scxml_machine import TransitionError
 
@@ -25,6 +25,12 @@ def demo(runtime, model):
             ("fine_loop", "success"), ("energy_meter_clear", "success"),
             ("energy_collect", "success"), ("standby", "success"),
         ]
+    elif model is MULTIPASS_MODEL:
+        actions = [
+            ("power_on_self_test", "success"), ("function_check", "success"),
+            ("parameter_dispatch", "success"), ("optical_collimation", "success"),
+            ("enter_shot_state", "success"), ("standby_reset", "success"),
+        ]
     else:
         actions = [
             ("power_on_self_test", "success"), ("function_check", "success"),
@@ -42,7 +48,7 @@ def demo(runtime, model):
 
 def main():
     parser = argparse.ArgumentParser(description="按 SCXML 状态模型运行分系统仿真")
-    parser.add_argument("--component", choices=("seed", "shg", "preamp"), default="seed")
+    parser.add_argument("--component", choices=("seed", "shg", "preamp", "multipass"), default="seed")
     parser.add_argument("--db", type=Path, help="SQLite 文件；demo 默认使用内存数据库")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("snapshot")
@@ -60,13 +66,13 @@ def main():
     event = commands.add_parser("event")
     event.add_argument("event")
     event.add_argument("event_id")
-    event.add_argument("--observed", required=True, choices=("未就绪", "就绪", "出光", "设备异常"))
+    event.add_argument("--observed", required=True, choices=("未就绪", "就绪", "出光", "准直", "设备异常"))
     query = commands.add_parser("result")
     query.add_argument("command_id")
     history = commands.add_parser("history")
     history.add_argument("--limit", type=int, default=100)
     args = parser.parse_args()
-    model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL}[args.component]
+    model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[args.component]
     runtime = None
     try:
         runtime = ComponentRuntime(model, args.db or (":memory:" if args.command == "demo" else f"{args.component}-simulator.sqlite3"))

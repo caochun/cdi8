@@ -1,6 +1,6 @@
 # GXLF 实验流程集中控制系统
 
-> 当前仿真模块已统一为 **SCXML 驱动的分系统仿真**，种子源、二倍频注入组件与再生/双程放大组件共享同一个状态机解释器和持久化运行时。
+> 当前仿真模块已统一为 **SCXML 驱动的分系统仿真**，种子源、二倍频注入组件、再生/双程放大组件与多程放大系统共享同一个状态机解释器和持久化运行时。
 > 运行 `make component-demo` 或 `component-sim --component preamp demo` 可查看演示，详见 [仿真说明](simulator/README.md)。
 > 原生桌面可视化：安装 `./simulator[gui]` 后运行 `component-panel --component seed --demo`，使用 Taurus / Qt WebEngine 直接连接 Tango 仿真设备，并用 SCHVIZ 渲染 SCXML 状态图。
 > Java 双分系统流程仍使用旧契约，尚不能直接连接新仿真完成联合实验；下文的联合接入方式和联调结果属于此前实现。
@@ -130,7 +130,7 @@ python3 -m gxlf_sim_system.tango.gateway --mode tango --tango-devices devices.js
 可直接将 `src/main/resources/processes/laser-joint.bpmn20.xml` 导入 bpmn.io 查看，并进入“完整实验周期”或“联锁与人工补偿”子流程。
 [运行版主图预览](docs/bpmn/laser-joint-runtime-overview.svg)。bpmn.io 用于查看/建模，不执行 Flowable 的 Java 表达式。
 之前版本只包含执行定义，bpmn-js 会报 `no diagram to display`；该报错是缺少布局，不是 Flowable 无法解析流程。
-旧 Python 流程 YAML 已移除；`simulator` 中只保留两份分系统状态模型，与 BPMN 分别承担设备行为和实验编排职责。
+旧 Python 流程 YAML 已移除；`simulator` 中只保留四份分系统状态模型，与 BPMN 分别承担设备行为和实验编排职责。
 
 ## 动作契约与流程绑定
 

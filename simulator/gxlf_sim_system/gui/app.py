@@ -7,7 +7,7 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description="Taurus / Qt SCXML 分系统仿真操作台")
-    parser.add_argument("--component", choices=("seed", "shg", "preamp"), default="seed")
+    parser.add_argument("--component", choices=("seed", "shg", "preamp", "multipass"), default="seed")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--demo", action="store_true", help="启动本地 Tango 仿真实例（默认）")
     mode.add_argument("--device", help="已有 Tango Device 地址")
@@ -18,11 +18,11 @@ def main():
     try:
         from taurus.qt.qtgui.application import TaurusApplication
         from .window import ComponentWindow
-        from .. import PREAMP_MODEL, SEED_MODEL, SHG_MODEL
+        from .. import MULTIPASS_MODEL, PREAMP_MODEL, SEED_MODEL, SHG_MODEL
     except ImportError as ex:
         parser.exit(2, "桌面依赖不可用（Taurus / Qt WebEngine / PyTango），请安装 pip install -e './simulator[gui]'\n" + str(ex) + "\n")
     with ExitStack() as stack:
-        profile = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL}[args.component]
+        profile = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL, "multipass": MULTIPASS_MODEL}[args.component]
         database = args.database or Path(f"{args.component}-panel-data/{args.component}_01.sqlite3")
         address = args.device
         if not address:

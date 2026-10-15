@@ -9,6 +9,7 @@
 | `seed` | [种子源](../docs/seed-source-state-machine.scxml) |
 | `shg` | [二倍频宽带激光注入组件](../docs/shg-injection-state-machine.scxml) |
 | `preamp` | [再生与双程放大组件](../docs/preamp-state-machine.scxml) |
+| `multipass` | [多程放大系统](../docs/multipass-state-machine.scxml) |
 
 任务请求、反馈、超时和故障中断保存在任务记录中，不会添加“执行中”设备状态。设备状态只表示 SCXML 中定义的资格和工作阶段。每个 SQLite 文件只属于一个 SCXML 模型，打开其他模型或旧数据库会明确拒绝。
 

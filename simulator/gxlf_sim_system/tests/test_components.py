@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from gxlf_sim_system import ComponentRuntime, PREAMP_MODEL, SEED_MODEL, SHG_MODEL, TransitionError
+from gxlf_sim_system import ComponentRuntime, MULTIPASS_MODEL, PREAMP_MODEL, SEED_MODEL, SHG_MODEL, TransitionError
 
 
 class ComponentRuntimeTest(unittest.TestCase):
@@ -47,6 +47,35 @@ class ComponentRuntimeTest(unittest.TestCase):
             ("shutdown", "success"),
         ], "shg")
         self.assertEqual(runtime.snapshot()["state_id"], "shutdownNormal")
+
+    def test_multipass_model_covers_collimation_and_shot_readiness(self):
+        runtime = ComponentRuntime(MULTIPASS_MODEL)
+        self.addCleanup(runtime.close)
+        self.drive(runtime, [("power_on_self_test", "success")], "multipass-selftest")
+        self.assertEqual(runtime.snapshot()["state_id"], "selfTestOk")
+        with self.assertRaises(TransitionError):
+            runtime.execute({"command_id": "blocked-parameter", "action": "parameter_dispatch"})
+        self.drive(runtime, [
+            ("function_check", "success"),
+            ("parameter_dispatch", "success"),
+        ], "multipass-ready")
+        reconfigure = runtime.execute({"command_id": "multipass-reconfigure", "action": "parameter_dispatch"})
+        self.assertEqual(reconfigure["snapshot"]["state_id"], "parameterOk")
+        self.assertEqual(runtime.simulate({"command_id": "multipass-reconfigure", "outcome": "failure"})["snapshot"]["state_id"], "functionReady")
+        self.drive(runtime, [("parameter_dispatch", "success")], "multipass-retry")
+        self.drive(runtime, [("optical_collimation", "success")], "multipass-collimation")
+        self.assertEqual(runtime.snapshot()["outer_state_label"], "准直")
+        self.assertEqual(runtime.snapshot()["inner_state_label"], "光路准直达标")
+        self.drive(runtime, [("enter_shot_state", "success"), ("standby_reset", "success")], "multipass-shot")
+        self.assertEqual(runtime.snapshot()["inner_state_label"], "复位/待机完成")
+        self.assertEqual(runtime.snapshot()["outer_state_label"], "就绪")
+        shutdown = runtime.execute({"command_id": "multipass-shutdown", "action": "shutdown"})
+        self.assertEqual(runtime.simulate({"command_id": "multipass-shutdown", "outcome": "success"})["snapshot"]["state_id"], "shutdownNormal")
+        self.assertEqual(shutdown["snapshot"]["inner_state_label"], "复位/待机完成")
+        self.drive(runtime, [("power_on_self_test", "failure")], "multipass-restart-failure")
+        self.assertEqual(runtime.snapshot()["state_id"], "shutdownNormal")
+        self.drive(runtime, [("power_on_self_test", "success")], "multipass-restart")
+        self.assertEqual(runtime.snapshot()["state_id"], "selfTestOk")
 
     def test_task_idempotency_and_persistence(self):
         with tempfile.TemporaryDirectory() as directory:
