@@ -6,7 +6,6 @@
 
 - [控制对象状态定义](component-states/README.md)：按 2026-10-15 Excel 清单拆分的各分系统、组件状态定义，保留原表字段和行号。
 - `process-control/`：当前主线的集中管控发射流程业务说明；运行流程图以 `src/main/resources/processes/` 下的 BPMN 为准。
-- [资格汇合网关](process-control/qualification-gateway.md)：初始化流程中的自定义菱形业务节点，封装全体等待、当前资格核验和期间失效监控。
 - [种子源至多程放大前期准备流程](process-control/种子源至多程放大前期准备流程.md)：四类组件前期准备的顺序、并行、状态契约及外部守卫；对应[运行 BPMN](../src/main/resources/processes/optical_frontend_preparation.bpmn20.xml)，流程图通过总控页面查看。
 - [种子源 SCXML](../simulator/gxlf_component_simulator/models/seed-source-state-machine.scxml)：种子源单一层级可执行模型的权威描述，按复合状态和内部状态表达最新清单。
 - `reference` 入口仍作为上述种子源单一层级模型的兼容别名；异常作为主状态，当前故障类别由异常下的叶子状态表示，完整故障集合、故障前状态和下电结果保存在上下文。

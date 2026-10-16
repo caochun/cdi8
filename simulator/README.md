@@ -43,20 +43,22 @@ PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.gateway \
 
 可选 GUI 使用同一个 Tango `ComponentDevice` 和同一份 SCXML 模型。状态图由
 SCHVIZ（SCION 的 SCXML 可视化组件）在 Qt WebEngine 中渲染，布局、缩放和层级
-展开由 SCXML 图本身驱动，不再由 GUI 手工布置连线：
+展开由 SCXML 图本身驱动，不再由 GUI 手工布置连线。安装 GUI 依赖后，用演示模式启动：
 
 ```bash
 python3 -m pip install -e './simulator[gui]'
-component-panel --component preamp --demo
-
-# 用自定义 SCXML 启动种子源模型（可执行仿真）
-PYTHONPATH=simulator python3 -m gxlf_component_simulator.gui \
-  --model simulator/gxlf_component_simulator/models/seed-source-state-machine.scxml --demo
+component-panel --demo
 ```
 
 GUI 将 SCHVIZ 和 SCION 的浏览器资源随 Python 包一起安装，因此运行时不需要网络。
 界面状态图、按钮准入和设备快照都由所选 SCXML 派生，不再单独维护组件状态机代码。
-使用 `--demo` 启动时，顶部“组件”下拉框会同时列出种子源、二倍频注入、再生与双程放大和多程放大四个已建模组件；切换组件会切换到对应的 Tango 仿真实例、SCXML 状态图、动作集合和事件历史。外部 `--device` 模式只显示当前连接设备对应的模型。
+使用 `--demo` 启动时，顶部“组件”下拉框会列出种子源、二倍频注入、再生与双程放大和多程放大四个已建模组件。选择组件后，GUI 会切换到对应的 Tango 仿真实例、SCXML 状态图、动作集合和事件历史。
+
+在项目源码目录中也可以直接启动：
+
+```bash
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.gui --demo
+```
 
 ## 验证
 
@@ -73,9 +75,9 @@ PYTHONPATH=simulator python3 -m unittest discover -s simulator/tests -v
 PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo
 ```
 
-默认启动四类真实 Tango 组件各一个，以及显式的演示同步/环境条件设备。启动输出包含各设备 Tango 地址，可让组件 GUI 通过 `component-panel --component preamp --device <Tango地址> --allow-simulation` 连接同一实例。服务通过 `DeviceProxy.subscribe_event` 订阅 `Snapshot CHANGE_EVENT`，将事件以 NDJSON 长连接转发给 Java，不执行 BPMN，也不自动生成完成反馈。
+默认启动四类真实 Tango 组件各一个，以及显式的演示同步/环境条件设备。服务通过 `DeviceProxy.subscribe_event` 订阅 `Snapshot CHANGE_EVENT`，将事件以 NDJSON 长连接转发给 Java，不执行 BPMN，也不自动生成完成反馈。
 
-组件 `Snapshot.state_revision` 为持久化事件序号，重复反馈不增加版本，重启后继续保留。初始化资格网关使用这个字段区分旧事件与资格建立后的失效事件。
+组件 `Snapshot.state_revision` 为持久化事件序号，重复反馈不增加版本，重启后继续保留。总控使用组件快照和命令 ID 核验初始化分支的当前状态；该字段用于事件去重和重启后的状态补读。
 
 组件自身继续使用 SCXML 与 SQLite；演示条件设备独立于 SCXML，初始条件均为 false。更多接口、反馈操作和业务范围见[总控说明](../README.md)。
 

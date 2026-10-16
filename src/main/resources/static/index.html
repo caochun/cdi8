@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>集中管控 · 流程运行</title>
 <link rel="stylesheet" href="vendor/assets/diagram-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-font/css/bpmn.css"><link rel="stylesheet" href="style.css">
-<script defer src="vendor/bpmn-viewer.js"></script><script defer src="qualification-gateway.js"></script><script defer src="app.js"></script></head>
+<script defer src="vendor/bpmn-viewer.js"></script><script defer src="app.js"></script></head>
 <body><header><div><span class="eyebrow">CDI8 / WORKFLOW CONTROL</span><h1>集中管控 · 流程运行</h1></div><span id="connection" class="badge">正在连接</span></header>
 <main><section class="toolbar"><label>流程定义<select id="process"></select></label><fieldset><legend>出光组件</legend><label><input id="seed" type="checkbox" checked> 种子源</label><label><input id="shg" type="checkbox"> 二倍频</label></fieldset><button id="start" class="primary">启动流程</button><button id="stop" disabled>停止流程</button><label class="history">运行记录<select id="runs"><option value="">查看流程定义</option></select></label></section>
 <div id="error" role="alert" hidden></div>

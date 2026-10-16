@@ -84,6 +84,34 @@ public class TangoTasks {
         }
     }
 
+    public void initializationFinish(DelegateExecution e) {
+        try {
+            @SuppressWarnings("unchecked") var seeds = (List<Map<String,String>>)e.getVariable("seedTargets");
+            @SuppressWarnings("unchecked") var shgs = (List<Map<String,String>>)e.getVariable("shgTargets");
+            @SuppressWarnings("unchecked") var preamps = (List<Map<String,String>>)e.getVariable("preampTargets");
+            @SuppressWarnings("unchecked") var multipasses = (List<Map<String,String>>)e.getVariable("multipassTargets");
+            requireInitializationState(seeds, "qualified");
+            requireInitializationState(shgs, "functionReady");
+            requireInitializationState(preamps, "functionReady");
+            requireInitializationState(multipasses, "functionReady");
+            e.setVariable("outcome", "SUCCEEDED");
+        } catch (Exception ex) {
+            e.setVariable("failureReason", ex.getMessage());
+            throw new BpmnError("DEVICE_ERROR", ex.getMessage());
+        }
+    }
+
+    private void requireInitializationState(List<Map<String,String>> targets, String expected) {
+        if (targets == null || targets.isEmpty()) throw new IllegalStateException("初始化目标集合为空");
+        for (var target : targets) {
+            JsonNode snapshot = gateway.snapshot(target.get("id"));
+            if (!"ready".equals(snapshot.path("outer_state").asText())
+                    || !expected.equals(snapshot.path("state_id").asText())
+                    || snapshot.hasNonNull("active_command_id"))
+                throw new IllegalStateException(target.get("id") + " 未达到初始化目标状态：ready/" + expected);
+        }
+    }
+
     private void requireState(JsonNode snapshot, String key, String expected) {
         if (!expected.equals(snapshot.path(key).asText()) || snapshot.hasNonNull("active_command_id"))
             throw new IllegalStateException("当前组件资格已失效：要求 " + key + "=" + expected);

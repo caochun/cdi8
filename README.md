@@ -19,7 +19,7 @@ ComponentDevice：SCXML 组件状态机 + SQLite 命令记录
 - `src/`：Java Spring Boot / Flowable 总控、运行时 BPMN 和浏览器页面。
 - `simulator/`：Python SCXML 组件运行时、四类组件模型、Tango 适配、GUI 和测试。
 - `docs/component-states/`：从状态清单拆分出的各控制对象状态定义。
-- `docs/process-control/`：当前集中管控流程的业务说明和资格网关说明；运行 BPMN 位于 `src/main/resources/processes/`。
+- `docs/process-control/`：当前集中管控流程的业务说明；运行 BPMN 位于 `src/main/resources/processes/`。
 - `scripts/`：联调和端到端验证脚本。
 - `archive/` 与 `docs/archive/`：不参与构建和运行的历史原型、旧需求和旧图稿。
 
@@ -40,7 +40,7 @@ mvn clean test package
 java -jar target/control-server-0.1.0.jar
 ```
 
-访问 **http://127.0.0.1:8080**。先选择“组件初始化”，完成各组件上电检查、功能检查；再选择“种子源至多程放大前期准备”。出光组件可选择种子源、二倍频或两者。双击流程图中的子流程，或使用层级下拉框查看命令等待节点。
+访问 **http://127.0.0.1:8080**。先选择“四类组件初始化”，完成种子源、二倍频、再生与双程放大、多程放大四类组件的上电检查和功能检查；再选择“种子源至多程放大前期准备”。出光组件可选择种子源、二倍频或两者。双击流程图中的子流程，或使用层级下拉框查看命令等待节点。
 
 默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，所有外部条件初始为 false，不会自动通过。`--preamp-count 10 --multipass-count 60` 可扩大实例数量。
 
@@ -63,8 +63,7 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 
 | 文件 | 职责 |
 |---|---|
-| [初始化 BPMN](src/main/resources/processes/component_initialization.bpmn20.xml) | 两个独立的资格汇合网关：等待全体成功、核验当前资格、监控期间失效 |
-| [QualificationGateway.java](src/main/java/cn/cdi8/control/QualificationGateway.java) | 自定义资格网关的命令聚合、持久化、资格核验和失效锁存 |
+| [四类组件初始化 BPMN](src/main/resources/processes/component_initialization.bpmn20.xml) | 只覆盖种子源、二倍频、再生与双程放大、多程放大；标准并行网关协调四类组件分支，每类组件内部按实例并行执行上电检查和功能检查 |
 | [前期准备 BPMN](src/main/resources/processes/optical_frontend_preparation.bpmn20.xml) | 参数 → 安全许可 → 出光与同步/唤醒并行 → 闭环与准直并行 → 最终复核 |
 | [TangoTasks.java](src/main/java/cn/cdi8/control/TangoTasks.java) | 登记命令、核验任务结果及当前组件状态 |
 | [WorkflowService.java](src/main/java/cn/cdi8/control/WorkflowService.java) | 事件关联、等待唤醒、资格监测、恢复查询、运行历史 |
@@ -73,7 +72,7 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 | [preparation_context.py](simulator/gxlf_component_simulator/tango/preparation_context.py) | 显式可控的演示同步/环境条件设备 |
 | [组件模型](simulator/gxlf_component_simulator/component_model.py) | 直接从 SCXML 读取动作及状态定义 |
 
-准备流程的子流程 `documentation` 声明动作、目标状态，`multiInstance` 声明设备集合。初始化流程通过 `gxlf:qualificationGateway` 配置独立的菱形资格汇合节点，见[节点语义与配置](docs/process-control/qualification-gateway.md)。浏览器使用仓库内置的 bpmn-js 18.6.3 及资格网关渲染扩展，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
+所有动作子流程的 `documentation` 声明动作和目标状态，`multiInstance` 声明设备实例集合。初始化流程使用标准 BPMN 并行网关和四类组件多实例子流程，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
 
 完整业务设计见 [前期准备流程说明](docs/process-control/种子源至多程放大前期准备流程.md)。BPMN 统一维护在 `src/main/resources/processes`，流程图通过总控页面查看。
 

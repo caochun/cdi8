@@ -19,25 +19,23 @@ public class WorkflowService {
     private final HistoryService history;
     private final TangoGateway gateway;
     private final ObjectMapper json;
-    private final QualificationGateway qualification;
     private final String commandTimeout;
     private final String workflowTimeout;
     private final Set<String> changed = ConcurrentHashMap.newKeySet();
     private final Map<String,Long> lastQuery = new HashMap<>();
 
     public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history,
-                           TangoGateway gateway, ObjectMapper json, QualificationGateway qualification,
+                           TangoGateway gateway, ObjectMapper json,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
         this.runtime = runtime; this.repository = repository; this.history = history;
-        this.gateway = gateway; this.json = json; this.qualification = qualification;
+        this.gateway = gateway; this.json = json;
         this.commandTimeout = commandTimeout; this.workflowTimeout = workflowTimeout;
     }
 
     @EventListener
     public void event(TangoGateway.Notice event) {
         changed.add(event.payload().path("device_id").asText());
-        qualification.event(event);
     }
 
     public List<Map<String,Object>> definitions() {
@@ -58,9 +56,11 @@ public class WorkflowService {
             throw new IllegalArgumentException("未知流程");
         if (!gateway.connected()) throw new IllegalStateException("请先连接 Tango 事件适配服务");
         if (runtime.createProcessInstanceQuery().count() > 0) throw new IllegalStateException("已有流程正在运行");
-        if (sources == null || sources.isEmpty() || !Set.of("seed", "shg").containsAll(sources))
+        List<String> selectedSources = sources == null ? List.of() : sources;
+        if (!Set.of("seed", "shg").containsAll(selectedSources)
+                || (key.equals("optical_frontend_preparation") && selectedSources.isEmpty()))
             throw new IllegalArgumentException("请选择至少一类光源");
-        List<Map<String,String>> all = new ArrayList<>(), light = new ArrayList<>(), preamp = new ArrayList<>(), multipass = new ArrayList<>(), context = new ArrayList<>();
+        List<Map<String,String>> all = new ArrayList<>(), light = new ArrayList<>(), seed = new ArrayList<>(), shg = new ArrayList<>(), preamp = new ArrayList<>(), multipass = new ArrayList<>(), context = new ArrayList<>();
         for (var device : gateway.catalog()) {
             String component = device.path("component").asText();
             String id = device.path("id").asText();
@@ -73,9 +73,11 @@ public class WorkflowService {
             if (component.equals("context")) context.add(target);
             else {
                 all.add(target);
+                if (component.equals("seed")) seed.add(target);
+                if (component.equals("shg")) shg.add(target);
                 if (component.equals("preamp")) preamp.add(target);
                 if (component.equals("multipass")) multipass.add(target);
-                if (sources.contains(component)) light.add(target);
+                if (selectedSources.contains(component)) light.add(target);
                 String model = state.path("model").asText();
                 String expectedModel = Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
                     "preamp","preamp-hierarchical-v2","multipass","multipass-hierarchical-v2").get(component);
@@ -92,12 +94,19 @@ public class WorkflowService {
             }
         }
         if (all.isEmpty()) throw new IllegalStateException("没有可控组件");
+        if (key.equals("component_initialization") && (seed.isEmpty() || shg.isEmpty() || preamp.isEmpty() || multipass.isEmpty()))
+            throw new IllegalStateException("初始化需要种子源、二倍频、再生与双程放大、多程放大四类组件");
         if (key.equals("optical_frontend_preparation") && (preamp.isEmpty() || multipass.isEmpty() || light.isEmpty() || context.size()!=1))
             throw new IllegalStateException("准备流程需要所选光源、预放、多程及一个同步/环境条件设备");
-        for (String source : sources) if (light.stream().noneMatch(d -> d.get("component").equals(source)))
+        for (String source : selectedSources) if (light.stream().noneMatch(d -> d.get("component").equals(source)))
             throw new IllegalStateException("所选光源不存在：" + source);
         Map<String,Object> variables = new HashMap<>();
-        variables.put("allComponents", all); variables.put("sourceTargets", light);
+        // Initialization deliberately uses a dedicated target collection. It currently
+        // contains exactly the four modeled component types; context devices are kept
+        // separate for the preparation workflow and never enter initialization gates.
+        variables.put("allComponents", all);
+        variables.put("seedTargets", seed); variables.put("shgTargets", shg);
+        variables.put("sourceTargets", light);
         variables.put("preampTargets", preamp); variables.put("multipassTargets", multipass); variables.put("contextTargets", context);
         variables.put("commandTimeout", commandTimeout); variables.put("workflowTimeout", workflowTimeout);
         variables.put("outcome", "RUNNING");
@@ -112,14 +121,12 @@ public class WorkflowService {
         for (var process : runtime.createProcessInstanceQuery().list()) {
             String pid = process.getId();
             try {
-                String lost = qualificationLost(pid);
+                String lost = processIssue(pid);
                 if (lost != null) { stop(pid, lost); continue; }
                 for (var execution : runtime.createExecutionQuery().processInstanceId(pid).list()) {
                     String activity = execution.getActivityId();
                     if (activity == null) continue;
-                    if (qualification.handles(execution)) {
-                        qualification.advance(execution, dirty);
-                    } else if (activity.equals("wait_safety") || activity.equals("wait_environment")) {
+                    if (activity.equals("wait_safety") || activity.equals("wait_environment")) {
                         String condition = activity.equals("wait_safety") ? "safety_permit" : "collimation_environment_ready";
                         if (condition(pid, condition)) {
                             runtime.setVariable(pid, activity.equals("wait_safety") ? "safetyRequired" : "environmentRequired", true);
@@ -153,7 +160,7 @@ public class WorkflowService {
         try {
             // Before sending recheck source, preamp and external guards. A
             // command ID is stable across a lost response or controller restart.
-            String lost = qualificationLost(execution.getProcessInstanceId());
+            String lost = processIssue(execution.getProcessInstanceId());
             if (lost != null) { stop(execution.getProcessInstanceId(), lost); return; }
             result = sent ? gateway.result(device, id) : gateway.execute(device, id, action, Map.of());
             if (!sent) runtime.setVariableLocal(eid, "sent", true);
@@ -180,9 +187,7 @@ public class WorkflowService {
         JsonNode snapshot = gateway.cached(devices.get(0).get("id"));
         return snapshot != null && snapshot.path("conditions").path(name).asBoolean();
     }
-    private String qualificationLost(String pid) {
-        String initializationLoss = qualification.loss(pid);
-        if (initializationLoss != null) return initializationLoss;
+    private String processIssue(String pid) {
         for (var device : targets(pid, "allComponents")) {
             JsonNode snapshot = gateway.cached(device.get("id"));
             if (snapshot == null) return device.get("id") + " 设备连接中断";
@@ -209,11 +214,10 @@ public class WorkflowService {
     }
 
     public synchronized void stop(String pid, String reason) {
-        String message = runtime.getVariable(pid, "qualificationLossReason") == null ? "StopWorkflow" : QualificationGateway.LOST_MESSAGE;
+        String message = "StopWorkflow";
         var subscriptions = runtime.createEventSubscriptionQuery().processInstanceId(pid).eventName(message).list();
         if (subscriptions.isEmpty()) throw new IllegalStateException("流程已结束");
         runtime.setVariable(pid, "failureReason", reason);
-        qualification.close(pid);
         runtime.messageEventReceived(message, subscriptions.get(0).getExecutionId());
     }
 
@@ -238,11 +242,6 @@ public class WorkflowService {
             if (variable.getExecutionId().equals(pid)) vars.put(variable.getVariableName(), variable.getValue());
         value.put("outcome", vars.getOrDefault("outcome", "RUNNING"));
         value.put("failureReason", vars.get("failureReason")); value.put("communicationError", vars.get("communicationError"));
-        value.put("qualificationStage", vars.get("qualificationStage"));
-        JsonNode qualificationGates;
-        try { qualificationGates = json.readTree(Objects.toString(vars.get("qualificationGates"), "{}")); }
-        catch (java.io.IOException ex) { throw new IllegalStateException("资格记录解析失败", ex); }
-        value.put("qualificationGates", qualificationGates);
         var active = runtime.createExecutionQuery().processInstanceId(pid).list();
         value.put("activeActivities", active.stream().map(Execution::getActivityId).filter(Objects::nonNull).distinct().toList());
         List<Map<String,Object>> activities = new ArrayList<>();
@@ -258,9 +257,7 @@ public class WorkflowService {
             if (Set.of("commandId","commandDevice","commandAction","commandNode","sent","commandResult","expectedState").contains(variable.getVariableName()))
                 byExecution.computeIfAbsent(variable.getExecutionId(), ignored -> new LinkedHashMap<>()).put(variable.getVariableName(), variable.getValue());
         }
-        List<Object> commands = new ArrayList<>(byExecution.values().stream().filter(row -> row.containsKey("commandId")).toList());
-        for (JsonNode gate : qualificationGates) for (JsonNode command : gate.path("commands")) commands.add(command);
-        value.put("commands", commands);
+        value.put("commands", new ArrayList<>(byExecution.values().stream().filter(row -> row.containsKey("commandId")).toList()));
         return value;
     }
 }
