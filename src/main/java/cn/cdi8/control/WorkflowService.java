@@ -77,11 +77,13 @@ public class WorkflowService {
                 if (component.equals("multipass")) multipass.add(target);
                 if (sources.contains(component)) light.add(target);
                 String model = state.path("model").asText();
-                String expectedModel = Map.of("seed","seed-source-hierarchical-v3","shg","shg-injection-hierarchical-v2",
+                String expectedModel = Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
                     "preamp","preamp-hierarchical-v2","multipass","multipass-hierarchical-v2").get(component);
                 if (!model.equals(expectedModel)) throw new IllegalStateException("组件模型不匹配：" + id);
                 if (key.equals("optical_frontend_preparation")) {
-                    Set<String> ready = Set.of("functionReady","parameterOk");
+                    Set<String> ready = component.equals("seed")
+                        ? Set.of("qualified","configured","standbyReady")
+                        : Set.of("functionReady","parameterOk");
                     if (!state.path("outer_state").asText().equals("ready") || !ready.contains(state.path("state_id").asText()))
                         throw new IllegalStateException(id + " 尚未具备参数下发资格，请先完成组件初始化");
                 } else if (!state.path("outer_state").asText().equals("notReady")) {

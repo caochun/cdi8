@@ -10,13 +10,13 @@ java-test:
 	mvn test
 
 simulator-test:
-	$(SIM_PYTHON) -m unittest discover -s simulator/gxlf_sim_system/tests -t simulator -v
+	$(SIM_PYTHON) -m unittest discover -s simulator/tests -t simulator -v
 
 component-demo:
-	$(SIM_PYTHON) -m gxlf_sim_system --component seed demo
+	$(SIM_PYTHON) -m gxlf_component_simulator --component seed demo
 
 component-panel:
-	$(SIM_PYTHON) -m gxlf_sim_system.gui --component seed --demo
+	$(SIM_PYTHON) -m gxlf_component_simulator.gui --component seed --demo
 
 control-test: java-test
 
@@ -27,11 +27,11 @@ operator:
 	mvn spring-boot:run
 
 device-gateway:
-	$(SIM_PYTHON) -m gxlf_sim_system.tango.gateway --mode tango
+	$(SIM_PYTHON) -m gxlf_component_simulator.tango.gateway --mode tango
 
 device-gateway-local:
-	$(SIM_PYTHON) -m gxlf_sim_system.tango.gateway --mode local
+	$(SIM_PYTHON) -m gxlf_component_simulator.tango.gateway --mode local
 
 # Four SCXML component types plus explicit demo synchronization/environment device.
 tango-bridge:
-	$(SIM_PYTHON) -m gxlf_sim_system.tango.control_bridge --demo
+	$(SIM_PYTHON) -m gxlf_component_simulator.tango.control_bridge --demo

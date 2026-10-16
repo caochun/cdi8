@@ -14,13 +14,22 @@ ComponentDevice：SCXML 组件状态机 + SQLite 命令记录
 
 `src` 已替换为这套实现。旧控制器、YAML 契约解释层、自定义 outbox/inbox 和旧流程不再参与运行；历史实现可从 Git 查看。四类组件状态机及其 GUI 保留。
 
+## 目录职责
+
+- `src/`：Java Spring Boot / Flowable 总控、运行时 BPMN 和浏览器页面。
+- `simulator/`：Python SCXML 组件运行时、四类组件模型、Tango 适配、GUI 和测试。
+- `docs/component-states/`：从状态清单拆分出的各控制对象状态定义。
+- `docs/process-control/`：当前集中管控流程的业务说明和资格网关说明；运行 BPMN 位于 `src/main/resources/processes/`。
+- `scripts/`：联调和端到端验证脚本。
+- `archive/` 与 `docs/archive/`：不参与构建和运行的历史原型、旧需求和旧图稿。
+
 ## 启动
 
 终端一，在项目根目录启动真实 Tango 演示设备及适配服务：
 
 ```bash
 python3 -m pip install -e './simulator[tango]'
-PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --demo
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo
 # 已有 .venv 时也可：make tango-bridge PYTHON=.venv/bin/python
 ```
 
@@ -60,13 +69,13 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 | [TangoTasks.java](src/main/java/cn/cdi8/control/TangoTasks.java) | 登记命令、核验任务结果及当前组件状态 |
 | [WorkflowService.java](src/main/java/cn/cdi8/control/WorkflowService.java) | 事件关联、等待唤醒、资格监测、恢复查询、运行历史 |
 | [TangoGateway.java](src/main/java/cn/cdi8/control/TangoGateway.java) | 适配服务客户端及事件长连接 |
-| [control_bridge.py](simulator/gxlf_sim_system/tango/control_bridge.py) | PyTango 命令调用、属性事件订阅、快照重放 |
-| [preparation_context.py](simulator/gxlf_sim_system/tango/preparation_context.py) | 显式可控的演示同步/环境条件设备 |
-| [组件模型](simulator/gxlf_sim_system/component_model.py) | 直接从 SCXML 读取动作及状态定义 |
+| [control_bridge.py](simulator/gxlf_component_simulator/tango/control_bridge.py) | PyTango 命令调用、属性事件订阅、快照重放 |
+| [preparation_context.py](simulator/gxlf_component_simulator/tango/preparation_context.py) | 显式可控的演示同步/环境条件设备 |
+| [组件模型](simulator/gxlf_component_simulator/component_model.py) | 直接从 SCXML 读取动作及状态定义 |
 
-准备流程的子流程 `documentation` 声明动作、目标状态，`multiInstance` 声明设备集合。初始化流程通过 `gxlf:qualificationGateway` 配置独立的菱形资格汇合节点，见[节点语义与配置](docs/bpmn/qualification-gateway.md)。浏览器使用仓库内置的 bpmn-js 18.6.3 及资格网关渲染扩展，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
+准备流程的子流程 `documentation` 声明动作、目标状态，`multiInstance` 声明设备集合。初始化流程通过 `gxlf:qualificationGateway` 配置独立的菱形资格汇合节点，见[节点语义与配置](docs/process-control/qualification-gateway.md)。浏览器使用仓库内置的 bpmn-js 18.6.3 及资格网关渲染扩展，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
 
-完整业务设计见 [前期准备流程说明](docs/process-control/种子源至多程放大前期准备流程.md)。`docs/bpmn` 是业务设计稿；运行定义以 `src/main/resources/processes` 为准。
+完整业务设计见 [前期准备流程说明](docs/process-control/种子源至多程放大前期准备流程.md)。BPMN 统一维护在 `src/main/resources/processes`，流程图通过总控页面查看。
 
 ## 命令与事件语义
 
@@ -95,7 +104,7 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 ```
 
 ```bash
-PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --devices devices.json
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --devices devices.json
 ```
 
 设备需实现与当前组件运行时兼容的 `Execute`、`GetResult`、`Snapshot` JSON 及 CHANGE_EVENT；`context` 还需提供 `preamp_repeat` 动作和 `conditions` 三个条件。真实同步/环境系统需由适配层转换成此接口。`Simulate/Complete/SetConditions` 是演示反馈入口，接入现场时应按实际接口替换。
@@ -107,7 +116,7 @@ PYTHONPATH=simulator python3 -m gxlf_sim_system.tango.control_bridge --devices d
 | `CONTROL_DB_PASSWORD` | 空 |
 | `COMMAND_TIMEOUT` / `WORKFLOW_TIMEOUT` | `PT15M` / `PT45M` |
 
-演示组件 SQLite 在 `data/tango-demo/`，文件名包含模型版本；演示条件设备不持久化，重启后条件重新确认。总控数据库使用新路径，与旧控制器数据隔离。部署为单个总控实例，一次只运行一个流程。
+演示组件 SQLite 在 `simulator/gxlf_component_simulator/data/`，文件名包含组件、实例和模型版本；演示条件设备不持久化，重启后条件重新确认。总控数据库使用新路径，与旧控制器数据隔离。部署为单个总控实例，一次只运行一个流程。
 
 主要接口：`GET /api/processes`、`GET /api/processes/{key}/xml`、`GET /api/devices`、`GET /api/connection`、`GET /api/runs`、`GET /api/runs/{id}`、`POST /api/runs/{id}/stop`。
 
@@ -129,4 +138,4 @@ python3 scripts/flowable_smoke.py
 
 Java 测试使用真实 Flowable 引擎与测试设备客户端，覆盖并行、失败、命令关联、丢事件恢复、外部资格失效、停止和定时器。Python 测试覆盖 SCXML 运行时及真实 Tango 命令、CHANGE_EVENT 和订阅重放。联调脚本通过真实 Tango 注入成功反馈并核对最终状态。
 
-本版实现前期准备流程骨架，按设备集合执行，动作参数暂为空对象；完整配方参数、束线/能量拓扑、发次证据和细分环境条件尚未接入。初始化要求全部组件处于未就绪；上电检查仅确认设备均已上电，通过后仍须完成功能检查。种子源 v3、其他三类 v2 使用新的持久化文件，旧模型文件保留并拒绝复用。本段完成表示所选光源保持出光、预放精闭环达标、多程准直达标，不表示全设施准备完成。
+本版实现前期准备流程骨架，按设备集合执行，动作参数暂为空对象；完整配方参数、束线/能量拓扑、发次证据和细分环境条件尚未接入。初始化要求全部组件处于未就绪；上电检查仅确认设备均已上电，通过后仍须完成功能检查。种子源 v4、其他三类 v2 使用带版本的持久化文件，旧模型文件保留并拒绝复用。本段完成表示所选光源保持出光、预放精闭环达标、多程准直达标，不表示全设施准备完成。

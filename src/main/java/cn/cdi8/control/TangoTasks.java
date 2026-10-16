@@ -51,7 +51,8 @@ public class TangoTasks {
             JsonNode current = gateway.snapshot((String)e.getVariableLocal("commandDevice"));
             if (!current.path("active_command_id").isNull() && current.hasNonNull("active_command_id"))
                 throw new IllegalStateException("设备仍有执行中的任务");
-            if (!expected.isEmpty() && !expected.equals(current.path("state_id").asText()))
+            if (!expected.isEmpty() && Arrays.stream(expected.split("\\|"))
+                    .noneMatch(value -> value.equals(current.path("state_id").asText())))
                 throw new IllegalStateException("设备未到达目标状态：" + expected);
             if ("preamp_repeat".equals(e.getVariableLocal("commandAction"))
                     && !current.path("conditions").path("preamp_repeat_ready").asBoolean())

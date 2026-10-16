@@ -13,7 +13,7 @@
       <bpmn:receiveTask id="power_gate" name="全体上电资格汇合">
         <bpmn:documentation>资格汇合网关：等待本轮全部命令成功，核验全体当前资格，并监控已取得资格失效。</bpmn:documentation>
         <bpmn:extensionElements>
-          <gxlf:qualificationGateway targets="allComponents" action="power_on_check" state="powerOnOk" outer="notReady" continuationStates="notReady/powerOnOk notReady/checkFailed ready/functionReady" timeout="${commandTimeout}" />
+          <gxlf:qualificationGateway targets="allComponents" action="power_on_check" state="powerOnOk|powerOnChecked" outer="notReady" continuationStates="notReady/powerOnOk|powerOnChecked notReady/checkFailed|qualificationInvalid ready/functionReady|qualified" timeout="${commandTimeout}" />
         </bpmn:extensionElements>
       </bpmn:receiveTask>
       <bpmn:boundaryEvent id="power_gate_timeout" attachedToRef="power_gate" cancelActivity="true" name="上电资格等待超时">
@@ -35,7 +35,7 @@
       <bpmn:receiveTask id="function_gate" name="全体功能资格汇合">
         <bpmn:documentation>资格汇合网关：等待本轮全部命令成功，核验全体当前资格，并监控已取得资格失效。</bpmn:documentation>
         <bpmn:extensionElements>
-          <gxlf:qualificationGateway targets="allComponents" action="function_check" state="functionReady" outer="ready" continuationStates="ready/functionReady" timeout="${commandTimeout}" />
+          <gxlf:qualificationGateway targets="allComponents" action="function_check" state="functionReady|qualified" outer="ready" continuationStates="ready/functionReady|qualified" timeout="${commandTimeout}" />
         </bpmn:extensionElements>
       </bpmn:receiveTask>
       <bpmn:boundaryEvent id="function_gate_timeout" attachedToRef="function_gate" cancelActivity="true" name="功能资格等待超时">

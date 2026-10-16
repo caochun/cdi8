@@ -34,8 +34,8 @@ class WorkflowIntegrationTest {
         snapshots.clear();results.clear();devices.clear();gateway.freshSnapshots.clear();gateway.online=true;gateway.calls=0;gateway.loseResponse=false;
         for (String kind : List.of("seed","shg","preamp","multipass","context")) {
             devices.put(kind+"_01", kind);
-            ObjectNode s=json.createObjectNode().put("outer_state","ready").put("state_id", "functionReady");
-            s.put("model",Map.of("seed","seed-source-hierarchical-v3","shg","shg-injection-hierarchical-v2",
+            ObjectNode s=json.createObjectNode().put("outer_state","ready").put("state_id", kind.equals("seed") ? "qualified" : "functionReady");
+            s.put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
                 "preamp","preamp-hierarchical-v2","multipass","multipass-hierarchical-v2","context","preparation-context-demo-v1").get(kind));
             s.putNull("active_command_id");s.putObject("conditions").put("safety_permit",false).put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
             s.put("state_revision", 0);
@@ -84,11 +84,12 @@ class WorkflowIntegrationTest {
             ObjectNode state=item.getValue(); if(!state.hasNonNull("active_command_id"))continue;
             String id=state.path("active_command_id").asText();ObjectNode result=results.get(id);String action=result.path("action").asText();
             result.put("status","succeeded");state.putNull("active_command_id");
+            boolean seed=item.getKey().equals("seed_01");
             String next=switch(action) {
-                case "power_on_check" -> "powerOnOk";
-                case "function_check" -> "functionReady";
-                case "parameter_dispatch" -> "parameterOk";
-                case "seed_source_emit" -> "collectIdle";
+                case "power_on_check" -> seed ? "powerOnChecked" : "powerOnOk";
+                case "function_check" -> seed ? "qualified" : "functionReady";
+                case "parameter_dispatch" -> seed ? "configured" : "parameterOk";
+                case "seed_source_emit" -> "stableEmission";
                 case "frequency_doubled_emit" -> "stableEmission";
                 case "preamp_wakeup" -> "wakeupReady";
                 case "coarse_loop" -> "coarseLoopOk";
@@ -98,7 +99,7 @@ class WorkflowIntegrationTest {
                 default -> throw new AssertionError(action);
             };
             if(action.equals("preamp_repeat"))((ObjectNode)state.path("conditions")).put("preamp_repeat_ready",true);
-            else {state.put("state_id",next);state.put("outer_state",Set.of("collectIdle","stableEmission").contains(next)?"emitting":Set.of("wakeupReady","coarseLoopOk","fineLoopOk").contains(next)?"wakeup":action.equals("power_on_check")?"notReady":action.equals("optical_collimation")?"collimated":"ready");}
+            else {state.put("state_id",next);state.put("outer_state",next.equals("stableEmission")?"emitting":Set.of("wakeupReady","coarseLoopOk","fineLoopOk").contains(next)?"wakeup":action.equals("power_on_check")?"notReady":action.equals("optical_collimation")?"collimated":"ready");}
             state.put("state_revision",state.path("state_revision").asLong()+1);
             state.set("last_result",result.deepCopy());
             result.set("snapshot",state.deepCopy());
@@ -121,6 +122,12 @@ class WorkflowIntegrationTest {
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
         assertThat(results).hasSize(10);assertThat(snapshots.get("shg_01").path("state_id").asText()).isEqualTo("parameterOk");
         assertThat(snapshots.get("preamp_01").path("state_id").asText()).isEqualTo("fineLoopOk");
+    }
+    @Test void seedStandbyResetCanStartNewPreparationWithParameterDispatch() {
+        snapshots.get("seed_01").put("state_id","standbyReady");
+        String pid=start();untilActivity(pid,"wait_safety");
+        assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("configured");
+        assertThat(results.values()).allMatch(r->r.path("action").asText().equals("parameter_dispatch"));
     }
     @Test void deviceFailureCancelsAllParallelBranches() {
         String pid=start();untilActivity(pid,"wait_safety");conditions(true,true);workflows.pump();workflows.pump();
@@ -180,7 +187,7 @@ class WorkflowIntegrationTest {
         assertThat(workflows.view(next).get("outcome")).isEqualTo("FAILED");
     }
     @Test void initializationWaitsForEveryPowerCheckAndEveryFunctionCheck() {
-        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id","unchecked"));
+        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
         String pid=(String)workflows.start("component_initialization",List.of("seed")).get("id");
         workflows.pump();
         assertThat(results).hasSize(4);
@@ -196,19 +203,19 @@ class WorkflowIntegrationTest {
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
     }
     @Test void initializationUsesSameRuntimeAndWaitsForAllComponents() {
-        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id","unchecked"));
+        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
         String pid=(String)workflows.start("component_initialization",List.of("seed")).get("id");
         for(int i=0;i<20 && runtime.createProcessInstanceQuery().processInstanceId(pid).count()>0;i++){workflows.pump();completeAll();}
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");assertThat(results).hasSize(8);
     }
 
     String startInitialization() {
-        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id","unchecked"));
+        snapshots.values().forEach(s->s.put("outer_state","notReady").put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
         return (String)workflows.start("component_initialization",List.of("seed")).get("id");
     }
     void loseQualification(String device) {
         ObjectNode state=snapshots.get(device);
-        state.put("outer_state","notReady").put("state_id","unchecked")
+        state.put("outer_state","notReady").put("state_id", device.equals("seed_01") ? "statusUnknown" : "unchecked")
             .put("state_revision",state.path("state_revision").asLong()+1);
         notice(device);
     }
@@ -222,7 +229,7 @@ class WorkflowIntegrationTest {
         completeDevices(Set.of("seed_01","shg_01","preamp_01"));workflows.pump();
         loseQualification("seed_01");
         ObjectNode state=snapshots.get("seed_01");
-        state.put("state_id","powerOnOk").put("state_revision",state.path("state_revision").asLong()+1);notice("seed_01");
+        state.put("state_id","powerOnChecked").put("state_revision",state.path("state_revision").asLong()+1);notice("seed_01");
         workflows.pump();
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
         assertThat(workflows.view(pid).get("failureReason").toString()).contains("seed_01", "资格失效");
@@ -240,7 +247,7 @@ class WorkflowIntegrationTest {
         String pid=startInitialization();enterFunctionGate(pid);
         completeDevices(Set.of("seed_01","shg_01","preamp_01"));workflows.pump();
         // An early completion still looks valid in the subscription cache.
-        gateway.freshSnapshots.put("seed_01",snapshots.get("seed_01").deepCopy().put("outer_state","notReady").put("state_id","unchecked"));
+        gateway.freshSnapshots.put("seed_01",snapshots.get("seed_01").deepCopy().put("outer_state","notReady").put("state_id","statusUnknown"));
         completeDevices(Set.of("multipass_01"));workflows.pump();
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
         assertThat(workflows.view(pid).get("failureReason").toString()).contains("seed_01");

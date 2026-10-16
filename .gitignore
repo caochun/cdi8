@@ -17,10 +17,11 @@ env/
 # 数据库
 *.db
 *.sqlite3
+*-panel-data/
 
 # 日志
 *.log
-simulator/gxlf_sim_system/output/
+simulator/gxlf_component_simulator/output/
 
 # 本地归档（docs 为版本化项目文档）
 archive/

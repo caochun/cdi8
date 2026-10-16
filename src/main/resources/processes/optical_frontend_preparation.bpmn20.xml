@@ -11,7 +11,7 @@
         <bpmn:errorEventDefinition errorRef="device_error" />
       </bpmn:endEvent>
       <bpmn:subProcess id="configure" name="各组件参数下发">
-        <bpmn:documentation>{"actions": {"seed": "parameter_dispatch", "shg": "parameter_dispatch", "preamp": "parameter_dispatch", "multipass": "parameter_dispatch"}, "states": {"seed": "parameterOk", "shg": "parameterOk", "preamp": "parameterOk", "multipass": "parameterOk"}}</bpmn:documentation>
+        <bpmn:documentation>{"actions": {"seed": "parameter_dispatch", "shg": "parameter_dispatch", "preamp": "parameter_dispatch", "multipass": "parameter_dispatch"}, "states": {"seed": "parameterOk|configured", "shg": "parameterOk", "preamp": "parameterOk", "multipass": "parameterOk"}}</bpmn:documentation>
         <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${allComponents}" flowable:elementVariable="target" />
         <bpmn:startEvent id="configure_start" />
         <bpmn:serviceTask id="configure_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />
@@ -35,7 +35,7 @@
       <bpmn:parallelGateway id="split_loop" name="并行闭环与准直" />
       <bpmn:parallelGateway id="join_loop" name="闭环与准直均完成" />
       <bpmn:subProcess id="emit" name="所选光源出光">
-        <bpmn:documentation>{"actions": {"seed": "seed_source_emit", "shg": "frequency_doubled_emit"}, "states": {"seed": "collectIdle", "shg": "stableEmission"}}</bpmn:documentation>
+        <bpmn:documentation>{"actions": {"seed": "seed_source_emit", "shg": "frequency_doubled_emit"}, "states": {"seed": "stableEmission", "shg": "stableEmission"}}</bpmn:documentation>
         <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${sourceTargets}" flowable:elementVariable="target" />
         <bpmn:startEvent id="emit_start" />
         <bpmn:serviceTask id="emit_send" flowable:expression="${tango.enqueue(execution)}" name="登记命令" />

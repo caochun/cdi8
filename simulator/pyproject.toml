@@ -15,12 +15,12 @@ tango = ["PyTango>=10,<11"]
 gui = ["PyTango>=10,<11", "taurus>=5.4.1,<6", "PyQt6>=6.7,<7", "PyQt6-WebEngine>=6.7,<7"]
 
 [project.scripts]
-component-sim = "gxlf_sim_system.cli:main"
-component-panel = "gxlf_sim_system.gui.app:main"
-control-tango-bridge = "gxlf_sim_system.tango.control_bridge:main"
+component-sim = "gxlf_component_simulator.cli:main"
+component-panel = "gxlf_component_simulator.gui.app:main"
+control-tango-bridge = "gxlf_component_simulator.tango.control_bridge:main"
 
 [tool.setuptools.packages.find]
-include = ["gxlf_sim_system*"]
+include = ["gxlf_component_simulator*"]
 
 [tool.setuptools.package-data]
-gxlf_sim_system = ["gui/assets/schviz/*.js", "gui/assets/schviz/*.md", "gui/assets/schviz/LICENSE.*"]
+gxlf_component_simulator = ["models/*.scxml", "gui/assets/schviz/*.js", "gui/assets/schviz/*.md", "gui/assets/schviz/LICENSE.*"]

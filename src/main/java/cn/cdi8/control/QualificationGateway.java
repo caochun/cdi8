@@ -172,11 +172,10 @@ public class QualificationGateway {
         long revision = snapshot == null ? -1 : snapshot.path("state_revision").asLong(-1);
         if (event && revision >= 0 && revision <= receipt.path("revision").asLong(-1)) return null;
         boolean ownStage = acquiredGate.path("id").asText().equals(active);
-        String required = acquiredGate.path("outer").asText() + "/" + acquiredGate.path("state").asText();
-        Set<String> allowed = ownStage ? Set.of(required)
-            : Set.of(acquiredGate.path("continuationStates").asText().split("\\s+"));
         String current = snapshot == null ? "unknown" : snapshot.path("outer_state").asText() + "/" + snapshot.path("state_id").asText();
-        if (!allowed.contains(current)) return device + " 已取得的检查资格失效：" + current;
+            boolean matches = ownStage ? matchesState(current, acquiredGate.path("outer").asText(), acquiredGate.path("state").asText())
+                : matchesContinuation(current, acquiredGate.path("continuationStates").asText());
+            if (!matches) return device + " 已取得的检查资格失效：" + current;
         if (snapshot.hasNonNull("active_command_id")) {
             boolean ownNextCommand = false;
             if (!ownStage) for (JsonNode command : records.path(active).path("commands"))
@@ -222,8 +221,20 @@ public class QualificationGateway {
         return reason;
     }
     private boolean matches(JsonNode snapshot, JsonNode state) {
-        return snapshot != null && state.path("outer").asText().equals(snapshot.path("outer_state").asText())
-            && state.path("state").asText().equals(snapshot.path("state_id").asText());
+        return snapshot != null && matchesState(snapshot.path("outer_state").asText() + "/" + snapshot.path("state_id").asText(),
+            state.path("outer").asText(), state.path("state").asText());
+    }
+    private boolean matchesState(String current, String outer, String states) {
+        for (String state : states.split("\\|"))
+            if (current.equals(outer + "/" + state)) return true;
+        return false;
+    }
+    private boolean matchesContinuation(String current, String continuation) {
+        for (String item : continuation.trim().split("\\s+")) {
+            String[] parts = item.split("/", 2);
+            if (parts.length == 2 && matchesState(current, parts[0], parts[1])) return true;
+        }
+        return false;
     }
     private boolean sameResult(JsonNode snapshot, String command) {
         return !snapshot.hasNonNull("last_result") || command.equals(snapshot.path("last_result").path("command_id").asText());
