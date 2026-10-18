@@ -16,17 +16,18 @@ class ComponentWindow(Qt.QMainWindow):
     refresh_requested = Qt.pyqtSignal()
 
     def __init__(self, profile: ComponentModel, address="", simulation_controls=False,
-                 profiles=None, addresses=None, component_key=None):
+                 profiles=None, profile_labels=None, addresses=None, component_key=None):
         super().__init__()
         self.profiles = dict(profiles or {component_key or "component": profile})
         self.component_key = component_key or next(iter(self.profiles))
         if self.component_key not in self.profiles:
             self.component_key = next(iter(self.profiles))
         self.profile = self.profiles[self.component_key]
+        self.profile_labels = dict(profile_labels or {})
         self.addresses = dict(addresses or {})
         if address:
             self.addresses.setdefault(self.component_key, address)
-        self.setWindowTitle(profile.display_name + "仿真操作台 · Taurus / Tango")
+        self.setWindowTitle(self.profile_labels.get(self.component_key, profile.display_name) + "仿真操作台 · Taurus / Tango")
         self.resize(1500, 1000)
         self.setMinimumSize(1000, 720)
         self.snapshot = None
@@ -65,7 +66,7 @@ class ComponentWindow(Qt.QMainWindow):
         self.component_selector.setMinimumHeight(36)
         self.component_selector.setMinimumWidth(360)
         for key, candidate in self.profiles.items():
-            self.component_selector.addItem(candidate.display_name, key)
+            self.component_selector.addItem(self.profile_labels.get(key, candidate.display_name), key)
         self.component_selector.setCurrentIndex(max(0, self.component_selector.findData(self.component_key)))
         self.component_selector.currentIndexChanged.connect(self.select_component)
         self.component_selector.setEnabled(len(self.profiles) > 1)
@@ -274,7 +275,7 @@ class ComponentWindow(Qt.QMainWindow):
             return
         self.component_key = key
         self.profile = self.profiles[key]
-        self.setWindowTitle(self.profile.display_name + "仿真操作台 · Taurus / Tango")
+        self.setWindowTitle(self.profile_labels.get(self.component_key, self.profile.display_name) + "仿真操作台 · Taurus / Tango")
         self.rebuild_action_buttons()
         self.diagram.set_profile(self.profile)
         self.address.setText(self.addresses.get(key, ""))

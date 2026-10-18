@@ -63,6 +63,9 @@ public class TangoGateway {
             Map.of("command_id", id, "action", action, "parameters", parameters));
     }
     public JsonNode result(String device, String id) { return request("GET", "/devices/" + device + "/commands/" + id, null); }
+    public JsonNode setConditions(String device, Map<String, Boolean> values) {
+        return request("POST", "/devices/" + device + "/conditions", values);
+    }
     public boolean connected() { return connected; }
     public JsonNode cached(String id) { return snapshots.get(id); }
     public Map<String,Object> status() { return Map.of("connected", connected, "error", error); }

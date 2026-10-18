@@ -1,6 +1,7 @@
 package cn.cdi8.control;
 
 import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +17,23 @@ public class ControlApi {
     public String xml(@PathVariable String key) { return workflows.xml(key); }
     @GetMapping("/connection") public Object connection() { return tango.status(); }
     @GetMapping("/devices") public Object devices() { return tango.catalog(); }
+    @PostMapping("/devices/{id}/conditions")
+    public Object conditions(@PathVariable String id, @RequestBody Map<String, Boolean> values) {
+        if (values == null || values.isEmpty()) throw new IllegalArgumentException("至少提供一个演示条件");
+        if (values.keySet().stream().anyMatch(Objects::isNull)
+                || values.values().stream().anyMatch(Objects::isNull))
+            throw new IllegalArgumentException("演示条件必须是布尔值");
+        JsonNode snapshot = tango.snapshot(id);
+        if (!snapshot.has("conditions")) throw new IllegalArgumentException("该设备不支持演示条件控制");
+        return tango.setConditions(id, values);
+    }
     @GetMapping("/runs") public Object recent() { return workflows.recent(); }
     @GetMapping("/runs/{id}") public Object view(@PathVariable String id) { return workflows.view(id); }
     @PostMapping("/runs") public Object start(@RequestBody Start request) {
         List<String> sources = request.sources();
         if (sources == null)
-            sources = "component_initialization".equals(request.processKey()) ? List.of() : List.of("seed");
+            sources = Set.of("component_initialization", "parameter_dispatch").contains(request.processKey())
+                ? List.of() : List.of("seed");
         return workflows.start(request.processKey(), sources);
     }
     @PostMapping("/runs/{id}/stop") public Object stop(@PathVariable String id) {

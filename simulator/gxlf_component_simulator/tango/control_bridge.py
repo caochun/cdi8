@@ -13,8 +13,10 @@ from queue import Empty, Full, Queue
 from threading import Event, RLock, Thread
 from urllib.parse import urlsplit
 
-from ..component_model import DATA_DIRECTORY, model_by_name
+from ..component_model import DATA_DIRECTORY
 from ..component_runtime import identifier
+from .demo import (component_bindings, component_definition, component_specs,
+                   reset_component_data, validate_counts)
 
 
 class TangoBridge:
@@ -224,31 +226,44 @@ def main():
     mode.add_argument("--devices", type=Path, help="JSON logical ID -> {component, address}")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--data", type=Path, default=DATA_DIRECTORY)
-    parser.add_argument("--preamp-count", type=int, default=1)
-    parser.add_argument("--multipass-count", type=int, default=1)
+    for component in ("seed", "shg", "preamp", "multipass"):
+        parser.add_argument(f"--{component}-count", type=int, default=1,
+                            help=f"演示模式下的{component}实例数")
+    parser.add_argument("--auto-complete", action="store_true",
+                        help="演示模式下让设备延迟自动完成 Execute（真实 --devices 模式不启用）")
+    parser.add_argument("--reset-data", action="store_true",
+                        help="演示模式下删除当前实例的 SQLite 状态并从未就绪状态启动")
+    parser.add_argument("--completion-delay-ms", type=int, default=500,
+                        help="自动完成延迟（毫秒）")
     args = parser.parse_args()
-    if min(args.preamp_count, args.multipass_count) < 1:
-        parser.error("instance counts must be positive")
+    if args.completion_delay_ms < 0:
+        parser.error("--completion-delay-ms 不能为负数")
+    counts = None
+    if args.demo:
+        try:
+            counts = validate_counts({component: getattr(args, f"{component}_count")
+                                      for component in ("seed", "shg", "preamp", "multipass")})
+        except (TypeError, ValueError) as ex:
+            parser.error(str(ex))
     with ExitStack() as stack:
         if args.demo:
             from tango.test_context import MultiDeviceTestContext
-            from .device import ComponentDevice
             from .preparation_context import PreparationContextDevice
 
-            specs = []
-            for component, count in [("seed", 1), ("shg", 1), ("preamp", args.preamp_count), ("multipass", args.multipass_count)]:
-                for number in range(1, count + 1):
-                    key = f"{component}_{number:02}"
-                    specs.append((key, component, f"gxlf/{component}/{key}"))
+            specs = component_specs(counts)
             args.data.mkdir(parents=True, exist_ok=True)
-            definition = [{"class": ComponentDevice, "devices": [
-                {"name": name, "properties": {"component_model": model_by_name(component).model_id,
-                 "database_path": str((args.data / (key + "-v" + str(model_by_name(component).model_version) + ".sqlite3")).resolve())}}
-                for key, component, name in specs]},
-                {"class": PreparationContextDevice, "devices": [{"name": "gxlf/context/01"}]}]
+            if args.reset_data:
+                reset_component_data(specs, args.data)
+            definition = component_definition(specs, args.data,
+                                              auto_complete=args.auto_complete,
+                                              completion_delay_ms=args.completion_delay_ms)
+            definition.append({"class": PreparationContextDevice, "devices": [{
+                "name": "gxlf/context/01", "properties": {
+                    "auto_complete": args.auto_complete,
+                    "auto_complete_delay_ms": args.completion_delay_ms,
+                }}]})
             context = stack.enter_context(MultiDeviceTestContext(definition, process=True, host="127.0.0.1", timeout=20))
-            bindings = {key: {"component": component, "address": context.get_device_access(name)}
-                        for key, component, name in specs}
+            bindings = component_bindings(context, specs)
             bindings["context_01"] = {"component": "context", "address": context.get_device_access("gxlf/context/01")}
         else:
             bindings = json.loads(args.devices.read_text())

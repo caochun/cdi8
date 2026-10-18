@@ -6,7 +6,9 @@
 
 - [控制对象状态定义](component-states/README.md)：按 2026-10-15 Excel 清单拆分的各分系统、组件状态定义，保留原表字段和行号。
 - `process-control/`：当前主线的集中管控发射流程业务说明；运行流程图以 `src/main/resources/processes/` 下的 BPMN 为准。
-- [种子源至多程放大前期准备流程](process-control/种子源至多程放大前期准备流程.md)：四类组件前期准备的顺序、并行、状态契约及外部守卫；对应[运行 BPMN](../src/main/resources/processes/optical_frontend_preparation.bpmn20.xml)，流程图通过总控页面查看。
+- [正式发射流程](process-control/正式发射流程.md)：发射充电前置、触发倒计时与正式触发结果判定；对应[运行 BPMN](../src/main/resources/processes/formal_emission.bpmn20.xml)。
+- [发射后处理流程](process-control/发射后处理流程.md)：正式发射完成后的并行采集、待机、预电离、收靶、吹扫和屏蔽门打开；对应[运行 BPMN](../src/main/resources/processes/post_emission_processing.bpmn20.xml)。
+- [种子源至多程放大前期准备流程](process-control/种子源至多程放大前期准备流程.md)：四类组件发射准备的顺序、并行、状态契约及外部守卫；对应[运行 BPMN](../src/main/resources/processes/optical_frontend_preparation.bpmn20.xml)，流程图通过总控页面查看。
 - [种子源 SCXML](../simulator/gxlf_component_simulator/models/seed-source-state-machine.scxml)：种子源单一层级可执行模型的权威描述，按复合状态和内部状态表达最新清单。
 - `reference` 入口仍作为上述种子源单一层级模型的兼容别名；异常作为主状态，当前故障类别由异常下的叶子状态表示，完整故障集合、故障前状态和下电结果保存在上下文。
 - [二倍频 SCXML](../simulator/gxlf_component_simulator/models/shg-injection-state-machine.scxml)：二倍频宽带激光注入组件状态机。

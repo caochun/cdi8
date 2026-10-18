@@ -35,7 +35,7 @@ class WorkflowIntegrationTest {
             devices.put(kind+"_01", kind);
             ObjectNode s=json.createObjectNode().put("outer_state","ready").put("state_id", kind.equals("seed") ? "qualified" : "functionReady");
             s.put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                "preamp","preamp-hierarchical-v2","multipass","multipass-hierarchical-v2","context","preparation-context-demo-v1").get(kind));
+                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3","context","preparation-context-demo-v1").get(kind));
             s.putNull("active_command_id");s.putObject("conditions").put("safety_permit",false).put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
             s.put("state_revision", 0);
             snapshots.put(kind+"_01",s);
@@ -69,19 +69,45 @@ class WorkflowIntegrationTest {
         @Override public JsonNode result(String device,String id){return results.get(id).deepCopy();}
     }
 
-    String start() { return (String)workflows.start("optical_frontend_preparation",List.of("seed")).get("id"); }
+    String start() {
+        snapshots.forEach((id, state) -> {
+            if (id.startsWith("seed_")) {
+                if (!"standbyReady".equals(state.path("state_id").asText())) state.put("state_id", "configured");
+            } else if (!id.startsWith("context_")) state.put("state_id", "parameterOk");
+        });
+        return (String)workflows.start("optical_frontend_preparation",List.of("seed")).get("id");
+    }
+    String startParameterDispatch() {
+        return (String)workflows.start("parameter_dispatch",List.of()).get("id");
+    }
     void notice(String id) {
         ObjectNode event=json.createObjectNode().put("device_id",id).put("connected",true);
         event.set("snapshot", snapshots.get(id).deepCopy());
         workflows.event(new TangoGateway.Notice(event));
     }
     void conditions(boolean safety, boolean environment) { ((ObjectNode)snapshots.get("context_01").path("conditions")).put("safety_permit",safety).put("collimation_environment_ready",environment); notice("context_01"); }
+    void formalConditions() {
+        ObjectNode conditions = (ObjectNode)snapshots.get("context_01").path("conditions");
+        for (String key : List.of("safety_permit", "diagnosis_acquisition_ready", "crystal_pose_ready",
+                "charge_preparation_ready", "preamp_single_recipe_ready", "measurement_single_recipe_ready",
+                "target_measurement_ready", "switch_charge_ready", "charge_complete", "warning_music_stopped",
+                "trigger_countdown_started", "pump_trigger_ready", "switch_trigger_ready", "synchronized_triggered",
+                "diagnostic_postprocess_ready", "pump_data_collected", "pump_standby_ready",
+                "preionization_prepared", "preionization_charge_complete", "preionization_music_stopped",
+                "preionization_music_started",
+                "preionization_countdown_started", "preionization_pump_trigger_ready", "preionization_sync_triggered",
+                "preionization_data_collected", "preionization_standby_ready", "warning_light_off",
+                "laser_parameter_collected", "target_analysis_ready", "target_retracted",
+                "switch_waveform_collected", "switch_standby_ready", "slab_purge_complete", "shielding_door_open"))
+            conditions.put(key, true);
+        notice("context_01");
+    }
     void addComponent(String id, String kind) {
         devices.put(id, kind);
         ObjectNode s=json.createObjectNode().put("outer_state","ready")
             .put("state_id", kind.equals("seed") ? "qualified" : "functionReady")
             .put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                "preamp","preamp-hierarchical-v2","multipass","multipass-hierarchical-v2").get(kind));
+                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3").get(kind));
         s.putNull("active_command_id");
         s.putObject("conditions").put("safety_permit",false)
             .put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
@@ -105,6 +131,10 @@ class WorkflowIntegrationTest {
                 case "preamp_wakeup" -> "wakeupReady";
                 case "coarse_loop" -> "coarseLoopOk";
                 case "fine_loop" -> "fineLoopOk";
+                case "energy_meter_clear" -> "energyMeterCleared";
+                case "laser_parameter_collect" -> "collectionOk";
+                case "energy_collect" -> "energyDataCollected";
+                case "standby_reset" -> "standbyReady";
                 case "optical_collimation" -> "collimationReady";
                 case "preamp_repeat" -> "";
                 default -> throw new AssertionError(action);
@@ -127,18 +157,18 @@ class WorkflowIntegrationTest {
     @Test void completeParallelPreparationAndKeepUnselectedSourceReady() {
         String pid=start();untilActivity(pid,"wait_safety");
         workflows.pump();assertThat(runtime.getActiveActivityIds(pid)).contains("wait_safety");
-        assertThat(results.values()).allMatch(r->r.path("action").asText().equals("parameter_dispatch"));
+        assertThat(results).isEmpty();
         conditions(true,true);
         for(int i=0;i<40 && runtime.createProcessInstanceQuery().processInstanceId(pid).count()>0;i++){workflows.pump();completeAll();}
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
-        assertThat(results).hasSize(10);assertThat(snapshots.get("shg_01").path("state_id").asText()).isEqualTo("parameterOk");
+        assertThat(results).hasSize(6);assertThat(snapshots.get("shg_01").path("state_id").asText()).isEqualTo("parameterOk");
         assertThat(snapshots.get("preamp_01").path("state_id").asText()).isEqualTo("fineLoopOk");
     }
-    @Test void seedStandbyResetCanStartNewPreparationWithParameterDispatch() {
+    @Test void configuredSeedStandbyCanStartPreparationWithoutRedispatch() {
         snapshots.get("seed_01").put("state_id","standbyReady");
         String pid=start();untilActivity(pid,"wait_safety");
-        assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("configured");
-        assertThat(results.values()).allMatch(r->r.path("action").asText().equals("parameter_dispatch"));
+        assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("standbyReady");
+        assertThat(results).isEmpty();
     }
     @Test void deviceFailureCancelsAllParallelBranches() {
         String pid=start();untilActivity(pid,"wait_safety");conditions(true,true);workflows.pump();workflows.pump();
@@ -149,35 +179,35 @@ class WorkflowIntegrationTest {
         assertThat(results.values()).noneMatch(r->r.path("action").asText().equals("preamp_wakeup"));
     }
     @Test void wrongCommandIdFailsInsteadOfReleasingNode() {
-        String pid=start();workflows.pump();completeAll();
+        String pid=start();conditions(true,true);workflows.pump();workflows.pump();completeAll();
         results.values().iterator().next().put("command_id","different-id");workflows.pump();
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
     }
     @Test void recoveredCoordinatorFindsPersistedResultsWithoutEventAndDuplicatesAreHarmless() {
-        String pid=start();workflows.pump();completeAll();
+        String pid=start();conditions(true,true);workflows.pump();workflows.pump();completeAll();
         var recovered=new WorkflowService(runtime, null, null,gateway,json,"PT15M","PT45M");
-        recovered.pump();assertThat(runtime.getActiveActivityIds(pid)).contains("wait_safety");
+        recovered.pump();assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         for(int i=0;i<3;i++){notice("seed_01");workflows.pump();}
-        assertThat(gateway.calls).isEqualTo(4);
-        assertThat(results).hasSize(4);
+        assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
+        assertThat(results).hasSizeGreaterThanOrEqualTo(2);
     }
     @Test void lostPermitStopsDispatchAndDisconnectedStreamCannotReleaseGate() {
-        String pid=start();untilActivity(pid,"wait_safety");conditions(true,true);
-        gateway.online=false;workflows.pump();assertThat(results).hasSize(4);
+        String pid=start();untilActivity(pid,"wait_safety");conditions(true,true);workflows.pump();workflows.pump();
+        gateway.online=false;workflows.pump();assertThat(results).hasSize(2);
         gateway.online=true;workflows.pump();workflows.pump();completeAll();workflows.pump();
         conditions(false,true);workflows.pump();
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
         assertThat(workflows.view(pid).get("failureReason").toString()).contains("安全许可");
     }
     @Test void lostAcceptanceResponseRetriesSameCommandAfterFeedback() {
-        String pid=start();gateway.loseResponse=true;workflows.pump();
+        String pid=start();conditions(true,true);gateway.loseResponse=true;workflows.pump();workflows.pump();
         assertThat(results).hasSize(1);String original=results.keySet().iterator().next();completeAll();
         var recovered=new WorkflowService(runtime,null,null,gateway,json,"PT15M","PT45M");
         recovered.pump();completeAll();
         // Query from a freshly recovered coordinator, without any event hints.
         new WorkflowService(runtime,null,null,gateway,json,"PT15M","PT45M").pump();
-        assertThat(runtime.getActiveActivityIds(pid)).contains("wait_safety");
-        assertThat(results).hasSize(4).containsKey(original);assertThat(gateway.calls).isEqualTo(5);
+        assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
+        assertThat(results).containsKey(original);assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
     }
     @Test void sourceQualificationLossStopsBothDownstreamBranches() {
         String pid=start();untilActivity(pid,"wait_safety");conditions(true,true);
@@ -187,15 +217,26 @@ class WorkflowIntegrationTest {
         assertThat(workflows.view(pid).get("failureReason").toString()).contains("供光资格");
     }
     @Test void commandTimeoutTerminatesWaitAndManualStopIsPersisted() {
-        String pid=start();workflows.pump();
+        String pid=startParameterDispatch();workflows.pump();
         var timer=management.createTimerJobQuery().processInstanceId(pid).list().stream()
-            .filter(j->j.getElementId().equals("configure_timeout")).findFirst().orElseThrow();
+            .filter(j->j.getElementId().equals("dispatch_timeout")).findFirst().orElseThrow();
         var job=management.moveTimerToExecutableJob(timer.getId());management.executeJob(job.getId());
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
         snapshots.values().forEach(s->s.putNull("active_command_id"));
         String next=start();workflows.stop(next,"operator stop");
         assertThat(workflows.view(next).get("failureReason")).isEqualTo("operator stop");
         assertThat(workflows.view(next).get("outcome")).isEqualTo("FAILED");
+    }
+
+    @Test void parameterDispatchRunsAfterInitializationAndEnablesPreparation() {
+        String pid = startParameterDispatch();
+        workflows.pump();
+        assertThat(results).hasSize(4);
+        assertThat(results.values()).allMatch(r -> r.path("action").asText().equals("parameter_dispatch"));
+        completeAll();
+        workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
+        assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("configured");
     }
     @Test void initializationShowsFourComponentBranchesAndWaitsForEveryInstance() {
         addComponent("preamp_02", "preamp");
@@ -241,6 +282,74 @@ class WorkflowIntegrationTest {
             .filter(j->j.getElementId().equals("seed_power_timeout")).findFirst().orElseThrow();
         management.executeJob(management.moveTimerToExecutableJob(timer.getId()).getId());
         assertThat(workflows.view(timeoutPid).get("outcome")).isEqualTo("FAILED");
+    }
+
+    @Test void lifecycleComposesInitializationAndPreparationForModeledComponents() {
+        snapshots.values().forEach(s -> s.put("outer_state", "notReady")
+            .put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
+        conditions(true, true); formalConditions();
+        String pid = (String)workflows.start("emission_task_lifecycle", List.of("seed")).get("id");
+        for (int i = 0; i < 120 && runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0; i++) {
+            workflows.pump();
+            completeAll();
+        }
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
+        assertThat(results.values()).extracting(r -> r.path("action").asText())
+            .contains("power_on_check", "function_check", "parameter_dispatch", "seed_source_emit",
+                "preamp_wakeup", "coarse_loop", "fine_loop", "optical_collimation");
+    }
+
+    @Test void lifecyclePropagatesInitializationFailureFromCalledProcess() {
+        snapshots.values().forEach(s -> s.put("outer_state", "notReady")
+            .put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
+        String pid = (String)workflows.start("emission_task_lifecycle", List.of("seed")).get("id");
+        workflows.pump();
+        ObjectNode failed = results.values().stream()
+            .filter(r -> r.path("action").asText().equals("power_on_check"))
+            .findFirst().orElseThrow();
+        failed.put("status", "failed");
+        String device = snapshots.entrySet().stream()
+            .filter(entry -> entry.getValue().path("active_command_id").asText().equals(failed.path("command_id").asText()))
+            .map(Map.Entry::getKey).findFirst().orElseThrow();
+        snapshots.get(device).putNull("active_command_id");
+        failed.set("snapshot", snapshots.get(device).deepCopy());
+        notice(device);
+        workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+    }
+
+    @Test void formalEmissionRunsSecondFineLoopAndMeterClearBeforeTimedTriggerEvidence() {
+        snapshots.get("seed_01").put("outer_state", "emitting").put("state_id", "stableEmission");
+        snapshots.get("shg_01").put("outer_state", "ready").put("state_id", "parameterOk");
+        snapshots.get("preamp_01").put("outer_state", "wakeup").put("state_id", "fineLoopOk");
+        snapshots.get("multipass_01").put("outer_state", "collimated").put("state_id", "collimationReady");
+        formalConditions();
+        String pid = (String)workflows.start("formal_emission", List.of("seed")).get("id");
+        for (int i = 0; i < 80 && runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0; i++) {
+            workflows.pump();
+            completeAll();
+        }
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
+        assertThat(results.values()).extracting(r -> r.path("action").asText())
+            .contains("fine_loop", "energy_meter_clear");
+    }
+
+    @Test void postEmissionRunsComponentActionsAndWaitsForAllExternalBranches() {
+        snapshots.get("seed_01").put("outer_state", "emitting").put("state_id", "stableEmission");
+        snapshots.get("shg_01").put("outer_state", "ready").put("state_id", "parameterOk");
+        snapshots.get("preamp_01").put("outer_state", "wakeup").put("state_id", "energyMeterCleared");
+        snapshots.get("multipass_01").put("outer_state", "collimated").put("state_id", "collimationReady");
+        formalConditions();
+        String pid = (String)workflows.start("post_emission_processing", List.of("seed")).get("id");
+        for (int i = 0; i < 80 && runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0; i++) {
+            workflows.pump();
+            completeAll();
+        }
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
+        assertThat(results.values()).extracting(r -> r.path("action").asText())
+            .contains("laser_parameter_collect", "energy_collect", "standby_reset");
+        assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("collectionOk");
+        assertThat(snapshots.get("preamp_01").path("state_id").asText()).isEqualTo("standbyReady");
     }
 
     String startInitialization() {

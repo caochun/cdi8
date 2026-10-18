@@ -24,6 +24,26 @@ def complete_run(base, bridge, process, sources, permit=False):
     completed = set()
     deadline = time.monotonic() + 60
     gated = False
+    all_conditions = {
+        'safety_permit': True, 'collimation_environment_ready': True,
+        'diagnosis_acquisition_ready': True, 'crystal_pose_ready': True,
+        'charge_preparation_ready': True, 'preamp_single_recipe_ready': True,
+        'measurement_single_recipe_ready': True, 'target_measurement_ready': True,
+        'switch_charge_ready': True, 'charge_complete': True,
+        'warning_music_stopped': True, 'trigger_countdown_started': True,
+        'pump_trigger_ready': True, 'switch_trigger_ready': True,
+        'synchronized_triggered': True, 'diagnostic_postprocess_ready': True,
+        'pump_data_collected': True, 'pump_standby_ready': True,
+        'preionization_prepared': True, 'preionization_music_started': True,
+        'preionization_charge_complete': True,
+        'preionization_music_stopped': True, 'preionization_countdown_started': True,
+        'preionization_pump_trigger_ready': True, 'preionization_sync_triggered': True,
+        'preionization_data_collected': True, 'preionization_standby_ready': True,
+        'warning_light_off': True, 'laser_parameter_collected': True,
+        'target_analysis_ready': True, 'target_retracted': True,
+        'switch_waveform_collected': True, 'switch_standby_ready': True,
+        'slab_purge_complete': True, 'shielding_door_open': True,
+    }
     while time.monotonic() < deadline:
         state = request(base + '/api/runs/' + run['id'])
         if permit and 'wait_safety' in state['activeActivities'] and not gated:
@@ -35,6 +55,8 @@ def complete_run(base, bridge, process, sources, permit=False):
             gated = True
         if permit and 'wait_environment' in state['activeActivities']:
             request(bridge + '/devices/context_01/conditions', {'collimation_environment_ready': True})
+        if process == 'emission_task_lifecycle' and gated:
+            request(bridge + '/devices/context_01/conditions', all_conditions)
         for device in request(bridge + '/devices'):
             snapshot = device.get('snapshot', {})
             command = snapshot.get('active_command_id')
@@ -64,8 +86,7 @@ def main():
     parser.add_argument('--bridge', default='http://127.0.0.1:8766')
     parser.add_argument('--sources', nargs='+', choices=['seed', 'shg'], default=['seed'])
     args = parser.parse_args()
-    complete_run(args.base, args.bridge, 'component_initialization', args.sources)
-    complete_run(args.base, args.bridge, 'optical_frontend_preparation', args.sources, permit=True)
+    complete_run(args.base, args.bridge, 'emission_task_lifecycle', args.sources, permit=True)
     for device in request(args.bridge + '/devices'):
         snapshot = device['snapshot']
         if device['component'] in args.sources:
@@ -73,10 +94,10 @@ def main():
         if device['component'] in {'seed', 'shg'} - set(args.sources):
             assert snapshot['outer_state'] == 'ready', snapshot
         if device['component'] == 'preamp':
-            assert snapshot['state_id'] == 'fineLoopOk', snapshot
+            assert snapshot['state_id'] == 'standbyReady', snapshot
         if device['component'] == 'multipass':
             assert snapshot['state_id'] == 'collimationReady', snapshot
-    print('PASS final component states / source selection / explicit external conditions')
+    print('PASS full lifecycle / source selection / explicit external conditions')
 
 
 if __name__ == '__main__':

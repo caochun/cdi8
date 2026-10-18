@@ -95,5 +95,64 @@ class ControlBridgeTest(unittest.TestCase):
             self.assertTrue(self.request('/devices/context_01')['conditions']['preamp_repeat_ready'])
 
 
+@unittest.skipIf(tango is None, 'PyTango not installed')
+class AutoCompletionTest(unittest.TestCase):
+    """Demo mode completes accepted commands asynchronously through the device."""
+
+    @classmethod
+    def setUpClass(cls):
+        from tango.test_context import MultiDeviceTestContext
+        from gxlf_component_simulator.tango.device import ComponentDevice
+        from gxlf_component_simulator.tango.preparation_context import PreparationContextDevice
+
+        cls.directory = tempfile.TemporaryDirectory()
+        cls.context = MultiDeviceTestContext([
+            {'class': ComponentDevice, 'devices': [{'name': 'gxlf/seed/auto', 'properties': {
+                'component_model': 'seed-source-reference-v2',
+                'database_path': str(Path(cls.directory.name) / 'seed.sqlite3'),
+                'auto_complete': True,
+                'auto_complete_delay_ms': 30}}]},
+            {'class': PreparationContextDevice, 'devices': [{'name': 'gxlf/context/auto', 'properties': {
+                'auto_complete': True,
+                'auto_complete_delay_ms': 30}}]},
+        ], process=True, host='127.0.0.1', timeout=20)
+        cls.context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.context.__exit__(None, None, None)
+        cls.directory.cleanup()
+
+    def test_component_command_is_completed_after_acceptance(self):
+        device = self.context.get_device('gxlf/seed/auto')
+        request = {'command_id': 'auto-power-check', 'action': 'power_on_check', 'parameters': {}}
+        accepted = json.loads(device.Execute(json.dumps(request)))
+        self.assertEqual(accepted['status'], 'accepted')
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            result = json.loads(device.GetResult('auto-power-check'))
+            if result['status'] == 'succeeded':
+                self.assertEqual(result['snapshot']['state_id'], 'powerOnChecked')
+                self.assertIsNone(result['snapshot']['active_command_id'])
+                return
+            time.sleep(0.02)
+        self.fail('automatic component completion was not published')
+
+    def test_context_command_is_completed_after_acceptance(self):
+        device = self.context.get_device('gxlf/context/auto')
+        accepted = json.loads(device.Execute(json.dumps({
+            'command_id': 'auto-repeat', 'action': 'preamp_repeat'})))
+        self.assertEqual(accepted['status'], 'accepted')
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            result = json.loads(device.GetResult('auto-repeat'))
+            if result['status'] == 'succeeded':
+                snapshot = json.loads(device.read_attribute('Snapshot').value)
+                self.assertTrue(snapshot['conditions']['preamp_repeat_ready'])
+                return
+            time.sleep(0.02)
+        self.fail('automatic context completion was not published')
+
+
 if __name__ == '__main__':
     unittest.main()

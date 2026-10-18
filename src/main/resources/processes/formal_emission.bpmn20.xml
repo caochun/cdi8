@@ -1,0 +1,142 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
+  <bpmn:process id="formal_emission" isExecutable="true" name="正式发射（四类组件验证范围）">
+    <bpmn:documentation>本阶段从发射准备完成状态开始。当前验证版直接使用已有四类组件中的再生与双程放大组件执行第二次能量精闭环和能量计清零；诊断采集、晶体位姿、充电、测量单次配方、开关充电以及泵浦/开关/同步触发由演示同步与环境设备提供显式条件证据。正式触发严格按倒计时语义建模：倒计时开始后，T+3s 前泵浦和开关触发准备必须完成，T+5s 前同步触发结果必须完成。</bpmn:documentation>
+    <bpmn:startEvent id="start" name="开始" />
+    <bpmn:subProcess id="normal" name="正式发射">
+      <bpmn:startEvent id="scope_start" name="发射准备已完成" />
+      <bpmn:endEvent id="scope_end" name="正式发射完成" />
+      <bpmn:endEvent id="raise_timeout" name="动作超时"><bpmn:errorEventDefinition errorRef="device_error" /></bpmn:endEvent>
+      <bpmn:receiveTask id="wait_safety" name="确认正式发射安全许可" />
+      <bpmn:parallelGateway id="precharge_split" name="发射充电前置并行" />
+      <bpmn:parallelGateway id="precharge_join" name="充电前置全部完成" />
+      <bpmn:receiveTask id="wait_diagnosis" name="诊断设备采集设置完成" />
+      <bpmn:receiveTask id="wait_crystal" name="晶体位姿设置完成" />
+      <bpmn:receiveTask id="wait_charge_prepare" name="发射充电准备完成" />
+      <bpmn:receiveTask id="wait_preamp_single" name="预放单次配方完成" />
+      <bpmn:receiveTask id="wait_measure_single" name="测量单次配方完成" />
+      <bpmn:receiveTask id="wait_target_measure" name="打靶测量准备完成" />
+      <bpmn:receiveTask id="wait_switch_charge" name="开关充电完成" />
+      <bpmn:serviceTask id="second_fine_wait" name="第二次能量精闭环" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;fine_loop&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;fineLoopOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="clear_meter_wait" name="能量计清零" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;energy_meter_clear&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;energyMeterCleared&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:boundaryEvent id="second_fine_timeout" attachedToRef="second_fine_wait" cancelActivity="true" name="动作超时"><bpmn:timerEventDefinition><bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+      <bpmn:boundaryEvent id="clear_meter_timeout" attachedToRef="clear_meter_wait" cancelActivity="true" name="动作超时"><bpmn:timerEventDefinition><bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+      <bpmn:receiveTask id="wait_charge_complete" name="发射充电完成" />
+      <bpmn:receiveTask id="wait_music_stop" name="警示音乐停止" />
+      <bpmn:receiveTask id="wait_countdown" name="同步触发倒计时开始" />
+      <bpmn:parallelGateway id="trigger_split" name="T+3 秒触发准备并行" />
+      <bpmn:parallelGateway id="trigger_join" name="触发准备完成" />
+      <bpmn:receiveTask id="wait_pump_trigger" name="泵浦触发准备完成（T+3s）" />
+      <bpmn:receiveTask id="wait_switch_trigger" name="开关触发准备完成（T+3s）" />
+      <bpmn:receiveTask id="wait_sync_trigger" name="同步正式触发完成（T+5s）" />
+      <bpmn:boundaryEvent id="pump_trigger_deadline" attachedToRef="wait_pump_trigger" cancelActivity="true" name="泵浦触发准备超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT3S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+      <bpmn:boundaryEvent id="switch_trigger_deadline" attachedToRef="wait_switch_trigger" cancelActivity="true" name="开关触发准备超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT3S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+      <bpmn:boundaryEvent id="sync_trigger_deadline" attachedToRef="wait_sync_trigger" cancelActivity="true" name="同步正式触发超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT5S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+      <bpmn:serviceTask id="finish" name="确认正式发射完成" flowable:expression="${tango.formalEmissionFinish(execution)}" />
+      <bpmn:sequenceFlow id="scope_start__wait_safety" sourceRef="scope_start" targetRef="wait_safety" />
+      <bpmn:sequenceFlow id="wait_safety__precharge_split" sourceRef="wait_safety" targetRef="precharge_split" />
+      <bpmn:sequenceFlow id="precharge_split__diagnosis" sourceRef="precharge_split" targetRef="wait_diagnosis" />
+      <bpmn:sequenceFlow id="precharge_split__crystal" sourceRef="precharge_split" targetRef="wait_crystal" />
+      <bpmn:sequenceFlow id="precharge_split__charge_prepare" sourceRef="precharge_split" targetRef="wait_charge_prepare" />
+      <bpmn:sequenceFlow id="precharge_split__second_fine" sourceRef="precharge_split" targetRef="second_fine_wait" />
+      <bpmn:sequenceFlow id="second_fine__preamp_single" sourceRef="second_fine_wait" targetRef="wait_preamp_single" />
+      <bpmn:sequenceFlow id="wait_preamp_single__clear_meter" sourceRef="wait_preamp_single" targetRef="clear_meter_wait" />
+      <bpmn:sequenceFlow id="clear_meter__precharge_join" sourceRef="clear_meter_wait" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="precharge_split__measure_single" sourceRef="precharge_split" targetRef="wait_measure_single" />
+      <bpmn:sequenceFlow id="wait_measure_single__target_measure" sourceRef="wait_measure_single" targetRef="wait_target_measure" />
+      <bpmn:sequenceFlow id="wait_target_measure__precharge_join" sourceRef="wait_target_measure" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="wait_diagnosis__precharge_join" sourceRef="wait_diagnosis" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="wait_crystal__precharge_join" sourceRef="wait_crystal" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="wait_charge_prepare__precharge_join" sourceRef="wait_charge_prepare" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="precharge_split__switch_charge" sourceRef="precharge_split" targetRef="wait_switch_charge" />
+      <bpmn:sequenceFlow id="wait_switch_charge__precharge_join" sourceRef="wait_switch_charge" targetRef="precharge_join" />
+      <bpmn:sequenceFlow id="precharge_join__charge_complete" sourceRef="precharge_join" targetRef="wait_charge_complete" />
+      <bpmn:sequenceFlow id="wait_charge_complete__music_stop" sourceRef="wait_charge_complete" targetRef="wait_music_stop" />
+      <bpmn:sequenceFlow id="wait_music_stop__countdown" sourceRef="wait_music_stop" targetRef="wait_countdown" />
+      <bpmn:sequenceFlow id="wait_countdown__trigger_split" sourceRef="wait_countdown" targetRef="trigger_split" />
+      <bpmn:sequenceFlow id="trigger_split__pump" sourceRef="trigger_split" targetRef="wait_pump_trigger" />
+      <bpmn:sequenceFlow id="trigger_split__switch" sourceRef="trigger_split" targetRef="wait_switch_trigger" />
+      <bpmn:sequenceFlow id="trigger_split__sync" sourceRef="trigger_split" targetRef="wait_sync_trigger" />
+      <bpmn:sequenceFlow id="wait_pump_trigger__trigger_join" sourceRef="wait_pump_trigger" targetRef="trigger_join" />
+      <bpmn:sequenceFlow id="wait_switch_trigger__trigger_join" sourceRef="wait_switch_trigger" targetRef="trigger_join" />
+      <bpmn:sequenceFlow id="wait_sync_trigger__trigger_join" sourceRef="wait_sync_trigger" targetRef="trigger_join" />
+      <bpmn:sequenceFlow id="trigger_join__finish" sourceRef="trigger_join" targetRef="finish" />
+      <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end" />
+      <bpmn:sequenceFlow id="second_fine_timeout__raise_timeout" sourceRef="second_fine_timeout" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="clear_meter_timeout__raise_timeout" sourceRef="clear_meter_timeout" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="pump_trigger_deadline__raise_timeout" sourceRef="pump_trigger_deadline" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="switch_trigger_deadline__raise_timeout" sourceRef="switch_trigger_deadline" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="sync_trigger_deadline__raise_timeout" sourceRef="sync_trigger_deadline" targetRef="raise_timeout" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="success" name="流程成功" />
+    <bpmn:endEvent id="success_end" name="流程完成" />
+    <bpmn:serviceTask id="failure" name="记录流程失败" flowable:expression="${tango.failed(execution)}" />
+    <bpmn:endEvent id="failed_end" name="流程停止"><bpmn:terminateEventDefinition /></bpmn:endEvent>
+    <bpmn:boundaryEvent id="error_boundary" attachedToRef="normal" cancelActivity="true" name="设备或动作失败"><bpmn:errorEventDefinition errorRef="device_error" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="stop_boundary" attachedToRef="normal" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="workflow_timeout" attachedToRef="normal" cancelActivity="true" name="流程超时"><bpmn:timerEventDefinition><bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="start__normal" sourceRef="start" targetRef="normal" />
+    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success" />
+    <bpmn:sequenceFlow id="success__end" sourceRef="success" targetRef="success_end" />
+    <bpmn:sequenceFlow id="error_boundary__failure" sourceRef="error_boundary" targetRef="failure" />
+    <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure" />
+    <bpmn:sequenceFlow id="workflow_timeout__failure" sourceRef="workflow_timeout" targetRef="failure" />
+    <bpmn:sequenceFlow id="failure__failed_end" sourceRef="failure" targetRef="failed_end" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_formal_emission"><bpmndi:BPMNPlane id="plane_formal_emission" bpmnElement="formal_emission">
+    <bpmndi:BPMNShape id="shape_start" bpmnElement="start"><ns3:Bounds x="40" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_normal" bpmnElement="normal" isExpanded="false"><ns3:Bounds x="120" y="75" width="220" height="86" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_success" bpmnElement="success"><ns3:Bounds x="400" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_success_end" bpmnElement="success_end"><ns3:Bounds x="480" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_failure" bpmnElement="failure"><ns3:Bounds x="400" y="280" width="160" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end"><ns3:Bounds x="620" y="302" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_error_boundary" bpmnElement="error_boundary"><ns3:Bounds x="255" y="150" width="30" height="30" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_stop_boundary" bpmnElement="stop_boundary"><ns3:Bounds x="285" y="150" width="30" height="30" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_workflow_timeout" bpmnElement="workflow_timeout"><ns3:Bounds x="315" y="150" width="30" height="30" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="edge_start__normal" bpmnElement="start__normal"><ns4:waypoint x="76" y="118" /><ns4:waypoint x="120" y="118" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_normal__success" bpmnElement="normal__success"><ns4:waypoint x="340" y="118" /><ns4:waypoint x="400" y="118" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_success__end" bpmnElement="success__end"><ns4:waypoint x="436" y="118" /><ns4:waypoint x="480" y="118" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_error_boundary__failure" bpmnElement="error_boundary__failure"><ns4:waypoint x="270" y="180" /><ns4:waypoint x="270" y="320" /><ns4:waypoint x="400" y="320" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_stop_boundary__failure" bpmnElement="stop_boundary__failure"><ns4:waypoint x="300" y="180" /><ns4:waypoint x="300" y="320" /><ns4:waypoint x="400" y="320" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_workflow_timeout__failure" bpmnElement="workflow_timeout__failure"><ns4:waypoint x="330" y="180" /><ns4:waypoint x="330" y="320" /><ns4:waypoint x="400" y="320" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_failure__failed_end" bpmnElement="failure__failed_end"><ns4:waypoint x="560" y="320" /><ns4:waypoint x="620" y="320" /></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_normal"><bpmndi:BPMNPlane id="plane_normal" bpmnElement="normal">
+    <bpmndi:BPMNShape id="shape_scope_start" bpmnElement="scope_start"><ns3:Bounds x="40" y="300" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_scope_end" bpmnElement="scope_end"><ns3:Bounds x="3550" y="300" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_raise_timeout" bpmnElement="raise_timeout"><ns3:Bounds x="1400" y="700" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_safety" bpmnElement="wait_safety"><ns3:Bounds x="130" y="275" width="150" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_precharge_split" bpmnElement="precharge_split" isMarkerVisible="true"><ns3:Bounds x="340" y="290" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_precharge_join" bpmnElement="precharge_join" isMarkerVisible="true"><ns3:Bounds x="1780" y="290" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_diagnosis" bpmnElement="wait_diagnosis"><ns3:Bounds x="470" y="70" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_crystal" bpmnElement="wait_crystal"><ns3:Bounds x="470" y="165" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_charge_prepare" bpmnElement="wait_charge_prepare"><ns3:Bounds x="470" y="260" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_second_fine" bpmnElement="second_fine_wait"><ns3:Bounds x="470" y="355" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_preamp_single" bpmnElement="wait_preamp_single"><ns3:Bounds x="700" y="355" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_clear_meter" bpmnElement="clear_meter_wait"><ns3:Bounds x="930" y="355" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_measure_single" bpmnElement="wait_measure_single"><ns3:Bounds x="470" y="450" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_target_measure" bpmnElement="wait_target_measure"><ns3:Bounds x="700" y="450" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_switch_charge" bpmnElement="wait_switch_charge"><ns3:Bounds x="470" y="545" width="180" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_charge_complete" bpmnElement="wait_charge_complete"><ns3:Bounds x="1900" y="275" width="180" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_music_stop" bpmnElement="wait_music_stop"><ns3:Bounds x="2130" y="275" width="160" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_countdown" bpmnElement="wait_countdown"><ns3:Bounds x="2340" y="275" width="180" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_trigger_split" bpmnElement="trigger_split" isMarkerVisible="true"><ns3:Bounds x="2580" y="290" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_trigger_join" bpmnElement="trigger_join" isMarkerVisible="true"><ns3:Bounds x="3200" y="290" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_pump_trigger" bpmnElement="wait_pump_trigger"><ns3:Bounds x="2700" y="130" width="220" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_switch_trigger" bpmnElement="wait_switch_trigger"><ns3:Bounds x="2700" y="255" width="220" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_wait_sync_trigger" bpmnElement="wait_sync_trigger"><ns3:Bounds x="2700" y="380" width="220" height="70" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_finish" bpmnElement="finish"><ns3:Bounds x="3310" y="275" width="180" height="80" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="edge_scope_start__wait_safety" bpmnElement="scope_start__wait_safety"><ns4:waypoint x="76" y="318" /><ns4:waypoint x="130" y="318" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_wait_safety__precharge_split" bpmnElement="wait_safety__precharge_split"><ns4:waypoint x="280" y="318" /><ns4:waypoint x="340" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_precharge_join__charge_complete" bpmnElement="precharge_join__charge_complete"><ns4:waypoint x="1830" y="315" /><ns4:waypoint x="1900" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_wait_charge_complete__music_stop" bpmnElement="wait_charge_complete__music_stop"><ns4:waypoint x="2080" y="315" /><ns4:waypoint x="2130" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_wait_music_stop__countdown" bpmnElement="wait_music_stop__countdown"><ns4:waypoint x="2290" y="315" /><ns4:waypoint x="2340" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_wait_countdown__trigger_split" bpmnElement="wait_countdown__trigger_split"><ns4:waypoint x="2520" y="315" /><ns4:waypoint x="2580" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_trigger_join__finish" bpmnElement="trigger_join__finish"><ns4:waypoint x="3250" y="315" /><ns4:waypoint x="3310" y="315" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_finish__scope_end" bpmnElement="finish__scope_end"><ns4:waypoint x="3490" y="315" /><ns4:waypoint x="3550" y="318" /></bpmndi:BPMNEdge>
+  <bpmndi:BPMNShape id="shape_second_fine_timeout" bpmnElement="second_fine_timeout"><ns3:Bounds x="620" y="420" width="36" height="36" /></bpmndi:BPMNShape><bpmndi:BPMNShape id="shape_clear_meter_timeout" bpmnElement="clear_meter_timeout"><ns3:Bounds x="1080" y="420" width="36" height="36" /></bpmndi:BPMNShape><bpmndi:BPMNEdge id="edge_precharge_split__diagnosis" bpmnElement="precharge_split__diagnosis"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="105.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_precharge_split__crystal" bpmnElement="precharge_split__crystal"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="200.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_precharge_split__charge_prepare" bpmnElement="precharge_split__charge_prepare"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="295.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_precharge_split__second_fine" bpmnElement="precharge_split__second_fine"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="390.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_second_fine__preamp_single" bpmnElement="second_fine__preamp_single"><ns4:waypoint x="650.0" y="390.0" /><ns4:waypoint x="700.0" y="390.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_preamp_single__clear_meter" bpmnElement="wait_preamp_single__clear_meter"><ns4:waypoint x="880.0" y="390.0" /><ns4:waypoint x="930.0" y="390.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_clear_meter__precharge_join" bpmnElement="clear_meter__precharge_join"><ns4:waypoint x="1110.0" y="390.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_precharge_split__measure_single" bpmnElement="precharge_split__measure_single"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="485.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_measure_single__target_measure" bpmnElement="wait_measure_single__target_measure"><ns4:waypoint x="650.0" y="485.0" /><ns4:waypoint x="700.0" y="485.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_target_measure__precharge_join" bpmnElement="wait_target_measure__precharge_join"><ns4:waypoint x="880.0" y="485.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_diagnosis__precharge_join" bpmnElement="wait_diagnosis__precharge_join"><ns4:waypoint x="650.0" y="105.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_crystal__precharge_join" bpmnElement="wait_crystal__precharge_join"><ns4:waypoint x="650.0" y="200.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_charge_prepare__precharge_join" bpmnElement="wait_charge_prepare__precharge_join"><ns4:waypoint x="650.0" y="295.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_precharge_split__switch_charge" bpmnElement="precharge_split__switch_charge"><ns4:waypoint x="390.0" y="315.0" /><ns4:waypoint x="470.0" y="580.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_switch_charge__precharge_join" bpmnElement="wait_switch_charge__precharge_join"><ns4:waypoint x="650.0" y="580.0" /><ns4:waypoint x="1780.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_trigger_split__pump" bpmnElement="trigger_split__pump"><ns4:waypoint x="2630.0" y="315.0" /><ns4:waypoint x="2700.0" y="165.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_trigger_split__switch" bpmnElement="trigger_split__switch"><ns4:waypoint x="2630.0" y="315.0" /><ns4:waypoint x="2700.0" y="290.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_trigger_split__sync" bpmnElement="trigger_split__sync"><ns4:waypoint x="2630.0" y="315.0" /><ns4:waypoint x="2700.0" y="415.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_pump_trigger__trigger_join" bpmnElement="wait_pump_trigger__trigger_join"><ns4:waypoint x="2920.0" y="165.0" /><ns4:waypoint x="3200.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_switch_trigger__trigger_join" bpmnElement="wait_switch_trigger__trigger_join"><ns4:waypoint x="2920.0" y="290.0" /><ns4:waypoint x="3200.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_wait_sync_trigger__trigger_join" bpmnElement="wait_sync_trigger__trigger_join"><ns4:waypoint x="2920.0" y="415.0" /><ns4:waypoint x="3200.0" y="315.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_second_fine_timeout__raise_timeout" bpmnElement="second_fine_timeout__raise_timeout"><ns4:waypoint x="656.0" y="438.0" /><ns4:waypoint x="1400.0" y="718.0" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_clear_meter_timeout__raise_timeout" bpmnElement="clear_meter_timeout__raise_timeout"><ns4:waypoint x="1116.0" y="438.0" /><ns4:waypoint x="1400.0" y="718.0" /></bpmndi:BPMNEdge><bpmndi:BPMNShape id="shape_pump_trigger_deadline" bpmnElement="pump_trigger_deadline"><ns3:Bounds x="2930" y="130" width="36" height="36" /></bpmndi:BPMNShape><bpmndi:BPMNShape id="shape_switch_trigger_deadline" bpmnElement="switch_trigger_deadline"><ns3:Bounds x="2930" y="255" width="36" height="36" /></bpmndi:BPMNShape><bpmndi:BPMNShape id="shape_sync_trigger_deadline" bpmnElement="sync_trigger_deadline"><ns3:Bounds x="2930" y="380" width="36" height="36" /></bpmndi:BPMNShape><bpmndi:BPMNEdge id="edge_pump_trigger_deadline__raise_timeout" bpmnElement="pump_trigger_deadline__raise_timeout"><ns4:waypoint x="2948" y="148" /><ns4:waypoint x="1400" y="718" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_switch_trigger_deadline__raise_timeout" bpmnElement="switch_trigger_deadline__raise_timeout"><ns4:waypoint x="2948" y="273" /><ns4:waypoint x="1400" y="718" /></bpmndi:BPMNEdge><bpmndi:BPMNEdge id="edge_sync_trigger_deadline__raise_timeout" bpmnElement="sync_trigger_deadline__raise_timeout"><ns4:waypoint x="2948" y="398" /><ns4:waypoint x="1400" y="718" /></bpmndi:BPMNEdge></bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+  
+  
+</bpmn:definitions>

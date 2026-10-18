@@ -1,0 +1,155 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns5="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="https://cdi8.cn/control/v2">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
+    <bpmn:process id="emission_task_lifecycle" isExecutable="true" name="发射任务（四类组件验证范围）">
+    <bpmn:documentation>当前验证版只覆盖已有 SCXML 模型的四类组件，按主流程顺序编排：组件初始化 → 参数下发 → 发射准备 → 正式发射 → 发射后处理。正式发射和发射后处理中的其他分系统动作由 contextTargets 提供显式条件证据；这只是外部系统的演示适配，不代表新增组件状态机。</bpmn:documentation>
+    <bpmn:startEvent id="start" name="开始" />
+    <bpmn:callActivity id="initialize" name="四类组件初始化" calledElement="component_initialization">
+      <bpmn:extensionElements>
+        <flowable:in source="allComponents" target="allComponents" />
+        <flowable:in source="seedTargets" target="seedTargets" />
+        <flowable:in source="shgTargets" target="shgTargets" />
+        <flowable:in source="preampTargets" target="preampTargets" />
+        <flowable:in source="multipassTargets" target="multipassTargets" />
+        <flowable:in source="commandTimeout" target="commandTimeout" />
+        <flowable:in source="workflowTimeout" target="workflowTimeout" />
+        <flowable:out source="outcome" target="initializationOutcome" />
+        <flowable:out source="failureReason" target="failureReason" />
+      </bpmn:extensionElements>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="initialization_result" name="初始化通过？" default="initialization_failed" />
+    <bpmn:callActivity id="dispatch" name="参数下发" calledElement="parameter_dispatch">
+      <bpmn:extensionElements>
+        <flowable:in source="allComponents" target="allComponents" />
+        <flowable:in source="commandTimeout" target="commandTimeout" />
+        <flowable:in source="workflowTimeout" target="workflowTimeout" />
+        <flowable:out source="outcome" target="dispatchOutcome" />
+        <flowable:out source="failureReason" target="failureReason" />
+      </bpmn:extensionElements>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="dispatch_result" name="参数下发通过？" default="dispatch_failed" />
+    <bpmn:callActivity id="preparation" name="发射准备" calledElement="optical_frontend_preparation">
+      <bpmn:extensionElements>
+        <flowable:in source="seedTargets" target="seedTargets" />
+        <flowable:in source="shgTargets" target="shgTargets" />
+        <flowable:in source="preampTargets" target="preampTargets" />
+        <flowable:in source="multipassTargets" target="multipassTargets" />
+        <flowable:in source="sourceTargets" target="sourceTargets" />
+        <flowable:in source="contextTargets" target="contextTargets" />
+        <flowable:in source="commandTimeout" target="commandTimeout" />
+        <flowable:in source="workflowTimeout" target="workflowTimeout" />
+        <flowable:out source="outcome" target="preparationOutcome" />
+        <flowable:out source="failureReason" target="failureReason" />
+      </bpmn:extensionElements>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="preparation_result" name="发射准备通过？" default="preparation_failed" />
+    <bpmn:callActivity id="formal_emission" name="正式发射" calledElement="formal_emission">
+      <bpmn:extensionElements>
+        <flowable:in source="sourceTargets" target="sourceTargets" />
+        <flowable:in source="preampTargets" target="preampTargets" />
+        <flowable:in source="multipassTargets" target="multipassTargets" />
+        <flowable:in source="contextTargets" target="contextTargets" />
+        <flowable:in source="commandTimeout" target="commandTimeout" />
+        <flowable:in source="workflowTimeout" target="workflowTimeout" />
+        <flowable:out source="outcome" target="formalEmissionOutcome" />
+        <flowable:out source="failureReason" target="failureReason" />
+      </bpmn:extensionElements>
+    </bpmn:callActivity>
+    <bpmn:exclusiveGateway id="formal_emission_result" name="正式发射通过？" default="formal_emission_failed" />
+    <bpmn:callActivity id="post_emission_processing" name="发射后处理" calledElement="post_emission_processing">
+      <bpmn:extensionElements>
+        <flowable:in source="sourceTargets" target="sourceTargets" />
+        <flowable:in source="seedTargets" target="seedTargets" />
+        <flowable:in source="shgTargets" target="shgTargets" />
+        <flowable:in source="preampTargets" target="preampTargets" />
+        <flowable:in source="multipassTargets" target="multipassTargets" />
+        <flowable:in source="contextTargets" target="contextTargets" />
+        <flowable:in source="commandTimeout" target="commandTimeout" />
+        <flowable:in source="workflowTimeout" target="workflowTimeout" />
+        <flowable:out source="outcome" target="postEmissionOutcome" />
+        <flowable:out source="failureReason" target="failureReason" />
+      </bpmn:extensionElements>
+    </bpmn:callActivity>
+    <bpmn:serviceTask id="failure" name="记录流程失败" flowable:expression="${tango.failed(execution)}" />
+    <bpmn:endEvent id="failed_end" name="流程停止"><bpmn:terminateEventDefinition /></bpmn:endEvent>
+    <bpmn:serviceTask id="success" name="验证范围内流程完成" flowable:expression="${tango.succeeded(execution)}" />
+    <bpmn:endEvent id="success_end" name="验证流程完成" />
+    <bpmn:boundaryEvent id="stop_initialize" attachedToRef="initialize" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="stop_dispatch" attachedToRef="dispatch" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="stop_preparation" attachedToRef="preparation" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="stop_formal_emission" attachedToRef="formal_emission" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="stop_post_emission_processing" attachedToRef="post_emission_processing" cancelActivity="true" name="停止流程"><bpmn:messageEventDefinition messageRef="stop_message" /></bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="start__initialize" sourceRef="start" targetRef="initialize" />
+    <bpmn:sequenceFlow id="initialize__result" sourceRef="initialize" targetRef="initialization_result" />
+    <bpmn:sequenceFlow id="initialization_ok" sourceRef="initialization_result" targetRef="dispatch"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${initializationOutcome == 'SUCCEEDED'}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="initialization_failed" sourceRef="initialization_result" targetRef="failure" />
+    <bpmn:sequenceFlow id="dispatch__result" sourceRef="dispatch" targetRef="dispatch_result" />
+    <bpmn:sequenceFlow id="dispatch_ok" sourceRef="dispatch_result" targetRef="preparation"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${dispatchOutcome == 'SUCCEEDED'}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="dispatch_failed" sourceRef="dispatch_result" targetRef="failure" />
+    <bpmn:sequenceFlow id="preparation__result" sourceRef="preparation" targetRef="preparation_result" />
+    <bpmn:sequenceFlow id="preparation_ok" sourceRef="preparation_result" targetRef="formal_emission"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${preparationOutcome == 'SUCCEEDED'}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="preparation_failed" sourceRef="preparation_result" targetRef="failure" />
+    <bpmn:sequenceFlow id="formal_emission__result" sourceRef="formal_emission" targetRef="formal_emission_result" />
+    <bpmn:sequenceFlow id="formal_emission_ok" sourceRef="formal_emission_result" targetRef="post_emission_processing"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${formalEmissionOutcome == 'SUCCEEDED'}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="formal_emission_failed" sourceRef="formal_emission_result" targetRef="failure" />
+    <bpmn:sequenceFlow id="post_emission_processing__result" sourceRef="post_emission_processing" targetRef="post_emission_result" />
+    <bpmn:exclusiveGateway id="post_emission_result" name="发射后处理通过？" default="post_emission_failed" />
+    <bpmn:sequenceFlow id="post_emission_ok" sourceRef="post_emission_result" targetRef="success"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${postEmissionOutcome == 'SUCCEEDED'}</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="post_emission_failed" sourceRef="post_emission_result" targetRef="failure" />
+    <bpmn:sequenceFlow id="success__end" sourceRef="success" targetRef="success_end" />
+    <bpmn:sequenceFlow id="failure__end" sourceRef="failure" targetRef="failed_end" />
+    <bpmn:sequenceFlow id="stop_initialize__failure" sourceRef="stop_initialize" targetRef="failure" />
+    <bpmn:sequenceFlow id="stop_dispatch__failure" sourceRef="stop_dispatch" targetRef="failure" />
+    <bpmn:sequenceFlow id="stop_preparation__failure" sourceRef="stop_preparation" targetRef="failure" />
+    <bpmn:sequenceFlow id="stop_formal_emission__failure" sourceRef="stop_formal_emission" targetRef="failure" />
+    <bpmn:sequenceFlow id="stop_post_emission_processing__failure" sourceRef="stop_post_emission_processing" targetRef="failure" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_emission_task_lifecycle">
+    <bpmndi:BPMNPlane id="plane_emission_task_lifecycle" bpmnElement="emission_task_lifecycle">
+      <bpmndi:BPMNShape id="shape_start" bpmnElement="start"><ns4:Bounds x="50" y="180" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_initialize" bpmnElement="initialize"><ns4:Bounds x="130" y="155" width="160" height="86" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_initialization_result" bpmnElement="initialization_result" isMarkerVisible="true"><ns4:Bounds x="330" y="173" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_dispatch" bpmnElement="dispatch"><ns4:Bounds x="430" y="155" width="160" height="86" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_dispatch_result" bpmnElement="dispatch_result" isMarkerVisible="true"><ns4:Bounds x="630" y="173" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preparation" bpmnElement="preparation"><ns4:Bounds x="730" y="155" width="160" height="86" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preparation_result" bpmnElement="preparation_result" isMarkerVisible="true"><ns4:Bounds x="930" y="173" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_success" bpmnElement="success"><ns4:Bounds x="1680" y="155" width="160" height="86" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_success_end" bpmnElement="success_end"><ns4:Bounds x="1880" y="180" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failure" bpmnElement="failure"><ns4:Bounds x="700" y="350" width="180" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end"><ns4:Bounds x="950" y="372" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_stop_initialize" bpmnElement="stop_initialize"><ns4:Bounds x="192" y="270" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_stop_dispatch" bpmnElement="stop_dispatch"><ns4:Bounds x="492" y="270" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_stop_preparation" bpmnElement="stop_preparation"><ns4:Bounds x="792" y="270" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_start__initialize" bpmnElement="start__initialize"><ns5:waypoint x="86" y="198" /><ns5:waypoint x="130" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_initialize__result" bpmnElement="initialize__result"><ns5:waypoint x="290" y="198" /><ns5:waypoint x="330" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_initialization_ok" bpmnElement="initialization_ok"><ns5:waypoint x="380" y="198" /><ns5:waypoint x="430" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_initialization_failed" bpmnElement="initialization_failed"><ns5:waypoint x="355" y="223" /><ns5:waypoint x="355" y="390" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_dispatch__result" bpmnElement="dispatch__result"><ns5:waypoint x="590" y="198" /><ns5:waypoint x="630" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_dispatch_ok" bpmnElement="dispatch_ok"><ns5:waypoint x="680" y="198" /><ns5:waypoint x="730" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_dispatch_failed" bpmnElement="dispatch_failed"><ns5:waypoint x="655" y="223" /><ns5:waypoint x="655" y="390" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preparation__result" bpmnElement="preparation__result"><ns5:waypoint x="890" y="198" /><ns5:waypoint x="930" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preparation_ok" bpmnElement="preparation_ok"><ns5:waypoint x="980" y="198" /><ns5:waypoint x="1030" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preparation_failed" bpmnElement="preparation_failed"><ns5:waypoint x="955" y="223" /><ns5:waypoint x="955" y="390" /><ns5:waypoint x="880" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_success__end" bpmnElement="success__end"><ns5:waypoint x="1840" y="198" /><ns5:waypoint x="1880" y="198" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_failure__end" bpmnElement="failure__end"><ns5:waypoint x="880" y="390" /><ns5:waypoint x="950" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_stop_initialize__failure" bpmnElement="stop_initialize__failure"><ns5:waypoint x="210" y="306" /><ns5:waypoint x="210" y="390" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_stop_dispatch__failure" bpmnElement="stop_dispatch__failure"><ns5:waypoint x="510" y="306" /><ns5:waypoint x="510" y="390" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_stop_preparation__failure" bpmnElement="stop_preparation__failure"><ns5:waypoint x="810" y="306" /><ns5:waypoint x="810" y="350" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNShape id="shape_formal_emission" bpmnElement="formal_emission"><ns4:Bounds x="1030" y="155" width="160" height="86" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_formal_emission_result" bpmnElement="formal_emission_result"><ns4:Bounds x="1230" y="173" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_post_emission_processing" bpmnElement="post_emission_processing"><ns4:Bounds x="1330" y="155" width="180" height="86" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_post_emission_result" bpmnElement="post_emission_result" isMarkerVisible="true"><ns4:Bounds x="1550" y="173" width="50" height="50" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_stop_formal_emission" bpmnElement="stop_formal_emission"><ns4:Bounds x="1110" y="270" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="shape_stop_post_emission_processing" bpmnElement="stop_post_emission_processing"><ns4:Bounds x="1400" y="270" width="36" height="36" /></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="edge_formal_emission__result" bpmnElement="formal_emission__result"><ns5:waypoint x="1190" y="198" /><ns5:waypoint x="1230" y="198" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_formal_emission_ok" bpmnElement="formal_emission_ok"><ns5:waypoint x="1280" y="198" /><ns5:waypoint x="1330" y="198" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_formal_emission_failed" bpmnElement="formal_emission_failed"><ns5:waypoint x="1280" y="223" /><ns5:waypoint x="1280" y="390" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_post_emission_processing__result" bpmnElement="post_emission_processing__result"><ns5:waypoint x="1510" y="198" /><ns5:waypoint x="1550" y="198" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_post_emission_ok" bpmnElement="post_emission_ok"><ns5:waypoint x="1600" y="198" /><ns5:waypoint x="1630" y="198" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_post_emission_failed" bpmnElement="post_emission_failed"><ns5:waypoint x="1575" y="223" /><ns5:waypoint x="1575" y="390" /><ns5:waypoint x="880" y="390" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_stop_formal_emission__failure" bpmnElement="stop_formal_emission__failure"><ns5:waypoint x="1128" y="288" /><ns5:waypoint x="700" y="390" /></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="edge_stop_post_emission_processing__failure" bpmnElement="stop_post_emission_processing__failure"><ns5:waypoint x="1418" y="306" /><ns5:waypoint x="1418" y="390" /><ns5:waypoint x="880" y="390" /></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

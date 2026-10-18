@@ -47,17 +47,36 @@ SCHVIZ（SCION 的 SCXML 可视化组件）在 Qt WebEngine 中渲染，布局�
 
 ```bash
 python3 -m pip install -e './simulator[gui]'
-component-panel --demo
+component-panel --demo \
+  --seed-count 1 --shg-count 1 --preamp-count 10 --multipass-count 60
 ```
+
+演示设备默认等待显式的 `Simulate`/`Complete` 反馈。测试 BPMN 流程时可启用自动完成：
+
+```bash
+component-panel --demo --auto-complete --completion-delay-ms 500
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --auto-complete --completion-delay-ms 500
+```
+
+演示状态会写入 SQLite。初始化完成后不能直接重复初始化；需要重新开始干净的一轮演示时，增加 `--reset-data`，它只删除当前演示实例的状态文件：
+
+```bash
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --auto-complete --completion-delay-ms 500 --reset-data
+```
+
+每个 `Execute` 仍立即返回 `accepted`，设备在指定延迟后复用现有仿真完成路径，更新 SCXML 状态、SQLite 记录并发布 `Snapshot CHANGE_EVENT`。该选项只用于 `--demo` 演示设备；接入 `--devices` 的真实 Tango 设备始终等待真实硬件反馈。自动完成也覆盖演示同步/环境条件设备的 `preamp_repeat` 命令。
 
 GUI 将 SCHVIZ 和 SCION 的浏览器资源随 Python 包一起安装，因此运行时不需要网络。
 界面状态图、按钮准入和设备快照都由所选 SCXML 派生，不再单独维护组件状态机代码。
-使用 `--demo` 启动时，顶部“组件”下拉框会列出种子源、二倍频注入、再生与双程放大和多程放大四个已建模组件。选择组件后，GUI 会切换到对应的 Tango 仿真实例、SCXML 状态图、动作集合和事件历史。
+使用 `--demo` 启动时，所有组件实例由同一个 Tango Device Server 进程承载。顶部“组件”下拉框会列出每个实例，例如“再生与双程放大 · preamp_02”；选择实例后，GUI 会切换到对应的 Tango 设备、SCXML 状态图、动作集合和事件历史。四类实例数量通过 `--seed-count`、`--shg-count`、`--preamp-count` 和 `--multipass-count` 配置。
 
 在项目源码目录中也可以直接启动：
 
 ```bash
-PYTHONPATH=simulator python3 -m gxlf_component_simulator.gui --demo
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.gui --demo \
+  --seed-count 1 --shg-count 1 --preamp-count 10 --multipass-count 60
 ```
 
 ## 验证
@@ -72,10 +91,13 @@ PYTHONPATH=simulator python3 -m unittest discover -s simulator/tests -v
 总控使用独立的多类型 Tango 适配服务，单模型 `tango.gateway` 仍用于组件调试：
 
 ```bash
-PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --seed-count 1 --shg-count 1 --preamp-count 10 --multipass-count 60
 ```
 
-默认启动四类真实 Tango 组件各一个，以及显式的演示同步/环境条件设备。服务通过 `DeviceProxy.subscribe_event` 订阅 `Snapshot CHANGE_EVENT`，将事件以 NDJSON 长连接转发给 Java，不执行 BPMN，也不自动生成完成反馈。
+默认启动四类真实 Tango 组件各一个，以及显式的演示同步/环境条件设备；所有组件实例由一个 Tango Device Server 进程承载。服务通过 `DeviceProxy.subscribe_event` 订阅 `Snapshot CHANGE_EVENT`，将事件以 NDJSON 长连接转发给 Java，不执行 BPMN。使用 `--auto-complete` 时，演示设备才会在延迟后自动生成成功反馈。
+
+真实 Tango 环境使用 `--devices devices.json` 接入。此时适配服务不会创建 Device Server，`devices.json` 中每一条设备映射就是一个实际实例；实例数量由配置条目决定，不再使用 `--*-count` 参数。
 
 组件 `Snapshot.state_revision` 为持久化事件序号，重复反馈不增加版本，重启后继续保留。总控使用组件快照和命令 ID 核验初始化分支的当前状态；该字段用于事件去重和重启后的状态补读。
 

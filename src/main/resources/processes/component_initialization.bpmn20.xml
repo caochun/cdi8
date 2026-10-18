@@ -1,789 +1,421 @@
-<?xml version="1.0" encoding="utf-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://cdi8.cn/control/v2">
-  <bpmn:error id="device_error" errorCode="DEVICE_ERROR"/>
-  <bpmn:message id="stop_message" name="StopWorkflow"/>
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
   <bpmn:process id="component_initialization" isExecutable="true" name="四类组件初始化">
     <bpmn:documentation>本流程使用标准 BPMN 显式建模当前四类组件及其实例。四个组件分支并行执行上电检查，全部分支完成后再并行执行功能检查。每个组件分支内部使用非串行多实例，分别绑定 seedTargets、shgTargets、preampTargets、multipassTargets。上电检查只确认设备已上电，不执行上电。</bpmn:documentation>
-    <bpmn:startEvent id="start" name="开始"/>
+    <bpmn:startEvent id="start" name="开始" />
     <bpmn:subProcess id="normal" name="四类组件初始化">
-      <bpmn:startEvent id="scope_start" name="开始"/>
-      <bpmn:endEvent id="scope_end" name="初始化完成"/>
+      <bpmn:startEvent id="scope_start" name="开始" />
+      <bpmn:endEvent id="scope_end" name="初始化完成" />
       <bpmn:endEvent id="raise_timeout" name="检查超时">
-        <bpmn:errorEventDefinition errorRef="device_error"/>
+        <bpmn:errorEventDefinition errorRef="device_error" />
       </bpmn:endEvent>
-      <bpmn:parallelGateway id="power_split" name="四类组件并行上电检查"/>
-      <bpmn:parallelGateway id="power_join" name="全部上电检查完成"/>
-      <bpmn:parallelGateway id="function_split" name="四类组件并行功能检查"/>
-      <bpmn:parallelGateway id="function_join" name="全部功能检查完成"/>
-      <bpmn:serviceTask id="finish" name="确认四类组件初始化完成" flowable:expression="${tango.initializationFinish(execution)}"/>
-      <bpmn:subProcess id="seed_power" name="光纤种子源·上电检查">
-        <bpmn:documentation>{"actions": {"seed": "power_on_check"}, "states": {"seed": "powerOnChecked"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="seed_power_start" name="开始"/>
-        <bpmn:serviceTask id="seed_power_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="seed_power_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="seed_power_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="seed_power_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="seed_power_start__send" sourceRef="seed_power_start" targetRef="seed_power_send"/>
-        <bpmn:sequenceFlow id="seed_power_send__wait" sourceRef="seed_power_send" targetRef="seed_power_wait"/>
-        <bpmn:sequenceFlow id="seed_power_wait__verify" sourceRef="seed_power_wait" targetRef="seed_power_verify"/>
-        <bpmn:sequenceFlow id="seed_power_verify__end" sourceRef="seed_power_verify" targetRef="seed_power_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="shg_power" name="二倍频宽带激光注入·上电检查">
-        <bpmn:documentation>{"actions": {"shg": "power_on_check"}, "states": {"shg": "powerOnOk"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="shg_power_start" name="开始"/>
-        <bpmn:serviceTask id="shg_power_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="shg_power_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="shg_power_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="shg_power_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="shg_power_start__send" sourceRef="shg_power_start" targetRef="shg_power_send"/>
-        <bpmn:sequenceFlow id="shg_power_send__wait" sourceRef="shg_power_send" targetRef="shg_power_wait"/>
-        <bpmn:sequenceFlow id="shg_power_wait__verify" sourceRef="shg_power_wait" targetRef="shg_power_verify"/>
-        <bpmn:sequenceFlow id="shg_power_verify__end" sourceRef="shg_power_verify" targetRef="shg_power_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="preamp_power" name="再生与双程放大·上电检查">
-        <bpmn:documentation>{"actions": {"preamp": "power_on_check"}, "states": {"preamp": "powerOnOk"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="preamp_power_start" name="开始"/>
-        <bpmn:serviceTask id="preamp_power_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="preamp_power_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="preamp_power_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="preamp_power_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="preamp_power_start__send" sourceRef="preamp_power_start" targetRef="preamp_power_send"/>
-        <bpmn:sequenceFlow id="preamp_power_send__wait" sourceRef="preamp_power_send" targetRef="preamp_power_wait"/>
-        <bpmn:sequenceFlow id="preamp_power_wait__verify" sourceRef="preamp_power_wait" targetRef="preamp_power_verify"/>
-        <bpmn:sequenceFlow id="preamp_power_verify__end" sourceRef="preamp_power_verify" targetRef="preamp_power_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="multipass_power" name="多程放大·上电检查">
-        <bpmn:documentation>{"actions": {"multipass": "power_on_check"}, "states": {"multipass": "powerOnOk"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="multipass_power_start" name="开始"/>
-        <bpmn:serviceTask id="multipass_power_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="multipass_power_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="multipass_power_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="multipass_power_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="multipass_power_start__send" sourceRef="multipass_power_start" targetRef="multipass_power_send"/>
-        <bpmn:sequenceFlow id="multipass_power_send__wait" sourceRef="multipass_power_send" targetRef="multipass_power_wait"/>
-        <bpmn:sequenceFlow id="multipass_power_wait__verify" sourceRef="multipass_power_wait" targetRef="multipass_power_verify"/>
-        <bpmn:sequenceFlow id="multipass_power_verify__end" sourceRef="multipass_power_verify" targetRef="multipass_power_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="seed_function" name="光纤种子源·功能检查">
-        <bpmn:documentation>{"actions": {"seed": "function_check"}, "states": {"seed": "qualified"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="seed_function_start" name="开始"/>
-        <bpmn:serviceTask id="seed_function_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="seed_function_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="seed_function_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="seed_function_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="seed_function_start__send" sourceRef="seed_function_start" targetRef="seed_function_send"/>
-        <bpmn:sequenceFlow id="seed_function_send__wait" sourceRef="seed_function_send" targetRef="seed_function_wait"/>
-        <bpmn:sequenceFlow id="seed_function_wait__verify" sourceRef="seed_function_wait" targetRef="seed_function_verify"/>
-        <bpmn:sequenceFlow id="seed_function_verify__end" sourceRef="seed_function_verify" targetRef="seed_function_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="shg_function" name="二倍频宽带激光注入·功能检查">
-        <bpmn:documentation>{"actions": {"shg": "function_check"}, "states": {"shg": "functionReady"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="shg_function_start" name="开始"/>
-        <bpmn:serviceTask id="shg_function_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="shg_function_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="shg_function_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="shg_function_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="shg_function_start__send" sourceRef="shg_function_start" targetRef="shg_function_send"/>
-        <bpmn:sequenceFlow id="shg_function_send__wait" sourceRef="shg_function_send" targetRef="shg_function_wait"/>
-        <bpmn:sequenceFlow id="shg_function_wait__verify" sourceRef="shg_function_wait" targetRef="shg_function_verify"/>
-        <bpmn:sequenceFlow id="shg_function_verify__end" sourceRef="shg_function_verify" targetRef="shg_function_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="preamp_function" name="再生与双程放大·功能检查">
-        <bpmn:documentation>{"actions": {"preamp": "function_check"}, "states": {"preamp": "functionReady"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="preamp_function_start" name="开始"/>
-        <bpmn:serviceTask id="preamp_function_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="preamp_function_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="preamp_function_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="preamp_function_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="preamp_function_start__send" sourceRef="preamp_function_start" targetRef="preamp_function_send"/>
-        <bpmn:sequenceFlow id="preamp_function_send__wait" sourceRef="preamp_function_send" targetRef="preamp_function_wait"/>
-        <bpmn:sequenceFlow id="preamp_function_wait__verify" sourceRef="preamp_function_wait" targetRef="preamp_function_verify"/>
-        <bpmn:sequenceFlow id="preamp_function_verify__end" sourceRef="preamp_function_verify" targetRef="preamp_function_end"/>
-      </bpmn:subProcess>
-      <bpmn:subProcess id="multipass_function" name="多程放大·功能检查">
-        <bpmn:documentation>{"actions": {"multipass": "function_check"}, "states": {"multipass": "functionReady"}}</bpmn:documentation>
-        <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target"/>
-        <bpmn:startEvent id="multipass_function_start" name="开始"/>
-        <bpmn:serviceTask id="multipass_function_send" name="登记命令" flowable:expression="${tango.enqueue(execution)}"/>
-        <bpmn:receiveTask id="multipass_function_wait" name="等待 Tango 命令结果"/>
-        <bpmn:serviceTask id="multipass_function_verify" name="核验结果与组件状态" flowable:expression="${tango.verify(execution)}"/>
-        <bpmn:endEvent id="multipass_function_end" name="实例完成"/>
-        <bpmn:sequenceFlow id="multipass_function_start__send" sourceRef="multipass_function_start" targetRef="multipass_function_send"/>
-        <bpmn:sequenceFlow id="multipass_function_send__wait" sourceRef="multipass_function_send" targetRef="multipass_function_wait"/>
-        <bpmn:sequenceFlow id="multipass_function_wait__verify" sourceRef="multipass_function_wait" targetRef="multipass_function_verify"/>
-        <bpmn:sequenceFlow id="multipass_function_verify__end" sourceRef="multipass_function_verify" targetRef="multipass_function_end"/>
-      </bpmn:subProcess>
-      <bpmn:boundaryEvent id="seed_power_timeout" attachedToRef="seed_power" cancelActivity="true" name="检查超时">
+      <bpmn:parallelGateway id="power_split" name="四类组件并行上电检查" />
+      <bpmn:parallelGateway id="power_join" name="全部上电检查完成" />
+      <bpmn:parallelGateway id="function_split" name="四类组件并行功能检查" />
+      <bpmn:parallelGateway id="function_join" name="全部功能检查完成" />
+      <bpmn:serviceTask id="finish" name="确认四类组件初始化完成" flowable:expression="${tango.initializationFinish(execution)}" />
+      <bpmn:serviceTask id="seed_power_wait" name="光纤种子源·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;powerOnChecked&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="shg_power_wait" name="二倍频宽带激光注入·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="preamp_power_wait" name="再生与双程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="multipass_power_wait" name="多程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="seed_function_wait" name="光纤种子源·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;qualified&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="shg_function_wait" name="二倍频宽带激光注入·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="preamp_function_wait" name="再生与双程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="multipass_function_wait" name="多程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:boundaryEvent id="seed_power_timeout" attachedToRef="seed_power_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="seed_power_timeout__raise_timeout" sourceRef="seed_power_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="shg_power_timeout" attachedToRef="shg_power" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="seed_power_timeout__raise_timeout" sourceRef="seed_power_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="shg_power_timeout" attachedToRef="shg_power_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="shg_power_timeout__raise_timeout" sourceRef="shg_power_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="preamp_power_timeout" attachedToRef="preamp_power" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="shg_power_timeout__raise_timeout" sourceRef="shg_power_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="preamp_power_timeout" attachedToRef="preamp_power_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="preamp_power_timeout__raise_timeout" sourceRef="preamp_power_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="multipass_power_timeout" attachedToRef="multipass_power" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="preamp_power_timeout__raise_timeout" sourceRef="preamp_power_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="multipass_power_timeout" attachedToRef="multipass_power_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="multipass_power_timeout__raise_timeout" sourceRef="multipass_power_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="seed_function_timeout" attachedToRef="seed_function" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="multipass_power_timeout__raise_timeout" sourceRef="multipass_power_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="seed_function_timeout" attachedToRef="seed_function_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="seed_function_timeout__raise_timeout" sourceRef="seed_function_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="shg_function_timeout" attachedToRef="shg_function" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="seed_function_timeout__raise_timeout" sourceRef="seed_function_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="shg_function_timeout" attachedToRef="shg_function_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="shg_function_timeout__raise_timeout" sourceRef="shg_function_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="preamp_function_timeout" attachedToRef="preamp_function" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="shg_function_timeout__raise_timeout" sourceRef="shg_function_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="preamp_function_timeout" attachedToRef="preamp_function_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="preamp_function_timeout__raise_timeout" sourceRef="preamp_function_timeout" targetRef="raise_timeout"/>
-      <bpmn:boundaryEvent id="multipass_function_timeout" attachedToRef="multipass_function" cancelActivity="true" name="检查超时">
+      <bpmn:sequenceFlow id="preamp_function_timeout__raise_timeout" sourceRef="preamp_function_timeout" targetRef="raise_timeout" />
+      <bpmn:boundaryEvent id="multipass_function_timeout" attachedToRef="multipass_function_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
-      <bpmn:sequenceFlow id="multipass_function_timeout__raise_timeout" sourceRef="multipass_function_timeout" targetRef="raise_timeout"/>
-      <bpmn:sequenceFlow id="scope_start__power_split" sourceRef="scope_start" targetRef="power_split"/>
-      <bpmn:sequenceFlow id="power_split__seed_power" sourceRef="power_split" targetRef="seed_power"/>
-      <bpmn:sequenceFlow id="power_split__shg_power" sourceRef="power_split" targetRef="shg_power"/>
-      <bpmn:sequenceFlow id="power_split__preamp_power" sourceRef="power_split" targetRef="preamp_power"/>
-      <bpmn:sequenceFlow id="power_split__multipass_power" sourceRef="power_split" targetRef="multipass_power"/>
-      <bpmn:sequenceFlow id="seed_power__power_join" sourceRef="seed_power" targetRef="power_join"/>
-      <bpmn:sequenceFlow id="shg_power__power_join" sourceRef="shg_power" targetRef="power_join"/>
-      <bpmn:sequenceFlow id="preamp_power__power_join" sourceRef="preamp_power" targetRef="power_join"/>
-      <bpmn:sequenceFlow id="multipass_power__power_join" sourceRef="multipass_power" targetRef="power_join"/>
-      <bpmn:sequenceFlow id="power_join__function_split" sourceRef="power_join" targetRef="function_split"/>
-      <bpmn:sequenceFlow id="function_split__seed_function" sourceRef="function_split" targetRef="seed_function"/>
-      <bpmn:sequenceFlow id="function_split__shg_function" sourceRef="function_split" targetRef="shg_function"/>
-      <bpmn:sequenceFlow id="function_split__preamp_function" sourceRef="function_split" targetRef="preamp_function"/>
-      <bpmn:sequenceFlow id="function_split__multipass_function" sourceRef="function_split" targetRef="multipass_function"/>
-      <bpmn:sequenceFlow id="seed_function__function_join" sourceRef="seed_function" targetRef="function_join"/>
-      <bpmn:sequenceFlow id="shg_function__function_join" sourceRef="shg_function" targetRef="function_join"/>
-      <bpmn:sequenceFlow id="preamp_function__function_join" sourceRef="preamp_function" targetRef="function_join"/>
-      <bpmn:sequenceFlow id="multipass_function__function_join" sourceRef="multipass_function" targetRef="function_join"/>
-      <bpmn:sequenceFlow id="function_join__finish" sourceRef="function_join" targetRef="finish"/>
-      <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end"/>
+      <bpmn:sequenceFlow id="multipass_function_timeout__raise_timeout" sourceRef="multipass_function_timeout" targetRef="raise_timeout" />
+      <bpmn:sequenceFlow id="scope_start__power_split" sourceRef="scope_start" targetRef="power_split" />
+      <bpmn:sequenceFlow id="power_split__seed_power" sourceRef="power_split" targetRef="seed_power_wait" />
+      <bpmn:sequenceFlow id="power_split__shg_power" sourceRef="power_split" targetRef="shg_power_wait" />
+      <bpmn:sequenceFlow id="power_split__preamp_power" sourceRef="power_split" targetRef="preamp_power_wait" />
+      <bpmn:sequenceFlow id="power_split__multipass_power" sourceRef="power_split" targetRef="multipass_power_wait" />
+      <bpmn:sequenceFlow id="seed_power__power_join" sourceRef="seed_power_wait" targetRef="power_join" />
+      <bpmn:sequenceFlow id="shg_power__power_join" sourceRef="shg_power_wait" targetRef="power_join" />
+      <bpmn:sequenceFlow id="preamp_power__power_join" sourceRef="preamp_power_wait" targetRef="power_join" />
+      <bpmn:sequenceFlow id="multipass_power__power_join" sourceRef="multipass_power_wait" targetRef="power_join" />
+      <bpmn:sequenceFlow id="power_join__function_split" sourceRef="power_join" targetRef="function_split" />
+      <bpmn:sequenceFlow id="function_split__seed_function" sourceRef="function_split" targetRef="seed_function_wait" />
+      <bpmn:sequenceFlow id="function_split__shg_function" sourceRef="function_split" targetRef="shg_function_wait" />
+      <bpmn:sequenceFlow id="function_split__preamp_function" sourceRef="function_split" targetRef="preamp_function_wait" />
+      <bpmn:sequenceFlow id="function_split__multipass_function" sourceRef="function_split" targetRef="multipass_function_wait" />
+      <bpmn:sequenceFlow id="seed_function__function_join" sourceRef="seed_function_wait" targetRef="function_join" />
+      <bpmn:sequenceFlow id="shg_function__function_join" sourceRef="shg_function_wait" targetRef="function_join" />
+      <bpmn:sequenceFlow id="preamp_function__function_join" sourceRef="preamp_function_wait" targetRef="function_join" />
+      <bpmn:sequenceFlow id="multipass_function__function_join" sourceRef="multipass_function_wait" targetRef="function_join" />
+      <bpmn:sequenceFlow id="function_join__finish" sourceRef="function_join" targetRef="finish" />
+      <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end" />
     </bpmn:subProcess>
-    <bpmn:endEvent id="success" name="流程成功"/>
-    <bpmn:serviceTask id="failure" name="记录流程失败" flowable:expression="${tango.failed(execution)}"/>
+    <bpmn:endEvent id="success" name="流程成功" />
+    <bpmn:serviceTask id="failure" name="记录流程失败" flowable:expression="${tango.failed(execution)}" />
     <bpmn:endEvent id="failed_end" name="流程停止">
-      <bpmn:terminateEventDefinition/>
+      <bpmn:terminateEventDefinition />
     </bpmn:endEvent>
     <bpmn:boundaryEvent id="error_boundary" attachedToRef="normal" cancelActivity="true" name="设备或动作失败">
-      <bpmn:errorEventDefinition errorRef="device_error"/>
+      <bpmn:errorEventDefinition errorRef="device_error" />
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="error_boundary__failure" sourceRef="error_boundary" targetRef="failure"/>
+    <bpmn:sequenceFlow id="error_boundary__failure" sourceRef="error_boundary" targetRef="failure" />
     <bpmn:boundaryEvent id="stop_boundary" attachedToRef="normal" cancelActivity="true" name="停止流程">
-      <bpmn:messageEventDefinition messageRef="stop_message"/>
+      <bpmn:messageEventDefinition messageRef="stop_message" />
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure"/>
+    <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure" />
     <bpmn:boundaryEvent id="workflow_timeout" attachedToRef="normal" cancelActivity="true" name="流程超时">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="workflow_timeout__failure" sourceRef="workflow_timeout" targetRef="failure"/>
-    <bpmn:sequenceFlow id="start__normal" sourceRef="start" targetRef="normal"/>
-    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success"/>
-    <bpmn:sequenceFlow id="failure__failed_end" sourceRef="failure" targetRef="failed_end"/>
+    <bpmn:sequenceFlow id="workflow_timeout__failure" sourceRef="workflow_timeout" targetRef="failure" />
+    <bpmn:sequenceFlow id="start__normal" sourceRef="start" targetRef="normal" />
+    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success" />
+    <bpmn:sequenceFlow id="failure__failed_end" sourceRef="failure" targetRef="failed_end" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="diagram_component_initialization">
     <bpmndi:BPMNPlane id="plane_component_initialization" bpmnElement="component_initialization">
       <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
-        <dc:Bounds x="40" y="110" width="36" height="36"/>
+        <ns3:Bounds x="40" y="110" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_normal" bpmnElement="normal" isExpanded="false">
-        <dc:Bounds x="170" y="80" width="380" height="100"/>
+        <ns3:Bounds x="170" y="80" width="380" height="100" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_success" bpmnElement="success">
-        <dc:Bounds x="630" y="110" width="36" height="36"/>
+        <ns3:Bounds x="630" y="110" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_failure" bpmnElement="failure">
-        <dc:Bounds x="500" y="330" width="150" height="80"/>
+        <ns3:Bounds x="500" y="330" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end">
-        <dc:Bounds x="730" y="352" width="36" height="36"/>
+        <ns3:Bounds x="730" y="352" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_error_boundary" bpmnElement="error_boundary">
-        <dc:Bounds x="190" y="165" width="30" height="30"/>
+        <ns3:Bounds x="190" y="165" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_stop_boundary" bpmnElement="stop_boundary">
-        <dc:Bounds x="260" y="165" width="30" height="30"/>
+        <ns3:Bounds x="260" y="165" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_workflow_timeout" bpmnElement="workflow_timeout">
-        <dc:Bounds x="330" y="165" width="30" height="30"/>
+        <ns3:Bounds x="330" y="165" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="edge_error_boundary__failure" bpmnElement="error_boundary__failure">
-        <di:waypoint x="205" y="195"/>
-        <di:waypoint x="205" y="280"/>
-        <di:waypoint x="575" y="280"/>
-        <di:waypoint x="575" y="330"/>
+        <ns4:waypoint x="205" y="195" />
+        <ns4:waypoint x="205" y="280" />
+        <ns4:waypoint x="575" y="280" />
+        <ns4:waypoint x="575" y="330" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_stop_boundary__failure" bpmnElement="stop_boundary__failure">
-        <di:waypoint x="275" y="195"/>
-        <di:waypoint x="275" y="280"/>
-        <di:waypoint x="575" y="280"/>
-        <di:waypoint x="575" y="330"/>
+        <ns4:waypoint x="275" y="195" />
+        <ns4:waypoint x="275" y="280" />
+        <ns4:waypoint x="575" y="280" />
+        <ns4:waypoint x="575" y="330" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_workflow_timeout__failure" bpmnElement="workflow_timeout__failure">
-        <di:waypoint x="345" y="195"/>
-        <di:waypoint x="345" y="280"/>
-        <di:waypoint x="575" y="280"/>
-        <di:waypoint x="575" y="330"/>
+        <ns4:waypoint x="345" y="195" />
+        <ns4:waypoint x="345" y="280" />
+        <ns4:waypoint x="575" y="280" />
+        <ns4:waypoint x="575" y="330" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_start__normal" bpmnElement="start__normal">
-        <di:waypoint x="76" y="128"/>
-        <di:waypoint x="170" y="130"/>
+        <ns4:waypoint x="76" y="128" />
+        <ns4:waypoint x="170" y="130" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_normal__success" bpmnElement="normal__success">
-        <di:waypoint x="550" y="130"/>
-        <di:waypoint x="630" y="128"/>
+        <ns4:waypoint x="550" y="130" />
+        <ns4:waypoint x="630" y="128" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_failure__failed_end" bpmnElement="failure__failed_end">
-        <di:waypoint x="650" y="370"/>
-        <di:waypoint x="730" y="370"/>
+        <ns4:waypoint x="650" y="370" />
+        <ns4:waypoint x="730" y="370" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
   <bpmndi:BPMNDiagram id="diagram_normal">
     <bpmndi:BPMNPlane id="plane_normal" bpmnElement="normal">
       <bpmndi:BPMNShape id="shape_scope_start" bpmnElement="scope_start">
-        <dc:Bounds x="25" y="260" width="36" height="36"/>
+        <ns3:Bounds x="25" y="260" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_power_split" bpmnElement="power_split">
-        <dc:Bounds x="85" y="258" width="40" height="40"/>
+        <ns3:Bounds x="85" y="258" width="40" height="40" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_power_join" bpmnElement="power_join">
-        <dc:Bounds x="405" y="258" width="40" height="40"/>
+        <ns3:Bounds x="405" y="258" width="40" height="40" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_function_split" bpmnElement="function_split">
-        <dc:Bounds x="475" y="258" width="40" height="40"/>
+        <ns3:Bounds x="475" y="258" width="40" height="40" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_function_join" bpmnElement="function_join">
-        <dc:Bounds x="795" y="258" width="40" height="40"/>
+        <ns3:Bounds x="795" y="258" width="40" height="40" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_finish" bpmnElement="finish">
-        <dc:Bounds x="865" y="238" width="150" height="80"/>
+        <ns3:Bounds x="865" y="238" width="150" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_scope_end" bpmnElement="scope_end">
-        <dc:Bounds x="1055" y="260" width="36" height="36"/>
+        <ns3:Bounds x="1055" y="260" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_raise_timeout" bpmnElement="raise_timeout">
-        <dc:Bounds x="670" y="500" width="36" height="36"/>
+        <ns3:Bounds x="670" y="500" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_power" bpmnElement="seed_power" isExpanded="true">
-        <dc:Bounds x="145" y="40" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_seed_power" bpmnElement="seed_power_wait">
+        <ns3:Bounds x="145" y="40" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_function" bpmnElement="seed_function" isExpanded="true">
-        <dc:Bounds x="545" y="40" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_seed_function" bpmnElement="seed_function_wait">
+        <ns3:Bounds x="545" y="40" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_power" bpmnElement="shg_power" isExpanded="true">
-        <dc:Bounds x="145" y="145" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_shg_power" bpmnElement="shg_power_wait">
+        <ns3:Bounds x="145" y="145" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_function" bpmnElement="shg_function" isExpanded="true">
-        <dc:Bounds x="545" y="145" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_shg_function" bpmnElement="shg_function_wait">
+        <ns3:Bounds x="545" y="145" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_power" bpmnElement="preamp_power" isExpanded="true">
-        <dc:Bounds x="145" y="250" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_preamp_power" bpmnElement="preamp_power_wait">
+        <ns3:Bounds x="145" y="250" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_function" bpmnElement="preamp_function" isExpanded="true">
-        <dc:Bounds x="545" y="250" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_preamp_function" bpmnElement="preamp_function_wait">
+        <ns3:Bounds x="545" y="250" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_power" bpmnElement="multipass_power" isExpanded="true">
-        <dc:Bounds x="145" y="355" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_multipass_power" bpmnElement="multipass_power_wait">
+        <ns3:Bounds x="145" y="355" width="220" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_function" bpmnElement="multipass_function" isExpanded="true">
-        <dc:Bounds x="545" y="355" width="220" height="80"/>
+      <bpmndi:BPMNShape id="shape_multipass_function" bpmnElement="multipass_function_wait">
+        <ns3:Bounds x="545" y="355" width="220" height="80" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_seed_power_timeout" bpmnElement="seed_power_timeout">
-        <dc:Bounds x="315" y="102" width="30" height="30"/>
+        <ns3:Bounds x="315" y="102" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_seed_function_timeout" bpmnElement="seed_function_timeout">
-        <dc:Bounds x="715" y="102" width="30" height="30"/>
+        <ns3:Bounds x="715" y="102" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_shg_power_timeout" bpmnElement="shg_power_timeout">
-        <dc:Bounds x="315" y="207" width="30" height="30"/>
+        <ns3:Bounds x="315" y="207" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_shg_function_timeout" bpmnElement="shg_function_timeout">
-        <dc:Bounds x="715" y="207" width="30" height="30"/>
+        <ns3:Bounds x="715" y="207" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_preamp_power_timeout" bpmnElement="preamp_power_timeout">
-        <dc:Bounds x="315" y="312" width="30" height="30"/>
+        <ns3:Bounds x="315" y="312" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_preamp_function_timeout" bpmnElement="preamp_function_timeout">
-        <dc:Bounds x="715" y="312" width="30" height="30"/>
+        <ns3:Bounds x="715" y="312" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_multipass_power_timeout" bpmnElement="multipass_power_timeout">
-        <dc:Bounds x="315" y="417" width="30" height="30"/>
+        <ns3:Bounds x="315" y="417" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="shape_multipass_function_timeout" bpmnElement="multipass_function_timeout">
-        <dc:Bounds x="715" y="417" width="30" height="30"/>
+        <ns3:Bounds x="715" y="417" width="30" height="30" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="edge_scope_start__power_split" bpmnElement="scope_start__power_split">
-        <di:waypoint x="61" y="278"/>
-        <di:waypoint x="85" y="278"/>
+        <ns4:waypoint x="61" y="278" />
+        <ns4:waypoint x="85" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_power_split__seed_power" bpmnElement="power_split__seed_power">
-        <di:waypoint x="125" y="278"/>
-        <di:waypoint x="135" y="278"/>
-        <di:waypoint x="135" y="80"/>
-        <di:waypoint x="145" y="80"/>
+        <ns4:waypoint x="125" y="278" />
+        <ns4:waypoint x="135" y="278" />
+        <ns4:waypoint x="135" y="80" />
+        <ns4:waypoint x="145" y="80" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_seed_power__power_join" bpmnElement="seed_power__power_join">
-        <di:waypoint x="365" y="80"/>
-        <di:waypoint x="385" y="80"/>
-        <di:waypoint x="385" y="278"/>
-        <di:waypoint x="405" y="278"/>
+        <ns4:waypoint x="365" y="80" />
+        <ns4:waypoint x="385" y="80" />
+        <ns4:waypoint x="385" y="278" />
+        <ns4:waypoint x="405" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_power_split__shg_power" bpmnElement="power_split__shg_power">
-        <di:waypoint x="125" y="278"/>
-        <di:waypoint x="135" y="278"/>
-        <di:waypoint x="135" y="185"/>
-        <di:waypoint x="145" y="185"/>
+        <ns4:waypoint x="125" y="278" />
+        <ns4:waypoint x="135" y="278" />
+        <ns4:waypoint x="135" y="185" />
+        <ns4:waypoint x="145" y="185" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_shg_power__power_join" bpmnElement="shg_power__power_join">
-        <di:waypoint x="365" y="185"/>
-        <di:waypoint x="385" y="185"/>
-        <di:waypoint x="385" y="278"/>
-        <di:waypoint x="405" y="278"/>
+        <ns4:waypoint x="365" y="185" />
+        <ns4:waypoint x="385" y="185" />
+        <ns4:waypoint x="385" y="278" />
+        <ns4:waypoint x="405" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_power_split__preamp_power" bpmnElement="power_split__preamp_power">
-        <di:waypoint x="125" y="278"/>
-        <di:waypoint x="135" y="278"/>
-        <di:waypoint x="135" y="290"/>
-        <di:waypoint x="145" y="290"/>
+        <ns4:waypoint x="125" y="278" />
+        <ns4:waypoint x="135" y="278" />
+        <ns4:waypoint x="135" y="290" />
+        <ns4:waypoint x="145" y="290" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_preamp_power__power_join" bpmnElement="preamp_power__power_join">
-        <di:waypoint x="365" y="290"/>
-        <di:waypoint x="385" y="290"/>
-        <di:waypoint x="385" y="278"/>
-        <di:waypoint x="405" y="278"/>
+        <ns4:waypoint x="365" y="290" />
+        <ns4:waypoint x="385" y="290" />
+        <ns4:waypoint x="385" y="278" />
+        <ns4:waypoint x="405" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_power_split__multipass_power" bpmnElement="power_split__multipass_power">
-        <di:waypoint x="125" y="278"/>
-        <di:waypoint x="135" y="278"/>
-        <di:waypoint x="135" y="395"/>
-        <di:waypoint x="145" y="395"/>
+        <ns4:waypoint x="125" y="278" />
+        <ns4:waypoint x="135" y="278" />
+        <ns4:waypoint x="135" y="395" />
+        <ns4:waypoint x="145" y="395" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_multipass_power__power_join" bpmnElement="multipass_power__power_join">
-        <di:waypoint x="365" y="395"/>
-        <di:waypoint x="385" y="395"/>
-        <di:waypoint x="385" y="278"/>
-        <di:waypoint x="405" y="278"/>
+        <ns4:waypoint x="365" y="395" />
+        <ns4:waypoint x="385" y="395" />
+        <ns4:waypoint x="385" y="278" />
+        <ns4:waypoint x="405" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_power_join__function_split" bpmnElement="power_join__function_split">
-        <di:waypoint x="445" y="278"/>
-        <di:waypoint x="475" y="278"/>
+        <ns4:waypoint x="445" y="278" />
+        <ns4:waypoint x="475" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_function_split__seed_function" bpmnElement="function_split__seed_function">
-        <di:waypoint x="515" y="278"/>
-        <di:waypoint x="530" y="278"/>
-        <di:waypoint x="530" y="80"/>
-        <di:waypoint x="545" y="80"/>
+        <ns4:waypoint x="515" y="278" />
+        <ns4:waypoint x="530" y="278" />
+        <ns4:waypoint x="530" y="80" />
+        <ns4:waypoint x="545" y="80" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_seed_function__function_join" bpmnElement="seed_function__function_join">
-        <di:waypoint x="765" y="80"/>
-        <di:waypoint x="775" y="80"/>
-        <di:waypoint x="775" y="278"/>
-        <di:waypoint x="795" y="278"/>
+        <ns4:waypoint x="765" y="80" />
+        <ns4:waypoint x="775" y="80" />
+        <ns4:waypoint x="775" y="278" />
+        <ns4:waypoint x="795" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_function_split__shg_function" bpmnElement="function_split__shg_function">
-        <di:waypoint x="515" y="278"/>
-        <di:waypoint x="530" y="278"/>
-        <di:waypoint x="530" y="185"/>
-        <di:waypoint x="545" y="185"/>
+        <ns4:waypoint x="515" y="278" />
+        <ns4:waypoint x="530" y="278" />
+        <ns4:waypoint x="530" y="185" />
+        <ns4:waypoint x="545" y="185" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_shg_function__function_join" bpmnElement="shg_function__function_join">
-        <di:waypoint x="765" y="185"/>
-        <di:waypoint x="775" y="185"/>
-        <di:waypoint x="775" y="278"/>
-        <di:waypoint x="795" y="278"/>
+        <ns4:waypoint x="765" y="185" />
+        <ns4:waypoint x="775" y="185" />
+        <ns4:waypoint x="775" y="278" />
+        <ns4:waypoint x="795" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_function_split__preamp_function" bpmnElement="function_split__preamp_function">
-        <di:waypoint x="515" y="278"/>
-        <di:waypoint x="530" y="278"/>
-        <di:waypoint x="530" y="290"/>
-        <di:waypoint x="545" y="290"/>
+        <ns4:waypoint x="515" y="278" />
+        <ns4:waypoint x="530" y="278" />
+        <ns4:waypoint x="530" y="290" />
+        <ns4:waypoint x="545" y="290" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_preamp_function__function_join" bpmnElement="preamp_function__function_join">
-        <di:waypoint x="765" y="290"/>
-        <di:waypoint x="775" y="290"/>
-        <di:waypoint x="775" y="278"/>
-        <di:waypoint x="795" y="278"/>
+        <ns4:waypoint x="765" y="290" />
+        <ns4:waypoint x="775" y="290" />
+        <ns4:waypoint x="775" y="278" />
+        <ns4:waypoint x="795" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_function_split__multipass_function" bpmnElement="function_split__multipass_function">
-        <di:waypoint x="515" y="278"/>
-        <di:waypoint x="530" y="278"/>
-        <di:waypoint x="530" y="395"/>
-        <di:waypoint x="545" y="395"/>
+        <ns4:waypoint x="515" y="278" />
+        <ns4:waypoint x="530" y="278" />
+        <ns4:waypoint x="530" y="395" />
+        <ns4:waypoint x="545" y="395" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_multipass_function__function_join" bpmnElement="multipass_function__function_join">
-        <di:waypoint x="765" y="395"/>
-        <di:waypoint x="775" y="395"/>
-        <di:waypoint x="775" y="278"/>
-        <di:waypoint x="795" y="278"/>
+        <ns4:waypoint x="765" y="395" />
+        <ns4:waypoint x="775" y="395" />
+        <ns4:waypoint x="775" y="278" />
+        <ns4:waypoint x="795" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_function_join__finish" bpmnElement="function_join__finish">
-        <di:waypoint x="835" y="278"/>
-        <di:waypoint x="865" y="278"/>
+        <ns4:waypoint x="835" y="278" />
+        <ns4:waypoint x="865" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_finish__scope_end" bpmnElement="finish__scope_end">
-        <di:waypoint x="1015" y="278"/>
-        <di:waypoint x="1055" y="278"/>
+        <ns4:waypoint x="1015" y="278" />
+        <ns4:waypoint x="1055" y="278" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_seed_power_timeout__raise_timeout" bpmnElement="seed_power_timeout__raise_timeout">
-        <di:waypoint x="330" y="132"/>
-        <di:waypoint x="650" y="132"/>
-        <di:waypoint x="650" y="500"/>
-        <di:waypoint x="670" y="518"/>
+        <ns4:waypoint x="330" y="132" />
+        <ns4:waypoint x="650" y="132" />
+        <ns4:waypoint x="650" y="500" />
+        <ns4:waypoint x="670" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_seed_function_timeout__raise_timeout" bpmnElement="seed_function_timeout__raise_timeout">
-        <di:waypoint x="730" y="132"/>
-        <di:waypoint x="750" y="132"/>
-        <di:waypoint x="750" y="500"/>
-        <di:waypoint x="706" y="518"/>
+        <ns4:waypoint x="730" y="132" />
+        <ns4:waypoint x="750" y="132" />
+        <ns4:waypoint x="750" y="500" />
+        <ns4:waypoint x="706" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_shg_power_timeout__raise_timeout" bpmnElement="shg_power_timeout__raise_timeout">
-        <di:waypoint x="330" y="237"/>
-        <di:waypoint x="650" y="237"/>
-        <di:waypoint x="650" y="500"/>
-        <di:waypoint x="670" y="518"/>
+        <ns4:waypoint x="330" y="237" />
+        <ns4:waypoint x="650" y="237" />
+        <ns4:waypoint x="650" y="500" />
+        <ns4:waypoint x="670" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_shg_function_timeout__raise_timeout" bpmnElement="shg_function_timeout__raise_timeout">
-        <di:waypoint x="730" y="237"/>
-        <di:waypoint x="750" y="237"/>
-        <di:waypoint x="750" y="500"/>
-        <di:waypoint x="706" y="518"/>
+        <ns4:waypoint x="730" y="237" />
+        <ns4:waypoint x="750" y="237" />
+        <ns4:waypoint x="750" y="500" />
+        <ns4:waypoint x="706" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_preamp_power_timeout__raise_timeout" bpmnElement="preamp_power_timeout__raise_timeout">
-        <di:waypoint x="330" y="342"/>
-        <di:waypoint x="650" y="342"/>
-        <di:waypoint x="650" y="500"/>
-        <di:waypoint x="670" y="518"/>
+        <ns4:waypoint x="330" y="342" />
+        <ns4:waypoint x="650" y="342" />
+        <ns4:waypoint x="650" y="500" />
+        <ns4:waypoint x="670" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_preamp_function_timeout__raise_timeout" bpmnElement="preamp_function_timeout__raise_timeout">
-        <di:waypoint x="730" y="342"/>
-        <di:waypoint x="750" y="342"/>
-        <di:waypoint x="750" y="500"/>
-        <di:waypoint x="706" y="518"/>
+        <ns4:waypoint x="730" y="342" />
+        <ns4:waypoint x="750" y="342" />
+        <ns4:waypoint x="750" y="500" />
+        <ns4:waypoint x="706" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_multipass_power_timeout__raise_timeout" bpmnElement="multipass_power_timeout__raise_timeout">
-        <di:waypoint x="330" y="447"/>
-        <di:waypoint x="650" y="447"/>
-        <di:waypoint x="650" y="500"/>
-        <di:waypoint x="670" y="518"/>
+        <ns4:waypoint x="330" y="447" />
+        <ns4:waypoint x="650" y="447" />
+        <ns4:waypoint x="650" y="500" />
+        <ns4:waypoint x="670" y="518" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="edge_multipass_function_timeout__raise_timeout" bpmnElement="multipass_function_timeout__raise_timeout">
-        <di:waypoint x="730" y="447"/>
-        <di:waypoint x="750" y="447"/>
-        <di:waypoint x="750" y="500"/>
-        <di:waypoint x="706" y="518"/>
+        <ns4:waypoint x="730" y="447" />
+        <ns4:waypoint x="750" y="447" />
+        <ns4:waypoint x="750" y="500" />
+        <ns4:waypoint x="706" y="518" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_seed_power">
-    <bpmndi:BPMNPlane id="plane_seed_power" bpmnElement="seed_power">
-      <bpmndi:BPMNShape id="shape_seed_power_start" bpmnElement="seed_power_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_power_send" bpmnElement="seed_power_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_power_wait" bpmnElement="seed_power_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_power_verify" bpmnElement="seed_power_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_power_end" bpmnElement="seed_power_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_seed_power_start__send" bpmnElement="seed_power_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_power_send__wait" bpmnElement="seed_power_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_power_wait__verify" bpmnElement="seed_power_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_power_verify__end" bpmnElement="seed_power_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_shg_power">
-    <bpmndi:BPMNPlane id="plane_shg_power" bpmnElement="shg_power">
-      <bpmndi:BPMNShape id="shape_shg_power_start" bpmnElement="shg_power_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_power_send" bpmnElement="shg_power_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_power_wait" bpmnElement="shg_power_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_power_verify" bpmnElement="shg_power_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_power_end" bpmnElement="shg_power_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_shg_power_start__send" bpmnElement="shg_power_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_power_send__wait" bpmnElement="shg_power_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_power_wait__verify" bpmnElement="shg_power_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_power_verify__end" bpmnElement="shg_power_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_preamp_power">
-    <bpmndi:BPMNPlane id="plane_preamp_power" bpmnElement="preamp_power">
-      <bpmndi:BPMNShape id="shape_preamp_power_start" bpmnElement="preamp_power_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_power_send" bpmnElement="preamp_power_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_power_wait" bpmnElement="preamp_power_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_power_verify" bpmnElement="preamp_power_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_power_end" bpmnElement="preamp_power_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_preamp_power_start__send" bpmnElement="preamp_power_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_power_send__wait" bpmnElement="preamp_power_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_power_wait__verify" bpmnElement="preamp_power_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_power_verify__end" bpmnElement="preamp_power_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_multipass_power">
-    <bpmndi:BPMNPlane id="plane_multipass_power" bpmnElement="multipass_power">
-      <bpmndi:BPMNShape id="shape_multipass_power_start" bpmnElement="multipass_power_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_power_send" bpmnElement="multipass_power_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_power_wait" bpmnElement="multipass_power_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_power_verify" bpmnElement="multipass_power_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_power_end" bpmnElement="multipass_power_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_multipass_power_start__send" bpmnElement="multipass_power_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_power_send__wait" bpmnElement="multipass_power_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_power_wait__verify" bpmnElement="multipass_power_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_power_verify__end" bpmnElement="multipass_power_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_seed_function">
-    <bpmndi:BPMNPlane id="plane_seed_function" bpmnElement="seed_function">
-      <bpmndi:BPMNShape id="shape_seed_function_start" bpmnElement="seed_function_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_function_send" bpmnElement="seed_function_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_function_wait" bpmnElement="seed_function_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_function_verify" bpmnElement="seed_function_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_seed_function_end" bpmnElement="seed_function_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_seed_function_start__send" bpmnElement="seed_function_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_function_send__wait" bpmnElement="seed_function_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_function_wait__verify" bpmnElement="seed_function_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_seed_function_verify__end" bpmnElement="seed_function_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_shg_function">
-    <bpmndi:BPMNPlane id="plane_shg_function" bpmnElement="shg_function">
-      <bpmndi:BPMNShape id="shape_shg_function_start" bpmnElement="shg_function_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_function_send" bpmnElement="shg_function_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_function_wait" bpmnElement="shg_function_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_function_verify" bpmnElement="shg_function_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_shg_function_end" bpmnElement="shg_function_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_shg_function_start__send" bpmnElement="shg_function_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_function_send__wait" bpmnElement="shg_function_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_function_wait__verify" bpmnElement="shg_function_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_shg_function_verify__end" bpmnElement="shg_function_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_preamp_function">
-    <bpmndi:BPMNPlane id="plane_preamp_function" bpmnElement="preamp_function">
-      <bpmndi:BPMNShape id="shape_preamp_function_start" bpmnElement="preamp_function_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_function_send" bpmnElement="preamp_function_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_function_wait" bpmnElement="preamp_function_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_function_verify" bpmnElement="preamp_function_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_preamp_function_end" bpmnElement="preamp_function_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_preamp_function_start__send" bpmnElement="preamp_function_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_function_send__wait" bpmnElement="preamp_function_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_function_wait__verify" bpmnElement="preamp_function_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_preamp_function_verify__end" bpmnElement="preamp_function_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-  <bpmndi:BPMNDiagram id="diagram_multipass_function">
-    <bpmndi:BPMNPlane id="plane_multipass_function" bpmnElement="multipass_function">
-      <bpmndi:BPMNShape id="shape_multipass_function_start" bpmnElement="multipass_function_start">
-        <dc:Bounds x="30" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_function_send" bpmnElement="multipass_function_send">
-        <dc:Bounds x="100" y="88" width="150" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_function_wait" bpmnElement="multipass_function_wait">
-        <dc:Bounds x="290" y="88" width="160" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_function_verify" bpmnElement="multipass_function_verify">
-        <dc:Bounds x="490" y="88" width="170" height="80"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="shape_multipass_function_end" bpmnElement="multipass_function_end">
-        <dc:Bounds x="710" y="110" width="36" height="36"/>
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_multipass_function_start__send" bpmnElement="multipass_function_start__send">
-        <di:waypoint x="66" y="128"/>
-        <di:waypoint x="100" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_function_send__wait" bpmnElement="multipass_function_send__wait">
-        <di:waypoint x="250" y="128"/>
-        <di:waypoint x="290" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_function_wait__verify" bpmnElement="multipass_function_wait__verify">
-        <di:waypoint x="450" y="128"/>
-        <di:waypoint x="490" y="128"/>
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_multipass_function_verify__end" bpmnElement="multipass_function_verify__end">
-        <di:waypoint x="660" y="128"/>
-        <di:waypoint x="710" y="128"/>
-      </bpmndi:BPMNEdge>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
+
+
+
+
+
+
+
+
 </bpmn:definitions>

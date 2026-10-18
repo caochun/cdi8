@@ -40,11 +40,32 @@ mvn clean test package
 java -jar target/control-server-0.1.0.jar
 ```
 
-访问 **http://127.0.0.1:8080**。先选择“四类组件初始化”，完成种子源、二倍频、再生与双程放大、多程放大四类组件的上电检查和功能检查；再选择“种子源至多程放大前期准备”。出光组件可选择种子源、二倍频或两者。双击流程图中的子流程，或使用层级下拉框查看命令等待节点。
+访问 **http://127.0.0.1:8080**。界面默认展示验证版“发射任务（四类组件验证范围）”，它依次调用“四类组件初始化”、`参数下发`、`发射准备`、`正式发射` 和 `发射后处理`。前期准备、正式发射和发射后处理流程可选择种子源、二倍频或两者作为出光组件；也可以在流程下拉框中单独运行子流程。双击流程图中的子流程，或使用层级下拉框查看命令等待节点；运行记录、当前阶段和设备状态会在页面中同步更新。
 
-默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，所有外部条件初始为 false，不会自动通过。`--preamp-count 10 --multipass-count 60` 可扩大实例数量。
+默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，所有外部条件初始为 false，不会自动通过。演示模式中的所有组件实例由同一个 Tango Device Server 进程承载，可分别配置实例数量：
 
-总控只发命令和等待反馈，不生成仿真成功结果。可用组件 GUI 连接适配服务启动时打印的 Tango 地址进行反馈，GUI 接入说明见 [simulator/README.md](simulator/README.md)。也可在适配服务的演示接口操作：
+```bash
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --seed-count 1 --shg-count 8 --preamp-count 10 --multipass-count 60
+```
+
+真实 Tango 环境不使用这些数量参数，设备实例由 Tango 设备目录或 `devices.json` 中的实际条目决定。
+
+总控只发命令和等待反馈。默认演示设备也等待显式反馈；为了自动跑通 BPMN 流程，可以在 `--demo` 下启用延迟自动完成：
+
+```bash
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --auto-complete --completion-delay-ms 500
+```
+
+演示设备会持久化状态；初始化成功后再次启动初始化会被拒绝，要求设备先回到“未就绪”。需要重新开始一轮干净演示时，在启动桥接服务时增加 `--reset-data`（只清理当前演示实例的 SQLite 文件）：
+
+```bash
+PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \
+  --auto-complete --completion-delay-ms 500 --reset-data
+```
+
+设备仍先返回 `accepted`，延迟后通过同一条 `Simulate`/`Snapshot CHANGE_EVENT` 路径报告成功；`--devices devices.json` 的真实 Tango 模式不会启用该行为。需要手动控制时，可用组件 GUI 连接适配服务启动时打印的 Tango 地址，或在适配服务的演示接口操作：
 
 ```bash
 # 查询设备状态，找到 active_command_id
@@ -53,7 +74,7 @@ curl http://127.0.0.1:8766/devices
 curl -X POST http://127.0.0.1:8766/devices/seed_01/simulate \
   -H 'Content-Type: application/json' \
   -d '{"command_id":"替换为实际命令ID","outcome":"success"}'
-# 显式提供外部许可、环境条件；重频模式由对应命令完成结果建立
+# 显式提供外部许可、环境条件；网页界面也可以在 Tango 设备卡片中直接切换
 curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
   -H 'Content-Type: application/json' \
   -d '{"safety_permit":true,"collimation_environment_ready":true}'
@@ -64,7 +85,13 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 | 文件 | 职责 |
 |---|---|
 | [四类组件初始化 BPMN](src/main/resources/processes/component_initialization.bpmn20.xml) | 只覆盖种子源、二倍频、再生与双程放大、多程放大；标准并行网关协调四类组件分支，每类组件内部按实例并行执行上电检查和功能检查 |
-| [前期准备 BPMN](src/main/resources/processes/optical_frontend_preparation.bpmn20.xml) | 参数 → 安全许可 → 出光与同步/唤醒并行 → 闭环与准直并行 → 最终复核 |
+| [参数下发 BPMN](src/main/resources/processes/parameter_dispatch.bpmn20.xml) | 组件初始化完成后，向四类组件实例并行下发参数，并核验参数初始化结果 |
+| [发射准备 BPMN](src/main/resources/processes/optical_frontend_preparation.bpmn20.xml) | 从参数下发完成状态开始：安全许可 → 出光与同步/唤醒并行 → 闭环与准直并行 → 发射准备全部完成 |
+| [正式发射 BPMN](src/main/resources/processes/formal_emission.bpmn20.xml) | 发射充电前置并行 → 发射充电 → 5 秒倒计时触发准备 → 正式触发完成；外部系统以显式条件证据接入 |
+| [发射后处理 BPMN](src/main/resources/processes/post_emission_processing.bpmn20.xml) | 正式发射完成后并行执行数据采集、待机、预电离、收靶、吹扫，全部汇合后打开屏蔽门 |
+| [验证版发射任务主流程](src/main/resources/processes/emission_task_lifecycle.bpmn20.xml) | 初始化 → 参数下发 → 发射准备 → 正式发射 → 发射后处理 |
+| [ComponentCommandActivityBehavior.java](src/main/java/cn/cdi8/control/ComponentCommandActivityBehavior.java) | 非阻塞登记、等待、结果校验和活动恢复 |
+| [ComponentCommandBpmnParseHandler.java](src/main/java/cn/cdi8/control/ComponentCommandBpmnParseHandler.java) | 将带 `componentCommand` 标记的 service task 解析为自定义活动 |
 | [TangoTasks.java](src/main/java/cn/cdi8/control/TangoTasks.java) | 登记命令、核验任务结果及当前组件状态 |
 | [WorkflowService.java](src/main/java/cn/cdi8/control/WorkflowService.java) | 事件关联、等待唤醒、资格监测、恢复查询、运行历史 |
 | [TangoGateway.java](src/main/java/cn/cdi8/control/TangoGateway.java) | 适配服务客户端及事件长连接 |
@@ -72,7 +99,7 @@ curl -X POST http://127.0.0.1:8766/devices/context_01/conditions \
 | [preparation_context.py](simulator/gxlf_component_simulator/tango/preparation_context.py) | 显式可控的演示同步/环境条件设备 |
 | [组件模型](simulator/gxlf_component_simulator/component_model.py) | 直接从 SCXML 读取动作及状态定义 |
 
-所有动作子流程的 `documentation` 声明动作和目标状态，`multiInstance` 声明设备实例集合。初始化流程使用标准 BPMN 并行网关和四类组件多实例子流程，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
+重复的“登记命令 → 等待 Tango 结果 → 校验结果和组件状态”由 `component-command` 自定义任务统一处理。BPMN 通过 `flowable:field` 声明按组件类型解析的动作和目标状态，直接在该任务上声明 `multiInstance` 设备实例集合；动作超时边界事件也直接挂在任务上，因此任一实例超时都会结束该动作组。初始化流程使用标准 BPMN 并行网关和四类组件分支，显示**引擎实际部署的 BPMN**；节点着色来自 Flowable 执行与活动历史，支持并行、多实例和子流程。
 
 完整业务设计见 [前期准备流程说明](docs/process-control/种子源至多程放大前期准备流程.md)。BPMN 统一维护在 `src/main/resources/processes`，流程图通过总控页面查看。
 
@@ -117,13 +144,15 @@ PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --
 
 演示组件 SQLite 在 `simulator/gxlf_component_simulator/data/`，文件名包含组件、实例和模型版本；演示条件设备不持久化，重启后条件重新确认。总控数据库使用新路径，与旧控制器数据隔离。部署为单个总控实例，一次只运行一个流程。
 
-主要接口：`GET /api/processes`、`GET /api/processes/{key}/xml`、`GET /api/devices`、`GET /api/connection`、`GET /api/runs`、`GET /api/runs/{id}`、`POST /api/runs/{id}/stop`。
+主要接口：`GET /api/processes`、`GET /api/processes/{key}/xml`、`GET /api/devices`、`POST /api/devices/{id}/conditions`、`GET /api/connection`、`GET /api/runs`、`GET /api/runs/{id}`、`POST /api/runs`、`POST /api/runs/{id}/stop`。
 
 ```bash
 curl -X POST http://127.0.0.1:8080/api/runs \
   -H 'Content-Type: application/json' \
   -d '{"processKey":"optical_frontend_preparation","sources":["seed"]}'
 ```
+
+直接运行 `optical_frontend_preparation`、`formal_emission` 或 `post_emission_processing` 前，目标组件必须已经完成相应前置阶段；验证完整发射任务时使用 `emission_task_lifecycle`。
 
 ## 验证与当前范围
 
@@ -137,4 +166,4 @@ python3 scripts/flowable_smoke.py
 
 Java 测试使用真实 Flowable 引擎与测试设备客户端，覆盖并行、失败、命令关联、丢事件恢复、外部资格失效、停止和定时器。Python 测试覆盖 SCXML 运行时及真实 Tango 命令、CHANGE_EVENT 和订阅重放。联调脚本通过真实 Tango 注入成功反馈并核对最终状态。
 
-本版实现前期准备流程骨架，按设备集合执行，动作参数暂为空对象；完整配方参数、束线/能量拓扑、发次证据和细分环境条件尚未接入。初始化要求全部组件处于未就绪；上电检查仅确认设备均已上电，通过后仍须完成功能检查。种子源 v4、其他三类 v2 使用带版本的持久化文件，旧模型文件保留并拒绝复用。本段完成表示所选光源保持出光、预放精闭环达标、多程准直达标，不表示全设施准备完成。
+本版实现初始化、参数下发、四组件范围内的发射准备、正式发射和发射后处理流程，按设备集合执行，动作参数暂为空对象；正式发射和发射后处理中的诊断、泵浦、测量、开关、同步、靶瞄、吹扫及屏蔽门动作由演示条件设备提供显式证据，真实分系统模型和完整配方参数、束线/能量拓扑、发次证据仍需接入。初始化要求全部组件处于未就绪；上电检查仅确认设备均已上电，通过后仍须完成功能检查。种子源 v4、其他三类 v2 使用带版本的持久化文件，旧模型文件保留并拒绝复用。正式发射完成表示触发链路完成，发射任务只有在后处理完成后才结束。

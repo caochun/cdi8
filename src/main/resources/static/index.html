@@ -1,10 +1,52 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>集中管控 · 流程运行</title>
-<link rel="stylesheet" href="vendor/assets/diagram-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-font/css/bpmn.css"><link rel="stylesheet" href="style.css">
-<script defer src="vendor/bpmn-viewer.js"></script><script defer src="app.js"></script></head>
-<body><header><div><span class="eyebrow">CDI8 / WORKFLOW CONTROL</span><h1>集中管控 · 流程运行</h1></div><span id="connection" class="badge">正在连接</span></header>
-<main><section class="toolbar"><label>流程定义<select id="process"></select></label><fieldset><legend>出光组件</legend><label><input id="seed" type="checkbox" checked> 种子源</label><label><input id="shg" type="checkbox"> 二倍频</label></fieldset><button id="start" class="primary">启动流程</button><button id="stop" disabled>停止流程</button><label class="history">运行记录<select id="runs"><option value="">查看流程定义</option></select></label></section>
-<div id="error" role="alert" hidden></div>
-<section class="workspace"><div class="diagram-panel"><div class="diagram-heading"><div><span id="outcome" class="badge">流程定义</span><span id="reason"></span></div><label>查看层级 <select id="scope"></select></label><button id="fit">适合窗口</button></div><div id="canvas"></div><div class="legend"><span class="dot active"></span> 执行中 / 等待事件 <span class="dot completed"></span> 已完成 <span class="dot cancelled"></span> 已中断 <span>滚轮缩放 · 拖动平移 · 双击子流程展开</span></div></div><aside><h2>节点详情</h2><div id="details">点击流程节点查看命令及执行记录。</div></aside></section>
-<section class="devices-panel"><h2>Tango 设备 <small>订阅 Snapshot 属性变化事件</small></h2><div id="devices" class="devices"></div></section>
-<p class="note">停止流程会停止后续编排；设备已接受的动作需在组件端处置。同步与环境条件演示设备初始均不满足，由外部 Tango 操作显式提供。</p></main></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>集中管控 · 流程运行</title>
+  <link rel="stylesheet" href="vendor/assets/diagram-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-js.css">
+  <link rel="stylesheet" href="vendor/assets/bpmn-font/css/bpmn.css"><link rel="stylesheet" href="style.css?v=2">
+  <script defer src="vendor/bpmn-viewer.js"></script><script defer src="app.js?v=2"></script>
+</head>
+<body>
+  <header>
+    <div><span class="eyebrow">CDI8 / WORKFLOW CONTROL</span><h1>集中管控 · 流程运行</h1></div>
+    <div class="connection-wrap"><span class="label">TANGO</span><span id="connection" class="badge">正在连接</span></div>
+  </header>
+  <main>
+    <section class="control-card">
+      <div class="control-main">
+        <label class="process-field">流程定义<select id="process"></select></label>
+        <fieldset id="source-options"><legend>参与出光组件</legend>
+          <label><input id="seed" type="checkbox" checked> 种子源</label>
+          <label><input id="shg" type="checkbox"> 二倍频</label>
+        </fieldset>
+        <div class="control-actions"><button id="start" class="primary">启动流程</button><button id="stop" disabled>停止流程</button></div>
+      </div>
+      <div class="history-field"><label>运行记录<select id="runs"><option value="">选择运行实例</option></select></label><span id="history-hint">自动跟踪最新运行</span></div>
+    </section>
+    <div id="error" role="alert" hidden></div>
+
+    <section class="run-overview" aria-label="运行概览">
+      <div class="overview-item status"><span>运行状态</span><strong id="outcome">流程定义</strong></div>
+      <div class="overview-item"><span>当前流程</span><strong id="run-name">尚未启动</strong></div>
+      <div class="overview-item"><span>当前阶段</span><strong id="run-stage">—</strong></div>
+      <div class="overview-item"><span>命令进度</span><strong id="command-summary">—</strong></div>
+      <div class="overview-item run-id"><span>运行 ID</span><strong id="run-id">—</strong></div>
+    </section>
+
+    <section class="workspace">
+      <div class="diagram-panel">
+        <div class="diagram-heading"><div><span id="diagram-state" class="badge">流程定义</span><span id="reason"></span></div>
+          <div class="diagram-tools"><label>查看层级<select id="scope"></select></label><button id="fit">适合窗口</button></div>
+        </div>
+        <div id="canvas"></div>
+        <div class="legend"><span class="dot active"></span>执行中 / 等待事件 <span class="dot completed"></span>已完成 <span class="dot cancelled"></span>已中断 <span class="legend-help">滚轮缩放 · 拖动平移 · 双击子流程展开</span></div>
+      </div>
+      <aside><div class="section-title"><h2>节点详情</h2><span id="detail-count"></span></div><div id="details">点击流程节点查看命令及执行记录。</div></aside>
+    </section>
+
+    <section class="devices-panel"><div class="section-title"><div><h2>Tango 设备</h2><small>同一 Device Server · Snapshot 属性变化事件</small></div><span id="device-summary" class="muted"></span></div><div id="devices" class="devices"></div></section>
+    <p class="note">停止流程会停止后续编排；设备已接受的动作由组件端完成。演示条件可以在下方设备卡片中直接切换。</p>
+  </main>
+</body>
+</html>
