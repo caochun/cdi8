@@ -289,11 +289,21 @@ class WorkflowIntegrationTest {
             .put("state_id", s == snapshots.get("seed_01") ? "statusUnknown" : "unchecked"));
         conditions(true, true); formalConditions();
         String pid = (String)workflows.start("emission_task_lifecycle", List.of("seed")).get("id");
+        JsonNode liveView = json.valueToTree(workflows.view(pid));
+        assertThat(liveView.path("participants").findValuesAsText("id"))
+            .containsExactlyInAnyOrder("seed_01", "shg_01", "preamp_01", "multipass_01", "context_01");
+        assertThat(liveView.path("children").get(0).path("key").asText()).isEqualTo("component_initialization");
+        assertThat(liveView.path("children").get(0).path("activeActivities").toString()).contains("seed_power_wait");
+        assertThat(workflows.runXml(liveView.path("children").get(0).path("id").asText()))
+            .contains("id=\"component_initialization\"");
         for (int i = 0; i < 120 && runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0; i++) {
             workflows.pump();
             completeAll();
         }
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("SUCCEEDED");
+        JsonNode completedView = json.valueToTree(workflows.view(pid));
+        assertThat(completedView.path("children")).hasSize(5);
+        assertThat(completedView.path("children").get(4).path("commands")).hasSize(3);
         assertThat(results.values()).extracting(r -> r.path("action").asText())
             .contains("power_on_check", "function_check", "parameter_dispatch", "seed_source_emit",
                 "preamp_wakeup", "coarse_loop", "fine_loop", "optical_collimation");

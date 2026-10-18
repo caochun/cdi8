@@ -7,3 +7,10 @@ Bundle: https://unpkg.com/bpmn-js@18.6.3/dist/bpmn-navigated-viewer.production.m
 
 Served locally so workflow visualization does not depend on a CDN. See
 BPMN-JS-LICENSE; the original visible bpmn.io watermark is retained.
+
+SCHVIZ and its React/SCXML dependencies are copied at Maven resource processing
+time from `simulator/gxlf_component_simulator/gui/assets/schviz`, together with
+their license files. The authoritative SCXML models are packaged from
+`simulator/gxlf_component_simulator/models`. No separate vendored copy is maintained
+in this directory. The web renderer adapts only its display input for the legacy
+SCHVIZ parser; it does not execute or modify the component models.

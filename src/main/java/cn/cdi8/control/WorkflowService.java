@@ -46,6 +46,16 @@ public class WorkflowService {
     public String xml(String key) {
         var definition = repository.createProcessDefinitionQuery().processDefinitionKey(key).latestVersion().singleResult();
         if (definition == null) throw new IllegalArgumentException("流程不存在");
+        return definitionXml(definition);
+    }
+
+    public String runXml(String id) {
+        var process = history.createHistoricProcessInstanceQuery().processInstanceId(id).singleResult();
+        if (process == null) throw new IllegalArgumentException("流程不存在");
+        return definitionXml(repository.getProcessDefinition(process.getProcessDefinitionId()));
+    }
+
+    private String definitionXml(org.flowable.engine.repository.ProcessDefinition definition) {
         try (var input = repository.getResourceAsStream(definition.getDeploymentId(), definition.getResourceName())) {
             return new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException ex) { throw new IllegalStateException(ex); }
@@ -343,7 +353,7 @@ public class WorkflowService {
     }
 
     public List<Map<String,Object>> recent() {
-        return history.createHistoricProcessInstanceQuery().orderByProcessInstanceStartTime().desc().listPage(0,20).stream()
+        return history.createHistoricProcessInstanceQuery().excludeSubprocesses(true).orderByProcessInstanceStartTime().desc().listPage(0,20).stream()
             .map(p -> {
                 Map<String,Object> value = new LinkedHashMap<>();
                 value.put("id", p.getId()); value.put("key", p.getProcessDefinitionKey());
@@ -380,6 +390,20 @@ public class WorkflowService {
                 byExecution.computeIfAbsent(variable.getExecutionId(), ignored -> new LinkedHashMap<>()).put(variable.getVariableName(), variable.getValue());
         }
         value.put("commands", new ArrayList<>(byExecution.values().stream().filter(row -> row.containsKey("commandId")).toList()));
+        Map<String, Object> participants = new LinkedHashMap<>();
+        boolean all = Set.of("component_initialization", "parameter_dispatch", "emission_task_lifecycle")
+            .contains(process.getProcessDefinitionKey());
+        for (String collection : all ? ("emission_task_lifecycle".equals(process.getProcessDefinitionKey())
+                ? List.of("allComponents", "contextTargets") : List.of("allComponents"))
+                : List.of("sourceTargets", "preampTargets", "multipassTargets", "contextTargets")) {
+            if (vars.get(collection) instanceof List<?> targets)
+                for (Object target : targets)
+                    if (target instanceof Map<?, ?> item && item.get("id") != null)
+                        participants.put(item.get("id").toString(), target);
+        }
+        value.put("participants", new ArrayList<>(participants.values()));
+        value.put("children", history.createHistoricProcessInstanceQuery().superProcessInstanceId(pid)
+            .orderByProcessInstanceStartTime().asc().list().stream().map(child -> view(child.getId())).toList());
         return value;
     }
 }

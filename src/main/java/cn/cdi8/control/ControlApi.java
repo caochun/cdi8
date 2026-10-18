@@ -17,6 +17,19 @@ public class ControlApi {
     public String xml(@PathVariable String key) { return workflows.xml(key); }
     @GetMapping("/connection") public Object connection() { return tango.status(); }
     @GetMapping("/devices") public Object devices() { return tango.catalog(); }
+    @GetMapping("/models") public Map<String, String> models() throws java.io.IOException {
+        var resources = new org.springframework.core.io.support.PathMatchingResourcePatternResolver()
+            .getResources("classpath*:component-models/*.scxml");
+        Map<String, String> models = new TreeMap<>();
+        for (var resource : resources) {
+            try (var input = resource.getInputStream()) {
+                models.put(resource.getFilename(), new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        return models;
+    }
+    @GetMapping(value="/runs/{id}/xml", produces="application/xml")
+    public String runXml(@PathVariable String id) { return workflows.runXml(id); }
     @PostMapping("/devices/{id}/conditions")
     public Object conditions(@PathVariable String id, @RequestBody Map<String, Boolean> values) {
         if (values == null || values.isEmpty()) throw new IllegalArgumentException("至少提供一个演示条件");
