@@ -1,21 +1,11 @@
-# Docs
+# 文档导航
 
-当前总控实现及启动方式见[项目 README](../README.md)，可执行流程位于 `src/main/resources/processes/`，通过 Tango 命令与属性事件连接组件。
+- [项目入口与启动](../README.md)：目录、构建、服务和验证命令。
+- [架构与迁移边界](architecture/workbench.md)：工作台、模拟服务、示例源文件及运行数据的职责。
+- [工作台开发与联调](development/workbench.md)：模型版本、独立试验、环境配置、条件声明和调试接口。
+- [GXLF 示例](../examples/gxlf/README.md)：当前四类组件与发射任务的验证范围。
+- [GXLF 状态定义](domain/gxlf/component-states/README.md)：分系统和组件状态来源。
+- [GXLF 业务流程](domain/gxlf/process-control/)：前期准备、正式发射和发射后处理说明。
+- [设备接口契约](../contracts/README.md)：命令、结果及 NDJSON 事件格式。
 
-文档按用途分组：
-
-- [控制对象状态定义](component-states/README.md)：按 2026-10-15 Excel 清单拆分的各分系统、组件状态定义，保留原表字段和行号。
-- `process-control/`：当前主线的集中管控发射流程业务说明；运行流程图以 `src/main/resources/processes/` 下的 BPMN 为准。
-- [正式发射流程](process-control/正式发射流程.md)：发射充电前置、触发倒计时与正式触发结果判定；对应[运行 BPMN](../src/main/resources/processes/formal_emission.bpmn20.xml)。
-- [发射后处理流程](process-control/发射后处理流程.md)：正式发射完成后的并行采集、待机、预电离、收靶、吹扫和屏蔽门打开；对应[运行 BPMN](../src/main/resources/processes/post_emission_processing.bpmn20.xml)。
-- [种子源至多程放大前期准备流程](process-control/种子源至多程放大前期准备流程.md)：四类组件发射准备的顺序、并行、状态契约及外部守卫；对应[运行 BPMN](../src/main/resources/processes/optical_frontend_preparation.bpmn20.xml)，流程图通过总控页面查看。
-- [种子源 SCXML](../simulator/gxlf_component_simulator/models/seed-source-state-machine.scxml)：种子源单一层级可执行模型的权威描述，按复合状态和内部状态表达最新清单。
-- `reference` 入口仍作为上述种子源单一层级模型的兼容别名；异常作为主状态，当前故障类别由异常下的叶子状态表示，完整故障集合、故障前状态和下电结果保存在上下文。
-- [二倍频 SCXML](../simulator/gxlf_component_simulator/models/shg-injection-state-machine.scxml)：二倍频宽带激光注入组件状态机。
-- [再生与双程放大 SCXML](../simulator/gxlf_component_simulator/models/preamp-state-machine.scxml)：再生与双程放大组件状态机。
-- [多程放大 SCXML](../simulator/gxlf_component_simulator/models/multipass-state-machine.scxml)：多程放大系统状态机。
-- `archive/`：历史需求报告、接口拆分、早期推导、会议记录和旧版流程图。
-
-`simulator/gxlf_component_simulator/` 使用统一的 `SCXMLMachine`、`ComponentModel` 和 `ComponentRuntime` 同时执行种子源、二倍频宽带激光注入组件、再生/双程放大组件与多程放大系统；四份 SCXML 和模型元数据统一保存在包内的 `models/` 中。
-
-组件状态图通过[模拟器 GUI](../simulator/README.md)直接加载 SCXML 查看。
+GXLF 的可执行模型集中维护在 `examples/gxlf/`；业务文档描述的完整需求不等于当前示例已覆盖的执行范围。工作台用户模型及历史保存在 `data/`，不写回示例源文件。

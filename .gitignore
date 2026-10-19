@@ -54,6 +54,7 @@ htmlcov/
 
 # Spring Boot / Flowable local runtime
 /target/
+/server/target/
 /data/
 
 # Local Office documents

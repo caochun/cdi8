@@ -11,14 +11,14 @@ PYTHONPATH=simulator .venv/bin/python -m gxlf_component_simulator.tango.control_
 
 # 终端二；Node.js 22.12+、Java 17+、Maven
 mvn test package
-java -jar target/control-server-0.1.0.jar
+java -jar server/target/workbench-server-0.1.0.jar
 ```
 
-Maven 自动在 `frontend/` 执行 `npm ci`、TypeScript 校验与 Vite 构建，生成文件放在 `target/workbench-static/` 并打进 JAR。浏览器不依赖 CDN。仅调整前端时可执行 `npm run dev --prefix frontend`，Vite 将 API 请求代理到 8080。已有前端构建且只验证 Java 时，可使用 `mvn -Dexec.skip=true test`。
+根 Maven POM 聚合 `server` 模块；该模块自动在 `frontend/` 执行 `npm ci`、TypeScript 校验与 Vite 构建，生成文件放在 `target/workbench-static/` 并打进 JAR。浏览器不依赖 CDN。仅调整前端时可执行 `npm run dev --prefix frontend`，Vite 将 API 请求代理到 8080。已有前端构建且只验证 Java 时，可使用 `mvn -Dexec.skip=true test`。
 
 ## 模型、草稿和版本
 
-首次启动将仓库中的六个 BPMN 与四个 SCXML 作为内置示例导入模型库。编辑器自动保存草稿，允许保存暂时不完整的 XML；图形更新有防抖，语法错误时保留上一张有效预览。点击节点可定位 XML，XML 中选择带 ID 的元素可突出图形节点。BPMN 缺少图形坐标或新增节点尚无坐标时，使用 bpmn-auto-layout 补齐对应层级的显示布局，不更改可执行 XML。
+首次启动将 `examples/gxlf/` 中的六个 BPMN 与四个 SCXML 作为内置示例导入模型库。新建模型模板位于 `examples/minimal/`，由前端直接导入。编辑器自动保存草稿，允许保存暂时不完整的 XML；图形更新有防抖，语法错误时保留上一张有效预览。点击节点可定位 XML，XML 中选择带 ID 的元素可突出图形节点。BPMN 缺少图形坐标或新增节点尚无坐标时，使用 bpmn-auto-layout 补齐对应层级的显示布局，不更改可执行 XML。
 
 “校验”不会部署或执行模型。“保存版本”必须通过执行校验；版本包含独立 XML 内容，后续编辑不修改历史版本。导出 XML 可将内容带回仓库审查，平台不会隐式覆盖仓库源文件。工作台生成的版本号独立于 SCXML 元数据中的 `model_id` / `model_version`。
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="operating">
+  <datamodel><data id="componentMetadata"><![CDATA[
+{
+  "model_id": "demo-component-v1", "model_version": 1,
+  "display_name": "示例组件",
+  "outer_labels": {"operating":"运行"},
+  "inner_labels": {"idle":"空闲", "active":"已激活"},
+  "context_defaults": {},
+  "actions": {
+    "activate": {"label":"激活", "requests":{"idle":"activate.request"},
+      "success_events":{"idle":"activate.succeeded"},
+      "failure_events":{"idle":"activate.failed"},
+      "success_key":"激活成功", "failure_key":"激活失败"}
+  }
+}
+  ]]></data></datamodel>
+  <state id="operating" initial="idle">
+    <state id="idle">
+      <transition event="activate.succeeded" target="active" />
+      <transition event="activate.failed" target="idle" />
+    </state>
+    <state id="active" />
+  </state>
+</scxml>

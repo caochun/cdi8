@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tango bridge NDJSON message",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {"type": {"enum": ["ready", "heartbeat"]}},
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "required": ["type", "device_id", "connected"],
+      "properties": {
+        "type": {"enum": ["snapshot", "device_error"]},
+        "device_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "connected": {"type": "boolean"},
+        "origin": {"type": "string"},
+        "snapshot": {"type": "object"},
+        "error": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "snapshot"}}}, "then": {"required": ["snapshot"], "properties": {"connected": {"const": true}}}},
+        {"if": {"properties": {"type": {"const": "device_error"}}}, "then": {"required": ["error"], "properties": {"connected": {"const": false}}}}
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

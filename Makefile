@@ -1,4 +1,4 @@
-.PHONY: test java-test simulator-test component-demo component-panel control-test control-package operator device-gateway device-gateway-local tango-bridge
+.PHONY: test java-test simulator-test component-demo control-test control-package operator tango-bridge
 
 PYTHON ?= python3
 # Source-tree development works without installing the simulator package.
@@ -15,23 +15,25 @@ simulator-test:
 component-demo:
 	$(SIM_PYTHON) -m gxlf_component_simulator --component seed demo
 
-component-panel:
-	$(SIM_PYTHON) -m gxlf_component_simulator.gui --component seed --demo
-
 control-test: java-test
 
 control-package:
 	mvn package
 
 operator:
-	mvn spring-boot:run
-
-device-gateway:
-	$(SIM_PYTHON) -m gxlf_component_simulator.tango.gateway --mode tango
-
-device-gateway-local:
-	$(SIM_PYTHON) -m gxlf_component_simulator.tango.gateway --mode local
+	mvn -pl server spring-boot:run
 
 # Four SCXML component types plus explicit demo synchronization/environment device.
 tango-bridge:
 	$(SIM_PYTHON) -m gxlf_component_simulator.tango.control_bridge --demo
+
+# These targets require isolated, freshly started services. They mutate demo state.
+BASE_URL ?= http://127.0.0.1:8080
+BRIDGE_URL ?= http://127.0.0.1:8766
+
+.PHONY: workbench-smoke gxlf-smoke
+workbench-smoke:
+	$(PYTHON) tests/e2e/workbench_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
+
+gxlf-smoke:
+	$(PYTHON) tests/e2e/gxlf_lifecycle_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)

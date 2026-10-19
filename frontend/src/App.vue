@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed,onMounted,onBeforeUnmount,ref,watch,nextTick} from 'vue';
-import XmlEditor from './XmlEditor.vue';import Diagram from './Diagram.vue';
+import XmlEditor from './components/editors/XmlEditor.vue';import Diagram from './components/diagrams/Diagram.vue';
 import {api,type Model} from './api';import {scxmlTemplate,bpmnTemplate} from './templates';
 const tab=ref('models'),models=ref<Model[]>([]),selectedId=ref(''),xml=ref(''),editor=ref<InstanceType<typeof XmlEditor>>();
 const error=ref(''),notice=ref(''),busy=ref(false),connection=ref(false),selectedNode=ref(''),diagnostics=ref<any[]>([]),validation=ref<any>(null);

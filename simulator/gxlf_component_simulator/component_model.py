@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from .scxml_machine import SCXMLMachine, TransitionError
+from .resources import MODEL_DIRECTORY
 
 
 @dataclass(frozen=True)
@@ -166,7 +167,6 @@ class ComponentModel:
         return target, spec.machine_event, spec.label
 
 
-MODEL_DIRECTORY = Path(__file__).resolve().with_name("models")
 DATA_DIRECTORY = Path(__file__).resolve().with_name("data")
 # The single-level executable model is the canonical seed model.
 # Keep the descriptive name as an alias so all simulator entry points share one
