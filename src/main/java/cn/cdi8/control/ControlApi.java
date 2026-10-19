@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 public class ControlApi {
     private final WorkflowService workflows;
     private final TangoGateway tango;
-    public ControlApi(WorkflowService workflows, TangoGateway tango) { this.workflows = workflows; this.tango = tango; }
+    private final ModelStore models;
+    public ControlApi(WorkflowService workflows, TangoGateway tango, ModelStore models) { this.workflows = workflows; this.tango = tango; this.models=models; }
     public record Start(String processKey, List<String> sources) {}
     @GetMapping("/processes") public Object processes() { return workflows.definitions(); }
     @GetMapping(value="/processes/{key}/xml", produces="application/xml")
@@ -26,6 +27,8 @@ public class ControlApi {
                 models.put(resource.getFilename(), new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             }
         }
+        for(var model:this.models.list())if("scxml".equals(model.path("kind").asText()))
+            for(var revision:model.path("revisions"))models.put(revision.path("id").asText(),revision.path("xml").asText());
         return models;
     }
     @GetMapping(value="/runs/{id}/xml", produces="application/xml")

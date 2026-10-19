@@ -123,7 +123,9 @@ def transport_error(exc):
                            "API_CantConnectToDatabase", "API_DeviceNotExported"})
 
 
-def create_server(bridge, port):
+def create_server(bridge, port, workbench=None):
+    initial_bridge = bridge
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
@@ -139,6 +141,7 @@ def create_server(bridge, port):
             self.wfile.write(data)
 
         def stream(self):
+            bridge = workbench.bridge if workbench else initial_bridge
             queue = Queue(maxsize=1024)
             # Register and capture current state under the same lock: no event gap.
             with bridge.lock:
@@ -171,12 +174,19 @@ def create_server(bridge, port):
                 self.close_connection = True
 
         def do_GET(self):
+            bridge = workbench.bridge if workbench else initial_bridge
             parts = urlsplit(self.path).path.strip("/").split("/")
             try:
                 if parts == ["events"]:
                     self.stream()
                     return
-                if parts == ["devices"]:
+                if workbench and parts == ["lab", "environment"]:
+                    value = workbench.current
+                elif workbench and len(parts) == 3 and parts[:2] == ["lab", "trials"]:
+                    value = workbench.trials.view(parts[2])
+                elif len(parts) == 3 and parts[0] == "devices" and parts[2] == "history":
+                    value = bridge.call(parts[1], "History", 200)
+                elif parts == ["devices"]:
                     value = bridge.catalog()
                 elif len(parts) == 2 and parts[0] == "devices":
                     value = bridge.snapshot(parts[1])
@@ -191,14 +201,28 @@ def create_server(bridge, port):
                 self.respond(502, {"error": str(exc)})
 
         def do_POST(self):
+            bridge = workbench.bridge if workbench else initial_bridge
             try:
                 parts = urlsplit(self.path).path.strip("/").split("/")
                 length = int(self.headers.get("Content-Length", 0))
-                if not 0 < length <= 65536:
+                if not 0 < length <= 4_000_000:
                     raise ValueError("invalid body length")
                 payload = json.loads(self.rfile.read(length))
                 if not isinstance(payload, dict):
                     raise ValueError("body must be an object")
+                if workbench and parts[:1] == ["lab"]:
+                    if parts == ["lab", "validate"]:
+                        value = workbench.trials.validate(payload.get("xml"))
+                    elif parts == ["lab", "trials"]:
+                        value = workbench.trials.create(payload["xml"])
+                    elif len(parts) == 4 and parts[:2] == ["lab", "trials"]:
+                        value = workbench.trials.operate(parts[2], parts[3], payload)
+                    elif parts == ["lab", "environment"]:
+                        value = workbench.configure(payload)
+                    else:
+                        raise KeyError("unknown workbench endpoint")
+                    self.respond(200, value)
+                    return
                 if len(parts) != 3 or parts[0] != "devices" or parts[1] not in bridge.devices:
                     raise KeyError("unknown device")
                 command = {"commands": "Execute", "simulate": "Simulate", "complete": "Complete",
@@ -262,14 +286,20 @@ def main():
                     "auto_complete": args.auto_complete,
                     "auto_complete_delay_ms": args.completion_delay_ms,
                 }}]})
-            context = stack.enter_context(MultiDeviceTestContext(definition, process=True, host="127.0.0.1", timeout=20))
+            context = MultiDeviceTestContext(definition, process=True, host="127.0.0.1", timeout=20)
+            context.start()
             bindings = component_bindings(context, specs)
             bindings["context_01"] = {"component": "context", "address": context.get_device_access("gxlf/context/01")}
         else:
             bindings = json.loads(args.devices.read_text())
         bridge = TangoBridge(bindings)
         stack.callback(bridge.close)
-        server = create_server(bridge, args.port)
+        workbench = None
+        if args.demo:
+            from .workbench import Workbench
+            workbench = Workbench(bridge, context=context)
+            stack.callback(workbench.close)
+        server = create_server(bridge, args.port, workbench)
         stack.callback(server.server_close)
         print(json.dumps({"url": f"http://127.0.0.1:{server.server_port}", "devices": bindings}, ensure_ascii=False), flush=True)
         try:

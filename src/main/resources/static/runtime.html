@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>集中管控 · 流程运行</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="vendor/assets/diagram-js.css"><link rel="stylesheet" href="vendor/assets/bpmn-js.css">
+  <link rel="stylesheet" href="vendor/assets/bpmn-font/css/bpmn.css"><link rel="stylesheet" href="style.css?v=3">
+  <script defer src="vendor/bpmn-viewer.js"></script><script defer src="state-charts.js?v=4"></script><script defer src="app.js?v=4"></script>
+</head>
+<body>
+  <header>
+    <div><span class="eyebrow">CDI8 / WORKFLOW CONTROL</span><h1>流程与设备 · 运行总览</h1></div>
+    <div class="connection-wrap"><span class="label">TANGO</span><span id="connection" class="badge">正在连接</span></div>
+  </header>
+  <main>
+    <section class="control-card">
+      <div class="control-main">
+        <label class="process-field">流程定义<select id="process"></select></label>
+        <fieldset id="source-options"><legend>参与出光组件</legend>
+          <label><input id="seed" type="checkbox" checked> 种子源</label>
+          <label><input id="shg" type="checkbox"> 二倍频</label>
+        </fieldset>
+        <div class="control-actions"><button id="start" class="primary">启动流程</button><button id="stop" disabled>停止流程</button></div>
+      </div>
+      <div class="history-field"><label>运行记录<select id="runs"><option value="">选择运行实例</option></select></label></div>
+    </section>
+    <div id="error" role="alert" hidden></div>
+    <section class="run-overview" aria-label="运行概览">
+      <div class="overview-item status"><span>运行状态</span><strong id="outcome">流程定义</strong></div>
+      <div class="overview-item"><span>当前流程</span><strong id="run-name">尚未启动</strong></div>
+      <div class="overview-item"><span>当前活动</span><strong id="run-stage">—</strong></div>
+      <div class="overview-item"><span>已登记命令结果</span><strong id="command-summary">—</strong></div>
+      <div class="overview-item"><span>运行时间</span><strong id="elapsed">—</strong></div>
+    </section>
+    <section id="wait-diagnostics" class="debug-panel" hidden><h2>等待诊断</h2><div id="wait-list"></div></section>
+    <section class="diagram-panel">
+      <div class="diagram-heading">
+        <div class="section-title"><h2>流程进度</h2><span id="diagram-state" class="badge">流程定义</span><span id="reason"></span></div>
+        <div class="diagram-tools"><label>查看层级<select id="scope"></select></label><button id="fit">适合窗口</button><button id="expand-flow">展开流程图 ↗</button></div>
+      </div>
+      <div class="flow-workspace">
+        <div class="flow-maps"><div class="primary-map"><div class="map-caption" id="flow-caption">完整流程</div><div id="canvas"></div></div>
+          <section id="child-flow" hidden><div class="map-caption"><span id="child-flow-title">当前阶段</span><span>阶段内部进度</span></div><div id="child-canvas"></div></section>
+        </div>
+        <div class="activity-focus"><div class="focus-heading"><span class="pulse-dot"></span><h3>当前活动 · 局部放大</h3></div><div id="activity-lenses"></div></div>
+      </div>
+      <div class="legend"><span class="dot active"></span>执行中 / 等待 <span class="dot completed"></span>已完成 <span class="dot cancelled"></span>已中断 <span class="legend-help">底图保持全貌 · 点击节点查看设备与记录</span></div>
+    </section>
+    <section class="devices-panel">
+      <div class="section-title"><div><h2>设备状态进度 <span id="device-summary" class="muted"></span></h2><small id="device-hint">状态机全貌与当前状态同时展示</small></div>
+        <label class="device-filter"><input type="checkbox" id="only-related" checked>仅参与本流程</label>
+      </div>
+      <div id="devices" class="devices"></div>
+    </section>
+    <details class="context-panel"><summary>同步与环境条件 <span id="context-summary" class="muted"></span></summary><div id="context-devices"></div></details>
+    <details class="debug-panel"><summary>关联事件时间线 <span id="trace-count"></span></summary><div id="trace-list"></div></details>
+    <p class="note">运行中显示实时设备状态；历史运行显示已记录的设备快照。停止流程会停止后续编排，设备已接受的动作由组件端完成。<span id="run-id"></span></p>
+  </main>
+  <dialog id="detail-dialog"><div class="dialog-heading"><div><span class="eyebrow">DETAIL VIEW</span><h2 id="detail-title">节点详情</h2></div><button id="close-detail" aria-label="关闭详情">关闭 ×</button></div>
+    <div id="expanded-graph"></div><div class="section-title detail-heading"><h3>执行记录</h3><span id="detail-count"></span></div><div id="details"></div>
+  </dialog>
+</body>
+</html>

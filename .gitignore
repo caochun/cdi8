@@ -62,3 +62,7 @@ htmlcov/
 *.xlsm
 *.doc
 *.docx
+
+# Generated simulation trial / environment data
+/simulator/gxlf_component_simulator/data/workbench-trials/
+/simulator/gxlf_component_simulator/data/workbench-environments/

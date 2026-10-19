@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
+<bpmn:definitions xmlns:lab="https://cdi8.cn/workbench" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
   <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
   <bpmn:message id="stop_message" name="StopWorkflow" />
   <bpmn:process id="optical_frontend_preparation" isExecutable="true" name="发射准备（四类组件验证范围）">
@@ -11,7 +11,7 @@
       <bpmn:endEvent id="raise_timeout" name="动作超时">
         <bpmn:errorEventDefinition errorRef="device_error" />
       </bpmn:endEvent>
-      <bpmn:receiveTask id="wait_safety" name="等待安全许可" />
+      <bpmn:receiveTask id="wait_safety" lab:condition="safety_permit" lab:collection="contextTargets" lab:maintain="true" name="等待安全许可" />
       <bpmn:parallelGateway id="split_light" name="并行供光与唤醒" />
       <bpmn:parallelGateway id="join_light" name="供光与唤醒均完成" />
       <bpmn:parallelGateway id="split_loop" name="并行闭环与准直" />
@@ -54,7 +54,7 @@
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
       <bpmn:sequenceFlow id="fine_timeout__raise_timeout" sourceRef="fine_timeout" targetRef="raise_timeout" />
-      <bpmn:receiveTask id="wait_environment" name="等待准直环境条件" />
+      <bpmn:receiveTask id="wait_environment" lab:condition="collimation_environment_ready" lab:collection="contextTargets" lab:maintain="true" name="等待准直环境条件" />
       <bpmn:serviceTask id="collimate_wait" name="多程光路准直" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;optical_collimation&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;collimationReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
       <bpmn:boundaryEvent id="collimate_timeout" attachedToRef="collimate_wait" cancelActivity="true" name="动作超时">
         <bpmn:timerEventDefinition>

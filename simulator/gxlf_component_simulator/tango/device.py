@@ -6,11 +6,13 @@ from threading import RLock, Timer
 from tango.server import Device, attribute, command, device_property
 
 from ..component_runtime import ComponentRuntime
-from ..component_model import model_by_id
+from ..component_model import ComponentModel, model_by_id
 
 
 class ComponentDevice(Device):
     component_model = device_property(dtype=str)
+    model_path = device_property(dtype=str, default_value="")
+    model_revision = device_property(dtype=str, default_value="")
     database_path = device_property(dtype=str)
     # Demo-only behavior. Real devices leave this disabled and report their
     # completion through Complete or ReportEvent when hardware responds.
@@ -34,7 +36,7 @@ class ComponentDevice(Device):
             old.close()
         if not self.component_model or not self.database_path:
             raise ValueError("component_model and database_path are required")
-        self.model = model_by_id(self.component_model)
+        self.model = ComponentModel(self.model_path) if self.model_path else model_by_id(self.component_model)
         self.runtime = ComponentRuntime(self.model, self.database_path)
         self.set_change_event("Snapshot", True, False)
 
@@ -51,10 +53,16 @@ class ComponentDevice(Device):
 
     @attribute(dtype=str)
     def Snapshot(self):
-        return json.dumps(self.runtime.snapshot(), ensure_ascii=True)
+        return json.dumps(self.snapshot(), ensure_ascii=True)
+
+    def snapshot(self):
+        value = self.runtime.snapshot()
+        if self.model_revision:
+            value["model_revision"] = self.model_revision
+        return value
 
     def publish(self, result):
-        self.push_change_event("Snapshot", json.dumps(self.runtime.snapshot(), ensure_ascii=True))
+        self.push_change_event("Snapshot", json.dumps(self.snapshot(), ensure_ascii=True))
         return json.dumps(result, ensure_ascii=True)
 
     def _finish_automatically(self, command_id):

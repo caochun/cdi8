@@ -12,9 +12,15 @@
   <build>
     <resources>
       <resource><directory>src/main/resources</directory></resource>
+      <resource><directory>target/workbench-static</directory><targetPath>static</targetPath></resource>
       <resource><directory>simulator/gxlf_component_simulator/models</directory><targetPath>component-models</targetPath><includes><include>*.scxml</include></includes></resource>
       <resource><directory>simulator/gxlf_component_simulator/gui/assets/schviz</directory><targetPath>static/vendor/schviz</targetPath></resource>
     </resources>
-    <plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins>
+    <plugins>
+      <plugin><groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version><executions>
+        <execution><id>frontend-install</id><phase>generate-resources</phase><goals><goal>exec</goal></goals><configuration><executable>npm</executable><workingDirectory>frontend</workingDirectory><arguments><argument>ci</argument><argument>--no-audit</argument><argument>--no-fund</argument></arguments></configuration></execution>
+        <execution><id>frontend-build</id><phase>generate-resources</phase><goals><goal>exec</goal></goals><configuration><executable>npm</executable><workingDirectory>frontend</workingDirectory><arguments><argument>run</argument><argument>build</argument></arguments></configuration></execution>
+      </executions></plugin>
+      <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins>
   </build>
 </project>

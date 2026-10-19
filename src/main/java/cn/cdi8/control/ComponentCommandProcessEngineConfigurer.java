@@ -16,6 +16,7 @@ public final class ComponentCommandProcessEngineConfigurer implements ProcessEng
 
     @Override
     public void configure(SpringProcessEngineConfiguration configuration) {
+        configuration.setCreateDiagramOnDeploy(false); // Browser viewers render the deployed XML directly.
         var handlers = configuration.getCustomDefaultBpmnParseHandlers();
         if (handlers == null) handlers = new ArrayList<>();
         handlers.add(handler);

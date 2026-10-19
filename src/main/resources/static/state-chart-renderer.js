@@ -28,6 +28,7 @@ window.addEventListener('message', async event => {
     const poll = () => {
       const svg = root.querySelector('svg');
       if (graph.graphRoot?.state.kgraph && svg?.querySelector('g.node')) {
+        for(const marker of svg.querySelectorAll('marker')) {marker.setAttribute('markerWidth','2.4');marker.setAttribute('markerHeight','4');}
         const nodes = {};
         // Bake the current viewport transform into SVG coordinates for stable crops.
         const matrix = svg.getScreenCTM().inverse();

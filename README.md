@@ -1,6 +1,6 @@
 # GXLF 集中管控与组件仿真
 
-总控使用 **Java 17+ / Spring Boot / Flowable** 执行 BPMN，浏览器显示流程图、当前节点、命令结果和历史。设备通信由独立的 Python / PyTango 适配服务负责：通过 Tango Command 发送命令，订阅 `Snapshot` 的 `CHANGE_EVENT`，再将事件转发给总控。
+本地 Web 提供 **BPMN / SCXML 开发联调工作台**：XML 编辑、实时预览、执行校验、模型版本、独立设备试运行、模拟实例配置及流程与设备联动。总控使用 **Java 17+ / Spring Boot / Flowable** 执行 BPMN。设备通信由独立的 Python / PyTango 适配服务负责：通过 Tango Command 发送命令，订阅 `Snapshot` 的 `CHANGE_EVENT`，再将事件转发给总控。
 
 ```text
 浏览器：BPMN 图与运行状态
@@ -16,7 +16,8 @@ ComponentDevice：SCXML 组件状态机 + SQLite 命令记录
 
 ## 目录职责
 
-- `src/`：Java Spring Boot / Flowable 总控、运行时 BPMN 和浏览器页面。
+- `frontend/`：Vue 3 / TypeScript / Monaco XML 编辑器和联调工作台；Vite 构建由 Maven 自动执行。
+- `src/`：Java Spring Boot / Flowable 总控、运行时 BPMN 和运行总览。
 - `simulator/`：Python SCXML 组件运行时、四类组件模型、Tango 适配、GUI 和测试。
 - `docs/component-states/`：从状态清单拆分出的各控制对象状态定义。
 - `docs/process-control/`：当前集中管控流程的业务说明；运行 BPMN 位于 `src/main/resources/processes/`。
@@ -33,18 +34,24 @@ PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --
 # 已有 .venv 时也可：make tango-bridge PYTHON=.venv/bin/python
 ```
 
-终端二：
+终端二（需要 Java 17+、Maven 和 Node.js 22.12+；Maven 会执行 `npm ci` 和前端构建）：
 
 ```bash
 mvn clean test package
 java -jar target/control-server-0.1.0.jar
 ```
 
-访问 **http://127.0.0.1:8080**。界面默认展示验证版“发射任务（四类组件验证范围）”，它依次调用“四类组件初始化”、`参数下发`、`发射准备`、`正式发射` 和 `发射后处理`。前期准备、正式发射和发射后处理流程可选择种子源、二倍频或两者作为出光组件；也可以在流程下拉框中单独运行子流程。
+访问 **http://127.0.0.1:8080**，进入工作台：
 
-运行总览同时展示 BPMN 全图、当前阶段内部流程和各参与设备的 SCXML 缩略图，分别局部放大当前活动与设备状态。设备卡片按实例展示本流程已登记的命令结果；点击流程节点查看相关命令，点击状态图展开详情。状态图详情支持滚轮缩放、拖动平移和双击复位。同步与环境条件集中在折叠区。查看历史运行时，命令进度来自历史记录，设备状态图仍表示当前实时状态。Web 与模拟器共用模型和 SCHVIZ 资源，Maven 构建时直接打包，不另外维护 SCXML 副本。
+1. **模型开发**：选择或新建 BPMN / SCXML，左侧 Monaco XML 编辑，右侧实时渲染。草稿自动保存；“保存版本”执行校验并生成不可变快照。SCXML 可创建独立试运行，发送动作、报告成功/失败和注入确认事件。
+2. **联调配置**：选择入口和子流程版本、SCXML 版本、组件类型、实例数量、自动反馈与延迟；配置设备集合、初始变量及额外外部条件。点击“应用模拟环境”创建一个承载全部实例的 Tango Device Server。
+3. **运行调试**：启动所选配置，观察流程和设备联动、等待原因、命令反馈及关联事件。历史运行使用当时版本和已记录的设备快照。
 
-默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，所有外部条件初始为 false，不会自动通过。演示模式中的所有组件实例由同一个 Tango Device Server 进程承载，可分别配置实例数量：
+内置“发射任务”依次调用初始化、参数下发、发射准备、正式发射和发射后处理，可作为示例编辑。现有独立运行总览仍可通过 `/runtime.html` 访问。完整操作与模型声明见 [工作台开发说明](docs/development/workbench.md)。
+
+运行总览同时展示 BPMN 全图、当前阶段内部流程和各参与设备的 SCXML 缩略图，分别局部放大当前活动与设备状态。设备卡片按实例展示本流程已登记的命令结果；点击流程节点查看相关命令，点击状态图展开详情。状态图详情支持滚轮缩放、拖动平移和双击复位。同步与环境条件集中在折叠区。历史运行的命令和设备快照均来自运行记录；更早未采集快照的运行显示状态未记录。Web 与模拟器共用模型和 SCHVIZ 资源，Maven 构建时直接打包，不另外维护 SCXML 副本。
+
+默认每类组件各一个，另有一个**演示同步与环境条件 Tango 设备**。同步、许可、环境条件不是四类 SCXML 模型的伪状态，外部条件默认 false，不会随动作自动通过；工作台可显式配置额外条件及其初始值。演示模式中的所有组件实例由同一个 Tango Device Server 进程承载，可分别配置实例数量：
 
 ```bash
 PYTHONPATH=simulator python3 -m gxlf_component_simulator.tango.control_bridge --demo \

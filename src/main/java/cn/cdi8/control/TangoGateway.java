@@ -44,7 +44,7 @@ public class TangoGateway {
 
     public JsonNode request(String method, String path, Object body) {
         try {
-            var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(5));
+            var builder = HttpRequest.newBuilder(URI.create(base + path)).timeout(Duration.ofSeconds(path.equals("/lab/environment") ? 60 : 5));
             if (body == null) builder.GET();
             else builder.header("Content-Type", "application/json").method(method,
                 HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
@@ -66,6 +66,7 @@ public class TangoGateway {
     public JsonNode setConditions(String device, Map<String, Boolean> values) {
         return request("POST", "/devices/" + device + "/conditions", values);
     }
+    public void reconnect() { connected=false; error="模拟环境切换中"; snapshots.clear(); closeStream(); }
     public boolean connected() { return connected; }
     public JsonNode cached(String id) { return snapshots.get(id); }
     public Map<String,Object> status() { return Map.of("connected", connected, "error", error); }

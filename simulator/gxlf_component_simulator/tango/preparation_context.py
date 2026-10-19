@@ -13,6 +13,7 @@ from ..component_runtime import identifier
 
 
 class PreparationContextDevice(Device):
+    extra_conditions = device_property(dtype=str, default_value="{}")
     auto_complete = device_property(dtype=bool, default_value=False)
     auto_complete_delay_ms = device_property(dtype=int, default_value=500)
 
@@ -66,6 +67,10 @@ class PreparationContextDevice(Device):
             slab_purge_complete=False,
             shielding_door_open=False,
         )
+        extra = json.loads(self.extra_conditions or "{}")
+        if not isinstance(extra, dict) or any(not isinstance(k, str) or not k or not isinstance(v, bool) for k, v in extra.items()):
+            raise ValueError("extra_conditions 必须是命名布尔条件")
+        self.conditions.update(extra)
         self.results = {}
         self.active = None
         self.last = None

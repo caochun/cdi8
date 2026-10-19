@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class WorkflowService {
     private final RuntimeService runtime;
+    private final ManagementService management;
     private final RepositoryService repository;
     private final HistoryService history;
     private final TangoGateway gateway;
@@ -24,11 +25,11 @@ public class WorkflowService {
     private final Set<String> changed = ConcurrentHashMap.newKeySet();
     private final Map<String,Long> lastQuery = new HashMap<>();
 
-    public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history,
+    public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history, ManagementService management,
                            TangoGateway gateway, ObjectMapper json,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
-        this.runtime = runtime; this.repository = repository; this.history = history;
+        this.management=management; this.runtime = runtime; this.repository = repository; this.history = history;
         this.gateway = gateway; this.json = json;
         this.commandTimeout = commandTimeout; this.workflowTimeout = workflowTimeout;
     }
@@ -178,11 +179,17 @@ public class WorkflowService {
                     try {
                         String activity = execution.getActivityId();
                         if (activity == null) continue;
-                        String condition = WAIT_CONDITIONS.get(activity);
+                        String condition = attribute(execution,"condition");
                         if (condition != null) {
-                            if (condition(pid, condition)) {
+                            if (declaredCondition(pid,attribute(execution,"collection"),condition)) {
                                 if (condition.equals("safety_permit")) runtime.setVariable(pid, "safetyRequired", true);
                                 if (condition.equals("collimation_environment_ready")) runtime.setVariable(pid, "environmentRequired", true);
+                                if("true".equals(attribute(execution,"maintain"))) {
+                                    @SuppressWarnings("unchecked") var previous=(List<Map<String,String>>)runtime.getVariable(pid,"conditionGuards");
+                                    var guards=new ArrayList<Map<String,String>>(previous==null?List.of():previous);
+                                    guards.add(Map.of("condition",condition,"collection",Objects.toString(attribute(execution,"collection"),"contextTargets")));
+                                    runtime.setVariable(pid,"conditionGuards",guards);
+                                }
                                 runtime.trigger(execution.getId());
                             }
                         } else if (runtime.hasVariableLocal(execution.getId(), "commandId")
@@ -222,43 +229,29 @@ public class WorkflowService {
         return false;
     }
 
-    private static final Map<String,String> WAIT_CONDITIONS = Map.ofEntries(
-        Map.entry("wait_safety", "safety_permit"),
-        Map.entry("wait_environment", "collimation_environment_ready"),
-        Map.entry("wait_diagnosis", "diagnosis_acquisition_ready"),
-        Map.entry("wait_crystal", "crystal_pose_ready"),
-        Map.entry("wait_charge_prepare", "charge_preparation_ready"),
-        Map.entry("wait_preamp_single", "preamp_single_recipe_ready"),
-        Map.entry("wait_measure_single", "measurement_single_recipe_ready"),
-        Map.entry("wait_target_measure", "target_measurement_ready"),
-        Map.entry("wait_switch_charge", "switch_charge_ready"),
-        Map.entry("wait_charge_complete", "charge_complete"),
-        Map.entry("wait_music_stop", "warning_music_stopped"),
-        Map.entry("wait_countdown", "trigger_countdown_started"),
-        Map.entry("wait_pump_trigger", "pump_trigger_ready"),
-        Map.entry("wait_switch_trigger", "switch_trigger_ready"),
-        Map.entry("wait_sync_trigger", "synchronized_triggered"),
-        Map.entry("wait_diagnostic_postprocess", "diagnostic_postprocess_ready"),
-        Map.entry("wait_pump_data", "pump_data_collected"),
-        Map.entry("wait_pump_standby", "pump_standby_ready"),
-        Map.entry("wait_preionization_prepared", "preionization_prepared"),
-        Map.entry("wait_preionization_music_on", "preionization_music_started"),
-        Map.entry("wait_preionization_charge", "preionization_charge_complete"),
-        Map.entry("wait_preionization_music", "preionization_music_stopped"),
-        Map.entry("wait_preionization_countdown", "preionization_countdown_started"),
-        Map.entry("wait_preionization_pump_trigger", "preionization_pump_trigger_ready"),
-        Map.entry("wait_preionization_sync", "preionization_sync_triggered"),
-        Map.entry("wait_preionization_data", "preionization_data_collected"),
-        Map.entry("wait_preionization_standby", "preionization_standby_ready"),
-        Map.entry("wait_warning_light_off", "warning_light_off"),
-        Map.entry("wait_laser_parameter", "laser_parameter_collected"),
-        Map.entry("wait_target_analysis", "target_analysis_ready"),
-        Map.entry("wait_target_retracted", "target_retracted"),
-        Map.entry("wait_switch_waveform", "switch_waveform_collected"),
-        Map.entry("wait_switch_standby", "switch_standby_ready"),
-        Map.entry("wait_slab_purge", "slab_purge_complete"),
-        Map.entry("wait_shielding_door", "shielding_door_open")
-    );
+    public synchronized Map<String,Object> startDefinition(String definitionId,Map<String,Object> variables) {
+        if(runtime.createProcessInstanceQuery().count()>0)throw new IllegalStateException("已有流程正在运行");
+        Map<String,Object> snapshots=new LinkedHashMap<>();
+        for(var device:gateway.catalog())snapshots.put(device.path("id").asText(),json.convertValue(device,Map.class));
+        variables.put("initialDeviceSnapshots",snapshots);
+        var process=runtime.startProcessInstanceById(definitionId,UUID.randomUUID().toString(),variables);
+        return view(process.getId());
+    }
+
+    private String attribute(Execution execution,String name) {
+        var instance=runtime.createProcessInstanceQuery().processInstanceId(execution.getProcessInstanceId()).singleResult();
+        if(instance==null || execution.getActivityId()==null)return null;
+        var element=repository.getBpmnModel(instance.getProcessDefinitionId()).getFlowElement(execution.getActivityId());
+        return element==null?null:element.getAttributeValue("https://cdi8.cn/workbench",name);
+    }
+
+    private boolean declaredCondition(String pid,String collection,String condition) {
+        var devices=targets(pid,collection==null?"contextTargets":collection);
+        return !devices.isEmpty() && devices.stream().allMatch(d->{
+            var snapshot=gateway.cached(d.get("id"));
+            return snapshot!=null && snapshot.path("conditions").path(condition).asBoolean();
+        });
+    }
 
     private void processCommand(Execution execution, Set<String> dirty) throws Exception {
         String eid = execution.getId();
@@ -319,6 +312,8 @@ public class WorkflowService {
         return snapshot != null && snapshot.path("conditions").path(name).asBoolean();
     }
     private String processIssue(String pid) {
+        @SuppressWarnings("unchecked") var guards=(List<Map<String,String>>)runtime.getVariable(pid,"conditionGuards");
+
         for (var device : targets(pid, "allComponents")) {
             JsonNode snapshot = gateway.cached(device.get("id"));
             if (snapshot == null) return device.get("id") + " 设备连接中断";
@@ -331,6 +326,8 @@ public class WorkflowService {
             return "准直环境条件失效或无法确认";
         if (Boolean.TRUE.equals(runtime.getVariable(pid, "repeatRequired")) && !condition(pid, "preamp_repeat_ready"))
             return "同步预放重频模式失效或无法确认";
+        if(guards!=null)for(var guard:guards)if(!declaredCondition(pid,guard.get("collection"),guard.get("condition")))
+            return "持续条件失效："+guard.get("condition");
         if (Boolean.TRUE.equals(runtime.getVariable(pid, "sourcesRequired")))
             for (var device : targets(pid, "sourceTargets")) {
                 JsonNode state = gateway.cached(device.get("id"));
@@ -347,7 +344,11 @@ public class WorkflowService {
     public synchronized void stop(String pid, String reason) {
         String message = "StopWorkflow";
         var subscriptions = runtime.createEventSubscriptionQuery().processInstanceId(pid).eventName(message).list();
-        if (subscriptions.isEmpty()) throw new IllegalStateException("流程已结束");
+        if (subscriptions.isEmpty()) {
+            if(runtime.createProcessInstanceQuery().processInstanceId(pid).count()==0)throw new IllegalStateException("流程已结束");
+            runtime.setVariable(pid,"failureReason",reason);runtime.setVariable(pid,"outcome","FAILED");
+            runtime.deleteProcessInstance(pid,reason);return;
+        }
         runtime.setVariable(pid, "failureReason", reason);
         runtime.messageEventReceived(message, subscriptions.get(0).getExecutionId());
     }
@@ -372,7 +373,11 @@ public class WorkflowService {
         Map<String,Object> vars = new HashMap<>();
         for (var variable : history.createHistoricVariableInstanceQuery().processInstanceId(pid).list())
             if (variable.getExecutionId().equals(pid)) vars.put(variable.getVariableName(), variable.getValue());
-        value.put("outcome", vars.getOrDefault("outcome", "RUNNING"));
+        value.put("outcome", process.getEndTime()!=null && "RUNNING".equals(vars.getOrDefault("outcome","RUNNING"))
+            ? (process.getDeleteReason()==null?"SUCCEEDED":"FAILED") : vars.getOrDefault("outcome","RUNNING"));
+        value.put("configuration",vars.get("workbenchConfiguration"));
+        value.put("modelVersions",vars.get("modelVersions"));
+        value.put("initialDeviceSnapshots",vars.get("initialDeviceSnapshots"));
         value.put("failureReason", vars.get("failureReason")); value.put("communicationError", vars.get("communicationError"));
         var active = runtime.createExecutionQuery().processInstanceId(pid).list();
         value.put("activeActivities", active.stream().map(Execution::getActivityId).filter(Objects::nonNull).distinct().toList());
@@ -384,6 +389,20 @@ public class WorkflowService {
             activities.add(row);
         }
         value.put("activities", activities);
+        List<Map<String,Object>> waits=new ArrayList<>();
+        for(var execution:active) {
+            String condition=attribute(execution,"condition");
+            if(condition!=null) {
+                String collection=Objects.toString(attribute(execution,"collection"),"contextTargets");
+                Map<String,Object> wait=new LinkedHashMap<>();wait.put("activity",execution.getActivityId());wait.put("condition",condition);
+                wait.put("collection",collection);wait.put("met",declaredCondition(pid,collection,condition));
+                wait.put("devices",targets(pid,collection));
+                var times=activities.stream().filter(a->Objects.equals(a.get("id"),execution.getActivityId())&&a.get("ended")==null).findFirst();
+                wait.put("started",times.map(a->a.get("started")).orElse(null));waits.add(wait);
+            }
+        }
+        value.put("waits",waits);
+        value.put("timers",management.createTimerJobQuery().processInstanceId(pid).list().stream().map(t->Map.of("due",t.getDuedate(),"id",t.getId())).toList());
         Map<String,Map<String,Object>> byExecution = new LinkedHashMap<>();
         for (var variable : history.createHistoricVariableInstanceQuery().processInstanceId(pid).list()) {
             if (Set.of("commandId","commandDevice","commandAction","commandNode","sent","commandResult","expectedState").contains(variable.getVariableName()))
@@ -400,6 +419,11 @@ public class WorkflowService {
                 for (Object target : targets)
                     if (target instanceof Map<?, ?> item && item.get("id") != null)
                         participants.put(item.get("id").toString(), target);
+        }
+        if(Boolean.TRUE.equals(vars.get("workbench"))) {
+            for(Object entry:vars.values())if(entry instanceof List<?> targets)for(Object target:targets)
+                if(target instanceof Map<?,?> item && item.get("id")!=null && item.get("component")!=null)
+                    participants.put(item.get("id").toString(),target);
         }
         value.put("participants", new ArrayList<>(participants.values()));
         value.put("children", history.createHistoricProcessInstanceQuery().superProcessInstanceId(pid)

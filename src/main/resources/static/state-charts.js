@@ -5,12 +5,14 @@ const StateCharts = (() => {
   async function load() {
     const response = await fetch('/api/models');
     if (!response.ok) throw Error('设备状态机模型加载失败');
-    for (const xml of Object.values(await response.json())) {
+    for (const [key, xml] of Object.entries(await response.json())) {
       const doc = new DOMParser().parseFromString(xml, 'application/xml');
       const data = [...doc.getElementsByTagNameNS('*','data')].find(n=>n.id==='componentMetadata' || n.getAttribute('id')==='componentMetadata');
       if (!data) continue;
       const metadata = JSON.parse(data.textContent);
-      models.set(metadata.model_id, {xml, metadata, labels:{...metadata.outer_labels,...metadata.inner_labels}, doc});
+      const model = {xml, metadata, labels:{...metadata.outer_labels,...metadata.inner_labels}, doc};
+      models.set(key, model);
+      if(key.endsWith(".scxml")||!models.has(metadata.model_id))models.set(metadata.model_id, model);
     }
   }
   function layout(model) {
@@ -32,7 +34,7 @@ const StateCharts = (() => {
       };
       window.addEventListener('message',receive);
       timeout=setTimeout(()=>{cleanup();reject(Error('状态图布局超时'));},30000);
-      frame.src='state-chart-renderer.html'; document.body.append(frame);
+      frame.src='/state-chart-renderer.html'; document.body.append(frame);
     });
     return model.promise;
   }
@@ -138,5 +140,6 @@ const StateCharts = (() => {
     for(const type of ['pointerup','pointercancel','lostpointercapture'])svg.addEventListener(type,()=>{pan=null;});
     svg.addEventListener('dblclick',()=>svg.setAttribute('viewBox',initial));
   }
-  return {load,update,expand,action};
+  function capabilities(id){return models.get(id)?.metadata||{};}
+  return {load,update,expand,action,capabilities};
 })();

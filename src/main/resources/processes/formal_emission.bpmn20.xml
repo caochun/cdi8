@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
+<bpmn:definitions xmlns:lab="https://cdi8.cn/workbench" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
   <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
   <bpmn:message id="stop_message" name="StopWorkflow" />
   <bpmn:process id="formal_emission" isExecutable="true" name="正式发射（四类组件验证范围）">
@@ -9,28 +9,28 @@
       <bpmn:startEvent id="scope_start" name="发射准备已完成" />
       <bpmn:endEvent id="scope_end" name="正式发射完成" />
       <bpmn:endEvent id="raise_timeout" name="动作超时"><bpmn:errorEventDefinition errorRef="device_error" /></bpmn:endEvent>
-      <bpmn:receiveTask id="wait_safety" name="确认正式发射安全许可" />
+      <bpmn:receiveTask id="wait_safety" lab:condition="safety_permit" lab:collection="contextTargets" lab:maintain="true" name="确认正式发射安全许可" />
       <bpmn:parallelGateway id="precharge_split" name="发射充电前置并行" />
       <bpmn:parallelGateway id="precharge_join" name="充电前置全部完成" />
-      <bpmn:receiveTask id="wait_diagnosis" name="诊断设备采集设置完成" />
-      <bpmn:receiveTask id="wait_crystal" name="晶体位姿设置完成" />
-      <bpmn:receiveTask id="wait_charge_prepare" name="发射充电准备完成" />
-      <bpmn:receiveTask id="wait_preamp_single" name="预放单次配方完成" />
-      <bpmn:receiveTask id="wait_measure_single" name="测量单次配方完成" />
-      <bpmn:receiveTask id="wait_target_measure" name="打靶测量准备完成" />
-      <bpmn:receiveTask id="wait_switch_charge" name="开关充电完成" />
+      <bpmn:receiveTask id="wait_diagnosis" lab:condition="diagnosis_acquisition_ready" lab:collection="contextTargets" name="诊断设备采集设置完成" />
+      <bpmn:receiveTask id="wait_crystal" lab:condition="crystal_pose_ready" lab:collection="contextTargets" name="晶体位姿设置完成" />
+      <bpmn:receiveTask id="wait_charge_prepare" lab:condition="charge_preparation_ready" lab:collection="contextTargets" name="发射充电准备完成" />
+      <bpmn:receiveTask id="wait_preamp_single" lab:condition="preamp_single_recipe_ready" lab:collection="contextTargets" name="预放单次配方完成" />
+      <bpmn:receiveTask id="wait_measure_single" lab:condition="measurement_single_recipe_ready" lab:collection="contextTargets" name="测量单次配方完成" />
+      <bpmn:receiveTask id="wait_target_measure" lab:condition="target_measurement_ready" lab:collection="contextTargets" name="打靶测量准备完成" />
+      <bpmn:receiveTask id="wait_switch_charge" lab:condition="switch_charge_ready" lab:collection="contextTargets" name="开关充电完成" />
       <bpmn:serviceTask id="second_fine_wait" name="第二次能量精闭环" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;fine_loop&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;fineLoopOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
       <bpmn:serviceTask id="clear_meter_wait" name="能量计清零" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;energy_meter_clear&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;energyMeterCleared&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
       <bpmn:boundaryEvent id="second_fine_timeout" attachedToRef="second_fine_wait" cancelActivity="true" name="动作超时"><bpmn:timerEventDefinition><bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
       <bpmn:boundaryEvent id="clear_meter_timeout" attachedToRef="clear_meter_wait" cancelActivity="true" name="动作超时"><bpmn:timerEventDefinition><bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
-      <bpmn:receiveTask id="wait_charge_complete" name="发射充电完成" />
-      <bpmn:receiveTask id="wait_music_stop" name="警示音乐停止" />
-      <bpmn:receiveTask id="wait_countdown" name="同步触发倒计时开始" />
+      <bpmn:receiveTask id="wait_charge_complete" lab:condition="charge_complete" lab:collection="contextTargets" name="发射充电完成" />
+      <bpmn:receiveTask id="wait_music_stop" lab:condition="warning_music_stopped" lab:collection="contextTargets" name="警示音乐停止" />
+      <bpmn:receiveTask id="wait_countdown" lab:condition="trigger_countdown_started" lab:collection="contextTargets" name="同步触发倒计时开始" />
       <bpmn:parallelGateway id="trigger_split" name="T+3 秒触发准备并行" />
       <bpmn:parallelGateway id="trigger_join" name="触发准备完成" />
-      <bpmn:receiveTask id="wait_pump_trigger" name="泵浦触发准备完成（T+3s）" />
-      <bpmn:receiveTask id="wait_switch_trigger" name="开关触发准备完成（T+3s）" />
-      <bpmn:receiveTask id="wait_sync_trigger" name="同步正式触发完成（T+5s）" />
+      <bpmn:receiveTask id="wait_pump_trigger" lab:condition="pump_trigger_ready" lab:collection="contextTargets" name="泵浦触发准备完成（T+3s）" />
+      <bpmn:receiveTask id="wait_switch_trigger" lab:condition="switch_trigger_ready" lab:collection="contextTargets" name="开关触发准备完成（T+3s）" />
+      <bpmn:receiveTask id="wait_sync_trigger" lab:condition="synchronized_triggered" lab:collection="contextTargets" name="同步正式触发完成（T+5s）" />
       <bpmn:boundaryEvent id="pump_trigger_deadline" attachedToRef="wait_pump_trigger" cancelActivity="true" name="泵浦触发准备超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT3S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
       <bpmn:boundaryEvent id="switch_trigger_deadline" attachedToRef="wait_switch_trigger" cancelActivity="true" name="开关触发准备超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT3S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
       <bpmn:boundaryEvent id="sync_trigger_deadline" attachedToRef="wait_sync_trigger" cancelActivity="true" name="同步正式触发超时"><bpmn:timerEventDefinition><bpmn:timeDuration>PT5S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>

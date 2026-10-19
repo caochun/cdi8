@@ -16,11 +16,13 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.ApplicationEventPublisher;
 
 @SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:workflow-test;DB_CLOSE_DELAY=-1",
-    "control.events-enabled=false", "control.pump-delay=3600000", "flowable.async-executor-activate=false"})
+    "control.events-enabled=false", "control.pump-delay=3600000", "flowable.async-executor-activate=false", "control.workbench-directory=${java.io.tmpdir}/cdi8-workflow-test-${random.uuid}"})
 class WorkflowIntegrationTest {
     @Autowired WorkflowService workflows;
     @Autowired RuntimeService runtime;
     @Autowired ManagementService management;
+    @Autowired RepositoryService repository;
+    @Autowired HistoryService history;
     @Autowired ObjectMapper json;
     @Autowired FakeGateway gateway;
     Map<String,ObjectNode> snapshots;
@@ -185,7 +187,7 @@ class WorkflowIntegrationTest {
     }
     @Test void recoveredCoordinatorFindsPersistedResultsWithoutEventAndDuplicatesAreHarmless() {
         String pid=start();conditions(true,true);workflows.pump();workflows.pump();completeAll();
-        var recovered=new WorkflowService(runtime, null, null,gateway,json,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime, repository, history,management,gateway,json,"PT15M","PT45M");
         recovered.pump();assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         for(int i=0;i<3;i++){notice("seed_01");workflows.pump();}
         assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
@@ -202,10 +204,10 @@ class WorkflowIntegrationTest {
     @Test void lostAcceptanceResponseRetriesSameCommandAfterFeedback() {
         String pid=start();conditions(true,true);gateway.loseResponse=true;workflows.pump();workflows.pump();
         assertThat(results).hasSize(1);String original=results.keySet().iterator().next();completeAll();
-        var recovered=new WorkflowService(runtime,null,null,gateway,json,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,"PT15M","PT45M");
         recovered.pump();completeAll();
         // Query from a freshly recovered coordinator, without any event hints.
-        new WorkflowService(runtime,null,null,gateway,json,"PT15M","PT45M").pump();
+        new WorkflowService(runtime,repository,history,management,gateway,json,"PT15M","PT45M").pump();
         assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         assertThat(results).containsKey(original);assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
     }
