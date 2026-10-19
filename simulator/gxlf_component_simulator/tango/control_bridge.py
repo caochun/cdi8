@@ -69,7 +69,13 @@ class TangoBridge:
     def receive(self, device_id, event):
         try:
             if event.err:
-                self.publish(device_id, error=event.errors)
+                # A CHANGE_EVENT channel can report a transient transport error
+                # while the device remains readable. Reconcile immediately so a
+                # single event-admin fault does not revoke a live device.
+                try:
+                    self.publish(device_id, snapshot=self.snapshot(device_id), origin="event-reconcile")
+                except Exception:
+                    self.publish(device_id, error=event.errors)
             else:
                 self.publish(device_id, snapshot=json.loads(event.attr_value.value))
         except Exception as exc:

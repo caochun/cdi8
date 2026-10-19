@@ -18,4 +18,10 @@
   <modules>
     <module>server</module>
   </modules>
+  <profiles>
+    <profile>
+      <id>java-simulator</id>
+      <modules><module>device-simulator</module></modules>
+    </profile>
+  </profiles>
 </project>

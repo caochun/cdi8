@@ -1,4 +1,4 @@
-.PHONY: test java-test simulator-test component-demo control-test control-package operator tango-bridge
+.PHONY: test java-test simulator-test java-device-test java-device-package component-demo control-test control-package operator tango-bridge
 
 PYTHON ?= python3
 # Source-tree development works without installing the simulator package.
@@ -37,3 +37,9 @@ workbench-smoke:
 
 gxlf-smoke:
 	$(PYTHON) tests/e2e/gxlf_lifecycle_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
+
+java-device-test:
+	JAVA_HOME=$${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home} mvn -Pjava-simulator -pl device-simulator test
+
+java-device-package:
+	JAVA_HOME=$${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home} mvn -Pjava-simulator -pl device-simulator package

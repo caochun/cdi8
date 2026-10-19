@@ -65,8 +65,11 @@ Python 在源码环境直接解析 `examples/gxlf/scxml/`。wheel 和 sdist 构�
 ## 后续迁移
 
 1. 新增独立的 `device-simulator/` Java 模块；先以 Apache Commons SCXML 和 JTango 实现种子源，复用既有命令、结果与事件协议。
-2. 对照 Python 实现验证动作反馈、幂等、实例隔离、故障恢复、断连与补读，再迁移其余组件和环境管理。
-3. 将 `frontend/public/runtime.html` 与对应脚本逐步迁入 Vue 的运行功能区，保持模型和历史显示行为一致。
-4. 在覆盖及迁移完成后清理 Python 服务和旧静态运行页。
+2. 用 `device-simulator/` 的 Apache Commons SCXML + JTango 种子源原型对照 Python，完成协议级验证。
+3. 对照 Python 实现验证动作反馈、幂等、实例隔离、故障恢复、断连与补读，再迁移其余组件和环境管理。
+4. 将 `frontend/public/runtime.html` 与对应脚本逐步迁入 Vue 的运行功能区，保持模型和历史显示行为一致。
+5. 在覆盖及迁移完成后清理 Python 服务和旧静态运行页。
 
 该迁移保留真实 Tango 协议边界。引擎测试与 Tango 联调分别验证；直接调用 Java 对象不替代协议测试。暂不为每个概念建立独立 Maven 模块，也不新增没有实际使用者的公共框架。
+
+Java 模拟设备原型的构建、许可证和验证范围见 [Java SCXML / Tango 模拟设备](java-device-simulator.md)。

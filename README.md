@@ -24,6 +24,7 @@ SCXML 组件实例 + 独立 SQLite 命令与事件记录
 | [examples/gxlf/](examples/gxlf/) | GXLF 的六个 BPMN 和四个 SCXML 示例模型 |
 | [contracts/](contracts/) | 命令、结果、设备事件的接口约定和 JSON Schema |
 | [simulator/](simulator/) | 现有 Python 组件运行时、Tango 设备、命令行和测试 |
+| [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的种子源验证原型 |
 | [tests/e2e/](tests/e2e/) | 通过真实服务和 Tango 验证完整联调流程 |
 | [docs/architecture/](docs/architecture/) | 模块边界、资源归属及后续 Java 模拟器迁移计划 |
 | [docs/development/](docs/development/) | 开发工作台操作和模型约定 |
@@ -99,7 +100,7 @@ GXLF 脚本显式提供演示反馈和外部条件。演示组件会持久化状
 - Python 演示实例、独立试验和环境实例仍使用模拟器的数据目录，以保留既有本地状态。
 - 模型编辑不覆盖 `examples/`；导出 XML 后可经代码审查更新示例源文件。
 - 现有 Python SCXML 执行器支持受限子集和项目自定义组件协议；目录重组没有改变其执行语义。
-- Java / Apache Commons SCXML 与 JTango 的独立模拟设备是下一阶段迁移项，目前尚未替换 Python 服务。
+- Java / Apache Commons SCXML 与 JTango 的种子源验证原型位于 `device-simulator/`；它目前只替换一个种子源实例，其余组件继续使用 Python 服务。
 - GXLF 的启动、完成和持续资格规则集中在后端 `scenarios/gxlf/`；通用执行通过规则接口调用。旧静态运行页后续迁入 Vue。
 
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。
