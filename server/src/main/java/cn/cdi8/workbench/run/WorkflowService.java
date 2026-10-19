@@ -22,17 +22,20 @@ public class WorkflowService {
     private final HistoryService history;
     private final TangoGateway gateway;
     private final ObjectMapper json;
+    private final RunPolicies runPolicies;
+    private final List<ExecutionPolicy> executionPolicies;
     private final String commandTimeout;
     private final String workflowTimeout;
     private final Set<String> changed = ConcurrentHashMap.newKeySet();
     private final Map<String,Long> lastQuery = new HashMap<>();
 
     public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history, ManagementService management,
-                           TangoGateway gateway, ObjectMapper json,
+                           TangoGateway gateway, ObjectMapper json, RunPolicies runPolicies, List<ExecutionPolicy> executionPolicies,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
         this.management=management; this.runtime = runtime; this.repository = repository; this.history = history;
         this.gateway = gateway; this.json = json;
+        this.runPolicies = runPolicies; this.executionPolicies = List.copyOf(executionPolicies);
         this.commandTimeout = commandTimeout; this.workflowTimeout = workflowTimeout;
     }
 
@@ -65,104 +68,12 @@ public class WorkflowService {
     }
 
     public synchronized Map<String,Object> start(String key, List<String> sources) {
-        if (!Set.of("component_initialization", "parameter_dispatch", "optical_frontend_preparation", "formal_emission", "post_emission_processing", "emission_task_lifecycle").contains(key))
-            throw new IllegalArgumentException("未知流程");
+        RunPolicy policy = runPolicies.requireBuiltin(key);
         if (!gateway.connected()) throw new IllegalStateException("请先连接 Tango 事件适配服务");
         if (runtime.createProcessInstanceQuery().count() > 0) throw new IllegalStateException("已有流程正在运行");
-        List<String> selectedSources = sources == null ? List.of() : sources;
-        boolean requiresSources = Set.of("optical_frontend_preparation", "formal_emission", "post_emission_processing", "emission_task_lifecycle").contains(key);
-        boolean parameterDispatch = key.equals("parameter_dispatch");
-        boolean preparation = key.equals("optical_frontend_preparation");
-        boolean formalEmission = key.equals("formal_emission");
-        boolean postEmission = key.equals("post_emission_processing");
-        if (!Set.of("seed", "shg").containsAll(selectedSources)
-                || (requiresSources && selectedSources.isEmpty()))
-            throw new IllegalArgumentException("请选择至少一类光源");
-        List<Map<String,String>> all = new ArrayList<>(), light = new ArrayList<>(), seed = new ArrayList<>(), shg = new ArrayList<>(), preamp = new ArrayList<>(), multipass = new ArrayList<>(), context = new ArrayList<>();
-        for (var device : gateway.catalog()) {
-            String component = device.path("component").asText();
-            String id = device.path("id").asText();
-            if (!Set.of("seed","shg","preamp","multipass","context").contains(component)) continue;
-            if (!id.matches("[A-Za-z0-9_-]{1,128}")) throw new IllegalArgumentException("非法设备编号");
-            if (!device.path("connected").asBoolean() || gateway.cached(id) == null) throw new IllegalStateException("设备未连接：" + id);
-            JsonNode state = gateway.snapshot(id);
-            if (state.hasNonNull("active_command_id")) throw new IllegalStateException("设备仍有任务：" + id);
-            var target = Map.of("id", id, "component", component);
-            if (component.equals("context")) context.add(target);
-            else {
-                all.add(target);
-                if (component.equals("seed")) seed.add(target);
-                if (component.equals("shg")) shg.add(target);
-                if (component.equals("preamp")) preamp.add(target);
-                if (component.equals("multipass")) multipass.add(target);
-                if (selectedSources.contains(component)) light.add(target);
-                String model = state.path("model").asText();
-                String expectedModel = Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                    "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3").get(component);
-                if (!model.equals(expectedModel)) throw new IllegalStateException("组件模型不匹配：" + id);
-                if (preparation) {
-                    Set<String> ready = component.equals("seed")
-                        ? Set.of("configured","parameterOk","standbyReady")
-                        : Set.of("parameterOk");
-                    if (!state.path("outer_state").asText().equals("ready") || !ready.contains(state.path("state_id").asText()))
-                        throw new IllegalStateException(id + " 尚未具备发射准备资格，请先完成参数下发");
-                } else if (formalEmission) {
-                    boolean valid = switch (component) {
-                        case "seed", "shg" -> selectedSources.contains(component)
-                            ? "emitting".equals(state.path("outer_state").asText())
-                            : "ready".equals(state.path("outer_state").asText())
-                                && Set.of("configured", "parameterOk", "standbyReady").contains(state.path("state_id").asText());
-                        case "preamp" -> "wakeup".equals(state.path("outer_state").asText())
-                            && "fineLoopOk".equals(state.path("state_id").asText());
-                        case "multipass" -> "collimated".equals(state.path("outer_state").asText())
-                            && "collimationReady".equals(state.path("state_id").asText());
-                        default -> true;
-                    };
-                    if (!valid || state.hasNonNull("active_command_id"))
-                        throw new IllegalStateException(id + " 尚未具备正式发射资格，请先完成发射准备");
-                } else if (postEmission) {
-                    boolean valid = switch (component) {
-                        case "seed", "shg" -> selectedSources.contains(component)
-                            ? "emitting".equals(state.path("outer_state").asText())
-                            : "ready".equals(state.path("outer_state").asText());
-                        case "preamp" -> "energyMeterCleared".equals(state.path("state_id").asText());
-                        case "multipass" -> "collimated".equals(state.path("outer_state").asText())
-                            && "collimationReady".equals(state.path("state_id").asText());
-                        default -> true;
-                    };
-                    if (!valid || state.hasNonNull("active_command_id"))
-                        throw new IllegalStateException(id + " 尚未具备发射后处理资格，请先完成正式发射");
-                } else if (parameterDispatch) {
-                    Set<String> ready = component.equals("seed")
-                        ? Set.of("qualified","configured","standbyReady")
-                        : Set.of("functionReady");
-                    if (!state.path("outer_state").asText().equals("ready") || !ready.contains(state.path("state_id").asText()))
-                        throw new IllegalStateException(id + " 尚未完成组件初始化，不能进行参数下发");
-                } else if (!state.path("outer_state").asText().equals("notReady")) {
-                    String outerLabel = state.path("outer_state_label").asText(state.path("outer_state").asText());
-                    String stateId = state.path("state_id").asText();
-                    throw new IllegalStateException(id + " 当前为 " + outerLabel + "/" + stateId
-                        + "，初始化只能从未就绪状态开始；请先执行下电或复位");
-                }
-            }
-        }
-        if (all.isEmpty()) throw new IllegalStateException("没有可控组件");
-        boolean requiresAllModeledComponents = Set.of("component_initialization", "parameter_dispatch", "formal_emission", "post_emission_processing", "emission_task_lifecycle").contains(key);
-        if (requiresAllModeledComponents && (seed.isEmpty() || shg.isEmpty() || preamp.isEmpty() || multipass.isEmpty()))
-            throw new IllegalStateException("初始化需要种子源、二倍频、再生与双程放大、多程放大四类组件");
-        if (requiresSources && (preamp.isEmpty() || multipass.isEmpty() || light.isEmpty() || context.size()!=1))
-            throw new IllegalStateException("准备流程需要所选光源、预放、多程及一个同步/环境条件设备");
-        for (String source : selectedSources) if (light.stream().noneMatch(d -> d.get("component").equals(source)))
-            throw new IllegalStateException("所选光源不存在：" + source);
-        Map<String,Object> variables = new HashMap<>();
-        // Initialization deliberately uses a dedicated target collection. It currently
-        // contains exactly the four modeled component types; context devices are kept
-        // separate for the preparation workflow and never enter initialization gates.
-        variables.put("allComponents", all);
-        variables.put("seedTargets", seed); variables.put("shgTargets", shg);
-        variables.put("sourceTargets", light);
-        variables.put("preampTargets", preamp); variables.put("multipassTargets", multipass); variables.put("contextTargets", context);
-        variables.put("commandTimeout", commandTimeout); variables.put("workflowTimeout", workflowTimeout);
+        Map<String,Object> variables = policy.variables(key, sources == null ? policy.defaultSources(key) : sources);
+        variables.put("commandTimeout", commandTimeout);
+        variables.put("workflowTimeout", workflowTimeout);
         variables.put("outcome", "RUNNING");
         var process = runtime.startProcessInstanceByKey(key, UUID.randomUUID().toString(), variables);
         return view(process.getId());
@@ -184,8 +95,10 @@ public class WorkflowService {
                         String condition = attribute(execution,"condition");
                         if (condition != null) {
                             if (declaredCondition(pid,attribute(execution,"collection"),condition)) {
-                                if (condition.equals("safety_permit")) runtime.setVariable(pid, "safetyRequired", true);
-                                if (condition.equals("collimation_environment_ready")) runtime.setVariable(pid, "environmentRequired", true);
+                                for (var policy : executionPolicies) {
+                                    var updates = policy.conditionSatisfied(process.getProcessDefinitionKey(), runtime.getVariables(pid), condition);
+                                    if (!updates.isEmpty()) runtime.setVariables(pid, updates);
+                                }
                                 if("true".equals(attribute(execution,"maintain"))) {
                                     @SuppressWarnings("unchecked") var previous=(List<Map<String,String>>)runtime.getVariable(pid,"conditionGuards");
                                     var guards=new ArrayList<Map<String,String>>(previous==null?List.of():previous);
@@ -267,7 +180,7 @@ public class WorkflowService {
         lastQuery.put(eid, now);
         JsonNode result;
         try {
-            // Before sending recheck source, preamp and external guards. A
+            // Before sending recheck registered policies and declared guards. A
             // command ID is stable across a lost response or controller restart.
             String lost = processIssue(execution.getProcessInstanceId());
             if (lost != null) { stop(execution.getProcessInstanceId(), lost); return; }
@@ -307,39 +220,22 @@ public class WorkflowService {
         Object value = runtime.getVariable(pid, name);
         return value == null ? List.of() : (List<Map<String,String>>)value;
     }
-    private boolean condition(String pid, String name) {
-        var devices = targets(pid, "contextTargets");
-        if (devices.size()!=1) return false;
-        JsonNode snapshot = gateway.cached(devices.get(0).get("id"));
-        return snapshot != null && snapshot.path("conditions").path(name).asBoolean();
-    }
     private String processIssue(String pid) {
-        @SuppressWarnings("unchecked") var guards=(List<Map<String,String>>)runtime.getVariable(pid,"conditionGuards");
-
         for (var device : targets(pid, "allComponents")) {
-            JsonNode snapshot = gateway.cached(device.get("id"));
-            if (snapshot == null) return device.get("id") + " 设备连接中断";
-            if ("fault".equals(snapshot.path("outer_state").asText()))
-                return device.get("id") + " 设备异常，停止流程放行";
+            if (gateway.cached(device.get("id")) == null) return device.get("id") + " 设备连接中断";
         }
-        if (Boolean.TRUE.equals(runtime.getVariable(pid, "safetyRequired")) && !condition(pid, "safety_permit"))
-            return "安全许可失效或无法确认";
-        if (Boolean.TRUE.equals(runtime.getVariable(pid, "environmentRequired")) && !condition(pid, "collimation_environment_ready"))
-            return "准直环境条件失效或无法确认";
-        if (Boolean.TRUE.equals(runtime.getVariable(pid, "repeatRequired")) && !condition(pid, "preamp_repeat_ready"))
-            return "同步预放重频模式失效或无法确认";
-        if(guards!=null)for(var guard:guards)if(!declaredCondition(pid,guard.get("collection"),guard.get("condition")))
-            return "持续条件失效："+guard.get("condition");
-        if (Boolean.TRUE.equals(runtime.getVariable(pid, "sourcesRequired")))
-            for (var device : targets(pid, "sourceTargets")) {
-                JsonNode state = gateway.cached(device.get("id"));
-                if (state == null || !"emitting".equals(state.path("outer_state").asText())) return device.get("id") + " 供光资格失效或无法确认";
-            }
-        if (Boolean.TRUE.equals(runtime.getVariable(pid, "wakeupRequired")))
-            for (var device : targets(pid, "preampTargets")) {
-                JsonNode state = gateway.cached(device.get("id"));
-                if (state == null || !"wakeup".equals(state.path("outer_state").asText())) return device.get("id") + " 预放唤醒资格失效或无法确认";
-            }
+        var process = runtime.createProcessInstanceQuery().processInstanceId(pid).singleResult();
+        if (process == null) return null;
+        Map<String,Object> variables = runtime.getVariables(pid);
+        for (var policy : executionPolicies) {
+            String issue = policy.issue(process.getProcessDefinitionKey(), variables);
+            if (issue != null) return issue;
+        }
+        @SuppressWarnings("unchecked") var guards = (List<Map<String,String>>)variables.get("conditionGuards");
+        if (guards != null) for (var guard : guards) {
+            if (!declaredCondition(pid, guard.get("collection"), guard.get("condition")))
+                return "持续条件失效：" + guard.get("condition");
+        }
         return null;
     }
 
@@ -412,20 +308,18 @@ public class WorkflowService {
         }
         value.put("commands", new ArrayList<>(byExecution.values().stream().filter(row -> row.containsKey("commandId")).toList()));
         Map<String, Object> participants = new LinkedHashMap<>();
-        boolean all = Set.of("component_initialization", "parameter_dispatch", "emission_task_lifecycle")
-            .contains(process.getProcessDefinitionKey());
-        for (String collection : all ? ("emission_task_lifecycle".equals(process.getProcessDefinitionKey())
-                ? List.of("allComponents", "contextTargets") : List.of("allComponents"))
-                : List.of("sourceTargets", "preampTargets", "multipassTargets", "contextTargets")) {
-            if (vars.get(collection) instanceof List<?> targets)
-                for (Object target : targets)
-                    if (target instanceof Map<?, ?> item && item.get("id") != null)
+        var participantPolicy = runPolicies.find(process.getProcessDefinitionKey());
+        if (participantPolicy.isPresent()) {
+            for (String collection : participantPolicy.get().participantCollections(process.getProcessDefinitionKey())) {
+                if (vars.get(collection) instanceof List<?> targets) for (Object target : targets)
+                    if (target instanceof Map<?,?> item && item.get("id") != null)
                         participants.put(item.get("id").toString(), target);
+            }
         }
-        if(Boolean.TRUE.equals(vars.get("workbench"))) {
-            for(Object entry:vars.values())if(entry instanceof List<?> targets)for(Object target:targets)
-                if(target instanceof Map<?,?> item && item.get("id")!=null && item.get("component")!=null)
-                    participants.put(item.get("id").toString(),target);
+        if (participantPolicy.isEmpty() || Boolean.TRUE.equals(vars.get("workbench"))) {
+            for (Object entry : vars.values()) if (entry instanceof List<?> targets) for (Object target : targets)
+                if (target instanceof Map<?,?> item && item.get("id") != null && item.get("component") != null)
+                    participants.put(item.get("id").toString(), target);
         }
         value.put("participants", new ArrayList<>(participants.values()));
         value.put("children", history.createHistoricProcessInstanceQuery().superProcessInstanceId(pid)

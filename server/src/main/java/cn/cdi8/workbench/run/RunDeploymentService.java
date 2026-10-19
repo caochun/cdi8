@@ -24,10 +24,11 @@ public class RunDeploymentService {
     private final WorkflowService workflows;
     private final ObjectMapper json;
     private final EnvironmentService environments;
+    private final RunPolicies runPolicies;
 
     public RunDeploymentService(ModelStore store, ModelValidation validation, TangoGateway tango,
                                 RepositoryService repository, WorkflowService workflows,
-                                ObjectMapper json, EnvironmentService environments) {
+                                ObjectMapper json, EnvironmentService environments, RunPolicies runPolicies) {
         this.store = store;
         this.validation = validation;
         this.tango = tango;
@@ -35,6 +36,7 @@ public class RunDeploymentService {
         this.workflows = workflows;
         this.json = json;
         this.environments = environments;
+        this.runPolicies = runPolicies;
     }
 
     private Document document(String xml) throws Exception {
@@ -135,7 +137,7 @@ public class RunDeploymentService {
                 }
                 variables.put(field.getKey(),targets);
             }
-            variables.putIfAbsent("sourceTargets",devices.values().stream().filter(d->"seed".equals(d.get("component"))).toList());
+            runPolicies.find(entryKey).ifPresent(policy -> policy.defaults(variables).forEach(variables::putIfAbsent));
             variables.putIfAbsent("commandTimeout","PT15M");variables.putIfAbsent("workflowTimeout","PT45M");
             variables.put("outcome","RUNNING");variables.put("workbench",true);variables.put("modelVersions",versions);
             variables.put("workbenchConfiguration",json.convertValue(config,Map.class));

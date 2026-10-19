@@ -78,3 +78,11 @@ SCXML 目前支持顺序层级状态、复合状态初始子状态、单目标�
 - Flowable 执行与活动历史继续使用现有 H2 数据库。
 
 Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/trials`、`/configuration`、`/environment`、`/runs`、`/runs/{id}/trace` 和设备反馈接口。模拟服务在 `--demo` 模式提供对应 `/lab/*` 接口；真实 `--devices` 模式不开放模拟环境重建。
+
+## GXLF 场景规则
+
+通用工作台按所选模型和设备集合执行；GXLF 的固定模型身份、光源选择及阶段资格集中在后端 `scenarios/gxlf/`。内置 GXLF 流程及工作台发布的对应版本自动关联这些规则；`scenarioId=gxlf` 可以显式选择同一组执行资格检查。
+
+现有 GXLF BPMN 的 `${tango.xxx(...)}` 表达式保持兼容。通用组件命令活动由 `ComponentCommandTasks` 推进，通用流程结束处理可使用 `${componentTasks.succeeded(execution)}` 或 `${componentTasks.failed(execution)}`。自定义模型使用相同的动作名或条件名时，不自动应用 GXLF 专用约束；需要持续保持的条件应声明 `lab:maintain="true"`。
+
+后台常驻的 Java 服务可从 `data/runtime/` 中的独立 JAR 副本启动。`server/target/` 是可重写的构建目录；使用独立运行副本可以让后续 Maven 打包与正在运行的版本互不影响。

@@ -1,6 +1,6 @@
 package cn.cdi8.workbench.integration.flowable;
 
-import cn.cdi8.workbench.run.TangoTasks;
+import cn.cdi8.workbench.run.ComponentCommandTasks;
 import cn.cdi8.workbench.run.WorkflowService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,12 +18,12 @@ import org.flowable.engine.impl.delegate.TriggerableActivityBehavior;
  */
 public final class ComponentCommandActivityBehavior extends AbstractBpmnActivityBehavior
         implements TriggerableActivityBehavior {
-    private final TangoTasks tasks;
+    private final ComponentCommandTasks tasks;
     private final ObjectMapper json;
     private final String actionDefinition;
     private final String expectedStateDefinition;
 
-    public ComponentCommandActivityBehavior(TangoTasks tasks, ObjectMapper json, String action, String expectedState) {
+    public ComponentCommandActivityBehavior(ComponentCommandTasks tasks, ObjectMapper json, String action, String expectedState) {
         this.tasks = tasks;
         this.json = json;
         this.actionDefinition = action;

@@ -44,3 +44,16 @@
 - [前期准备](../../docs/domain/gxlf/process-control/种子源至多程放大前期准备流程.md)
 - [正式发射](../../docs/domain/gxlf/process-control/正式发射流程.md)
 - [发射后处理](../../docs/domain/gxlf/process-control/发射后处理流程.md)
+
+## 规则实现与固定版本验证
+
+启动资格、完成证据和持续资格检查位于后端 `scenarios/gxlf/`，原 BPMN 的 `${tango.xxx(...)}` 入口由兼容门面保留。工作台发布后的独立流程 key 仍关联对应 GXLF 规则。
+
+使用隔离服务验证版本发布与双光源任务：
+
+```bash
+python3 tests/e2e/gxlf_lifecycle_smoke.py --workbench --sources seed shg \
+  --base http://127.0.0.1:8081 --bridge http://127.0.0.1:8767
+```
+
+`--workbench` 会选择内置模型版本并创建全新演示环境，适用于隔离数据验证。

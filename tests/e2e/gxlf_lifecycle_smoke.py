@@ -25,8 +25,29 @@ def flatten_runs(run):
         yield from flatten_runs(child)
 
 
-def complete_run(base, bridge, process, sources, permit=False):
-    run = request(base + '/api/runs', {'processKey': process, 'sources': sources})
+def start_workbench_run(base, sources):
+    """Publish the built-in versions as a pinned release in a fresh demo environment."""
+    models = {model['id']: model for model in request(base + '/api/workbench/models')}
+    process_keys = ['component_initialization', 'parameter_dispatch', 'optical_frontend_preparation',
+                    'formal_emission', 'post_emission_processing', 'emission_task_lifecycle']
+    components = {'seed-source-state-machine': 'seed', 'shg-injection-state-machine': 'shg',
+                  'preamp-state-machine': 'preamp', 'multipass-state-machine': 'multipass'}
+    config = {
+        'entry': 'emission_task_lifecycle',
+        'processes': [{'model': key, 'revision': models[key]['revisions'][-1]['id']} for key in process_keys],
+        'devices': [{'model': key, 'revision': models[key]['revisions'][-1]['id'], 'component': component,
+                     'count': 1, 'autoComplete': False, 'delayMs': 500} for key, component in components.items()],
+        'bindings': {'sourceTargets': [source + '_01' for source in sources]},
+        'variables': {'commandTimeout': 'PT30S', 'workflowTimeout': 'PT60S'},
+        'autoComplete': False,
+    }
+    config = request(base + '/api/workbench/environment', config)
+    return request(base + '/api/workbench/runs', config)
+
+
+def complete_run(base, bridge, process, sources, permit=False, workbench=False):
+    run = (start_workbench_run(base, sources) if workbench else
+           request(base + '/api/runs', {'processKey': process, 'sources': sources}))
     completed = set()
     deadline = time.monotonic() + 60
     gated = False
@@ -93,8 +114,9 @@ def main():
     parser.add_argument('--base', default='http://127.0.0.1:8080')
     parser.add_argument('--bridge', default='http://127.0.0.1:8766')
     parser.add_argument('--sources', nargs='+', choices=['seed', 'shg'], default=['seed'])
+    parser.add_argument('--workbench', action='store_true', help='apply a fresh demo environment and run pinned model versions')
     args = parser.parse_args()
-    complete_run(args.base, args.bridge, 'emission_task_lifecycle', args.sources, permit=True)
+    complete_run(args.base, args.bridge, 'emission_task_lifecycle', args.sources, permit=True, workbench=args.workbench)
     for device in request(args.bridge + '/devices'):
         snapshot = device['snapshot']
         if device['component'] in args.sources:

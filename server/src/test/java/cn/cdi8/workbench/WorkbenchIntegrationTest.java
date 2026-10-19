@@ -36,6 +36,11 @@ class WorkbenchIntegrationTest {
         @Override public JsonNode catalog(){return catalog;}
         @Override public JsonNode cached(String id){return state;}
         @Override public JsonNode request(String method,String path,Object body){return json.createObjectNode().put("id","test-environment");}
+        @Override public JsonNode snapshot(String id) { return state; }
+        @Override public JsonNode execute(String device, String id, String action, Object parameters) {
+            ((ObjectNode)state).put("state_id", "active").put("outer_state", "fault").putNull("active_command_id");
+            return json.createObjectNode().put("command_id", id).put("action", action).put("status", "succeeded");
+        }
     }
     ObjectNode config;
     String process(String key,String inner){return "<definitions xmlns=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" targetNamespace=\"test\"><process id=\""+key+"\" name=\""+key+"\" isExecutable=\"true\"><startEvent id=\"start\"/><sequenceFlow id=\"f1\" sourceRef=\"start\" targetRef=\"call\"/>"+inner+"<sequenceFlow id=\"f2\" sourceRef=\"call\" targetRef=\"end\"/><endEvent id=\"end\"/></process></definitions>";}
@@ -97,4 +102,67 @@ class WorkbenchIntegrationTest {
         assertThat(validation.validate("bpmn","<definitions>").path("valid").asBoolean()).isFalse();
         assertThat(validation.validate("bpmn",simple("new_process")).path("valid").asBoolean()).isTrue();
     }
+    private String startGeneric(String xml, Map<String,Object> variables) {
+        var deployment = repository.createDeployment().addString("generic.bpmn20.xml", xml).deploy();
+        var definition = repository.createProcessDefinitionQuery().deploymentId(deployment.getId()).singleResult();
+        return workflows.startDefinition(definition.getId(), new HashMap<>(variables)).get("id").toString();
+    }
+
+    private String conditionFlow(boolean maintain) {
+        String nodes = "<receiveTask id=\"call\" lab:condition=\"safety_permit\" lab:maintain=\"" + maintain
+            + "\"/><sequenceFlow id=\"middle\" sourceRef=\"call\" targetRef=\"later\"/>"
+            + "<receiveTask id=\"later\" lab:condition=\"finish_ready\"/>";
+        return process("generic_conditions", nodes)
+            .replace("targetNamespace=", "xmlns:lab=\"https://cdi8.cn/workbench\" targetNamespace=")
+            .replace("id=\"f2\" sourceRef=\"call\"", "id=\"f2\" sourceRef=\"later\"");
+    }
+
+    @Test void genericConditionNamesDoNotEnableGxlfContinuousChecks() {
+        ObjectNode conditions = ((ObjectNode)tango.state).putObject("conditions");
+        conditions.put("safety_permit", true).put("finish_ready", false);
+        var target = Map.of("id", "seed_01", "component", "custom");
+        String id = startGeneric(conditionFlow(false), Map.of("contextTargets", List.of(target)));
+        workflows.pump();
+        assertThat(runtime.getActiveActivityIds(id)).contains("later");
+        assertThat(runtime.getVariable(id, "safetyRequired")).isNull();
+        conditions.put("safety_permit", false);
+        workflows.pump();
+        assertThat(workflows.view(id).get("outcome")).isEqualTo("RUNNING");
+        assertThat(runtime.getActiveActivityIds(id)).contains("later");
+        conditions.put("finish_ready", true);
+        workflows.pump();
+        assertThat(workflows.view(id).get("outcome")).isEqualTo("SUCCEEDED");
+    }
+
+    @Test void genericMaintainedConditionsStillStopTheRunWhenEvidenceIsLost() {
+        ObjectNode conditions = ((ObjectNode)tango.state).putObject("conditions");
+        conditions.put("safety_permit", true).put("finish_ready", false);
+        var target = Map.of("id", "seed_01", "component", "custom");
+        String id = startGeneric(conditionFlow(true), Map.of("contextTargets", List.of(target)));
+        workflows.pump();
+        assertThat(runtime.getActiveActivityIds(id)).contains("later");
+        conditions.put("safety_permit", false);
+        workflows.pump();
+        assertThat(workflows.view(id).get("outcome")).isEqualTo("FAILED");
+        assertThat(workflows.view(id).get("failureReason").toString()).contains("持续条件失效");
+    }
+
+    @Test void genericCommandsCanReuseActionNamesAndStateLabelsWithoutGxlfSemantics() {
+        String node = "<serviceTask id=\"call\" flowable:delegateExpression=\"${componentCommand}\">"
+            + "<extensionElements><flowable:field name=\"componentCommand\" stringValue=\"true\"/>"
+            + "<flowable:field name=\"action\" stringValue=\"preamp_repeat\"/>"
+            + "<flowable:field name=\"expectedState\" stringValue=\"active\"/></extensionElements></serviceTask>";
+        String xml = process("generic_command", node)
+            .replace("targetNamespace=", "xmlns:flowable=\"http://flowable.org/bpmn\" targetNamespace=");
+        var target = Map.of("id", "seed_01", "component", "custom");
+        ((ObjectNode)tango.state).put("outer_state", "fault");
+        String id = startGeneric(xml, Map.of("target", target, "allComponents", List.of(target),
+            "sourceTargets", List.of(target), "sourcesRequired", true));
+        workflows.pump();
+        assertThat(workflows.view(id).get("outcome")).isEqualTo("SUCCEEDED");
+        assertThat(tango.state.path("outer_state").asText()).isEqualTo("fault");
+        assertThat(json.valueToTree(workflows.view(id)).path("participants").get(0).path("id").asText())
+            .isEqualTo("seed_01");
+    }
+
 }

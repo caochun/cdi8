@@ -2,6 +2,8 @@ package cn.cdi8.workbench;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
 import cn.cdi8.workbench.run.WorkflowService;
+import cn.cdi8.workbench.run.RunPolicies;
+import cn.cdi8.workbench.run.ExecutionPolicy;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -22,6 +24,8 @@ import org.springframework.context.ApplicationEventPublisher;
     "control.events-enabled=false", "control.pump-delay=3600000", "flowable.async-executor-activate=false", "control.workbench-directory=${java.io.tmpdir}/cdi8-workflow-test-${random.uuid}"})
 class WorkflowIntegrationTest {
     @Autowired WorkflowService workflows;
+    @Autowired RunPolicies runPolicies;
+    @Autowired List<ExecutionPolicy> executionPolicies;
     @Autowired RuntimeService runtime;
     @Autowired ManagementService management;
     @Autowired RepositoryService repository;
@@ -74,13 +78,14 @@ class WorkflowIntegrationTest {
         @Override public JsonNode result(String device,String id){return results.get(id).deepCopy();}
     }
 
-    String start() {
+    String start() { return start(List.of("seed")); }
+    String start(List<String> sources) {
         snapshots.forEach((id, state) -> {
             if (id.startsWith("seed_")) {
                 if (!"standbyReady".equals(state.path("state_id").asText())) state.put("state_id", "configured");
             } else if (!id.startsWith("context_")) state.put("state_id", "parameterOk");
         });
-        return (String)workflows.start("optical_frontend_preparation",List.of("seed")).get("id");
+        return (String)workflows.start("optical_frontend_preparation",sources).get("id");
     }
     String startParameterDispatch() {
         return (String)workflows.start("parameter_dispatch",List.of()).get("id");
@@ -190,7 +195,7 @@ class WorkflowIntegrationTest {
     }
     @Test void recoveredCoordinatorFindsPersistedResultsWithoutEventAndDuplicatesAreHarmless() {
         String pid=start();conditions(true,true);workflows.pump();workflows.pump();completeAll();
-        var recovered=new WorkflowService(runtime, repository, history,management,gateway,json,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime, repository, history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M");
         recovered.pump();assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         for(int i=0;i<3;i++){notice("seed_01");workflows.pump();}
         assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
@@ -207,10 +212,10 @@ class WorkflowIntegrationTest {
     @Test void lostAcceptanceResponseRetriesSameCommandAfterFeedback() {
         String pid=start();conditions(true,true);gateway.loseResponse=true;workflows.pump();workflows.pump();
         assertThat(results).hasSize(1);String original=results.keySet().iterator().next();completeAll();
-        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M");
         recovered.pump();completeAll();
         // Query from a freshly recovered coordinator, without any event hints.
-        new WorkflowService(runtime,repository,history,management,gateway,json,"PT15M","PT45M").pump();
+        new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M").pump();
         assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         assertThat(results).containsKey(original);assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
     }
@@ -365,6 +370,19 @@ class WorkflowIntegrationTest {
             .contains("laser_parameter_collect", "energy_collect", "standby_reset");
         assertThat(snapshots.get("seed_01").path("state_id").asText()).isEqualTo("collectionOk");
         assertThat(snapshots.get("preamp_01").path("state_id").asText()).isEqualTo("standbyReady");
+    }
+
+    @Test void gxlfDefaultSourcesAreResolvedByTheScenarioPolicy() {
+        String pid = start(null);
+        assertThat(runtime.getVariable(pid, "scenarioId")).isEqualTo("gxlf");
+        assertThat(runtime.getVariable(pid, "sourceTargets").toString()).contains("seed_01").doesNotContain("shg_01");
+        workflows.stop(pid, "test stop");
+    }
+
+    @Test void gxlfModelIdentityChecksRunBeforeCreatingTheProcess() {
+        snapshots.get("seed_01").put("model", "another-model");
+        assertThatThrownBy(this::start).hasMessageContaining("组件模型不匹配");
+        assertThat(runtime.createProcessInstanceQuery().count()).isZero();
     }
 
     String startInitialization() {

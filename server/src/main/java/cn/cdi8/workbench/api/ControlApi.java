@@ -50,11 +50,7 @@ public class ControlApi {
     @GetMapping("/runs") public Object recent() { return workflows.recent(); }
     @GetMapping("/runs/{id}") public Object view(@PathVariable String id) { return workflows.view(id); }
     @PostMapping("/runs") public Object start(@RequestBody Start request) {
-        List<String> sources = request.sources();
-        if (sources == null)
-            sources = Set.of("component_initialization", "parameter_dispatch").contains(request.processKey())
-                ? List.of() : List.of("seed");
-        return workflows.start(request.processKey(), sources);
+        return workflows.start(request.processKey(), request.sources());
     }
     @PostMapping("/runs/{id}/stop") public Object stop(@PathVariable String id) {
         workflows.stop(id, "操作员停止流程；设备状态请在组件端确认"); return workflows.view(id);

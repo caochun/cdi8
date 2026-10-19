@@ -1,6 +1,6 @@
 package cn.cdi8.workbench.integration.flowable;
 
-import cn.cdi8.workbench.run.TangoTasks;
+import cn.cdi8.workbench.run.ComponentCommandTasks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
@@ -17,10 +17,10 @@ import org.springframework.stereotype.Component;
 public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHandler {
     public static final String TYPE = "component-command";
 
-    private final TangoTasks tasks;
+    private final ComponentCommandTasks tasks;
     private final ObjectMapper json;
 
-    public ComponentCommandBpmnParseHandler(TangoTasks tasks, ObjectMapper json) {
+    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, ObjectMapper json) {
         this.tasks = tasks;
         this.json = json;
     }

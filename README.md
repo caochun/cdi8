@@ -86,6 +86,7 @@ npm run dev --prefix frontend
 ```bash
 .venv/bin/python tests/e2e/gxlf_lifecycle_smoke.py
 # 两类光源一起参与：添加 --sources seed shg
+# 验证工作台固定版本发布（会创建新环境）：添加 --workbench
 ```
 
 通用工作台发布与双实例执行可用 `python3 tests/e2e/workbench_smoke.py` 验证；它会创建模型并替换演示环境，也必须使用隔离数据。两个脚本均支持 `--base` 和 `--bridge` 指定测试服务地址。
@@ -99,6 +100,6 @@ GXLF 脚本显式提供演示反馈和外部条件。演示组件会持久化状
 - 模型编辑不覆盖 `examples/`；导出 XML 后可经代码审查更新示例源文件。
 - 现有 Python SCXML 执行器支持受限子集和项目自定义组件协议；目录重组没有改变其执行语义。
 - Java / Apache Commons SCXML 与 JTango 的独立模拟设备是下一阶段迁移项，目前尚未替换 Python 服务。
-- GXLF 专用阶段资格和完成校验仍在后端运行逻辑中；后续会继续隔离业务规则，并将旧静态运行页迁入 Vue。
+- GXLF 的启动、完成和持续资格规则集中在后端 `scenarios/gxlf/`；通用执行通过规则接口调用。旧静态运行页后续迁入 Vue。
 
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。
