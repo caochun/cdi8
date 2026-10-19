@@ -63,7 +63,7 @@ class Workbench:
                 {'class': PreparationContextDevice, 'devices': [{'name': 'gxlf/context/01', 'properties': {
                     'auto_complete': bool(payload.get('autoComplete', False)), 'auto_complete_delay_ms': 500,
                     'extra_conditions': json.dumps(payload.get('conditions', {}))}}]},
-            ], process=True, host='127.0.0.1', timeout=20)
+            ], instance_name='workbench_' + generation, process=True, host='127.0.0.1', timeout=20)
             try:
                 context.start()
                 mapped = {key: {'component': item['component'], 'address': context.get_device_access(item['name'])}

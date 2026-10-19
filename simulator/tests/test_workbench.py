@@ -63,6 +63,7 @@ class WorkbenchEnvironmentTest(unittest.TestCase):
                 {'id': 'custom_02', 'component': 'custom', 'revision': 'revision-one', 'xml': xml}]}
             try:
                 first = environment.configure(config)
+                first_server = environment.context.server_name
                 self.assertEqual(environment.bridge.snapshot('custom_01')['model_revision'], 'revision-one')
                 devices = environment.bridge.catalog()
                 self.assertEqual(len({d['address'].split('/gxlf/')[0] for d in devices}), 1)
@@ -71,6 +72,7 @@ class WorkbenchEnvironmentTest(unittest.TestCase):
                 environment.bridge.call('custom_01', 'Simulate', {'command_id': 'trial', 'outcome': 'success'})
                 second = environment.configure(config)
                 self.assertNotEqual(first['id'], second['id'])
+                self.assertNotEqual(first_server, environment.context.server_name)
                 self.assertEqual(environment.bridge.snapshot('custom_01')['state_id'], 'statusUnknown')
             finally:
                 environment.close()
