@@ -38,11 +38,13 @@ public final class JavaControlBridgeApplication {
         final Map<String,ObjectNode> latest=new ConcurrentHashMap<>();
         final Set<BlockingQueue<String>> clients=ConcurrentHashMap.newKeySet();
         final AtomicLong sequence=new AtomicLong();
+        final TrialManager trials;
         volatile ObjectNode currentEnvironment;
         final ScheduledExecutorService monitor=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"java-control-bridge-reconcile");t.setDaemon(true);return t;});
         volatile boolean closed;
 
         Bridge(Path config) throws Exception {
+            trials=new TrialManager(Path.of("data/java-workbench-trials"));
             JsonNode root=JSON.readTree(Files.readString(config));
             if(!root.isObject() || root.isEmpty()) throw new IllegalArgumentException("设备配置必须为非空 JSON 对象");
             var fields=root.fields();
@@ -115,7 +117,7 @@ public final class JavaControlBridgeApplication {
             }catch(Exception ignored){}finally{clients.remove(queue);}
         }
         private static void writeLine(OutputStream output,String value) throws IOException { output.write(value.getBytes(StandardCharsets.UTF_8));output.write('\n');output.flush(); }
-        @Override public void close(){closed=true;monitor.shutdownNow();for(Binding b:devices.values())try{if(b.events!=null)b.events.removeTangoChangeListener(b.listener,"Snapshot");}catch(Exception ignored){}clients.clear();}
+        @Override public void close(){closed=true;monitor.shutdownNow();trials.close();for(Binding b:devices.values())try{if(b.events!=null)b.events.removeTangoChangeListener(b.listener,"Snapshot");}catch(Exception ignored){}clients.clear();}
     }
 
     private static final class Handler implements com.sun.net.httpserver.HttpHandler {
@@ -126,6 +128,10 @@ public final class JavaControlBridgeApplication {
                 if("GET".equals(exchange.getRequestMethod())&&"/events".equals(path)){bridge.stream(exchange);return;}
                 String[] parts=path.replaceFirst("^/","").split("/");JsonNode value;
                 if("GET".equals(exchange.getRequestMethod())&&parts.length==2&&parts[0].equals("lab")&&parts[1].equals("environment"))value=bridge.environmentView();
+                else if("GET".equals(exchange.getRequestMethod())&&parts.length==3&&parts[0].equals("lab")&&parts[1].equals("trials"))value=bridge.trials.view(parts[2]);
+                else if("POST".equals(exchange.getRequestMethod())&&parts.length==2&&parts[0].equals("lab")&&parts[1].equals("validate"))value=bridge.trials.validate(body(exchange).path("xml").asText());
+                else if("POST".equals(exchange.getRequestMethod())&&parts.length==2&&parts[0].equals("lab")&&parts[1].equals("trials"))value=bridge.trials.create(body(exchange).path("xml").asText());
+                else if("POST".equals(exchange.getRequestMethod())&&parts.length==4&&parts[0].equals("lab")&&parts[1].equals("trials"))value=trialOperation(bridge,parts[2],parts[3],body(exchange));
                 else if("GET".equals(exchange.getRequestMethod())&&parts.length==1&&parts[0].equals("devices"))value=bridge.catalog();
                 else if("GET".equals(exchange.getRequestMethod())&&parts.length==2&&parts[0].equals("devices"))value=bridge.snapshot(parts[1]);
                 else if("GET".equals(exchange.getRequestMethod())&&parts.length==3&&parts[0].equals("devices")&&parts[2].equals("history"))value=bridge.call(parts[1],"History",JSON.getNodeFactory().numberNode(200));
@@ -138,6 +144,7 @@ public final class JavaControlBridgeApplication {
             catch(IllegalArgumentException ex){respond(exchange,400,error(ex.getMessage()));}
             catch(Exception ex){respond(exchange,409,error(ex.toString()));}
         }
+        private static JsonNode trialOperation(Bridge bridge,String id,String operation,JsonNode body){return switch(operation){case "commands"->bridge.trials.command(id,body);case "simulate"->bridge.trials.simulate(id,body);case "events"->bridge.trials.event(id,body);default->throw new NoSuchElementException("unknown trial operation");};}
         private static JsonNode body(HttpExchange exchange) throws IOException {
             String length=exchange.getRequestHeaders().getFirst("Content-Length");
             if(length==null || Long.parseLong(length)<=0 || Long.parseLong(length)>4_000_000) throw new IllegalArgumentException("invalid body length");
