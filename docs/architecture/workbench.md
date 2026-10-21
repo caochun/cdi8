@@ -6,7 +6,7 @@
 
 - `frontend/`：所有浏览器代码和第三方绘图资源。Vue 构建产物进入根目录 `target/workbench-static/workbench/`，未打包的运行页与 vendor 资源位于 `frontend/public/`，由 server 打包到静态资源根路径。根首页跳转仍由 server 提供。
 - `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；`mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
-- `simulator/`：过渡期间的 Python 实现，保留命令行、PyTango 设备、桥接与工作台模拟接口。Java 后端不依赖其包内文件布局。
+- `simulator/`：Python 对照实现，保留命令行、PyTango 设备和桥接接口。Java 设备模拟器和 Java HTTP bridge 可在联调时替代它；Java 后端不依赖其包内文件布局。
 - `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/bpmn/` 和 `gxlf/scxml/` 供 Java 内置模型导入与 Python 示例运行使用。
 - `contracts/`：跨运行时的命令、结果与事件格式。协议格式不绑定 Python 类或 Java DTO。
 - `tests/e2e/`：跨进程联调验证；各模块自己的单元与集成测试保留在模块内。
@@ -64,9 +64,8 @@ Python 在源码环境直接解析 `examples/gxlf/scxml/`。wheel 和 sdist 构�
 
 ## 后续迁移
 
-1. 新增独立的 `device-simulator/` Java 模块；先以 Apache Commons SCXML 和 JTango 实现种子源，复用既有命令、结果与事件协议。
-2. 用 `device-simulator/` 的 Apache Commons SCXML + JTango 种子源原型对照 Python，完成协议级验证。
-3. 对照 Python 实现验证动作反馈、幂等、实例隔离、故障恢复、断连与补读，再迁移其余组件和环境管理。
+1. 用 `device-simulator/` 的多设备 Java 进程和 Java HTTP bridge 替换默认演示环境，继续保持现有 HTTP/NDJSON 边界；组件设备和上下文条件设备已经可以在同一 JVM 中启动。
+2. 继续对照 Python 实现验证动作反馈、幂等、实例隔离、故障恢复、断连与补读，并补齐生产部署和运维配置。
 4. 将 `frontend/public/runtime.html` 与对应脚本逐步迁入 Vue 的运行功能区，保持模型和历史显示行为一致。
 5. 在覆盖及迁移完成后清理 Python 服务和旧静态运行页。
 

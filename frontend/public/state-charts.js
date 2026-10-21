@@ -63,14 +63,19 @@ const StateCharts = (() => {
       const id=group.getAttribute('data-state');
       const text=group.querySelector(':scope > text');
       if(text && model.labels[id]) {
-        // Long labels wrap in the focus panel below; avoid altering layout geometry.
-        text.textContent=model.labels[id].length>10?model.labels[id].slice(0,9)+'…':model.labels[id];
+        const full=model.labels[id];
+        text.textContent=full.length>12?full.slice(0,11)+'…':full;
+        text.setAttribute('font-family','Inter, PingFang SC, Microsoft YaHei, sans-serif');
+        text.setAttribute('font-weight','600');
         const rect=group.querySelector(':scope > rect');
         if(rect){
           const maximum=Math.max(5,Number(rect.getAttribute('width'))-5);
           const estimate=text.textContent.length*parseFloat(text.getAttribute('font-size')||'4');
           if(estimate>maximum){text.setAttribute('textLength',maximum);text.setAttribute('lengthAdjust','spacingAndGlyphs');}
         }
+        let title=group.querySelector(':scope > title');
+        if(!title){title=document.createElementNS('http://www.w3.org/2000/svg','title');group.prepend(title);}
+        title.textContent=full;
       }
       group.classList.toggle('state-focus-target',id===active);
       group.classList.toggle('state-current',connected && id===active);

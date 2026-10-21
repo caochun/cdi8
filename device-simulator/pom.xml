@@ -23,12 +23,17 @@
     <dependency><groupId>org.tango-controls</groupId><artifactId>JTangoServer</artifactId><version>${jtango.version}</version></dependency>
     <dependency><groupId>org.xerial</groupId><artifactId>sqlite-jdbc</artifactId><version>3.46.1.0</version></dependency>
     <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
+    <!-- JTango reports request failures through SLF4J; keep the standalone
+         simulator's embedded server able to render those failures. -->
+    <dependency><groupId>ch.qos.logback</groupId><artifactId>logback-classic</artifactId><version>1.5.8</version></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
   </dependencies>
   <build>
     <resources>
       <resource><directory>src/main/resources</directory></resource>
-      <resource><directory>../examples/gxlf/scxml</directory><targetPath>models</targetPath><includes><include>seed-source-state-machine.scxml</include></includes></resource>
+      <resource><directory>../examples/gxlf/scxml</directory><targetPath>models</targetPath><includes>
+        <include>*-state-machine.scxml</include>
+      </includes></resource>
     </resources>
     <plugins>
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>cn.cdi8.simulator.SimulatorApplication</mainClass></configuration></plugin>

@@ -9,8 +9,8 @@ GXLF 四类组件和发射任务作为内置业务示例。示例源文件、执
   │ REST
 Java 工作台后端：模型版本、环境配置、Flowable 流程、运行历史
   │ HTTP 命令 / NDJSON 设备事件
-Python Tango 适配与模拟服务（迁移期间继续使用）
-  │ PyTango Command / CHANGE_EVENT
+Java Tango bridge（可替代 Python bridge）
+  │ JTango Command / CHANGE_EVENT
 SCXML 组件实例 + 独立 SQLite 命令与事件记录
 ```
 
@@ -24,7 +24,7 @@ SCXML 组件实例 + 独立 SQLite 命令与事件记录
 | [examples/gxlf/](examples/gxlf/) | GXLF 的六个 BPMN 和四个 SCXML 示例模型 |
 | [contracts/](contracts/) | 命令、结果、设备事件的接口约定和 JSON Schema |
 | [simulator/](simulator/) | 现有 Python 组件运行时、Tango 设备、命令行和测试 |
-| [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的种子源验证原型 |
+| [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的通用组件模拟器 |
 | [tests/e2e/](tests/e2e/) | 通过真实服务和 Tango 验证完整联调流程 |
 | [docs/architecture/](docs/architecture/) | 模块边界、资源归属及后续 Java 模拟器迁移计划 |
 | [docs/development/](docs/development/) | 开发工作台操作和模型约定 |
@@ -54,6 +54,19 @@ java -jar server/target/workbench-server-0.1.0.jar
 ```
 
 访问 **http://127.0.0.1:8080/workbench/**。
+
+若优先使用 Java 模拟器，可先构建 `device-simulator`，再用一个 JVM 启动多个组件设备、上下文条件设备和 bridge。`devices.json` 是设备数组，普通项使用 `model`，上下文项使用 `component: "context"`；bridge 的 `bindings.json` 是工作台逻辑 ID 到 Tango 地址的映射，模拟器启动后会在 ready JSON 中输出地址。
+
+```bash
+mvn -Pjava-simulator -pl device-simulator package
+java -jar device-simulator/target/device-simulator-0.1.0.jar \
+  --devices devices.json --port 10000 --ready-file java-ready.json
+java -jar device-simulator/target/device-simulator-0.1.0.jar \
+  --bridge --devices bindings.json --port 8766
+java -jar server/target/workbench-server-0.1.0.jar
+```
+
+工作台仍通过 `control.base=http://127.0.0.1:8766` 访问 bridge，HTTP/NDJSON 契约不变。
 
 1. **模型开发**：编辑或导入模型，校验并保存不可变版本；SCXML 可以创建独立试运行。
 2. **联调配置**：选择流程及子流程版本、组件模型版本、实例数量和反馈方式，配置设备集合与变量，然后应用模拟环境。
@@ -100,7 +113,7 @@ GXLF 脚本显式提供演示反馈和外部条件。演示组件会持久化状
 - Python 演示实例、独立试验和环境实例仍使用模拟器的数据目录，以保留既有本地状态。
 - 模型编辑不覆盖 `examples/`；导出 XML 后可经代码审查更新示例源文件。
 - 现有 Python SCXML 执行器支持受限子集和项目自定义组件协议；目录重组没有改变其执行语义。
-- Java / Apache Commons SCXML 与 JTango 的种子源验证原型位于 `device-simulator/`；它目前只替换一个种子源实例，其余组件继续使用 Python 服务。
+- Java / Apache Commons SCXML 与 JTango 的组件模拟器位于 `device-simulator/`；一个 JVM 可按 SCXML 元数据承载 seed、shg、preamp 和 multipass 多个设备，并通过 `--bridge` 提供 Python `control_bridge` 兼容的 HTTP/NDJSON 接口。Python 服务仍可作为协议对照实现。
 - GXLF 的启动、完成和持续资格规则集中在后端 `scenarios/gxlf/`；通用执行通过规则接口调用。旧静态运行页后续迁入 Vue。
 
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。

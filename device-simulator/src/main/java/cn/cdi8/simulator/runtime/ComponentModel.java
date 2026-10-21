@@ -27,8 +27,14 @@ public final class ComponentModel {
                 value = JSON.readTree(data.item(i).getTextContent());
             if (value == null || !value.isObject()) throw new IllegalArgumentException("缺少 componentMetadata JSON");
             metadata = value;
-            if (!"seed-source-reference-v2".equals(metadata.path("model_id").asText()))
-                throw new IllegalArgumentException("Java 验证设备当前只支持种子源参考模型 v2");
+            if (!metadata.path("model_id").isTextual() || metadata.path("model_id").asText().isBlank())
+                throw new IllegalArgumentException("componentMetadata.model_id 必须为非空字符串");
+            if (!metadata.path("model_version").canConvertToInt())
+                throw new IllegalArgumentException("componentMetadata.model_version 必须为整数");
+            if (!metadata.path("actions").isObject() || metadata.path("actions").isEmpty())
+                throw new IllegalArgumentException("componentMetadata.actions 不能为空");
+            if (!metadata.path("context_defaults").isObject())
+                throw new IllegalArgumentException("componentMetadata.context_defaults 必须为对象");
             var states = root.getElementsByTagNameNS(root.getNamespaceURI(), "state");
             for (int i=0; i<states.getLength(); i++) {
                 Element state=(Element)states.item(i), parent=state;

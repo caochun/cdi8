@@ -3,7 +3,7 @@ import argparse
 import json
 from pathlib import Path
 
-from . import DATA_DIRECTORY, MULTIPASS_MODEL, PREAMP_MODEL, REFERENCE_MODEL, SEED_MODEL, SHG_MODEL
+from . import DATA_DIRECTORY, MULTIPASS_MODEL, PREAMP_MODEL, SEED_MODEL, model_by_name
 from .component_runtime import ComponentRuntime
 from .scxml_machine import TransitionError
 
@@ -30,13 +30,6 @@ def demo(runtime, model):
             ("power_on_check", "success"), ("function_check", "success"),
             ("parameter_dispatch", "success"), ("optical_collimation", "success"),
             ("enter_shot_state", "success"), ("standby_reset", "success"),
-        ]
-    elif model is REFERENCE_MODEL:
-        actions = [
-            ("power_on_check", "success"), ("function_check", "success"),
-            ("parameter_dispatch", "success"), ("seed_source_emit", "success"),
-            ("laser_parameter_collect", "success"), ("standby_reset", "success"),
-            ("shutdown", "success"),
         ]
     else:
         actions = [
@@ -79,8 +72,7 @@ def main():
     history = commands.add_parser("history")
     history.add_argument("--limit", type=int, default=100)
     args = parser.parse_args()
-    model = {"seed": SEED_MODEL, "shg": SHG_MODEL, "preamp": PREAMP_MODEL,
-             "multipass": MULTIPASS_MODEL, "reference": REFERENCE_MODEL}[args.component]
+    model = model_by_name(args.component)
     runtime = None
     try:
         runtime = ComponentRuntime(model, args.db or (":memory:" if args.command == "demo" else DATA_DIRECTORY / f"{args.component}-v{model.model_version}.sqlite3"))

@@ -54,7 +54,7 @@ window.addEventListener('message', async event => {
         svg.setAttribute('preserveAspectRatio','xMidYMid meet');
         for(const text of svg.querySelectorAll('text')) {
           const computed=getComputedStyle(text);
-          for(const name of ['font-size','text-anchor','dominant-baseline','font-family']) text.setAttribute(name,computed.getPropertyValue(name));
+          for(const name of ['font-size','font-weight','text-anchor','dominant-baseline','font-family']) text.setAttribute(name,computed.getPropertyValue(name));
         }
         svg.removeAttribute('style');
         svg.removeAttribute('width'); svg.removeAttribute('height');

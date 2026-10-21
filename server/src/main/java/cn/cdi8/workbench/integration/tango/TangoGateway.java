@@ -17,7 +17,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Command transport and a single live subscription to the PyTango bridge. */
+/** Command transport and a single live subscription to the Tango HTTP bridge. */
 @Component
 public class TangoGateway {
     public record Notice(JsonNode payload) {}
