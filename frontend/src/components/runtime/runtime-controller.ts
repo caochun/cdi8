@@ -1,14 +1,22 @@
-'use strict';
-const $ = id => document.getElementById(id);
-const viewer = new BpmnJS({container:'#canvas'});
-const childViewer = new BpmnJS({container:'#child-canvas'});
-let definitions=[], diagrams=[], key='', run=null, picked=null, busy=false, runRecords=[];
+// @ts-nocheck
+import BpmnViewer from 'bpmn-js/lib/NavigatedViewer';
+import {prepareXml} from '../diagrams/layout';
+import {createStateCharts} from './state-charts';
+
+/** Owns the diagram viewers and runtime DOM inside one mounted Workbench view. */
+export function createRuntime(root:HTMLElement, onRunChange:(run:any)=>void = () => {}) {
+const requests=new AbortController();
+let disposed=false, revision=0, changing=false, selection=Promise.resolve(), polling=Promise.resolve();
+const StateCharts=createStateCharts(requests.signal);
+const request=async (url,options={})=>{const response=await fetch(url,{...options,signal:requests.signal});if(disposed)throw new DOMException('视图已关闭','AbortError');return response;};
+const $ = id => root.querySelector(`[data-runtime-id="${id}"]`);
+const viewer = new BpmnViewer({container:$('canvas')});
+const childViewer = new BpmnViewer({container:$('child-canvas')});
+let definitions=[], diagrams=[], key='', run=null, picked=null, busy=false, loaded=false;
 let childRun=null, childId='', childLoading='', detailViewer=null, selectedViewer=viewer, deviceCache=[];
 const cardNodes=new Map();
-const diagramLayout=import('/workbench/layout.js');
-const parameters=new URLSearchParams(location.search);
-if(parameters.has('embedded'))document.body.classList.add('embedded');
-let traceEvents=[],traceRun='';
+
+let traceEvents=[];
 const modelKey=s=>s.model_revision||s.model;
 function historyDevices(devices){
   if(!run?.ended)return devices;
@@ -16,10 +24,11 @@ function historyDevices(devices){
   for(const event of traceEvents){const d=event.device;if(d?.device_id)history.set(d.device_id,{id:d.device_id,component:devices.find(x=>x.id===d.device_id)?.component||(run.participants||[]).find(x=>x.id===d.device_id)?.component,...d});}
   return (run.participants||[]).map(p=>history.get(p.id)||{...p,connected:false,snapshot:{},unrecorded:true});
 }
-async function refreshTrace(){
-  if(!run)return;
-  if(traceRun!==run.id){traceEvents=[];traceRun=run.id;}
-  traceEvents=await api('/workbench/runs/'+encodeURIComponent(run.id)+'/trace');
+async function refreshTrace(ticket=revision){
+  const current=run;if(!current)return;
+  const events=await api('/workbench/runs/'+encodeURIComponent(current.id)+'/trace');
+  if(disposed||ticket!==revision)return;
+  traceEvents=events;
   const rows=[];
   for(const owner of flattenRuns())for(const activity of owner.activities||[])if(/Task$|Activity$/.test(activity.type)){
     rows.push({time:activity.started,device:owner.name,event:'进入活动',detail:activity.name||activity.id,node:activity.id,owner:owner.id});
@@ -33,15 +42,20 @@ async function refreshTrace(){
 function renderWaits(){
   const waits=flattenRuns().flatMap(r=>(r.waits||[]).map(w=>({...w,owner:r})));
   const pending=allCommands().filter(c=>!['succeeded','failed','interrupted','rejected','cancelled'].includes(commandStatus(c)));
-  $('wait-diagnostics').hidden=!waits.length&&!pending.length;
-  let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>'+escape(w.collection+' → '+w.condition)+' · '+(w.met?'已满足，等待推进':'未满足')+(w.started?' · 已等待 '+duration(Date.now()-new Date(w.started)):'')+'</small></div><div>'+w.devices.map(d=>'<button data-condition="'+escape(w.condition)+'" data-device="'+escape(d.id)+'">模拟确认 · '+escape(d.id)+'</button>').join('')+'</div></div>').join('');
-  html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+c.commandAction)+'</b><small>'+(c.sent?'设备已受理，等待动作结果':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
+  const count=waits.length+pending.length;
+  $('wait-count').textContent=count+' 项';
+  $('wait-empty').hidden=Boolean(count);
+  $('wait-empty').textContent=run?.ended?'结束时没有未完成的等待事项':run?'当前没有等待事项，流程可继续推进。':'开始运行后，在此查看等待与反馈。';
+  $('wait-diagnostics').hidden=!count;
+  let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>'+escape(w.collection+' → '+(conditionLabel[w.condition]||w.condition))+' · '+(w.met?'已满足，等待推进':'未满足')+(w.started?' · 已等待 '+duration(Date.now()-new Date(w.started)):'')+'</small></div><div>'+w.devices.map(d=>'<button data-condition="'+escape(w.condition)+'" data-device="'+escape(d.id)+'">模拟确认 · '+escape(d.id)+'</button>').join('')+'</div></div>').join('');
+  html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+StateCharts.action(modelKey(deviceCache.find(d=>d.id===c.commandDevice)?.snapshot||{}),c.commandAction))+'</b><small>'+(c.sent?'设备已受理，等待动作结果':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
   const due=flattenRuns().flatMap(r=>r.timers||[]).map(t=>new Date(t.due)).sort((a,b)=>a-b)[0];
   if(due)html+='<p class="muted">最近超时期限：'+escape(due.toLocaleString())+' · 剩余 '+duration(due-Date.now())+'</p>';
   $('wait-list').innerHTML=html;
+  if(run?.ended)$('wait-list').querySelectorAll('button').forEach(button=>button.remove());
 }
 $('wait-list').addEventListener('click',async event=>{
- const button=event.target.closest('button');if(!button)return;button.disabled=true;
+ const button=event.target.closest('button');if(!button||run?.ended||changing||disposed||!loaded)return;button.disabled=true;
  try{if(button.dataset.condition)await api('/devices/'+encodeURIComponent(button.dataset.device)+'/conditions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[button.dataset.condition]:true})});
  else await api('/workbench/devices/'+encodeURIComponent(button.dataset.device)+'/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command_id:button.dataset.command,outcome:button.dataset.outcome})});showError(null);await tick();}catch(error){showError(error);}finally{button.disabled=false;}
 });
@@ -89,35 +103,38 @@ const conditionLabel = {
 const componentLabel = {seed:'种子源', shg:'二倍频', preamp:'再生与双程放大', multipass:'多程放大', context:'同步/环境条件'};
 
 async function api(path,options) {
-  const response=await fetch('/api'+path,options);
+  const response=await request('/api'+path,options);
   if(!response.ok) {let body={};try{body=await response.json();}catch(_){} throw Error(body.error||response.statusText);}
-  return response.json();
+  const value=await response.json();
+  if(disposed)throw new DOMException('视图已关闭','AbortError');
+  return value;
 }
-function showError(error){$('error').textContent=error?.message||'';$('error').hidden=!error;}
+function showError(error){if(disposed||error?.name==='AbortError')return;$('error').textContent=error?.message||'';$('error').hidden=!error;}
 function parseResult(command){if(!command?.commandResult)return null;if(typeof command.commandResult==='object')return command.commandResult;try{return JSON.parse(command.commandResult);}catch(_){return null;}}
 function flattenRuns(current=run){return current?[current,...(current.children||[]).flatMap(c=>flattenRuns(c))]:[];}
 function allCommands(){return flattenRuns().flatMap(r=>(r.commands||[]).map(c=>({...c,owner:r})));}
 function commandStatus(c){return parseResult(c)?.status||(c.sent?'accepted':'queued');}
-function setSourceVisibility(){
-  const uses=['optical_frontend_preparation','formal_emission','post_emission_processing','emission_task_lifecycle'].includes($('process').value);
-  $('source-options').hidden=!uses;for(const id of ['seed','shg'])$(id).disabled=!uses||Boolean(run&&!run.ended);
+function fit(target){
+  if(!target.getDefinitions())return;
+  const canvas=target.get('canvas'),rect=canvas.getContainer().getBoundingClientRect();
+  if(rect.width>0&&rect.height>0&&canvas.getRootElement()?.children?.length)canvas.zoom('fit-viewport','auto');
 }
-function fit(target){if(target.getDefinitions())target.get('canvas').zoom('fit-viewport','auto');}
 async function xmlFor(current){
   const path=current?'/api/runs/'+encodeURIComponent(current.id)+'/xml':'/api/processes/'+encodeURIComponent(key)+'/xml';
-  const response=await fetch(path);if(!response.ok)throw Error('流程图加载失败');return (await diagramLayout).prepareXml(await response.text());
+  const response=await request(path);if(!response.ok)throw Error('流程图加载失败');return prepareXml(await response.text());
 }
-async function load(processKey){
-  key=processKey;await viewer.importXML(await xmlFor(run));
+async function load(processKey,ticket=revision){
+  key=processKey;const xml=await xmlFor(run);if(disposed||ticket!==revision)return;
+  await viewer.importXML(xml);if(disposed||ticket!==revision)return;
   diagrams=viewer.getDefinitions().diagrams;
   $('scope').replaceChildren(...diagrams.map(d=>new Option(d.plane.bpmnElement.name||d.plane.bpmnElement.id,d.id)));
   const preferred=diagrams.find(d=>d.plane.bpmnElement.id==='normal')||diagrams[0];
-  if(preferred){$('scope').value=preferred.id;await viewer.open(preferred.id);fit(viewer);}
+  if(preferred){$('scope').value=preferred.id;await viewer.open(preferred.id);if(disposed||ticket!==revision)return;fit(viewer);}
   childRun=null;childId='';childLoading='';$('child-flow').hidden=true;
-  setSourceVisibility();paint();
+  paint();
 }
-async function openScope(id){await viewer.open(id);fit(viewer);paint();}
-async function syncChild(){
+async function openScope(id){const ticket=revision;await viewer.open(id);if(disposed||ticket!==revision)return;fit(viewer);paint();}
+async function syncChild(ticket=revision){
   const children=flattenRuns().slice(1);
   const desired=[...children].reverse().find(c=>!c.ended)||children[children.length-1];
   if(!desired){childRun=null;childId='';$('child-flow').hidden=true;return;}
@@ -127,12 +144,12 @@ async function syncChild(){
   const id=desired.id;childLoading=id;
   try{
     const xml=await xmlFor(desired);
-    if(!flattenRuns().some(c=>c.id===id)||childLoading!==id)return;
+    if(disposed||ticket!==revision||!flattenRuns().some(c=>c.id===id)||childLoading!==id)return;
     $('child-flow').hidden=false;
-    await childViewer.importXML(xml);
+    await childViewer.importXML(xml);if(disposed||ticket!==revision)return;
     const diagram=childViewer.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id==='normal');
     if(diagram)await childViewer.open(diagram.id);
-    if(childLoading!==id)return;
+    if(disposed||ticket!==revision||childLoading!==id)return;
     childId=id;$('child-flow-title').textContent=desired.name;
     fit(viewer);fit(childViewer);paint();
   }catch(error){showError(error);}finally{if(childLoading===id)childLoading='';}
@@ -215,8 +232,8 @@ function renderRun(){
   const commands=allCommands(), finished=commands.filter(c=>['succeeded','failed','interrupted','rejected','cancelled'].includes(commandStatus(c))).length;
   $('command-summary').textContent=commands.length?`${finished} / ${commands.length} 已返回结果`:'暂无命令';
   $('elapsed').textContent=run?duration(new Date(run.ended||Date.now())-new Date(run.started)):'—';
-  $('stop').disabled=!run||Boolean(run.ended);$('start').disabled=Boolean(run&&!run.ended)||Boolean(run?.configuration);$('process').disabled=Boolean(run&&!run.ended);
-  $('runs').value=run?.id||'';setSourceVisibility();paint();syncChild();renderDevices();
+  if(run?.ended)$('details').querySelector('.device-debug-controls')?.remove();
+  $('process').disabled=Boolean(run);onRunChange(run);paint();renderDevices();
 }
 function duration(ms){if(!Number.isFinite(ms))return '—';const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)} 分 ${seconds%60} 秒`;}
 for(const target of [viewer,childViewer]){
@@ -228,30 +245,7 @@ for(const target of [viewer,childViewer]){
 }
 $('scope').onchange=()=>openScope($('scope').value).catch(showError);
 $('fit').onclick=()=>{fit(viewer);fit(childViewer);};
-$('process').onchange=async()=>{try{run=null;picked=null;showError(null);await load($('process').value);await refreshHistory(false);renderRun();}catch(e){showError(e);}};
-$('start').onclick=async()=>{
-  try{
-    $('start').disabled=true;
-    const sources=$('source-options').hidden?[]:['seed','shg'].filter(id=>$(id).checked);
-    run=await api('/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({processKey:$('process').value,sources})});
-    showError(null);picked=null;await load(run.key);await refreshHistory(false);renderRun();
-  }catch(e){showError(e);renderRun();}
-};
-$('stop').onclick=async()=>{try{run=await api('/runs/'+encodeURIComponent(run.id)+'/stop',{method:'POST'});showError(null);renderRun();await refreshHistory(false);}catch(e){showError(e);}};
-$('runs').onchange=async()=>{
-  try{
-    picked=null;
-    run=$('runs').value?await api('/runs/'+encodeURIComponent($('runs').value)):null;
-    if(run)$('process').value=run.key;
-    await load($('process').value);showError(null);renderRun();
-  }catch(e){showError(e);}
-};
-async function refreshHistory(selectLatest){
-  runRecords=await api('/runs');const selected=run?.id||'';
-  $('runs').replaceChildren(new Option('选择运行实例',''),...runRecords.map(r=>new Option(r.name+' · '+new Date(r.started).toLocaleString(),r.id)));
-  const wanted=selected||(selectLatest?runRecords.find(r=>!key||r.key===key)?.id:'');if(wanted)$('runs').value=wanted;
-  if(selectLatest&&!run&&wanted){run=await api('/runs/'+encodeURIComponent(wanted));$('process').value=run.key;await load(run.key);renderRun();}
-}
+$('process').onchange=()=>setRun('');
 function makeCard(device){
   const card=document.createElement('article');card.className='device';card.dataset.device=device.id;
   card.innerHTML='<div class="device-head"><div><strong class="device-name"></strong><span class="component-name"></span></div><span class="device-state"></span></div><button class="chart-button" title="展开完整状态机"><div class="state-chart"></div><span class="expand-hint">展开状态机 ↗</span></button><div class="device-action"></div><div class="device-progress"></div><div class="command-trail"></div>';
@@ -259,7 +253,6 @@ function makeCard(device){
   cardNodes.set(device.id,card);return card;
 }
 function renderDevices(){
-  if(!deviceCache.length&&!run?.participants?.length)return;
   const catalogue=new Map(historyDevices(deviceCache).map(d=>[d.id,d]));
   for(const p of run?.participants||[])if(!catalogue.has(p.id))catalogue.set(p.id,{...p,connected:false});
   const participantIds=new Set((run?.participants||[]).map(p=>p.id));
@@ -279,9 +272,11 @@ function renderDevices(){
     const selected=commands.filter(c=>c.commandNode===picked&&c.owner.id===ownerFor(selectedViewer)?.id);
     card.classList.toggle('node-related',selected.some(c=>c.commandDevice===device.id));
     card.querySelector('.device-name').textContent=device.id;card.querySelector('.component-name').textContent=componentLabel[device.component]||device.component;
-    const badge=card.querySelector('.device-state');badge.textContent=device.connected?(s.outer_state_label||s.outer_state||'状态未确认'):'离线';
+    const badge=card.querySelector('.device-state');badge.textContent=device.unrecorded?'未记录':device.connected?(s.outer_state_label||s.outer_state||'状态未确认'):'离线';
     badge.className='device-state '+(device.connected?'online':'offline');
-    StateCharts.update(card.querySelector('.state-chart'),modelKey(s),{...s,connected:device.connected});
+    const chart=card.querySelector('.state-chart');
+    StateCharts.update(chart,modelKey(s),{...s,connected:device.connected});
+    if(device.unrecorded)chart.textContent='本次运行未记录设备状态';
     const action=s.active_action||(latest?.commandAction), actionText=StateCharts.action(modelKey(s),action);
     card.querySelector('.device-action').textContent=action?(!device.connected?'最后已知动作 · ':active?'正在执行 · ':'最近动作 · ')+actionText:'等待本流程调度';
     card.querySelector('.device-progress').textContent=mine.length?`本流程 ${done} / ${mine.length} 条已登记命令成功 · ${taskLabel[status]||({'queued':'待发送'})[status]||status}`:'本流程尚未下发命令';
@@ -291,13 +286,14 @@ function renderDevices(){
   $('device-summary').textContent=`${devices.length} 台设备 · ${working} 台动作中${failed?' · '+failed+' 台需关注':''}`;
   $('device-hint').textContent=run?.ended?'设备图来自本次运行记录的快照 · 命令进度来自历史记录':'全貌固定展示 · 当前状态局部放大 · 点击查看完整图';
 }
-async function refreshDevices(){
+async function refreshDevices(ticket=revision){
   const [connection,devices]=await Promise.all([api('/connection'),api('/devices')]);
+  if(disposed||ticket!==revision)return;
   $('connection').textContent=connection.connected?'事件已连接':connection.error||'Tango 未连接';
   deviceCache=devices;renderDevices();renderContext(historyDevices(devices).filter(d=>d.component==='context'));
 }
 function renderContext(devices){
-  const signature=JSON.stringify(devices.map(d=>[d.id,d.connected,d.snapshot?.conditions]));
+  const signature=JSON.stringify([Boolean(run?.ended),devices.map(d=>[d.id,d.connected,d.snapshot?.conditions])]);
   const host=$('context-devices');if(host.signature===signature)return;host.signature=signature;
   let met=0,total=0;
   host.innerHTML=devices.map(d=>'<div class="conditions"><div class="conditions-title">'+escape(d.id)+' · '+(d.connected?'已连接':'离线')+'</div>'+Object.entries(d.snapshot?.conditions||{}).map(([name,value])=>{
@@ -307,7 +303,7 @@ function renderContext(devices){
   $('context-summary').textContent=`${met} / ${total} 条件满足`;
 }
 $('context-devices').addEventListener('change',async e=>{
-  const input=e.target;if(!input.matches('input[data-condition]'))return;input.disabled=true;
+  const input=e.target;if(!input.matches('input[data-condition]')||run?.ended||changing||disposed||!loaded)return;input.disabled=true;
   try{await api('/devices/'+encodeURIComponent(input.dataset.device)+'/conditions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[input.dataset.condition]:input.checked})});showError(null);await refreshTrace();await refreshDevices();}
   catch(error){input.checked=!input.checked;showError(error);}finally{input.disabled=false;}
 });
@@ -317,12 +313,12 @@ function renderDeviceControls(device){
  if(run?.ended||!device.connected)return;
  const s=device.snapshot||{},metadata=StateCharts.capabilities(modelKey(s));
  const controls=document.createElement('div');controls.className='device-debug-controls';
- const actions=Object.entries(metadata.actions||{}).filter(([key,spec])=>Object.prototype.hasOwnProperty.call(spec.requests||{},s.state_id));
- if(actions.length){const select=document.createElement('select');for(const [key,spec]of actions)select.add(new Option(spec.label,key));const button=document.createElement('button');button.textContent='发送动作';button.onclick=()=>operate('commands',{command_id:crypto.randomUUID(),action:select.value,parameters:{}});controls.append(select,button);}
+ const actions=Object.entries(metadata.actions||{}).filter(([key,spec])=>Object.prototype.hasOwnProperty.call(spec.requests||{},s.inner_state||s.state_id));
+ for(const [key,spec]of actions){const button=document.createElement('button');button.textContent=spec.label||key;button.disabled=Boolean(s.active_command_id);button.onclick=()=>operate('commands',{command_id:crypto.randomUUID(),action:key,parameters:{}});controls.append(button);}
  if(s.active_command_id)for(const [outcome,label]of [['success','成功反馈'],['failure','失败反馈']]){const button=document.createElement('button');button.textContent=label;button.onclick=()=>operate('simulate',{command_id:s.active_command_id,outcome});controls.append(button);}
  const confirmations=Object.entries(metadata.confirmations||{}).filter(([key,c])=>(c.source_outer||[]).includes(s.outer_state));
  if(confirmations.length){const select=document.createElement('select');for(const [key,c]of confirmations)select.add(new Option(c.label,key));const button=document.createElement('button');button.textContent='注入确认事件';button.onclick=()=>operate('events',{event_id:crypto.randomUUID(),event:select.value,observed_outer_state:metadata.confirmations[select.value].observation});controls.append(select,button);}
- async function operate(operation,payload){try{await api('/workbench/devices/'+encodeURIComponent(device.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});await refreshDevices();$('detail-dialog').close();expandDevice(deviceCache.find(d=>d.id===device.id));showError(null);}catch(error){showError(error);}}
+ async function operate(operation,payload){if(disposed||changing||run?.ended||!loaded)return;const ticket=revision;const fields=[...controls.querySelectorAll('button,select')].map(c=>[c,c.disabled]);fields.forEach(([c])=>c.disabled=true);try{await api('/workbench/devices/'+encodeURIComponent(device.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});await refreshDevices(ticket);if(disposed||ticket!==revision)return;$('detail-dialog').close();expandDevice(deviceCache.find(d=>d.id===device.id));showError(null);}catch(error){showError(error);}finally{fields.forEach(([c,disabled])=>c.disabled=disabled);}}
  $('details').prepend(controls);
 }
 
@@ -331,35 +327,81 @@ function expandDevice(device){
   if(!device)return;clearDetailViewer();picked=null;const s=device.snapshot||{};
   $('detail-title').textContent=device.id+' · '+(componentLabel[device.component]||device.component);
   $('expanded-graph').hidden=false;$('expanded-graph').replaceChildren();StateCharts.expand($('expanded-graph'),modelKey(s),{...s,connected:device.connected});
-  $('details').innerHTML='<p>当前实时状态：'+escape((s.outer_state_label||s.outer_state||'—')+' / '+(s.inner_state_label||s.state_id||'—'))+'</p><p class="muted">滚轮缩放 · 拖动平移 · 双击复位</p>';
+  $('details').innerHTML='<p>'+ (run?.ended?'本次运行记录状态：':'当前实时状态：')+escape((s.outer_state_label||s.outer_state||'—')+' / '+(s.inner_state_label||s.state_id||'—'))+'</p><p class="muted">滚轮缩放 · 拖动平移 · 双击复位</p>';
   for(const c of allCommands().filter(c=>c.commandDevice===device.id))$('details').innerHTML+='<div class="command">'+escape(StateCharts.action(modelKey(s),c.commandAction))+'<span class="command-status '+escape(commandStatus(c))+'">'+escape(taskLabel[commandStatus(c)]||'待发送')+'</span><div class="node-id">'+escape(c.commandId)+'</div></div>';
-  '';renderDeviceControls(device);$('detail-count').textContent='';$('detail-dialog').showModal();
+  renderDeviceControls(device);$('detail-count').textContent='';$('detail-dialog').showModal();
 }
 $('expand-flow').onclick=async()=>{
   clearDetailViewer();picked=null;$('detail-title').textContent=childRun?.name||run?.name||'流程图';
   $('expanded-graph').hidden=false;$('expanded-graph').replaceChildren();$('details').replaceChildren();$('detail-count').textContent='';$('detail-dialog').showModal();
-  detailViewer=new BpmnJS({container:'#expanded-graph'});
+  detailViewer=new BpmnViewer({container:$('expanded-graph')});
   try{
-    const current=childRun||run;await detailViewer.importXML(await xmlFor(current));
-    const diagram=detailViewer.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id==='normal');if(diagram)await detailViewer.open(diagram.id);
-    fit(detailViewer);paintViewer(detailViewer,current);
+    const current=childRun||run,target=detailViewer,ticket=revision;const xml=await xmlFor(current);
+    if(disposed||ticket!==revision||detailViewer!==target)return;
+    await target.importXML(xml);if(disposed||ticket!==revision||detailViewer!==target)return;
+    const diagram=target.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id==='normal');if(diagram)await target.open(diagram.id);
+    if(disposed||ticket!==revision||detailViewer!==target)return;
+    fit(target);paintViewer(target,current);
   }catch(error){showError(error);}
 };
 $('close-detail').onclick=()=>$('detail-dialog').close();
-$('detail-dialog').addEventListener('close',()=>{clearDetailViewer();picked=null;paint();renderDevices();});
-new ResizeObserver(()=>{fit(viewer);fit(childViewer);}).observe($('canvas'));
-async function tick(){
-  if(busy)return;busy=true;
-  try{await refreshHistory(!run);if(run){run=await api('/runs/'+encodeURIComponent(run.id));renderRun();}await refreshTrace();await refreshDevices();}
-  catch(error){showError(error);}finally{busy=false;}
+$('detail-dialog').addEventListener('close',()=>{if(disposed||$('detail-dialog').open)return;clearDetailViewer();picked=null;paint();renderDevices();});
+const resize=new ResizeObserver(()=>{if(!disposed){fit(viewer);fit(childViewer);}});resize.observe($('canvas'));
+function tick(){
+  if(disposed||changing||!loaded)return Promise.resolve();
+  if(busy)return polling;
+  busy=true;const ticket=revision;
+  polling=(async()=>{
+    const next=run?await api('/runs/'+encodeURIComponent(run.id)):null;
+    if(disposed||ticket!==revision)return;
+    run=next;
+    await refreshTrace(ticket);
+    if(disposed||ticket!==revision)return;
+    renderRun();await syncChild(ticket);
+    if(disposed||ticket!==revision)return;
+    await refreshDevices(ticket);
+  })().catch(showError).finally(()=>{busy=false;});
+  return polling;
 }
-(async()=>{
-  try{
-    await StateCharts.load();definitions=await api('/processes');
-    $('process').replaceChildren(...definitions.map(d=>new Option(d.name,d.key)));
-    $('process').value=definitions.some(d=>d.key==='emission_task_lifecycle')?'emission_task_lifecycle':definitions[0]?.key;
-    await load($('process').value);
-    if(parameters.get('run')){run=await api('/runs/'+encodeURIComponent(parameters.get('run')));$('process').value=run.key;await load(run.key);await refreshHistory(false);}else await refreshHistory(true);
-    await refreshTrace();renderRun();await refreshDevices();
-  }catch(error){showError(error);}setInterval(tick,1000);
-})();
+const ready=StateCharts.load().then(async()=>{
+  definitions=await api('/processes');
+  $('process').replaceChildren(...definitions.map(d=>new Option(d.name,d.key)));
+  key=definitions[0]?.key||'';
+}).catch(error=>{showError(error);throw error;});
+function setRun(id){
+  const ticket=++revision;changing=true;loaded=false;onRunChange(null);$('detail-dialog').close();
+  selection=selection.catch(()=>{}).then(async()=>{
+    await ready;await polling;
+    if(disposed||ticket!==revision)return;
+    const next=id?await api('/runs/'+encodeURIComponent(id)):null;
+    if(disposed||ticket!==revision)return;
+    $('detail-dialog').close();picked=null;run=next;traceEvents=[];
+    $('trace-list').replaceChildren();$('trace-count').textContent='';
+    key=run?.key||$('process').value||key;
+    $('process').value=key;
+    if(key)await load(key,ticket);
+    else viewer.clear();
+    if(disposed||ticket!==revision)return;
+    await refreshTrace(ticket);
+    if(disposed||ticket!==revision)return;
+    loaded=true;renderRun();await syncChild(ticket);
+    if(disposed||ticket!==revision)return;
+    await refreshDevices(ticket);showError(null);
+  }).catch(error=>{
+    if(disposed||ticket!==revision)return;
+    loaded=false;run=null;childRun=null;picked=null;deviceCache=[];
+    viewer.clear();childViewer.clear();$('child-flow').hidden=true;
+    renderRun();renderContext([]);showError(error);
+  }).finally(()=>{if(ticket===revision)changing=false;});
+  return selection;
+}
+const timer=window.setInterval(tick,1000);
+return {
+  setRun,
+  refresh:tick,
+  destroy(){
+    disposed=true;revision++;clearInterval(timer);requests.abort();resize.disconnect();
+    StateCharts.destroy();$('detail-dialog').close();clearDetailViewer();viewer.destroy();childViewer.destroy();cardNodes.clear();
+  }
+};
+}

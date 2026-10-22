@@ -1,9 +1,11 @@
-'use strict';
-const StateCharts = (() => {
+// @ts-nocheck
+export function createStateCharts(signal:AbortSignal) {
+  const pending=new Set<()=>void>();
   const models = new Map();
+  let disposed=false;
   let sequence = 0;
   async function load() {
-    const response = await fetch('/api/models');
+    const response = await fetch('/api/models',{signal});
     if (!response.ok) throw Error('设备状态机模型加载失败');
     for (const [key, xml] of Object.entries(await response.json())) {
       const doc = new DOMParser().parseFromString(xml, 'application/xml');
@@ -22,7 +24,9 @@ const StateCharts = (() => {
       frame.className='layout-renderer'; frame.title='状态图布局'; frame.setAttribute('aria-hidden','true');
       const id = 'layout-'+(++sequence);
       let timeout;
-      const cleanup = () => {clearTimeout(timeout); window.removeEventListener('message',receive); frame.remove();};
+      const cancel=()=>{cleanup();reject(new DOMException('视图已关闭','AbortError'));};
+      const cleanup = () => {clearTimeout(timeout); window.removeEventListener('message',receive);pending.delete(cancel);frame.remove();};
+      pending.add(cancel);
       const receive = event => {
         if (event.origin!==location.origin || event.source!==frame.contentWindow) return;
         if (event.data?.type==='renderer-ready') frame.contentWindow.postMessage({type:'layout-model',id,xml:model.xml},location.origin);
@@ -91,7 +95,7 @@ const StateCharts = (() => {
     host.textContent='正在布局状态机…';
     try {
       await layout(model);
-      if(!host.isConnected) return;
+      if(disposed||!host.isConnected||host.modelId!==modelId) return;
       host.replaceChildren();
       const overview=document.createElement('div'); overview.className='state-overview';
       const focus=document.createElement('div'); focus.className='state-focus';
@@ -107,7 +111,7 @@ const StateCharts = (() => {
         label.append(caption,title);
       };
       host.update(host.snapshot || snapshot);
-    }catch(error){host.textContent='状态图不可用：'+error.message;}
+    }catch(error){if(!disposed&&host.isConnected&&host.modelId===modelId)host.textContent='状态图不可用：'+error.message;}
   }
   function update(host,modelId,snapshot) {
     const signature=JSON.stringify([modelId,snapshot.state_id,snapshot.connected]);
@@ -146,5 +150,5 @@ const StateCharts = (() => {
     svg.addEventListener('dblclick',()=>svg.setAttribute('viewBox',initial));
   }
   function capabilities(id){return models.get(id)?.metadata||{};}
-  return {load,update,expand,action,capabilities};
-})();
+  return {load,update,expand,action,capabilities,destroy(){disposed=true;for(const cancel of [...pending])cancel();models.clear();}};
+}
