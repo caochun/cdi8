@@ -6,7 +6,8 @@
 
 - `frontend/`：所有浏览器代码和第三方绘图资源。Vue 构建产物进入根目录 `target/workbench-static/`；vendor 与状态图布局资源位于 `frontend/public/`，由 server 一并打包到静态资源根路径。`/` 直接提供工作台 HTML，无客户端或 HTTP 跳转；旧 `/workbench/`、`/runtime.html` 入口兼容同一应用。
 - `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；`mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
-- `simulator/`：Python 对照实现，保留命令行、PyTango 设备和桥接接口。Java 设备模拟器和 Java HTTP bridge 可在联调时替代它；Java 后端不依赖其包内文件布局。
+- `device-simulator/`：默认 Java bridge、模拟环境管理、独立试验及 Apache SCXML / JTango 多设备进程。
+- `simulator/`：可选 Python 协议对照源码，保留命令行和测试；默认构建、启动及 Java 端到端验证均不依赖它。
 - `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/bpmn/` 和 `gxlf/scxml/` 供 Java 内置模型导入与 Python 示例运行使用。
 - `contracts/`：跨运行时的命令、结果与事件格式。协议格式不绑定 Python 类或 Java DTO。
 - `tests/e2e/`：跨进程联调验证；各模块自己的单元与集成测试保留在模块内。
@@ -70,12 +71,18 @@ Python 在源码环境直接解析 `examples/gxlf/scxml/`。wheel 和 sdist 构�
 
 用户草稿、版本、环境、实例数据库和日志不随目录重组自动迁移或重置。
 
-## 后续迁移
+## Java 模拟环境生命周期
 
-1. 用 `device-simulator/` 的多设备 Java 进程和 Java HTTP bridge 替换默认演示环境，继续保持现有 HTTP/NDJSON 边界；组件设备和上下文条件设备已经可以在同一 JVM 中启动。
-2. 继续对照 Python 实现验证动作反馈、幂等、实例隔离、故障恢复、断连与补读，并补齐生产部署和运维配置。
-3. 在 Java 行为覆盖及部署验证完成后评估清理 Python 对照服务。前端独立运行页已迁入 Vue，旧静态页面及其脚本已移除。
+默认链路为浏览器 → Java Workbench / Flowable → Java HTTP bridge → JTango → Java Device Server。根 POM 同时构建 `device-simulator` 与 `server`。`make workbench` 使用 Java 源码启动器管理两个常驻服务；环境创建由 bridge 管理设备子 JVM，无需将全部服务放入一个 JVM。
 
-该迁移保留真实 Tango 协议边界。引擎测试与 Tango 联调分别验证；直接调用 Java 对象不替代协议测试。暂不为每个概念建立独立 Maven 模块，也不新增没有实际使用者的公共框架。
+`EnvironmentManager` 接受所选版本的 XML、实例 ID、反馈方式、延迟与外部条件。每代生成唯一 ID，并在 `data/java-simulator/environments/<ID>/` 固定模型 XML、请求配置、设备配置、SQLite 与日志。新设备使用独立的随机端口与 DServer 身份；所有 Tango Snapshot 可读后，bridge 才替换绑定、订阅和事件流，然后关闭旧设备进程。失败保留旧环境；失败代日志也保留供排查。
 
-Java 模拟设备原型的构建、许可证和验证范围见 [Java SCXML / Tango 模拟设备](java-device-simulator.md)。
+每代 Session 独占事件订阅、快照缓存和客户端队列，旧订阅的迟到事件不能进入新流。设备进程退出后环境状态为 `failed`，bridge 不自动以初始设备替代在途状态。Workbench 继续禁止活动流程期间重建；停止运行后可显式重建。bridge 重启得到新的空环境，旧配置无法直接启动流程，必须重建。正常关闭会清理设备子进程；父进程意外消失时子进程自退出。
+
+SCXML 校验、独立试验和真实设备使用同一 `ComponentModel` / Apache 引擎，独立试验不改变联调设备。Java 设备快照携带工作台 `model_revision`，运行页按实际不可变版本绘图，历史记录保留当时的快照与模型引用。
+
+外部设备模式仍使用 `--devices bindings.json`，只绑定已运行的 Tango 设备，禁止通过创建接口伪造模型版本或“已应用”状态。
+
+`make java-workbench-smoke` 从隔离临时目录启动三个 Java 进程，验证通用模型双实例及完整 GXLF 双光源流程。Tango 命令、属性、事件和补读路径均经过实际协议边界；直接调用对象的单元测试不替代该测试。Python 对照源码可以独立保留，不参与运行依赖。
+
+构建与设备接口详见 [Java SCXML / Tango 模拟设备](java-device-simulator.md)。

@@ -1,10 +1,10 @@
-.PHONY: test java-test simulator-test java-device-test java-device-package component-demo control-test control-package operator tango-bridge
+.PHONY: test java-test simulator-test java-device-test java-device-package component-demo control-test control-package operator tango-bridge workbench workbench-start workbench-stop workbench-restart workbench-status java-workbench-smoke
 
 PYTHON ?= python3
 # Source-tree development works without installing the simulator package.
 SIM_PYTHON = PYTHONPATH="$(CURDIR)/simulator$(if $(PYTHONPATH),:$(PYTHONPATH))" $(PYTHON)
 
-test: java-test simulator-test
+test: java-test
 
 java-test:
 	mvn test
@@ -23,23 +23,47 @@ control-package:
 operator:
 	mvn -pl server spring-boot:run
 
-# Four SCXML component types plus explicit demo synchronization/environment device.
+# Managed Java bridge; devices are created from saved SCXML versions in the workbench.
 tango-bridge:
-	$(SIM_PYTHON) -m gxlf_component_simulator.tango.control_bridge --demo
+	java -jar device-simulator/target/device-simulator-0.1.0.jar --bridge
 
-# These targets require isolated, freshly started services. They mutate demo state.
+workbench:
+	mvn package
+	java scripts/Workbench.java start
+
+workbench-start:
+	java scripts/Workbench.java start
+
+workbench-stop:
+	java scripts/Workbench.java stop
+
+workbench-restart:
+	mvn package
+	java scripts/Workbench.java restart
+
+workbench-status:
+	java scripts/Workbench.java status
+
+# Builds both JARs, then starts isolated Java-only services for end-to-end verification.
+java-workbench-smoke:
+	mvn package
+	mvn -pl server -Dexec.skip=true -Dtest=JavaWorkbenchE2eIT test
+
+# Legacy Python comparison scripts require isolated services and mutate demo state.
 BASE_URL ?= http://127.0.0.1:8080
 BRIDGE_URL ?= http://127.0.0.1:8766
 
-.PHONY: workbench-smoke gxlf-smoke
-workbench-smoke:
+.PHONY: workbench-smoke gxlf-smoke python-workbench-smoke python-gxlf-smoke
+workbench-smoke gxlf-smoke: java-workbench-smoke
+
+python-workbench-smoke:
 	$(PYTHON) tests/e2e/workbench_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
 
-gxlf-smoke:
+python-gxlf-smoke:
 	$(PYTHON) tests/e2e/gxlf_lifecycle_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
 
 java-device-test:
-	JAVA_HOME=$${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home} mvn -Pjava-simulator -pl device-simulator test
+	mvn -pl device-simulator test
 
 java-device-package:
-	JAVA_HOME=$${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home} mvn -Pjava-simulator -pl device-simulator package
+	mvn -pl device-simulator package

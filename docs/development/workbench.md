@@ -1,20 +1,27 @@
 # 实验流程与组件状态机开发运行调试工作台
 
-工作台入口为 `http://127.0.0.1:8080/`，首页直接显示工作台，不跳转。模型开发、运行准备和运行调试共享同一个 Vue 应用；原有运行页已作为原生组件并入“运行调试”，不再使用页面 iframe。旧 `/workbench/` 地址兼容同一应用，`/runtime.html` 兼容进入运行调试；携带 `?run=<运行ID>` 可直接查看指定记录。运行使用真实 Flowable 引擎、Tango 命令与属性事件，支持 Java JTango 或 Python PyTango 设备服务；SCXML 的执行仍由组件运行时负责，图形渲染器不参与状态迁移。
+工作台入口为 `http://127.0.0.1:8080/`，首页直接显示工作台，不跳转。模型开发、运行准备和运行调试共享同一个 Vue 应用；原有运行页已作为原生组件并入“运行调试”，不再使用页面 iframe。旧 `/workbench/` 地址兼容同一应用，`/runtime.html` 兼容进入运行调试；携带 `?run=<运行ID>` 可直接查看指定记录。运行使用真实 Flowable 引擎、Tango 命令与属性事件，默认使用 Java bridge 和 Java JTango 多设备服务；SCXML 的执行仍由组件运行时负责，图形渲染器不参与状态迁移。
 
 ## 启动与开发
 
 ```bash
-# 终端一，项目根目录：已有 PyTango 环境可直接使用 .venv/bin/python
-PYTHONPATH=simulator .venv/bin/python -m gxlf_component_simulator.tango.control_bridge \
-  --demo --auto-complete --completion-delay-ms 500
+# 项目根目录；Java 17+、Maven、Node.js 22.12+，无需 Python
+make workbench
+make workbench-status
+make workbench-stop
+make workbench-restart
 
-# 终端二；Node.js 22.12+、Java 17+、Maven
-mvn test package
-java -jar server/target/workbench-server-0.1.0.jar
+# 已构建时直接启动，不再次打包
+make workbench-start
+# 隔离验证完整 Java 运行链路
+make java-workbench-smoke
 ```
 
-根 Maven POM 聚合 `server` 模块；该模块自动在 `frontend/` 执行 `npm ci`、TypeScript 校验与 Vite 构建，生成文件放在 `target/workbench-static/` 并打进 JAR。浏览器不依赖 CDN。仅调整前端时可执行 `npm run dev --prefix frontend`，Vite 将 API 请求代理到 8080。已有前端构建且只验证 Java 时，可使用 `mvn -Dexec.skip=true test`。
+根 Maven POM 默认聚合 `device-simulator` 和 `server`，`mvn package` 同时执行两个模块测试并打包。server 自动在 `frontend/` 执行 `npm ci`、TypeScript 校验与 Vite 构建，资源打入 JAR，浏览器不依赖 CDN。已有前端构建且只验证 Java 时，可使用 `mvn -Dexec.skip=true test`；仅开发前端可执行 `npm run dev --prefix frontend`，API 代理到 8080。
+
+启动器 `java scripts/Workbench.java start|stop|restart|status` 管理后台进程及 `data/runtime/` 中的运行副本和日志。Java bridge 常驻，创建/重建环境时启动新的 Java 设备子 JVM；全部新设备能通过 Tango 读取快照后才切换，失败保留旧环境。新旧代设备使用独立端口及 DServer 身份；旧事件流关闭后后端自动重连，防止混入旧设备事件。停止 bridge 会停止设备子进程，bridge 意外退出时设备进程也会检测父进程并退出。
+
+首次启动及 bridge 重启后环境为 `empty`，需在运行准备中“创建模拟设备”。设备进程退出时环境标为 `failed`，重建生成新的环境 ID。旧 Python 环境状态不自动导入；模型库、不可变版本和 Flowable 历史记录继续保留。
 
 ## 模型、草稿和版本
 
@@ -26,7 +33,7 @@ BPMN 的“用于运行准备”会将当前已保存版本带入准备页，保
 
 “校验”不会部署或执行模型。“保存版本”必须通过执行校验；版本包含独立 XML 内容，后续编辑不修改历史版本。导出 XML 可将内容带回仓库审查，平台不会隐式覆盖仓库源文件。工作台生成的版本号独立于 SCXML 元数据中的 `model_id` / `model_version`。
 
-SCXML 目前支持顺序层级状态、复合状态初始子状态、单目标精确事件迁移及内部/外部迁移。执行校验会拒绝 `parallel`、守卫 `cond`、可执行内容、多目标、通配事件等当前执行器不支持的内容。可执行组件还需提供 `componentMetadata` JSON，定义状态标签、动作请求、成功/失败事件及确认事件。可通过“新建模型”获取完整最小示例。
+SCXML 的解析和执行统一交给 Apache Commons SCXML。Java 校验会实际加载并初始化同一引擎，避免只验证元数据却无法启动设备。引擎支持层级状态、内部/外部迁移、事件前缀、守卫及赋值；组件快照协议要求单一叶子状态，因此拒绝 `parallel`。可执行组件还需提供 `componentMetadata` JSON，定义状态标签、动作请求、成功/失败事件及确认事件。SQLite 重启恢复当前仅恢复叶子状态和项目组件上下文，不保证恢复任意 SCXML 数据模型、计时器或外部副作用；需要依赖这些能力的模型仍需单独验证。可通过“新建模型”获取完整最小示例。
 
 “创建试运行”将当前有效 XML 固定到一个独立实例。命令受理与动作成功是不同步骤，可手动反馈成功/失败，或在试验面板启用延迟成功反馈。模型编辑后，已有实例仍执行原 XML；“重新试验”创建新实例。试验不会修改联调环境中的设备。
 
@@ -92,11 +99,11 @@ SCXML 目前支持顺序层级状态、复合状态初始子状态、单目标�
 ## 持久化与接口
 
 - `data/workbench/models/`：模型草稿与不可变版本；`configuration.json`：运行方案；`traces/`：运行设备事件。
-- `simulator/gxlf_component_simulator/data/workbench-trials/`：独立设备试验的 XML、SQLite 和事件记录。
-- `simulator/gxlf_component_simulator/data/workbench-environments/`：各代模拟环境的模型快照和实例 SQLite。
+- `data/java-simulator/trials/`：独立设备试验的 XML、SQLite 和事件记录。
+- `data/java-simulator/environments/`：各代模拟环境的模型快照和实例 SQLite。
 - Flowable 执行与活动历史继续使用现有 H2 数据库。
 
-Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/trials`、`/configuration`、`/environment`、`/runs`、`/runs/{id}/trace` 和设备反馈接口。模拟服务在 `--demo` 模式提供对应 `/lab/*` 接口；真实 `--devices` 模式不开放模拟环境重建。
+Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/trials`、`/configuration`、`/environment`、`/runs`、`/runs/{id}/trace` 和设备反馈接口。Java bridge 默认提供 `/lab/*`，按页面提交的不可变 XML 版本创建设备；`--devices` 是外部设备只读绑定模式，不开放模拟环境重建。`--data-dir` 可隔离试验与环境数据，默认 `data/java-simulator/`。
 
 ## GXLF 场景规则
 

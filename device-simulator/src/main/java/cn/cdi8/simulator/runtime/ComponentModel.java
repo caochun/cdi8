@@ -41,6 +41,10 @@ public final class ComponentModel {
                 while (parent.getParentNode() instanceof Element element && "state".equals(element.getLocalName())) parent=element;
                 outer.put(state.getAttribute("id"),parent.getAttribute("id"));
             }
+            // Exercise the same engine during validation, trials and device creation.
+            if (root.getElementsByTagNameNS(root.getNamespaceURI(), "parallel").getLength() > 0)
+                throw new IllegalArgumentException("组件快照协议要求单一叶子状态，不支持 parallel");
+            outer(new ScxmlEngine(xml).leaf());
             digest=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(xml.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception ex) { throw new IllegalArgumentException("组件模型无效：" + ex.getMessage(), ex); }
     }

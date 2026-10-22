@@ -1,7 +1,7 @@
 # 文档导航
 
 - [项目入口与启动](../README.md)：目录、构建、服务和验证命令。
-- [架构与迁移边界](architecture/workbench.md)：工作台、模拟服务、示例源文件及运行数据的职责。
+- [架构与运行边界](architecture/workbench.md)：Java 工作台、模拟环境生命周期、示例源文件及运行数据的职责。
 - [工作台开发与联调](development/workbench.md)：模型版本、独立试验、环境配置、条件声明和调试接口。
 - [GXLF 示例](../examples/gxlf/README.md)：当前四类组件与发射任务的验证范围。
 - [GXLF 状态定义](domain/gxlf/component-states/README.md)：分系统和组件状态来源。

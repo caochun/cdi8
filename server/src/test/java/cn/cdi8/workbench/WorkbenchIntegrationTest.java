@@ -30,12 +30,12 @@ class WorkbenchIntegrationTest {
         @Bean @Primary TestGateway testGateway(ObjectMapper json,ApplicationEventPublisher events){return new TestGateway(json,events);}
     }
     static class TestGateway extends TangoGateway {
-        final ObjectMapper json;JsonNode catalog,state;
+        final ObjectMapper json;JsonNode catalog,state;String environmentStatus="ready";
         TestGateway(ObjectMapper json,ApplicationEventPublisher events){super(json,events,"http://127.0.0.1:1",false);this.json=json;}
         @Override public boolean connected(){return true;}
         @Override public JsonNode catalog(){return catalog;}
         @Override public JsonNode cached(String id){return state;}
-        @Override public JsonNode request(String method,String path,Object body){return json.createObjectNode().put("id","test-environment");}
+        @Override public JsonNode request(String method,String path,Object body){return json.createObjectNode().put("id","test-environment").put("status",environmentStatus);}
         @Override public JsonNode snapshot(String id) { return state; }
         @Override public JsonNode execute(String device, String id, String action, Object parameters) {
             ((ObjectNode)state).put("state_id", "active").put("outer_state", "fault").putNull("active_command_id");
@@ -47,6 +47,7 @@ class WorkbenchIntegrationTest {
     String simple(String key){return process(key,"<userTask id=\"call\" name=\"pause\"/>");}
     JsonNode model(String id,String xml){store.save(id,id+".bpmn20.xml","bpmn",xml);return workbench.publish(id);}
     @BeforeEach void prepare() {
+        tango.environmentStatus="ready";
         for(var p:runtime.createProcessInstanceQuery().list())runtime.deleteProcessInstance(p.getId(),"cleanup");
         var state=json.createObjectNode().put("state_id","unqualified").put("outer_state","notReady");
         var device=json.createObjectNode().put("id","seed_01").put("component","seed").put("connected",true);device.set("snapshot",state);
@@ -83,6 +84,11 @@ class WorkbenchIntegrationTest {
     @Test void changingDevicesRequiresReapplyingEnvironment() {
         config=(ObjectNode)workbench.apply(config);((ObjectNode)config.path("devices").get(0)).put("count",2);
         assertThatThrownBy(()->workbench.start(config)).hasMessageContaining("重新应用");
+    }
+    @Test void failedDeviceProcessCannotStartUsingStaleCachedSnapshots() {
+        config=(ObjectNode)workbench.apply(config);tango.environmentStatus="failed";
+        assertThatThrownBy(()->workbench.start(config)).hasMessageContaining("就绪");
+        assertThat(runtime.createProcessInstanceQuery().count()).isZero();
     }
     @Test void arbitraryConditionWaitUsesModelDeclarationRatherThanNodeName() {
         String xml=process("declared_condition","<receiveTask id=\"call\" lab:condition=\"alignment_ready\" lab:collection=\"contextTargets\"/>")

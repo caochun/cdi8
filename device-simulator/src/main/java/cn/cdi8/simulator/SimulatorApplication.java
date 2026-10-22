@@ -17,7 +17,7 @@ import org.tango.server.ServerManager;
 /** Standalone no-database Tango server; one or more component instances per process. */
 public final class SimulatorApplication {
     private record Spec(String name, ComponentModel model, Path database, boolean autoComplete, long delayMs,
-                        boolean context, Map<String,Boolean> contextDefaults) { }
+                        boolean context, Map<String,Boolean> contextDefaults, String revision) { }
 
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && "--bridge".equals(args[0])) {
@@ -25,11 +25,11 @@ public final class SimulatorApplication {
             return;
         }
         Map<String,String> options=new HashMap<>();boolean auto=false;
-        Set<String> valued=Set.of("--port","--device","--db","--model","--devices","--ready-file","--completion-delay-ms");
+        Set<String> valued=Set.of("--port","--device","--db","--model","--devices","--ready-file","--completion-delay-ms","--parent-pid");
         for (int i=0;i<args.length;i++) {
             if (args[i].equals("--auto-complete")) { auto=true;continue; }
             if (args[i].equals("--help")) {
-                System.out.println("Java component simulator: --port 10000 --device gxlf/seed/seed_01 --db data/java-device-simulator/seed_01.sqlite3 [--model file.scxml] [--devices devices.json] [--ready-file file.json] [--auto-complete --completion-delay-ms 500]; bridge: --bridge --port 8766 --devices bindings.json");
+                System.out.println("Java component simulator: --port 10000 --device gxlf/seed/seed_01 --db data/java-device-simulator/seed_01.sqlite3 [--model file.scxml] [--devices devices.json] [--ready-file file.json] [--auto-complete --completion-delay-ms 500]; managed bridge: --bridge --port 8766 [--data-dir data/java-simulator]; external bridge: --bridge --devices bindings.json");
                 return;
             }
             if (!valued.contains(args[i]) || i+1==args.length) throw new IllegalArgumentException("未知或缺少值的参数："+args[i]);
@@ -43,6 +43,13 @@ public final class SimulatorApplication {
             throw new IllegalArgumentException("--devices 不能与 --device、--model 或 --db 同时使用");
         List<Spec> specs=options.containsKey("--devices") ? readSpecs(Path.of(options.get("--devices")),auto,delay) : List.of(singleSpec(options,auto,delay));
         if (specs.isEmpty()) throw new IllegalArgumentException("至少需要一个设备配置");
+        if(options.containsKey("--parent-pid")) {
+            ProcessHandle parent=ProcessHandle.of(Long.parseLong(options.get("--parent-pid"))).orElseThrow();
+            Thread watcher=new Thread(()->{
+                while(parent.isAlive())try{Thread.sleep(1000);}catch(InterruptedException ex){return;}
+                System.exit(0);
+            },"bridge-parent-watch");watcher.setDaemon(true);watcher.start();
+        }
 
         ComponentDevice.clearConfiguration();
         var names=new String[specs.size()];
@@ -50,7 +57,7 @@ public final class SimulatorApplication {
             Spec spec=specs.get(i);names[i]=spec.name();
             ComponentDevice.Settings settings=spec.context()
                 ? ComponentDevice.Settings.context(spec.autoComplete(),spec.delayMs(),spec.contextDefaults())
-                : new ComponentDevice.Settings(spec.model(),spec.database(),spec.autoComplete(),spec.delayMs());
+                : new ComponentDevice.Settings(spec.model(),spec.database(),spec.autoComplete(),spec.delayMs(),spec.revision());
             ComponentDevice.configure(spec.name(),settings);
         }
         System.setProperty("OAPort",Integer.toString(port));
@@ -67,14 +74,16 @@ public final class SimulatorApplication {
         ObjectNode ready=ComponentModel.JSON.createObjectNode().put("engine","apache-commons-scxml2");
         if (specs.size()==1) {
             Spec spec=specs.get(0);
-            ready.put("device",spec.name()).put("model",spec.model().metadata.path("model_id").asText());
+            ready.put("device",spec.name()).put("model",modelId(spec));
             ready.put("address",address(port,spec.name()));
         }
         ArrayNode devices=ready.putArray("devices");
         for (Spec spec:specs) devices.addObject().put("device",spec.name()).put("model",modelId(spec)).put("address",address(port,spec.name()));
         String readyText=ComponentModel.encode(ready);
         if (options.containsKey("--ready-file")) {
-            Path file=Path.of(options.get("--ready-file")).toAbsolutePath();Files.createDirectories(file.getParent());Files.writeString(file,readyText);
+            Path file=Path.of(options.get("--ready-file")).toAbsolutePath();Files.createDirectories(file.getParent());
+            Path temporary=Files.createTempFile(file.getParent(),"device-ready-",".tmp");
+            Files.writeString(temporary,readyText);Files.move(temporary,file,StandardCopyOption.REPLACE_EXISTING);
         }
         System.out.println(readyText);
         new CountDownLatch(1).await();
@@ -87,7 +96,7 @@ public final class SimulatorApplication {
         String xml=options.containsKey("--model")?readText(Path.of(options.get("--model"))):resource("seed-source-state-machine.scxml");
         ComponentModel model=new ComponentModel(xml);
         Path db=Path.of(options.getOrDefault("--db","data/java-device-simulator/seed_01.sqlite3"));
-        return new Spec(name,model,db,auto,delay,false,Map.of());
+        return new Spec(name,model,db,auto,delay,false,Map.of(),null);
     }
 
     private static List<Spec> readSpecs(Path file,boolean auto,long defaultDelay) throws Exception {
@@ -110,7 +119,7 @@ public final class SimulatorApplication {
             boolean autoComplete=value.has("autoComplete")?value.path("autoComplete").asBoolean():auto;
             long delay=value.has("delayMs")?value.path("delayMs").asLong():defaultDelay;
             if(delay<0 || delay>3_600_000)throw new IllegalArgumentException("反馈延迟无效："+name);
-            result.add(new Spec(name,model,db,autoComplete,delay,context,defaults));
+            result.add(new Spec(name,model,db,autoComplete,delay,context,defaults,value.path("revision").isTextual()?value.path("revision").asText():null));
         }
         return result;
     }

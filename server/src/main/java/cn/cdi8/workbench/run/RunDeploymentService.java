@@ -55,6 +55,8 @@ public class RunDeploymentService {
     private Map<String,Object> startLocked(JsonNode config) {
         environments.ensureIdle();
         JsonNode environment=tango.request("GET","/lab/environment",null);
+        if(!"ready".equals(environment.path("status").asText()))
+            throw new IllegalStateException(environment.path("error").asText("请先创建就绪的模拟环境"));
         if(!environment.path("id").asText().equals(config.path("environment").path("id").asText()))
             throw new IllegalStateException("请先应用当前配置，创建模拟环境");
         JsonNode applied=environments.config();

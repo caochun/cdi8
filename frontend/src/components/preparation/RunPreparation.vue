@@ -51,6 +51,7 @@ const readiness=computed(()=>{
   if(!props.checked)return {kind:'pending',title:'正在检查设备',detail:'正在核对当前设备环境和连接状态。'};
   if(props.checkError)return {kind:'error',title:'无法检查设备状态',detail:props.checkError};
   if(props.environment?.id!==props.configuration.environment.id)return {kind:'pending',title:'需要重新创建模拟设备',detail:'当前设备环境与保存的方案不一致，可能已重启或被替换。'};
+  if(props.environment?.status==='failed')return {kind:'error',title:'模拟设备服务已退出',detail:props.environment.error||'请重新创建模拟设备后再调试。'};
   if(!props.connected||health.value.offline.length)return {kind:'error',title:'设备尚未连接',detail:health.value.offline.length?'等待连接：'+health.value.offline.join('、'):'等待 Tango 事件连接恢复。'};
   if(props.activeRun)return {kind:'pending',title:'已有流程正在运行',detail:'在“运行调试”中查看进度或停止后，再准备下一次运行。'};
   if(health.value.working.length)return {kind:'pending',title:'设备正在执行动作',detail:'等待 '+health.value.working.map(d=>d.id).join('、')+' 的动作结束后再启动。'};

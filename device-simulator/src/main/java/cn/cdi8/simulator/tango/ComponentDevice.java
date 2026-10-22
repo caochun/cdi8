@@ -25,12 +25,15 @@ import static cn.cdi8.simulator.runtime.ComponentModel.*;
 @Device(transactionType=TransactionType.NONE)
 public class ComponentDevice {
     public record Settings(ComponentModel model, Path database, boolean autoComplete, long delayMs,
-                            boolean context, Map<String,Boolean> contextDefaults) {
+                            boolean context, Map<String,Boolean> contextDefaults, String revision) {
         public Settings(ComponentModel model, Path database, boolean autoComplete, long delayMs) {
-            this(model,database,autoComplete,delayMs,false,Map.of());
+            this(model,database,autoComplete,delayMs,null);
+        }
+        public Settings(ComponentModel model, Path database, boolean autoComplete, long delayMs, String revision) {
+            this(model,database,autoComplete,delayMs,false,Map.of(),revision);
         }
         public static Settings context(boolean autoComplete, long delayMs, Map<String,Boolean> defaults) {
-            return new Settings(null,null,autoComplete,delayMs,true,Map.copyOf(defaults));
+            return new Settings(null,null,autoComplete,delayMs,true,Map.copyOf(defaults),null);
         }
     }
     private static final Map<String,Settings> settingsByDevice=new ConcurrentHashMap<>();
@@ -51,7 +54,7 @@ public class ComponentDevice {
             settings=settingsByDevice.getOrDefault(device.getName(),settingsByDevice.get("*"));
             if (settings==null) throw new IllegalStateException("未配置设备："+device.getName());
             if (settings.context()) context=new ContextState(settings.contextDefaults());
-            else runtime=new ComponentRuntime(settings.model(),settings.database());
+            else runtime=new ComponentRuntime(settings.model(),settings.database(),settings.revision());
             completions=Executors.newSingleThreadScheduledExecutor(task->{var thread=new Thread(task,"component-demo-feedback");thread.setDaemon(true);return thread;});
         } catch (RuntimeException ex) { throw DevFailedUtils.newDevFailed(ex); }
     }

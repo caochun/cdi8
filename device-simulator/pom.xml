@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>cn.cdi8</groupId><artifactId>cdi8-workbench</artifactId><version>0.1.0</version></parent>
   <artifactId>device-simulator</artifactId>
-  <name>Java SCXML Tango Device Simulator (prototype)</name>
+  <name>Java SCXML Tango Device Simulator</name>
   <properties>
     <commons-scxml.version>2.0-20260701.010636-103</commons-scxml.version>
     <jtango.version>10.0.1</jtango.version>

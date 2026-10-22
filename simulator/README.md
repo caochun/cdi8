@@ -1,6 +1,6 @@
 # Python SCXML 分系统仿真器
 
-这是当前使用的 Python 模拟实现。Java 模拟设备迁移完成前继续承担工作台环境和 Tango 联调；模块边界见[架构说明](../docs/architecture/workbench.md)。
+这是可选的 Python 协议对照实现。工作台默认已使用 Java bridge、Java 模拟环境管理和 Java 多设备服务，构建、启动及全链路测试均不依赖本目录。以下命令仅用于对照验证；日常使用见[项目说明](../README.md)，模块边界见[架构说明](../docs/architecture/workbench.md)。
 
 模拟器的 Python 包名为 `gxlf_component_simulator`，统一执行各分系统的 SCXML 状态机。SCXML 模型的权威源码位于仓库的 `examples/gxlf/scxml/`，运行时直接加载这些模型。wheel / sdist 会将模型打包至包内 `gxlf_component_simulator/models/`，支持脱离仓库安装。标签、动作绑定、确认事件和上下文默认值都写在 SCXML 标准 `datamodel` 中，由同一个 `SCXMLMachine` 解析、同一个 `ComponentRuntime` 持久化任务和事件。
 

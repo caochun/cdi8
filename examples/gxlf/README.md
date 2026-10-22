@@ -38,7 +38,7 @@
 
 ## 验证与业务资料
 
-启动方式见[项目说明](../../README.md)，完整联调脚本为 [gxlf_lifecycle_smoke.py](../../tests/e2e/gxlf_lifecycle_smoke.py)。
+启动方式见[项目说明](../../README.md)，默认全 Java 联调测试为 [JavaWorkbenchE2eIT](../../server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java)。[gxlf_lifecycle_smoke.py](../../tests/e2e/gxlf_lifecycle_smoke.py) 保留为可选对照脚本。
 
 - [状态定义](../../docs/domain/gxlf/component-states/README.md)
 - [前期准备](../../docs/domain/gxlf/process-control/种子源至多程放大前期准备流程.md)
@@ -49,11 +49,10 @@
 
 启动资格、完成证据和持续资格检查位于后端 `scenarios/gxlf/`，原 BPMN 的 `${tango.xxx(...)}` 入口由兼容门面保留。工作台发布后的独立流程 key 仍关联对应 GXLF 规则。
 
-使用隔离服务验证版本发布与双光源任务：
+使用自动启动的隔离 Java 服务验证版本发布与双光源任务：
 
 ```bash
-python3 tests/e2e/gxlf_lifecycle_smoke.py --workbench --sources seed shg \
-  --base http://127.0.0.1:8081 --bridge http://127.0.0.1:8767
+make java-workbench-smoke
 ```
 
-`--workbench` 会选择内置模型版本并创建全新演示环境，适用于隔离数据验证。
+测试固定内置模型版本，创建全新 Java 多设备环境，明确注入外部许可并完成完整生命周期；不修改日常工作台的数据。
