@@ -24,6 +24,7 @@ import org.springframework.context.ApplicationEventPublisher;
     "control.events-enabled=false", "control.pump-delay=3600000", "flowable.async-executor-activate=false", "control.workbench-directory=${java.io.tmpdir}/cdi8-workflow-test-${random.uuid}"})
 class WorkflowIntegrationTest {
     @Autowired WorkflowService workflows;
+    @Autowired cn.cdi8.workbench.qualification.QualificationRuntime qualifications;
     @Autowired RunPolicies runPolicies;
     @Autowired List<ExecutionPolicy> executionPolicies;
     @Autowired RuntimeService runtime;
@@ -46,7 +47,7 @@ class WorkflowIntegrationTest {
             s.put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
                 "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3","context","preparation-context-demo-v1").get(kind));
             s.putNull("active_command_id");s.putObject("conditions").put("safety_permit",false).put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
-            s.put("state_revision", 0);
+            s.put("state_revision", 0).put("source_id",kind+"-test-instance");
             snapshots.put(kind+"_01",s);
         }
     }
@@ -121,7 +122,7 @@ class WorkflowIntegrationTest {
         s.putNull("active_command_id");
         s.putObject("conditions").put("safety_permit",false)
             .put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
-        s.put("state_revision",0);
+        s.put("state_revision",0).put("source_id",id+"-test-instance");
         snapshots.put(id,s);
     }
     void completeAll() { completeDevices(devices.keySet()); }
@@ -195,7 +196,7 @@ class WorkflowIntegrationTest {
     }
     @Test void recoveredCoordinatorFindsPersistedResultsWithoutEventAndDuplicatesAreHarmless() {
         String pid=start();conditions(true,true);workflows.pump();workflows.pump();completeAll();
-        var recovered=new WorkflowService(runtime, repository, history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime, repository, history,management,gateway,json,runPolicies,executionPolicies,qualifications,"PT15M","PT45M");
         recovered.pump();assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         for(int i=0;i<3;i++){notice("seed_01");workflows.pump();}
         assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
@@ -212,10 +213,10 @@ class WorkflowIntegrationTest {
     @Test void lostAcceptanceResponseRetriesSameCommandAfterFeedback() {
         String pid=start();conditions(true,true);gateway.loseResponse=true;workflows.pump();workflows.pump();
         assertThat(results).hasSize(1);String original=results.keySet().iterator().next();completeAll();
-        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M");
+        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,qualifications,"PT15M","PT45M");
         recovered.pump();completeAll();
         // Query from a freshly recovered coordinator, without any event hints.
-        new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,"PT15M","PT45M").pump();
+        new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,qualifications,"PT15M","PT45M").pump();
         assertThat(runtime.createProcessInstanceQuery().processInstanceId(pid).count()).isEqualTo(1);
         assertThat(results).containsKey(original);assertThat(gateway.calls).isGreaterThanOrEqualTo(2);
     }
@@ -292,6 +293,121 @@ class WorkflowIntegrationTest {
             .filter(j->j.getElementId().equals("seed_power_timeout")).findFirst().orElseThrow();
         management.executeJob(management.moveTimerToExecutableJob(timer.getId()).getId());
         assertThat(workflows.view(timeoutPid).get("outcome")).isEqualTo("FAILED");
+    }
+
+    String launchInitialization() {
+        snapshots.forEach((id,state)->state.put("outer_state","notReady")
+            .put("state_id",id.startsWith("seed")?"statusUnknown":"unchecked"));
+        String pid=(String)workflows.start("component_initialization",List.of()).get("id");
+        workflows.pump();return pid;
+    }
+    void stateEvent(String device,String outer,String leaf) {
+        var state=snapshots.get(device);
+        state.put("outer_state",outer).put("state_id",leaf).put("state_revision",state.path("state_revision").asLong()+1);
+        notice(device);
+    }
+    void seedPassed() { completeDevices(Set.of("seed_01"));workflows.pump(); }
+    void assertQualificationFailed(String pid) {
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+        assertThat(workflows.view(pid).get("failureReason").toString()).contains("资格");
+        assertThat(results.values()).allMatch(r->r.path("action").asText().equals("power_on_check"));
+        assertThat(((List<Map<String,Object>>)workflows.view(pid).get("activities")))
+            .anyMatch(a->"qualification_boundary".equals(a.get("id")));
+    }
+    @Test void initializationRevokesAnEarlySuccessWhileWaitingForOtherInstances() {
+        String pid=launchInitialization();seedPassed();
+        stateEvent("seed_01","notReady","qualificationInvalid");workflows.pump();
+        assertQualificationFailed(pid);
+    }
+    @Test void initializationRetainsTransientInvalidationEvenIfDeviceRecoversBeforePump() {
+        String pid=launchInitialization();seedPassed();
+        stateEvent("seed_01","notReady","qualificationInvalid");
+        stateEvent("seed_01","notReady","powerOnChecked");workflows.pump();
+        assertQualificationFailed(pid);
+    }
+    @Test void initializationRejectsUnknownAndShortEventChannelOutages() {
+        String pid=launchInitialization();seedPassed();
+        workflows.event(new TangoGateway.Notice(json.createObjectNode().put("type","connection_lost")));
+        // The fake transport is already connected again by the time the coordinator runs.
+        workflows.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationFailsEstablishedQualificationsWhileGatewayIsDisconnected() {
+        String pid=launchInitialization();seedPassed();gateway.online=false;
+        workflows.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationRejectsPerDeviceReadFailureEvenWhenCachedStateStillPasses() {
+        String pid=launchInitialization();seedPassed();
+        gateway.freshSnapshots.put("seed_01",json.createObjectNode());
+        completeDevices(Set.of("shg_01","preamp_01","multipass_01"));
+        for(int i=0;i<3;i++)workflows.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationChecksAllTargetsAtActualDispatchAndIgnoresObsoleteNotifications() {
+        String pid=launchInitialization();seedPassed();
+        var stale=snapshots.get("seed_01").deepCopy().put("state_id","qualificationInvalid").put("state_revision",0);
+        var event=json.createObjectNode().put("device_id","seed_01").put("connected",true);event.set("snapshot",stale);
+        workflows.event(new TangoGateway.Notice(event));workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("RUNNING");
+        completeDevices(Set.of("shg_01","preamp_01","multipass_01"));
+        gateway.freshSnapshots.put("seed_01",snapshots.get("seed_01").deepCopy().put("state_id","qualificationInvalid")
+            .put("state_revision",99));
+        for(int i=0;i<3;i++)workflows.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationDoesNotTreatNormalAdvancementToReadyAsPowerQualificationLoss() {
+        String pid=launchInitialization();seedPassed();
+        stateEvent("seed_01","ready","qualified");workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("RUNNING");
+        assertThat(results).hasSize(4);
+    }
+    @Test void initializationDetectsDeviceReplacementEvenWhenItsStateAndRevisionMatch() {
+        String pid=launchInitialization();seedPassed();
+        snapshots.get("seed_01").put("source_id","new-device-incarnation");notice("seed_01");workflows.pump();
+        assertQualificationFailed(pid);
+    }
+    @Test void initializationRequiresClaimsForEveryExpectedInstanceRatherThanOnlyRegisteredClaims() throws Exception {
+        String pid=launchInitialization();seedPassed();
+        var registry=(ObjectNode)json.readTree(runtime.getVariable(pid,"qualificationRegistry").toString());
+        ((ObjectNode)registry.elements().next().path("claims")).remove("powerQualified|seed_01");
+        runtime.setVariable(pid,"qualificationRegistry",registry.toString());
+        completeDevices(Set.of("shg_01","preamp_01","multipass_01"));
+        for(int i=0;i<3;i++)workflows.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationRecoversDurableClaimsAndRevalidatesWithoutInMemoryEvidence() {
+        String pid=launchInitialization();seedPassed();
+        var beans=new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+        beans.registerSingleton("runtime",runtime);
+        var recoveredQualifications=new cn.cdi8.workbench.qualification.QualificationRuntime(json,gateway,beans.getBeanProvider(RuntimeService.class));
+        gateway.freshSnapshots.put("seed_01",snapshots.get("seed_01").deepCopy().put("state_id","qualificationInvalid").put("state_revision",99));
+        var recovered=new WorkflowService(runtime,repository,history,management,gateway,json,runPolicies,executionPolicies,recoveredQualifications,"PT15M","PT45M");
+        recovered.pump();assertQualificationFailed(pid);
+    }
+    @Test void initializationRestoresLatchedViolationEvenIfPhysicalStateRecovers() {
+        String pid=launchInitialization();seedPassed();
+        stateEvent("seed_01","notReady","qualificationInvalid");
+        assertThat(qualifications.inspect(pid,false)).isNotNull();
+        stateEvent("seed_01","notReady","powerOnChecked");
+        var beans=new org.springframework.beans.factory.support.DefaultListableBeanFactory();
+        beans.registerSingleton("runtime",runtime);
+        var recovered=new cn.cdi8.workbench.qualification.QualificationRuntime(json,gateway,beans.getBeanProvider(RuntimeService.class));
+        var violation=recovered.inspect(pid,true);assertThat(violation).isNotNull();
+        recovered.interrupt(pid,violation);assertQualificationFailed(pid);
+    }
+    @Test void initializationMonitorsFunctionQualificationsUntilScopeCompletion() {
+        String pid=launchInitialization();completeAll();
+        for(int i=0;i<4&&results.size()<8;i++)workflows.pump();
+        completeDevices(Set.of("seed_01"));workflows.pump();
+        stateEvent("seed_01","ready","configured");workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+        assertThat(workflows.view(pid).get("failureReason").toString()).contains("functionQualified");
+    }
+    @Test void initializationCompletionGuardReadsEarlierComponentsAgain() {
+        String pid=launchInitialization();completeAll();
+        for(int i=0;i<4&&results.size()<8;i++)workflows.pump();
+        completeDevices(Set.of("seed_01"));workflows.pump();
+        gateway.freshSnapshots.put("seed_01",snapshots.get("seed_01").deepCopy().put("state_id","configured").put("state_revision",99));
+        completeDevices(Set.of("shg_01","preamp_01","multipass_01"));
+        for(int i=0;i<4;i++)workflows.pump();
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+        assertThat(workflows.view(pid).get("failureReason").toString()).contains("functionQualified");
     }
 
     @Test void lifecycleComposesInitializationAndPreparationForModeledComponents() {

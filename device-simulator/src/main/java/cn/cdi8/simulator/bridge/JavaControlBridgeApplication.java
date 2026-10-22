@@ -44,6 +44,7 @@ public final class JavaControlBridgeApplication {
                     String component=value.path("component").asText(""),address=value.path("address").asText("");
                     if(id.isBlank()||component.isBlank()||address.isBlank())throw new IllegalArgumentException("设备映射缺少 id、component 或 address");
                     DeviceProxy proxy=new DeviceProxy(address);proxy.set_timeout_millis(2500);
+                    proxy.set_source(fr.esrf.Tango.DevSource.DEV);
                     // A readable snapshot, rather than a ready file alone, makes a generation ready.
                     JsonNode snapshot=JSON.readTree(proxy.read_attribute("Snapshot").extractString());
                     TangoEventsAdapter events=null;
@@ -264,7 +265,13 @@ public final class JavaControlBridgeApplication {
         Path jar=options.containsKey("--simulator-jar")?Path.of(options.get("--simulator-jar")):null;
         Bridge bridge=new Bridge(config,Path.of(options.getOrDefault("--data-dir","data/java-simulator")),jar);
         HttpServer server;
-        ExecutorService workers=Executors.newCachedThreadPool();
+        // HTTP dispatcher threads may use the system loader, which cannot see
+        // JacORB inside the executable jar. Keep Tango's reflective loads on the app loader.
+        ExecutorService workers=Executors.newCachedThreadPool(task->{
+            Thread worker=Executors.defaultThreadFactory().newThread(task);
+            worker.setContextClassLoader(JavaControlBridgeApplication.class.getClassLoader());
+            return worker;
+        });
         try {
             server=HttpServer.create(new InetSocketAddress("127.0.0.1",port),0);
             server.createContext("/",new Handler(bridge));server.setExecutor(workers);server.start();

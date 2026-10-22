@@ -1,6 +1,7 @@
 package cn.cdi8.workbench.integration.flowable;
 
 import cn.cdi8.workbench.run.ComponentCommandTasks;
+import cn.cdi8.workbench.qualification.QualificationModel;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
@@ -32,6 +33,9 @@ public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHand
 
     @Override
     protected void executeParse(BpmnParse parse, ServiceTask task) {
+        QualificationModel.validateElement(task, parse.getBpmnModel());
+        var scope = QualificationModel.scope(task);
+        if (scope != null) QualificationModel.validateElement(scope, parse.getBpmnModel());
         Map<String, String> fields = new LinkedHashMap<>();
         for (FieldExtension field : task.getFieldExtensions()) {
             String value = field.getStringValue();

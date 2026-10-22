@@ -11,7 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static cn.cdi8.simulator.runtime.ComponentModel.JSON;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ComponentRuntimeTest {
     @TempDir Path directory;
@@ -29,6 +29,23 @@ class ComponentRuntimeTest {
 
     private static JsonNode feedback(String id) {
         return JSON.createObjectNode().put("command_id",id).put("outcome","success");
+    }
+
+    @Test void restartPreservesStateRevisionButChangesDeviceIncarnation() throws Exception {
+        var component=new ComponentModel(model("seed-source-state-machine.scxml"));
+        var database=directory.resolve("restart.sqlite3");
+        JsonNode original;
+        try(var runtime=new ComponentRuntime(component,database)) {
+            runtime.execute(request("power","power_on_check"));runtime.simulate(feedback("power"));
+            original=runtime.snapshot();
+            assertFalse(original.path("source_id").asText().isBlank());
+            assertEquals(original.path("source_id"),runtime.snapshot().path("source_id"));
+        }
+        try(var recovered=new ComponentRuntime(component,database)) {
+            assertEquals(original.path("state_revision"),recovered.snapshot().path("state_revision"));
+            assertEquals(original.path("state_id"),recovered.snapshot().path("state_id"));
+            assertNotEquals(original.path("source_id"),recovered.snapshot().path("source_id"));
+        }
     }
 
     @Test void allFourModelsCompleteTheirDeclaredActionChains() throws Exception {

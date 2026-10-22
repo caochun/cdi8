@@ -34,6 +34,7 @@ class TangoBridge:
             identifier(device_id)
             proxy = tango.DeviceProxy(binding["address"])
             proxy.set_timeout_millis(2500)
+            proxy.set_source(tango.DevSource.DEV)  # Qualification reads must reach the device.
             self.devices[device_id] = {**binding, "proxy": proxy}
             try:
                 subscription = proxy.subscribe_event(

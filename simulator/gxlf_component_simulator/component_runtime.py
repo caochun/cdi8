@@ -7,6 +7,7 @@ import copy
 import json
 import re
 import sqlite3
+from uuid import uuid4
 
 from .component_model import ComponentModel
 from .scxml_machine import TransitionError
@@ -31,6 +32,7 @@ class ComponentRuntime:
 
     def __init__(self, model: ComponentModel, database=":memory:"):
         self.model = model
+        self.source_id = uuid4().hex
         if str(database) != ":memory:":
             Path(database).parent.mkdir(parents=True, exist_ok=True)
         self.lock = RLock()
@@ -104,6 +106,7 @@ class ComponentRuntime:
         result = self._command(state["last_result_id"]) if state["last_result_id"] else None
         context = self._context()
         value = {
+            "source_id": self.source_id,
             "state_revision": self.db.execute("SELECT COALESCE(MAX(sequence),0) FROM component_events").fetchone()[0],
             "model": self.model.model_id,
             "model_version": self.model.model_version,

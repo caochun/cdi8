@@ -242,9 +242,13 @@ class ComponentRuntimeTest(unittest.TestCase):
                 path = Path(directory) / "component.sqlite3"
                 runtime = ComponentRuntime(model, path)
                 self.drive(runtime, [("power_on_check", "success")])
+                original = runtime.snapshot()
+                self.assertEqual(runtime.snapshot()["source_id"], original["source_id"])
                 runtime.close()
                 recovered = ComponentRuntime(model, path)
                 try:
+                    self.assertNotEqual(recovered.snapshot()["source_id"], original["source_id"])
+                    self.assertEqual(recovered.snapshot()["state_revision"], original["state_revision"])
                     self.assertEqual(recovered.snapshot()["outer_state"], "notReady")
                     self.assertEqual(recovered.snapshot()["state_id"], "powerOnChecked" if model is SEED_MODEL else "powerOnOk")
                     with self.assertRaises(TransitionError):

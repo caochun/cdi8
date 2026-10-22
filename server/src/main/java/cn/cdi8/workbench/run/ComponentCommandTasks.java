@@ -1,6 +1,7 @@
 package cn.cdi8.workbench.run;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
+import cn.cdi8.workbench.qualification.QualificationRuntime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Component;
 @Component("componentTasks")
 public class ComponentCommandTasks {
     private final ObjectMapper json;
+    private final QualificationRuntime qualifications;
     private final TangoGateway gateway;
     private final List<ExecutionPolicy> executionPolicies;
-    public ComponentCommandTasks(ObjectMapper json, TangoGateway gateway, List<ExecutionPolicy> executionPolicies) {
+    public ComponentCommandTasks(ObjectMapper json, TangoGateway gateway, List<ExecutionPolicy> executionPolicies, QualificationRuntime qualifications) {
+        this.qualifications = qualifications;
         this.json = json;
         this.gateway = gateway;
         this.executionPolicies = List.copyOf(executionPolicies);
@@ -42,9 +45,11 @@ public class ComponentCommandTasks {
         e.setVariableLocal("commandNode", e.getCurrentActivityId());
         e.setVariableLocal("expectedState", expectedState == null ? "" : expectedState);
         e.setVariableLocal("sent", false);
+        qualifications.bind(e);
     }
 
     public void verify(DelegateExecution e) {
+        synchronized (qualifications) {
         try {
             JsonNode result = json.readTree((String)e.getVariableLocal("commandResult"));
             String expected = (String)e.getVariableLocal("expectedState");
@@ -59,10 +64,13 @@ public class ComponentCommandTasks {
                     .noneMatch(value -> value.equals(current.path("state_id").asText())))
                 throw new IllegalStateException("设备未到达目标状态：" + expected);
             for (var policy : executionPolicies) policy.verifyCommand(e, current);
+            qualifications.establish(e, current);
         } catch (Exception ex) {
             e.setVariable("failureReason", ex.getMessage());
             throw new BpmnError("DEVICE_ERROR", ex.getMessage());
         }
+    }
+
     }
 
     public void mark(DelegateExecution e, String name) { e.setVariable(name, true); }

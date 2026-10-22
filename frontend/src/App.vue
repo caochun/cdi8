@@ -6,7 +6,7 @@ import RunPreparation from './components/preparation/RunPreparation.vue';
 import {modelLabel} from './model-label';
 import {emptyConfiguration,type RunConfiguration} from './components/preparation/configuration';
 import {api,type Model} from './api';import {scxmlTemplate,bpmnTemplate} from './templates';
-const runtimeEntry=location.pathname==='/runtime.html'||new URLSearchParams(location.search).has('run');
+const runtimeEntry=new URLSearchParams(location.search).has('run');
 const tab=ref(runtimeEntry?'runs':'models'),models=ref<Model[]>([]),selectedId=ref(''),xml=ref(''),editor=ref<InstanceType<typeof XmlEditor>>();
 const error=ref(''),notice=ref(''),busy=ref(false),connection=ref(false),selectedNode=ref(''),diagnostics=ref<any[]>([]),validation=ref<any>(null);
 const previewXml=ref('');const previewError=ref(''),previewStale=ref(false),validatedXml=ref(''),savedXml=ref(''),version=ref('draft'),filter=ref('all');

@@ -159,6 +159,17 @@ public class RunDeploymentService {
                 metadata.put(row.path("component").asText(),json.readTree(data.item(i).getTextContent()));
         }
         for(String id:needed) {
+            var predicates=documents.get(id).getElementsByTagNameNS(cn.cdi8.workbench.qualification.QualificationModel.NS,"accept");
+            for(int i=0;i<predicates.getLength();i++) {
+                Element predicate=(Element)predicates.item(i);
+                JsonNode model=metadata.get(predicate.getAttribute("component"));
+                if(model==null)throw new IllegalArgumentException("资格谓词缺少组件模型："+predicate.getAttribute("component"));
+                for(String attribute:List.of("states","outerStates")) {
+                    String labels=attribute.equals("states")?"inner_labels":"outer_labels";
+                    for(String state:predicate.getAttribute(attribute).trim().split("\\s+"))
+                        if(!state.isBlank()&&!model.path(labels).has(state))throw new IllegalArgumentException("资格谓词引用不存在的状态："+state);
+                }
+            }
             var tasks=documents.get(id).getElementsByTagNameNS("*","serviceTask");
             for(int i=0;i<tasks.getLength();i++) {
                 Element task=(Element)tasks.item(i);var fields=task.getElementsByTagNameNS("*","field");Map<String,String> values=new HashMap<>();

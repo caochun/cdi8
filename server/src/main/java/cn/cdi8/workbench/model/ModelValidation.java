@@ -29,6 +29,7 @@ public class ModelValidation {
         ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
         try {
             var model=parse(xml);
+            cn.cdi8.workbench.qualification.QualificationModel.validate(model);
             if(model.getProcesses().isEmpty())throw new IllegalArgumentException("BPMN 缺少 process");
             for(var error:new ProcessValidatorFactory().createDefaultProcessValidator().validate(model)) {
                 if(error.isWarning())continue;

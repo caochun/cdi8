@@ -11,6 +11,7 @@ import static cn.cdi8.simulator.runtime.ComponentModel.*;
 /** Durable component command protocol. SCXML transitions are delegated to the Apache engine. */
 public class ComponentRuntime implements AutoCloseable {
     private final ComponentModel model;
+    private final String sourceId = UUID.randomUUID().toString();
     private final String modelRevision;
     private final ScxmlEngine engine;
     private final Connection db;
@@ -133,6 +134,7 @@ public class ComponentRuntime implements AutoCloseable {
         var result=state.get("last_result_id")==null?null:command((String)state.get("last_result_id"));
         ObjectNode context=(ObjectNode)parse((String)state.get("context"));
         var value=JSON.createObjectNode();
+        value.put("source_id",sourceId);
         value.put("state_revision",((Number)first("SELECT COALESCE(MAX(sequence),0) AS revision FROM component_events").get("revision")).longValue());
         value.put("model",model.metadata.path("model_id").asText()).put("model_version",model.metadata.path("model_version").asInt());
         value.put("model_revision",modelRevision);

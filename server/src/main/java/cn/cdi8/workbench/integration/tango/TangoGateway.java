@@ -66,7 +66,7 @@ public class TangoGateway {
     public JsonNode setConditions(String device, Map<String, Boolean> values) {
         return request("POST", "/devices/" + device + "/conditions", values);
     }
-    public void reconnect() { connected=false; error="模拟环境切换中"; snapshots.clear(); closeStream(); }
+    public void reconnect() { disconnected("模拟环境切换中"); closeStream(); }
     public boolean connected() { return connected; }
     public JsonNode cached(String id) { return snapshots.get(id); }
     public Map<String,Object> status() { return Map.of("connected", connected, "error", error); }
@@ -90,7 +90,14 @@ public class TangoGateway {
                         if ("ready".equals(value.path("type").asText())) { connected = true; error = ""; }
                         if (value.has("device_id")) {
                             String id = value.get("device_id").asText();
-                            if (value.path("connected").asBoolean()) snapshots.put(id, value.path("snapshot"));
+                            if (value.path("connected").asBoolean()) {
+                                JsonNode previous = snapshots.get(id), next = value.path("snapshot");
+                                if (previous != null && !next.path("source_id").asText().isBlank()
+                                        && previous.path("source_id").asText().equals(next.path("source_id").asText())
+                                        && previous.path("state_revision").isIntegralNumber() && next.path("state_revision").isIntegralNumber()
+                                        && next.path("state_revision").asLong() < previous.path("state_revision").asLong()) continue;
+                                snapshots.put(id, next);
+                            }
                             else snapshots.remove(id);
                             events.publishEvent(new Notice(value));
                         }
@@ -98,7 +105,7 @@ public class TangoGateway {
                 }
                 throw new EOFException("Tango 事件流断开");
             } catch (Exception ex) {
-                connected = false; error = Objects.toString(ex.getMessage(), "事件流异常"); snapshots.clear();
+                disconnected(Objects.toString(ex.getMessage(), "事件流异常"));
                 if (running) {
                     try { Thread.sleep(1000); }
                     catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
@@ -112,8 +119,13 @@ public class TangoGateway {
     @Scheduled(fixedDelay = 3000)
     public void watchdog() {
         if (connected && System.currentTimeMillis() - lastEvent > 15000) {
-            connected = false; error = "Tango 事件流心跳超时"; snapshots.clear(); closeStream();
+            disconnected("Tango 事件流心跳超时"); closeStream();
         }
+    }
+    private void disconnected(String reason) {
+        connected = false; error = reason; snapshots.clear();
+        // Preserve a short outage even if the stream recovers before the next workflow pump.
+        events.publishEvent(new Notice(json.createObjectNode().put("type","connection_lost").put("reason",reason)));
     }
     private void closeStream() { try { if (stream != null) stream.close(); } catch (IOException ignored) {} }
     @PreDestroy public void close() { running = false; connected = false; closeStream(); reader.shutdownNow(); }

@@ -1,6 +1,7 @@
 package cn.cdi8.workbench.run;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
+import cn.cdi8.workbench.qualification.QualificationRuntime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class WorkflowService {
     private final RuntimeService runtime;
+    private final QualificationRuntime qualifications;
     private final ManagementService management;
     private final RepositoryService repository;
     private final HistoryService history;
@@ -30,17 +32,18 @@ public class WorkflowService {
     private final Map<String,Long> lastQuery = new HashMap<>();
 
     public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history, ManagementService management,
-                           TangoGateway gateway, ObjectMapper json, RunPolicies runPolicies, List<ExecutionPolicy> executionPolicies,
+                           TangoGateway gateway, ObjectMapper json, RunPolicies runPolicies, List<ExecutionPolicy> executionPolicies, QualificationRuntime qualifications,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
         this.management=management; this.runtime = runtime; this.repository = repository; this.history = history;
-        this.gateway = gateway; this.json = json;
+        this.gateway = gateway; this.json = json; this.qualifications = qualifications;
         this.runPolicies = runPolicies; this.executionPolicies = List.copyOf(executionPolicies);
         this.commandTimeout = commandTimeout; this.workflowTimeout = workflowTimeout;
     }
 
     @EventListener
     public void event(TangoGateway.Notice event) {
+        qualifications.observe(event);
         changed.add(event.payload().path("device_id").asText());
     }
 
@@ -81,11 +84,14 @@ public class WorkflowService {
 
     @Scheduled(fixedDelayString = "${control.pump-delay:200}")
     public synchronized void pump() {
-        if (!gateway.connected()) return; // disconnected values cannot release a gate
+        // Qualifications are checked even during a Tango disconnect.
         Set<String> dirty = new HashSet<>(changed); changed.removeAll(dirty);
         for (var process : runtime.createProcessInstanceQuery().list()) {
             String pid = process.getId();
             try {
+                var violation = qualifications.inspect(pid, false);
+                if (violation != null) { qualifications.interrupt(pid, violation); continue; }
+                if (!gateway.connected()) continue;
                 String lost = processIssue(pid);
                 if (lost != null) { stop(pid, lost); continue; }
                 for (var execution : runtime.createExecutionQuery().processInstanceId(pid).list()) {
@@ -184,7 +190,8 @@ public class WorkflowService {
             // command ID is stable across a lost response or controller restart.
             String lost = processIssue(execution.getProcessInstanceId());
             if (lost != null) { stop(execution.getProcessInstanceId(), lost); return; }
-            result = sent ? gateway.result(device, id) : gateway.execute(device, id, action, Map.of());
+            result = sent ? gateway.result(device, id) : qualifications.dispatch(execution, () -> gateway.execute(device, id, action, Map.of()));
+            if (result == null) return;
             if (!sent) runtime.setVariableLocal(eid, "sent", true);
         } catch (TangoGateway.GatewayException ex) {
             if (ex.status() != 409) throw ex;
@@ -208,8 +215,17 @@ public class WorkflowService {
                 // parallel branch is cancelled consistently.
                 String pid = execution.getProcessInstanceId();
                 if (runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0) {
-                    String reason = Objects.toString(ex.getMessage(), "设备命令校验失败");
-                    try { stop(pid, reason); } catch (RuntimeException ignored) { }
+                    Throwable cause = ex;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    String reason = Objects.toString(cause.getMessage(), "设备命令校验失败");
+                    try {
+                        var violation = qualifications.inspect(pid, true);
+                        if (violation != null) qualifications.interrupt(pid, violation);
+                        else stop(pid, reason);
+                    } catch (RuntimeException routingError) {
+                        // Preserve the original failure even if qualification routing cannot be resumed.
+                        if (runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0) stop(pid, reason);
+                    }
                 }
             }
         }
@@ -276,6 +292,8 @@ public class WorkflowService {
         value.put("configuration",vars.get("workbenchConfiguration"));
         value.put("modelVersions",vars.get("modelVersions"));
         value.put("initialDeviceSnapshots",vars.get("initialDeviceSnapshots"));
+        value.put("qualificationRegistry",vars.get(QualificationRuntime.REGISTRY));
+        value.put("qualificationAudit",vars.get("qualificationAudit"));
         value.put("failureReason", vars.get("failureReason")); value.put("communicationError", vars.get("communicationError"));
         var active = runtime.createExecutionQuery().processInstanceId(pid).list();
         value.put("activeActivities", active.stream().map(Execution::getActivityId).filter(Objects::nonNull).distinct().toList());
