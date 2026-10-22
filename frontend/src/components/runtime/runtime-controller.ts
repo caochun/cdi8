@@ -2,6 +2,7 @@
 import {attachQualificationOverlays} from '../diagrams/qualifications';
 import BpmnViewer from 'bpmn-js/lib/NavigatedViewer';
 import {prepareXml} from '../diagrams/layout';
+import {attachScopeNavigation,openOverview} from '../diagrams/scope-navigation';
 import {createStateCharts} from './state-charts';
 
 /** Owns the diagram viewers and runtime DOM inside one mounted Workbench view. */
@@ -14,7 +15,9 @@ const $ = id => root.querySelector(`[data-runtime-id="${id}"]`);
 const viewer = new BpmnViewer({container:$('canvas')});
 const childViewer = new BpmnViewer({container:$('child-canvas')});
 attachQualificationOverlays(viewer);attachQualificationOverlays(childViewer);
-let definitions=[], diagrams=[], key='', run=null, picked=null, busy=false, loaded=false;
+attachScopeNavigation(viewer,{select:$('scope'),onChange:paint,onError:showError});
+attachScopeNavigation(childViewer,{onChange:paint,onError:showError});
+let definitions=[], key='', run=null, picked=null, busy=false, loaded=false;
 let childRun=null, childId='', childLoading='', detailViewer=null, selectedViewer=viewer, deviceCache=[];
 const cardNodes=new Map();
 
@@ -128,14 +131,10 @@ async function xmlFor(current){
 async function load(processKey,ticket=revision){
   key=processKey;const xml=await xmlFor(run);if(disposed||ticket!==revision)return;
   await viewer.importXML(xml);if(disposed||ticket!==revision)return;
-  diagrams=viewer.getDefinitions().diagrams;
-  $('scope').replaceChildren(...diagrams.map(d=>new Option(d.plane.bpmnElement.name||d.plane.bpmnElement.id,d.id)));
-  const preferred=diagrams.find(d=>d.plane.bpmnElement.id==='normal')||diagrams[0];
-  if(preferred){$('scope').value=preferred.id;await viewer.open(preferred.id);if(disposed||ticket!==revision)return;fit(viewer);}
+  await openOverview(viewer);if(disposed||ticket!==revision)return;fit(viewer);
   childRun=null;childId='';childLoading='';$('child-flow').hidden=true;
   paint();
 }
-async function openScope(id){const ticket=revision;await viewer.open(id);if(disposed||ticket!==revision)return;fit(viewer);paint();}
 async function syncChild(ticket=revision){
   const children=flattenRuns().slice(1);
   const desired=[...children].reverse().find(c=>!c.ended)||children[children.length-1];
@@ -149,8 +148,7 @@ async function syncChild(ticket=revision){
     if(disposed||ticket!==revision||!flattenRuns().some(c=>c.id===id)||childLoading!==id)return;
     $('child-flow').hidden=false;
     await childViewer.importXML(xml);if(disposed||ticket!==revision)return;
-    const diagram=childViewer.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id==='normal');
-    if(diagram)await childViewer.open(diagram.id);
+    await openOverview(childViewer);
     if(disposed||ticket!==revision||childLoading!==id)return;
     childId=id;$('child-flow-title').textContent=desired.name;
     fit(viewer);fit(childViewer);paint();
@@ -240,12 +238,7 @@ function renderRun(){
 function duration(ms){if(!Number.isFinite(ms))return '—';const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)} 分 ${seconds%60} 秒`;}
 for(const target of [viewer,childViewer]){
   target.on('element.click',e=>{if(!/SequenceFlow|label|Process/.test(e.element.type))selectNode(target,e.element.id);});
-  target.on('element.dblclick',async e=>{
-    const diagram=target.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id===e.element.id);
-    if(diagram){await target.open(diagram.id);fit(target);paint();}
-  });
 }
-$('scope').onchange=()=>openScope($('scope').value).catch(showError);
 $('fit').onclick=()=>{fit(viewer);fit(childViewer);};
 $('process').onchange=()=>setRun('');
 function makeCard(device){
@@ -337,11 +330,12 @@ $('expand-flow').onclick=async()=>{
   clearDetailViewer();picked=null;$('detail-title').textContent=childRun?.name||run?.name||'流程图';
   $('expanded-graph').hidden=false;$('expanded-graph').replaceChildren();$('details').replaceChildren();$('detail-count').textContent='';$('detail-dialog').showModal();
   detailViewer=new BpmnViewer({container:$('expanded-graph')});attachQualificationOverlays(detailViewer);
+  attachScopeNavigation(detailViewer,{onChange:()=>paintViewer(detailViewer,childRun||run),onError:showError});
   try{
     const current=childRun||run,target=detailViewer,ticket=revision;const xml=await xmlFor(current);
     if(disposed||ticket!==revision||detailViewer!==target)return;
     await target.importXML(xml);if(disposed||ticket!==revision||detailViewer!==target)return;
-    const diagram=target.getDefinitions().diagrams.find(d=>d.plane.bpmnElement.id==='normal');if(diagram)await target.open(diagram.id);
+    await openOverview(target);
     if(disposed||ticket!==revision||detailViewer!==target)return;
     fit(target);paintViewer(target,current);
   }catch(error){showError(error);}

@@ -1,0 +1,3 @@
+.bpmn-scope-navigation{position:absolute;z-index:10;top:8px;right:8px;display:flex;flex-direction:row;align-items:center;gap:6px;padding:5px 7px;max-width:calc(100% - 16px);border:1px solid #c8dce5;border-radius:6px;background:#fffffff0;color:#557687;font:11px/1.4 system-ui,sans-serif}
+.bpmn-scope-navigation[hidden]{display:none}
+.bpmn-scope-navigation select{min-width:0;max-width:100%;padding:4px;font:inherit}
