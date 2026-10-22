@@ -2,10 +2,37 @@
 // Layout once per model in an isolated renderer. Device cards reuse the SVG.
 window.addEventListener('message', async event => {
   if (event.source !== parent || event.origin !== location.origin || event.data?.type !== 'layout-model') return;
-  const {xml, id} = event.data;
+  const {xml, id, labels} = event.data;
+  const LABEL_FONT = 6;
+  const LABEL_LINE_HEIGHT = 7.2;
+  const MAX_LABEL_LINE_WIDTH = 54;
+  const metrics = document.createElement('canvas').getContext('2d');
+  metrics.font = `650 ${LABEL_FONT}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+  const measureWidth = text => metrics.measureText(text).width;
+  const words = new Intl.Segmenter('zh', {granularity:'word'});
+  const wrapLabel = text => {
+    const lines = [];
+    for (const paragraph of String(text).split(/\r?\n/)) {
+      let line = '';
+      const tokens = [...words.segment(paragraph)].flatMap(({segment}) => measureWidth(segment) > MAX_LABEL_LINE_WIDTH ? [...segment] : [segment]);
+      for (const token of tokens) {
+        if (line && measureWidth(line + token) > MAX_LABEL_LINE_WIDTH && !/^[，、；：。！？,.!?;:）)\]]+$/.test(token)) {
+          // Prefer a pause in the name; otherwise keep Chinese/English words together.
+          const pauses = [...line.matchAll(/[，、；：,;:/\s]/g)];
+          const pause = pauses.at(-1)?.index;
+          const split = pause !== undefined && pause >= line.length * .4 ? pause + 1 : line.length;
+          lines.push(line.slice(0, split)); line = line.slice(split);
+        }
+        line += token;
+      }
+      lines.push(line);
+    }
+    return lines.length ? lines : [''];
+  };
   const report = payload => parent.postMessage({type:'model-layout', id, ...payload}, location.origin);
   try {
     const root = document.getElementById('root');
+    root.classList.toggle('readable-labels', Boolean(labels));
     // SCHVIZ predates SCXML 1.0. Only its presentation input is adapted:
     // metadata is not a state, and internal sibling transitions draw as
     // ordinary edges (SCXML also gives them external transition semantics).
@@ -25,10 +52,74 @@ window.addEventListener('message', async event => {
       disableAnimation:true, disableZoomAnimation:true, configuration:[], previousConfiguration:[]
     }), root);
     const deadline = Date.now() + 25000;
+    let labelsLaidOut = false;
     const poll = () => {
       const svg = root.querySelector('svg');
-      if (graph.graphRoot?.state.kgraph && svg?.querySelector('g.node')) {
+      if (graph.graphRoot?.state.kgraph && svg?.querySelector('g.node') && (!labels || !graph.graphRoot.state.loading)) {
+        if (labels && !labelsLaidOut) {
+          // Re-measure with business labels before laying out nodes and edges.
+          // IDs remain unchanged so selection and live-state highlights still match XML.
+          labelsLaidOut = true;
+          const kgraphRoot = JSON.parse(JSON.stringify(graph.graphRoot.state.kgraph.root));
+          const labelLines = new Map();
+          const rename = node => {
+            const full = labels[node.id] || node.labels?.[0]?.text;
+            if (full && !['initial','final','pseudonode'].includes(node.$type)) {
+              const lines = wrapLabel(full);
+              labelLines.set(node.id, lines);
+              node.labels = [{text: lines.join('\n')}];
+              if (node.children?.length) node.properties = {...node.properties, borderSpacing: Math.max(14, lines.length * LABEL_LINE_HEIGHT + 8)};
+            }
+            (node.children || []).forEach(rename);
+          };
+          rename(kgraphRoot);
+          // SCHVIZ measures state labels as one line. Adapt only this isolated
+          // editor renderer, before Klay routes edges using the node dimensions.
+          const prototype = Object.getPrototypeOf(graph.graphRoot.state.kgraph);
+          const measure = prototype._processKGraphPreLayout;
+          prototype._processKGraphPreLayout = function(kgraph) {
+            const pending = measure.call(this, kgraph);
+            pending.push(Promise.all([...pending]).then(() => {
+              const resize = node => {
+                const lines = labelLines.get(node.id);
+                if (lines) {
+                  node.width = Math.max(40, ...lines.map(line => measureWidth(line) + 12));
+                  node.height = Math.max(20, lines.length * LABEL_LINE_HEIGHT + 10);
+                }
+                (node.children || []).forEach(resize);
+              };
+              resize(kgraph);
+            }));
+            return pending;
+          };
+          graph.graphRoot.initKGraph({...graph.graphRoot.props, kgraphRoot}, false);
+          setTimeout(poll, 100);
+          return;
+        }
         for(const marker of svg.querySelectorAll('marker')) {marker.setAttribute('markerWidth','2.4');marker.setAttribute('markerHeight','4');}
+        if (labels) for (const group of svg.querySelectorAll('g.node')) {
+          const raw = group.getAttribute('data-id') || group.id.replace(/^component:/, '');
+          const text = group.querySelector(':scope > text');
+          const rect = group.querySelector(':scope > rect');
+          if (!text || !rect || group.classList.contains('type__initial') || group.classList.contains('type__final')) continue;
+          const full = labels[raw] || text.textContent;
+          const lines = wrapLabel(full);
+          const width = Number(rect.getAttribute('width'));
+          const compound = group.classList.contains('compound');
+          const y = compound ? 7 : Number(rect.getAttribute('height')) / 2 - (lines.length - 1) * LABEL_LINE_HEIGHT / 2;
+          text.replaceChildren();
+          text.setAttribute('x', String(width / 2));
+          text.setAttribute('y', String(y));
+          lines.forEach((line, index) => {
+            const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan.setAttribute('x', String(width / 2));
+            tspan.setAttribute('dy', index ? String(LABEL_LINE_HEIGHT) : '0');
+            tspan.textContent = line;
+            text.appendChild(tspan);
+          });
+          const separator = group.querySelector(':scope > line');
+          if (separator) for (const attr of ['y1','y2']) separator.setAttribute(attr, String(lines.length * LABEL_LINE_HEIGHT + 5));
+        }
         const nodes = {};
         // Bake the current viewport transform into SVG coordinates for stable crops.
         const matrix = svg.getScreenCTM().inverse();

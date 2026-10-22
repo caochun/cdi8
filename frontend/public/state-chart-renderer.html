@@ -8,5 +8,8 @@
    make labels readable in the editor and runtime cards. */
 .node > text { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif !important; font-size: 5.5px !important; font-weight: 600 !important; }
 .edge-label { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif !important; font-size: 3.5px !important; }
+/* Editor layout measures business labels at the same size used for drawing. */
+#root.readable-labels svg text { font-family: "PingFang SC", "Microsoft YaHei", sans-serif !important; font-size: 6px !important; font-weight: 650 !important; }
+#root.readable-labels .edge-label { font-size: 3.5px !important; font-weight: 400 !important; }
 </style>
 </head><body><div id="root"></div><script src="state-chart-renderer.js"></script></body></html>
