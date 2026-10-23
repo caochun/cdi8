@@ -7,10 +7,10 @@
 - `frontend/`：所有浏览器代码和第三方绘图资源。Vue 构建产物进入根目录 `target/workbench-static/`；vendor 与状态图布局资源位于 `frontend/public/`，由 server 一并打包到静态资源根路径。`/` 直接提供工作台 HTML，无客户端或 HTTP 跳转。
 - `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；`mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
 - `device-simulator/`：默认 Java bridge、模拟环境管理、独立试验及 Apache SCXML / JTango 多设备进程。
-- `simulator/`：可选 Python 协议对照源码，保留命令行和测试；默认构建、启动及 Java 端到端验证均不依赖它。
+- `simulator/`：独立的 Python 协议对照源码，不参与默认 Java 构建、启动和端到端验证。
 - `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/bpmn/` 和 `gxlf/scxml/` 供 Java 内置模型导入与 Python 示例运行使用。
 - `contracts/`：跨运行时的命令、结果与事件格式。协议格式不绑定 Python 类或 Java DTO。
-- `tests/e2e/`：跨进程联调验证；各模块自己的单元与集成测试保留在模块内。
+- `server/src/test/java/`：Java 单元、集成及跨进程端到端验证；设备模块测试位于 `device-simulator/src/test/java/`。
 
 后端目前按职责分包：
 
@@ -103,6 +103,6 @@ SCXML 校验、独立试验和真实设备使用同一 `ComponentModel` / Apache
 
 外部设备模式仍使用 `--devices bindings.json`，只绑定已运行的 Tango 设备，禁止通过创建接口伪造模型版本或“已应用”状态。
 
-`make java-workbench-smoke` 从隔离临时目录启动三个 Java 进程，验证通用模型双实例及完整 GXLF 双光源流程。Tango 命令、属性、事件和补读路径均经过实际协议边界；直接调用对象的单元测试不替代该测试。Python 对照源码可以独立保留，不参与运行依赖。
+`make java-workbench-smoke` 从隔离临时目录启动 Java Workbench、Java bridge 和 Java Tango 设备进程，验证通用模型双实例、资格失效阻断、四组件初始化，以及完整 GXLF 双光源流程。Flowable 阶段推进依赖实际 JTango 命令、快照属性和状态事件；直接调用对象的单元测试不替代该测试。
 
 构建与设备接口详见 [Java SCXML / Tango 模拟设备](java-device-simulator.md)。

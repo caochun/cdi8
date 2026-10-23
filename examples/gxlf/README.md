@@ -38,7 +38,7 @@
 
 ## 验证与业务资料
 
-启动方式见[项目说明](../../README.md)，默认全 Java 联调测试为 [JavaWorkbenchE2eIT](../../server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java)。[gxlf_lifecycle_smoke.py](../../tests/e2e/gxlf_lifecycle_smoke.py) 保留为可选对照脚本。
+启动方式见[项目说明](../../README.md)。全 Java 联调测试由 [JavaWorkbenchE2eIT](../../server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java) 覆盖，包含 Java Tango 设备与 Flowable 完整 GXLF 生命周期。
 
 - [状态定义](../../docs/domain/gxlf/component-states/README.md)
 - [前期准备](../../docs/domain/gxlf/process-control/种子源至多程放大前期准备流程.md)

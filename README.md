@@ -25,7 +25,7 @@ Java Device Server：多个 SCXML 组件实例及条件设备 + 独立 SQLite
 | [contracts/](contracts/) | 命令、结果、设备事件的接口约定和 JSON Schema |
 | [simulator/](simulator/) | 可选的 Python 协议对照实现；默认构建、启动和测试不依赖它 |
 | [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的通用组件模拟器 |
-| [tests/e2e/](tests/e2e/) | 可选的 Python 协议对照脚本；默认 Java 全链路验证在 `server/src/test/` |
+| [server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java](server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java) | 隔离 Java Workbench、Java Tango bridge、设备服务及 Flowable 的端到端验证 |
 | [docs/architecture/](docs/architecture/) | 模块边界、资源归属及 Java 模拟环境生命周期 |
 | [docs/development/](docs/development/) | 开发工作台操作和模型约定 |
 | [docs/domain/gxlf/](docs/domain/gxlf/) | GXLF 状态定义与业务流程说明 |
@@ -96,7 +96,7 @@ make java-workbench-smoke
 
 覆盖模型校验、独立试验、双设备实例、版本固定、反馈幂等、自动完成、条件等待、完整 GXLF 双光源流程、运行记录、环境重建、设备进程崩溃与 bridge 重启。它使用临时模型库和数据库，不修改日常工作台环境。
 
-原有 Python 对照测试保留为可选工具，详见 [Java 模拟器说明](docs/architecture/java-device-simulator.md) 和 [Python 对照实现](simulator/README.md)。
+Python 模拟器源码作为独立参考实现保留；工作台端到端验证统一使用 Java 服务和 Java Tango 设备。
 
 ## 运行数据和当前范围
 

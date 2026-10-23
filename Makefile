@@ -49,18 +49,9 @@ java-workbench-smoke:
 	mvn package
 	mvn -pl server -Dexec.skip=true -Dtest=JavaWorkbenchE2eIT test
 
-# Legacy Python comparison scripts require isolated services and mutate demo state.
-BASE_URL ?= http://127.0.0.1:8080
-BRIDGE_URL ?= http://127.0.0.1:8766
-
-.PHONY: workbench-smoke gxlf-smoke python-workbench-smoke python-gxlf-smoke
+# Compatibility aliases for the Java-only end-to-end suite.
+.PHONY: workbench-smoke gxlf-smoke
 workbench-smoke gxlf-smoke: java-workbench-smoke
-
-python-workbench-smoke:
-	$(PYTHON) tests/e2e/workbench_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
-
-python-gxlf-smoke:
-	$(PYTHON) tests/e2e/gxlf_lifecycle_smoke.py --base $(BASE_URL) --bridge $(BRIDGE_URL)
 
 java-device-test:
 	mvn -pl device-simulator test

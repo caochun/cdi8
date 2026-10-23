@@ -94,4 +94,4 @@ mvn -pl server -Dexec.skip=true -Dtest=JavaWorkbenchE2eIT test
 
 端到端测试覆盖：校验与独立试验、失败/成功反馈、双设备实例及隔离、固定模型版本、重复反馈、条件等待、自动完成、Flowable 历史和设备追踪、版本变更后重建、非法配置保留旧环境、设备崩溃恢复、bridge 重启，以及四组件与条件设备参与的 GXLF 双光源完整生命周期。
 
-Python 源码和旧 Python 驱动的混合测试仅作为可选协议对照，不是默认工作台的运行或验收依赖。
+端到端验证只使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable；不再保留 Python 驱动的端到端脚本。Python 模拟器实现仍可独立作为协议参考。
