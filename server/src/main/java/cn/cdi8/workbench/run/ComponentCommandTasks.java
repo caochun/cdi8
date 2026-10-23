@@ -1,7 +1,7 @@
 package cn.cdi8.workbench.run;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
-import cn.cdi8.workbench.qualification.QualificationRuntime;
+import cn.cdi8.workbench.systemstate.SystemStateRuntime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,11 +15,11 @@ import org.springframework.stereotype.Component;
 @Component("componentTasks")
 public class ComponentCommandTasks {
     private final ObjectMapper json;
-    private final QualificationRuntime qualifications;
+    private final SystemStateRuntime systemStates;
     private final TangoGateway gateway;
     private final List<ExecutionPolicy> executionPolicies;
-    public ComponentCommandTasks(ObjectMapper json, TangoGateway gateway, List<ExecutionPolicy> executionPolicies, QualificationRuntime qualifications) {
-        this.qualifications = qualifications;
+    public ComponentCommandTasks(ObjectMapper json, TangoGateway gateway, List<ExecutionPolicy> executionPolicies, SystemStateRuntime systemStates) {
+        this.systemStates = systemStates;
         this.json = json;
         this.gateway = gateway;
         this.executionPolicies = List.copyOf(executionPolicies);
@@ -45,18 +45,21 @@ public class ComponentCommandTasks {
         e.setVariableLocal("commandNode", e.getCurrentActivityId());
         e.setVariableLocal("expectedState", expectedState == null ? "" : expectedState);
         e.setVariableLocal("sent", false);
-        qualifications.bind(e);
+        systemStates.bind(e);
+        for(var requirement:cn.cdi8.workbench.systemstate.SystemStateModel.elements(e.getCurrentFlowElement(),"requires"))
+            systemStates.require(e,cn.cdi8.workbench.systemstate.SystemStateModel.attr(requirement,"state"));
     }
 
     public void verify(DelegateExecution e) {
-        synchronized (qualifications) {
+        synchronized (systemStates) {
         try {
             JsonNode result = json.readTree((String)e.getVariableLocal("commandResult"));
             String expected = (String)e.getVariableLocal("expectedState");
             if (!Objects.equals(e.getVariableLocal("commandId"), result.path("command_id").asText())
-                    || !Objects.equals(e.getVariableLocal("commandAction"), result.path("action").asText())
-                    || !"succeeded".equals(result.path("status").asText()))
+                    || !Objects.equals(e.getVariableLocal("commandAction"), result.path("action").asText()))
                 throw new IllegalStateException("动作结果或任务关联不匹配");
+            if (!"succeeded".equals(result.path("status").asText()))
+                throw new IllegalStateException(result.path("reason").asText("设备动作未成功："+result.path("status").asText()));
             JsonNode current = gateway.snapshot((String)e.getVariableLocal("commandDevice"));
             if (!current.path("active_command_id").isNull() && current.hasNonNull("active_command_id"))
                 throw new IllegalStateException("设备仍有执行中的任务");
@@ -64,13 +67,11 @@ public class ComponentCommandTasks {
                     .noneMatch(value -> value.equals(current.path("state_id").asText())))
                 throw new IllegalStateException("设备未到达目标状态：" + expected);
             for (var policy : executionPolicies) policy.verifyCommand(e, current);
-            qualifications.establish(e, current);
         } catch (Exception ex) {
             e.setVariable("failureReason", ex.getMessage());
             throw new BpmnError("DEVICE_ERROR", ex.getMessage());
         }
     }
-
     }
 
     public void mark(DelegateExecution e, String name) { e.setVariable(name, true); }

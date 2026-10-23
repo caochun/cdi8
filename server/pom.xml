@@ -20,6 +20,7 @@
       <resource><directory>../target/workbench-static</directory><targetPath>static</targetPath></resource>
       <resource><directory>../examples/gxlf/bpmn</directory><targetPath>processes</targetPath><includes><include>*.bpmn20.xml</include></includes></resource>
       <resource><directory>../examples/gxlf/scxml</directory><targetPath>component-models</targetPath><includes><include>*.scxml</include></includes></resource>
+      <resource><directory>../examples/gxlf/system</directory><targetPath>system-models</targetPath><includes><include>*.system.xml</include></includes></resource>
     </resources>
     <plugins>
       <plugin>

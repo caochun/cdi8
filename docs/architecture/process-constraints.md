@@ -1,101 +1,76 @@
-# 实验过程约束：初始化到功能检查
+# 操作流程与实验系统状态
 
-本轮将四组件初始化作为完整的约束示例。运行控制依据本次实验已经执行的检查、当前设备条件及期间观察到的失效事实；模型版本不作为新的放行条件。
+流程模型回答“要执行哪些操作、按什么顺序、如何处理等待和失败”；系统状态模型回答“整个实验系统当前处于什么状态、该状态必须由哪些设备事实支持”。两者分开建模，操作推进系统状态，设备观测持续验证系统状态。
 
-## 设备与流程的职责
+两种模型的设计依据与职责边界见[操作模型与系统状态声明模型](operational-and-declarative-models.md)。
 
-采用混合表达，按规则归属建模：
+## 三层约束
 
-- **设备模型**用 SCXML 请求迁移和 `cond` 定义动作在当前状态及故障状态下是否允许受理。`componentMetadata.actions.<action>.request_event` 只负责动作到事件的映射，不再维护允许状态表；忙闲互斥由 Java 运行时统一执行。这些规则对所有调用者生效。
-- **流程模型**定义本次实验必须取得的资格、资格依赖、参与者集合、先后顺序、持续保持、超时及中断策略。设备不需要知道整个实验有哪些参与者，也不自行建立“本次实验已通过”的流程资格。
-- **实验附加条件**由流程声明，只能收紧设备自身准入范围。可在设备本地判定的附加条件随命令传递，设备在受理时同时检查。
-
-实际放行必须同时满足流程资格、设备动作准入和可选实验附加条件。控制端读到动作就绪只是一份当前观察；设备的本地受理检查才决定动作是否真正被接受。
-
-## 模型声明和执行点
-
-| 约束 | 声明 | 执行点 |
+| 层 | 建模位置 | 责任 |
 |---|---|---|
-| 历史资格 | `ctl:establish on="verifiedSuccess"` | 命令结果及当前状态核验成功后建立，限定在本次运行作用域及实例集合 |
-| 资格依赖 | `ctl:qualification dependsOn="powerQualified"` | 建立功能资格前及持续检查时，要求依赖资格存在；下发前必须显式声明依赖要求 |
-| 设备动作准入 | 设备 SCXML 的请求迁移及守卫；BPMN 用 `ctl:actionContract` 引用当前任务的 `action` | 工作台下发前读取设备声明的就绪结果；设备始终在受理事务内按同一迁移选择语义复核 |
-| 实验附加进入条件 | 可选 `ctl:entryCondition states="..." idle="true"` | 工作台下发前检查；条件随命令传递，由设备受理时再次检查，与设备准入取交集 |
-| 持续条件 | `ctl:accept` 和 `qualificationPolicy` | 资格建立后监测到初始化作用域退出，失效或未知锁存并中断作用域 |
-| 完成条件 | `expectedState`、命令成功结果、`ctl:require at="completion"` | 命令完成核验及初始化完成关口；不以 accepted 或并行汇合代替成功证据 |
-| 等待期限 | 命令和作用域的 BPMN 定时边界 | 防止通信异常、设备不返回结果时无限等待 |
+| 设备本地约束 | 组件 SCXML | 单设备动作在什么状态和条件下可受理；忙闲互斥；设备故障联锁。任何 Tango 调用方都受约束。 |
+| 操作流程 | BPMN | 操作次序、并行/汇合、参与设备、等待、超时、动作结果核验，以及何时报告系统状态转换。 |
+| 实验系统状态 | 独立 `.system.xml` | 跨设备的高层状态、合法转换，以及每个状态必须持续成立的设备状态谓词。 |
 
-`actionContract`、可选 `entryCondition` 只约束当前命令目标，`require targets="allComponents"` 约束整组参与者。八个初始化动作均使用 `<ctl:actionContract />`，不再将设备动作的允许状态列表抄进 BPMN。动作名继续由任务的 `flowable:field name="action"` 按组件选择，契约引用不再重复声明动作名。
+流程位置不等于系统状态。BPMN 的汇合只说明令牌到达汇合点，不能证明设备已满足实验状态；状态转换报告会在汇合后读取 Tango 当前快照，并核对声明模型里的目标状态谓词。设备自身动作准入仍由 SCXML 决定，系统状态不会替代或放宽它。
 
-设备允许在哪些状态单独重试功能检查，由各组件动作模型决定。初始化流程仍要求本次全部参与者已建立且持续保持上电资格，才开始功能检查。故障或检查失败导致本次资格失效后，即使设备允许人工重试，也不能恢复已失败的流程。
+## 声明格式
 
-`ctl:accept` 仍声明本次资格允许持续存在的设备状态，`expectedState` 仍声明该流程任务的完成验收状态；这两者表达实验的证据和验收要求，不是动作的设备准入列表。动作契约当前公开的是受理规则与就绪结果，尚未把这些流程验收条件替换为设备语义事实。
-
-## 资格依赖
+`examples/gxlf/system/gxlf-initialization.system.xml` 定义四组件初始化示例：
 
 ```xml
-<ctl:qualification id="functionQualified" targets="allComponents" dependsOn="powerQualified">
-  <ctl:accept component="seed" states="qualified" />
-  <!-- 其他组件各自声明完成状态 -->
-</ctl:qualification>
+<system-state-model xmlns="https://cdi8.cn/system-state/v1"
+                    id="gxlf-initialization"
+                    initial="uninitialized"
+                    evidenceMaxAgeMs="2000">
+  <state id="uninitialized" label="未初始化" />
+  <state id="powered" label="已上电">
+    <require collection="allComponents" component="seed"
+             states="powerOnChecked" outerStates="ready" />
+    <require collection="allComponents" component="shg"
+             states="powerOnOk" outerStates="ready" />
+  </state>
+  <transition id="powerChecksVerified"
+              from="uninitialized" to="powered" />
+</system-state-model>
 ```
 
-依赖是同一作用域内的资格引用，可以空白分隔声明多个。依赖和派生资格必须使用相同的目标集合；建立派生资格前要求全体目标的依赖资格已经建立且经过当前复核。资格只能给定义目标集合内、组件类型一致的实例建立。
+`require` 对集合中指定组件的每台设备都成立；`states` 与 `outerStates` 是“或”关系。集合为空、集合里没有该组件、设备快照缺少来源 ID 或修订号，均不能作为有效证据。初始状态也可以声明设备谓词，以便在操作开始后立即持续监控；未声明谓词的初始状态只记录流程给定的起点。其他状态必须包含设备谓词。状态转换只能引用模型中已声明的状态。
 
-持续检查发现依赖记录缺失或任何资格不再成立，会锁存整个作用域失败，而不是撤销一个标志后让其他分支继续。本轮不支持在同一失败作用域内重新取得资格并恢复运行；故障恢复后重新运行初始化。
-
-## 动作契约、附加条件与通信不确定性
+BPMN 在 process 级引用声明，并在操作节点报告转换或要求当前状态：
 
 ```xml
-<flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;function_check&quot;}" />
-<ctl:actionContract />
-<ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="dispatch" />
+<bpmn:extensionElements>
+  <sys:systemModel ref="gxlf-initialization" />
+</bpmn:extensionElements>
+<bpmn:serviceTask id="report_powered"
+  flowable:expression="${systemStates.report(execution, 'powerChecksVerified')}" />
+<bpmn:serviceTask id="function_check"
+  flowable:delegateExpression="${componentCommand}">
+  <bpmn:extensionElements>
+    <sys:requires state="powered" />
+  </bpmn:extensionElements>
+</bpmn:serviceTask>
 ```
 
-设备快照声明 `supports_action_contract=true`，并提供 `action_contracts.<action>`：`entry.event` 给出请求事件，`entry.idle=true` 表达设备互斥规则；`ready` 和可选 `reason` 表达当前本机就绪情况，不返回允许状态表。就绪判断直接复用 Apache SCXML 迁移选择，包含祖先状态、事件前缀及 `cond`；查询不执行迁移中的赋值、回调、状态退出/进入，且会还原临时 `_event`。守卫必须是无副作用的条件表达式，模型加载时检查，求值无法确认时不放行。
+组件初始化先并行完成四类设备的上电检查，汇合后报告 `powered`；系统运行时核对四类设备快照后才记录转换。功能检查节点要求 `powered`，运行时在下发前重新读取并核验系统声明状态。所有功能检查完成后，再报告 `initialized`。
 
-请求事件没有启用迁移时，命令协议明确返回并持久化 `rejected`。无目标请求迁移被选中并执行仍算受理，不能通过状态是否变化判断动作有没有被处理。原本请求时撤销参数资格或重新进入采集状态的带目标迁移继续生效。
+## 运行语义与失效
 
-流程只引用动作契约，工作台不另存一份设备准入表。契约缺失、未声明支持、就绪结果不是布尔值或就绪为 false，均阻止下发并中断资格作用域。独立设备试验和运行调试的动作按钮也依据设备返回的就绪结果显示。
+运行实例保存当前系统状态、转换历史、完整性（`valid`、`violated` 或 `unknown`）、失效原因和设备证据。部署时把所引用系统模型 XML 固定到 Flowable deployment resource，运行重启后仍从该部署恢复相同声明。
 
-只有实验需要进一步收紧本机条件时才额外声明，例如某次上电检查只允许从状态未确认开始，而设备本身允许在已通过检查时重复检查：
+工作流推进器处理设备事件，并按 `evidenceMaxAgeMs` 的一半间隔刷新 Tango 快照。已观察到的短暂不符合状态、状态版本倒退、设备实例更换、事件队列缺口、断连或权威读取失败，都会锁存为失效或未知并停止流程。之后设备恢复不会清除本次运行的锁存结果。状态转换报告和组件命令下发使用同一运行时监视器，避免与本地事件检查并行穿越。
 
-```xml
-<ctl:entryCondition states="statusUnknown" idle="true" />
-```
+这提供控制端的持续监控和证据门控，不构成跨 Tango 设备的原子快照或实时安全联锁。安全关键的快速联锁和已受理动作的停止仍必须由设备或独立保护系统执行；流程失败也不代表设备动作已停止，未确认命令仍通过 `unresolvedDeviceActions` 暴露。
 
-附加条件的叶状态集合与外层状态集合为“或”，设备空闲条件与状态条件为“且”。模型解析时将其转为持久化命令参数 `parameters.entry_condition`。工作台只对明确支持附加条件协议的设备下发；设备在 Execute 的同一事务内检查附加条件与自身准入。省略附加条件时，设备自身的规则仍然生效；附加条件为真也不能越过设备拒绝。协议和幂等行为见 [命令契约](../../contracts/README.md)。
+## 设备动作和 BPMN
 
-引用动作契约或附加条件的命令发送前登记一次发送尝试 `dispatchAttempted`。契约引用以 `deviceActionContract` 持久化到命令执行和历史记录，不作为命令参数发送；设备准入原本就对每次调用生效。受理回复丢失后只查询原命令，不自动重发。若首次请求未到达设备，本轮采取保守策略：查询失败保留通信异常并等待模型超时或人工中止，不把查询错误当成设备拒绝。设备真正因自身准入或附加条件拒绝时，会持久化 `rejected` 终态供工作台确认，幂等回放不会因之后设备状态改变而重新受理。
+组件 SCXML 依据请求迁移及 `cond` 守卫决定动作是否可受理，并提供设备原生 `actionContract` 就绪结果。BPMN 的 `act:actionContract` 引用这一原生契约；可选 `act:entryCondition` 只能进一步收紧当前任务目标的状态和空闲条件。工作台先检查，设备也会在受理事务内复核。命令结果、期望状态和设备实例关联仍由通用组件命令运行时验证。
 
-本机条件检查使“控制端已检查、设备状态随后变化”的情况能在设备受理时再次被拒绝。它不保证跨设备原子放行，也不能证明设备未报告的短暂异常从未发生。跨设备快速保护、本机持续联锁和故障锁存仍应由相应设备或保护系统承担。
+跨设备系统谓词不应重复写成多个任务上的隐式门控列表；应在系统状态声明中定义，由操作流程在正确的阶段要求或报告状态。动作是否允许则继续留在设备模型。这样可以区分“当前动作在设备上是否合法”与“实验系统是否已达到流程要求的整体状态”。
 
-## 失效响应与物理动作状态
+旧 `https://cdi8.cn/control/qualification/v1` 下的 `qualificationPolicy`、`qualification`、`accept`、`establish`、`require` 不再执行，也不提供兼容解析。模型验证遇到这些声明会要求迁移到 `system-state-model`；动作契约已独立位于 `https://cdi8.cn/control/action-contract/v1`。
 
-本轮已实现的响应为：锁存原因 → 中断初始化作用域 → 撤销未继续执行的流程活动 → 记录失败。不会通过恢复设备状态自动恢复本次实验，也不会在缺少设备停止语义的情况下猜测安全停止顺序。
+## 验证
 
-工作台另外展示 `unresolvedDeviceActions`：运行记录中已尝试下发、但尚未收到终态确认的动作。它与 `outcome=FAILED` 分别表达物理动作确认情况和流程结果。运行结束后不会用当前设备状态改写这份历史证据。此列表既不宣称动作仍在执行，也不宣称动作已经停止。
-
-初始化目前没有自动发设备停止命令、停止确认超时、保护顺序或人工复位流程。这些需要按组件定义停止能力及危险分析后再建模；不能从 BPMN 取消事件推导设备已安全。
-
-## 发布前检查
-
-- 资格定义必须有建立活动；引用必须存在，依赖不能循环，依赖集合必须相同。
-- 建立派生资格的命令必须声明相应的下发前依赖要求。
-- 建立资格的命令必须引用设备 `actionContract`，不允许用流程状态列表代替设备契约。
-- `actionContract` 仅支持资格作用域内的组件命令，每个任务最多声明一个，不接受额外属性；动作由任务 `action` 绑定确定。
-- 进入条件只允许用于资格作用域内的组件命令，必须声明允许状态和 `idle=true`。
-- 声明动作契约或附加条件的动作必须有 `expectedState` 完成判据和中断型定时边界。
-- 不支持的 `ctl` 声明以及进入条件中未支持的属性会报错，避免拼写错误或未实现语义被静默忽略。
-- 原有资格范围、全体实例要求、完成检查监听器和中断消息边界检查继续生效。
-
-这些是结构和声明一致性检查，不是完整的流程可达性证明，也不保证任意并行流程不存在资源冲突。
-
-## 验证和后续范围
-
-`QualificationModelTest` 验证模型契约缺失和依赖错误；`WorkflowIntegrationTest` 验证根据设备契约放行、契约缺失或结果未知时阻止下发、实验附加条件收紧、故障锁存、回复丢失恢复及未确认动作记录；设备模块的 `ComponentRuntimeTest` 验证四组件对直接调用统一检查状态与忙闲、附加条件不能放宽准入、故障中拒绝、拒绝不改变设备、重启后拒绝仍可查询及幂等回放。
-
-`JavaWorkbenchE2eIT` 使用 Java Workbench、bridge、JTango 设备及 Flowable 验证 SCXML 守卫决定真实 Tango 设备的受理和就绪、只读查询不会消耗守卫计数、无目标迁移受理、守卫不满足时拒绝且不改变设备、附加条件经真实协议链路执行、完成后幂等查询、短暂故障恢复仍失败、设备断连阻断、四组件初始化及 GXLF 全流程。
-
-内置四组件和最小模板已将旧 `requests` 状态表迁移为单个 `request_event` 加显式 SCXML 请求迁移。旧模型会得到格式迁移提示；已有模型库内容及历史版本不自动改写。完成反馈的事件映射仍用于动作结果反馈，没有迁移成准入规则。
-
-后续再扩展实验参数改变引起的资格失效、跨阶段资格保持、测量稳定时间、资源占用及人工干预规则，以及经业务确认的受控停止和复位。本轮没有将这些未实现能力加入运行放行语义。
+`WorkflowIntegrationTest` 覆盖系统状态正常转换、参与设备条件不满足、事件中的瞬态失效、断连未知、失效锁存及阻止后续操作。`JavaWorkbenchE2eIT` 通过 Java Workbench、Java Tango bridge 与 JTango 设备验证设备状态事件驱动系统失效，以及四组件初始化成功路径。设备侧 `ComponentRuntimeTest` 独立验证动作准入、忙闲互斥和幂等反馈。

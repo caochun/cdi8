@@ -21,7 +21,7 @@
 | `application` | 对 API 保持稳定的工作台门面 |
 | `environment` | 运行方案存取、环境替换及空闲约束 |
 | `run` | 固定版本的运行部署、Flowable 等待、通用命令推进和场景规则接口 |
-| `scenarios.gxlf` | GXLF 的启动资格、阶段判据、持续资格和兼容表达式 |
+| `scenarios.gxlf` | GXLF 示例的流程入口选择、参与设备集合和场景特定检查 |
 | `integration.flowable` | 自定义组件命令活动和 BPMN 解析适配 |
 | `integration.tango` | 设备服务 HTTP 客户端及事件连接 |
 | `trace` | 按运行保存设备事件 |
@@ -36,42 +36,15 @@
 
 运行视图的 controller 在组件内部创建 BPMN viewer，限定 DOM 查询与样式作用域；离开运行调试时取消请求、轮询、布局任务及图形实例。切换记录时保留所选运行的部署 XML 和设备快照语义，历史运行只读。SCXML 继续使用隐藏的状态图布局渲染器隔离 SCHVIZ；该渲染器只计算布局，不承载运行调试页面或执行状态机。
 
-## 场景规则与通用执行
+## 操作流程与实验系统状态
 
-`run.RunPolicy` 描述内置场景的流程入口、默认参数、目标集合及参与设备展示；`RunPolicies` 按显式注册的流程 key 查找规则，并识别工作台发布的固定版本后缀。`run.ExecutionPolicy` 提供场景条件放行、持续资格和命令附加校验，通用运行层通过接口调用。
+操作模型和整体状态声明是两个独立模型。BPMN 描述设备操作、参与集合、等待/汇合、超时和失败响应；`.system.xml` 声明整个实验系统的高层状态、合法转换和跨设备谓词。流程在经验证的操作里报告转换，运行时验证目标状态的设备证据后更新系统状态。`sys:requires` 可要求后续操作开始前系统仍处于指定状态。
 
-GXLF 的实现集中在 `scenarios/gxlf/`：
+设备动作准入仍由 SCXML 请求迁移、`cond` 守卫和设备忙闲互斥执行。BPMN 的 `act:actionContract` 引用设备原生就绪结果；`act:entryCondition` 只能附加更严格的当前任务条件。系统状态谓词表达跨设备实验事实，不会替代设备本地联锁。详细格式与失效语义见 [实验过程约束](process-constraints.md)。
 
-- `GxlfRunPolicy`：六个内置流程、光源选择、四类模型身份、阶段入口资格及默认集合。
-- `GxlfCompletionChecks`：初始化、参数下发、准备、正式发射和后处理的最终证据。
-- `GxlfExecutionPolicy`：GXLF 的安全许可、环境、供光、预放唤醒、同步资格及故障状态判定。
-- `TangoTasks`：保留 `${tango.xxx(...)}` 的兼容门面，委托通用命令服务或 GXLF 判据，不再承担引擎实现。
+运行变量 `experimentSystemState` 保存当前系统状态、转换历史、完整性和设备证据。Tango 事件、快照刷新、状态转换与命令下发由 `systemstate.SystemStateRuntime` 协调；已观察的违例或证据未知会锁存并停止流程。系统声明随 BPMN deployment resource 固定，服务重启后按运行所用部署恢复。
 
-通用组件活动使用 `run.ComponentCommandTasks`，只负责稳定命令 ID、受理登记、结果关联、期望状态和场景校验调用。固定组件类型、模型 ID 和阶段状态名不在通用运行或 API 中硬编码。
-
-内置 GXLF 入口及其固定版本自动关联 GXLF 规则，变量 `scenarioId=gxlf` 也可显式选择这些资格检查。自定义模型默认只受自身声明的约束控制；相同的动作名、状态名或 `safety_permit` 条件名不会自动赋予 GXLF 语义。通用条件持续性由 `lab:maintain` 决定。
-
-## BPMN 资格与放行约束
-
-设备自身动作准入由 SCXML 动作模型统一定义并在设备本地执行；初始化 BPMN 通过 `ctl:actionContract` 引用设备就绪信息，保留本次实验的资格依赖、集合协作及中断策略。可选 `ctl:entryCondition` 仅表达实验额外收紧的条件。职责划分、设备受理检查及失效处置边界详见 [实验过程约束](process-constraints.md)。
-
-`qualification.QualificationModel` 和 `QualificationRuntime` 解释命名空间 `https://cdi8.cn/control/qualification/v1` 下的 `ctl` 扩展。资格是本次流程的放行凭据，绑定流程实例、子流程作用域和设备实例；设备的 SCXML 业务状态保持独立。
-
-| 声明 | 执行语义 |
-|---|---|
-| `qualificationPolicy` | 定义证据有效时间、未知时的处理方式和中断消息；作用域通过 `qualifications.open/close` 执行监听器管理 |
-| `qualification` / `accept` | 固定参与实例集合，并按组件定义可接受的叶状态或外层状态；`states` 与 `outerStates` 为“或”关系 |
-| `establish on="verifiedSuccess"` | 命令结果关联、成功状态和当前设备状态均通过验证后，为该实例建立资格 |
-| `require at="dispatch" quantifier="all"` | 在组件命令实际下发前，补读权威状态并要求目标集合中的每个实例都持有有效资格 |
-| `require at="completion" quantifier="all"` | 通过 `qualifications.check` 开始监听器，在完成确认节点再次复核全部资格 |
-
-GXLF 初始化模型在上电检查成功后建立 `powerQualified`，功能检查下发前要求所有 `allComponents` 实例均保持该资格；功能检查成功后建立 `functionQualified`，最终 `finish` 复核两类资格。上电资格允许设备正常进入 `ready`，避免将功能检查成功误判为上电资格丢失。`allComponents` 不包含条件设备。
-
-建立的资格在初始化作用域结束前持续受监测。运行推进器默认每 200 ms 处理事件，并按证据有效期补读 Tango 状态；下发和完成检查强制补读。当前模型的 `evidenceMaxAgeMs` 为 2000 ms。连接中断、权威读取失败、状态不再满足谓词、设备实例更换或证据不连续都会锁存失败，通过 `InitializationQualificationLost` 消息边界事件中断初始化。设备随后恢复不会恢复本次运行资格。
-
-资格记录保存在 Flowable 变量 `qualificationRegistry`；退出作用域后将该作用域记录保存为 `qualificationAudit`。控制端恢复时重新读取设备状态，要求设备 `source_id` 未变且状态版本与保存的证据连续。图形视图直接读取 BPMN 扩展显示资格声明。
-
-事件处理和补读受网络及调度延迟影响，跨设备快照也不是原子快照。此机制阻止控制端在已发现资格失效后继续下发命令；设备仍须在受理命令时检查自身条件，已受理动作的停止依赖设备联锁或停止协议。
+旧 `https://cdi8.cn/control/qualification/v1` BPMN 扩展已移除，不做兼容解释；模型验证会提示迁移。动作契约独立使用 `https://cdi8.cn/control/action-contract/v1`。
 
 ## 模型源文件与运行数据
 

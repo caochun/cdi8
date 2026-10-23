@@ -21,9 +21,9 @@ public class ModelStore {
     @PostConstruct public synchronized void initialize() throws Exception {
         Files.createDirectories(directory.resolve("models"));
         var resolver=new PathMatchingResourcePatternResolver();
-        for(String pattern:List.of("classpath*:processes/*.bpmn20.xml","classpath*:component-models/*.scxml"))
+        for(String pattern:List.of("classpath*:processes/*.bpmn20.xml","classpath*:component-models/*.scxml","classpath*:system-models/*.system.xml"))
             for(var resource:resolver.getResources(pattern)) {
-                String name=resource.getFilename(), id=name.replace(".bpmn20.xml", "").replace(".scxml", "");
+                String name=resource.getFilename(), id=name.replace(".bpmn20.xml", "").replace(".scxml", "").replace(".system.xml", "");
                 try(var input=resource.getInputStream()) {
                     String xml=new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
                     if(Files.exists(path(id))) {
@@ -33,7 +33,7 @@ public class ModelStore {
                         // Refresh untouched built-in examples without overwriting user drafts or versions.
                         if(!last.path("validation").path("builtin").asBoolean() || !previous.path("draft").asText().equals(last.path("xml").asText()) || xml.equals(last.path("xml").asText()))continue;
                     }
-                    save(id,name,name.endsWith("scxml")?"scxml":"bpmn",xml);
+                    save(id,name,name.endsWith("scxml")?"scxml":name.endsWith(".system.xml")?"system":"bpmn",xml);
                     addRevision(id,json.createObjectNode().put("valid",true).put("builtin",true));
                 }
             }
@@ -58,7 +58,7 @@ public class ModelStore {
         }catch(java.io.IOException ex){throw new IllegalStateException(ex);}
     }
     public synchronized ObjectNode save(String id,String name,String kind,String xml) {
-        if(!Set.of("bpmn","scxml").contains(kind))throw new IllegalArgumentException("模型类型必须为 bpmn 或 scxml");
+        if(!Set.of("bpmn","scxml","system").contains(kind))throw new IllegalArgumentException("模型类型必须为 bpmn、scxml 或 system");
         if(xml==null || xml.length()>1_000_000 || name==null || name.isBlank())throw new IllegalArgumentException("请提供名称及不超过 1 MB 的 XML");
         ObjectNode model=Files.exists(path(id))?get(id):json.createObjectNode();
         if(model.has("kind") && !kind.equals(model.path("kind").asText()))throw new IllegalArgumentException("不能更改模型类型");

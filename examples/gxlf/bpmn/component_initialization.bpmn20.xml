@@ -1,28 +1,13 @@
 <?xml version='1.0' encoding='utf-8'?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:ctl="https://cdi8.cn/control/qualification/v1" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:act="https://cdi8.cn/control/action-contract/v1" xmlns:sys="https://cdi8.cn/system-state/v1" xmlns:flowable="http://flowable.org/bpmn" xmlns:ns3="http://www.omg.org/spec/DD/20100524/DC" xmlns:ns4="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="https://cdi8.cn/control/v2">
   <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
   <bpmn:message id="stop_message" name="StopWorkflow" />
-  <bpmn:message id="qualification_lost" name="InitializationQualificationLost" />
   <bpmn:process id="component_initialization" isExecutable="true" name="四类组件初始化">
     <bpmn:documentation>本流程使用标准 BPMN 显式建模当前四类组件及其实例。四个组件分支并行执行上电检查，全部分支完成后再并行执行功能检查。每个组件分支内部使用非串行多实例，分别绑定 seedTargets、shgTargets、preampTargets、multipassTargets。上电检查只确认设备已上电，不执行上电。</bpmn:documentation>
+    <bpmn:extensionElements><sys:systemModel ref="gxlf-initialization" /></bpmn:extensionElements>
     <bpmn:startEvent id="start" name="开始" />
     <bpmn:subProcess id="normal" name="四类组件初始化">
       <bpmn:extensionElements>
-        <flowable:executionListener event="start" expression="${qualifications.open(execution)}" />
-        <flowable:executionListener event="end" expression="${qualifications.close(execution)}" />
-        <ctl:qualificationPolicy unknown="violation" onViolation="interrupt" message="InitializationQualificationLost" evidenceMaxAgeMs="2000" />
-        <ctl:qualification id="powerQualified" targets="allComponents">
-          <ctl:accept component="seed" states="powerOnChecked" outerStates="ready" />
-          <ctl:accept component="shg" states="powerOnOk" outerStates="ready" />
-          <ctl:accept component="preamp" states="powerOnOk" outerStates="ready" />
-          <ctl:accept component="multipass" states="powerOnOk" outerStates="ready" />
-        </ctl:qualification>
-        <ctl:qualification id="functionQualified" targets="allComponents" dependsOn="powerQualified">
-          <ctl:accept component="seed" states="qualified" />
-          <ctl:accept component="shg" states="functionReady" />
-          <ctl:accept component="preamp" states="functionReady" />
-          <ctl:accept component="multipass" states="functionReady" />
-        </ctl:qualification>
       </bpmn:extensionElements>
       <bpmn:startEvent id="scope_start" name="开始" />
       <bpmn:endEvent id="scope_end" name="初始化完成" />
@@ -35,19 +20,19 @@
       <bpmn:parallelGateway id="function_join" name="全部功能检查完成" />
       <bpmn:serviceTask id="finish" name="确认四类组件初始化完成" flowable:expression="${tango.initializationFinish(execution)}">
         <bpmn:extensionElements>
-          <flowable:executionListener event="start" expression="${qualifications.check(execution)}" />
-          <ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="completion" />
-          <ctl:require qualificationRef="functionQualified" targets="allComponents" quantifier="all" at="completion" />
         </bpmn:extensionElements>
       </bpmn:serviceTask>
-      <bpmn:serviceTask id="seed_power_wait" name="光纤种子源·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;powerOnChecked&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="powerQualified" on="verifiedSuccess" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="shg_power_wait" name="二倍频宽带激光注入·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="powerQualified" on="verifiedSuccess" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="preamp_power_wait" name="再生与双程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="powerQualified" on="verifiedSuccess" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="multipass_power_wait" name="多程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="powerQualified" on="verifiedSuccess" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="seed_function_wait" name="光纤种子源·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;qualified&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="functionQualified" on="verifiedSuccess" /><ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="dispatch" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="shg_function_wait" name="二倍频宽带激光注入·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="functionQualified" on="verifiedSuccess" /><ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="dispatch" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="preamp_function_wait" name="再生与双程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="functionQualified" on="verifiedSuccess" /><ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="dispatch" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
-      <bpmn:serviceTask id="multipass_function_wait" name="多程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><ctl:establish qualificationRef="functionQualified" on="verifiedSuccess" /><ctl:require qualificationRef="powerQualified" targets="allComponents" quantifier="all" at="dispatch" /><ctl:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="system_state_open" name="初始化系统状态" flowable:expression="${systemStates.open(execution)}" />
+      <bpmn:serviceTask id="seed_power_wait" name="光纤种子源·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;powerOnChecked&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="shg_power_wait" name="二倍频宽带激光注入·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="preamp_power_wait" name="再生与双程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="multipass_power_wait" name="多程放大·上电检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;power_on_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;powerOnOk&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="seed_function_wait" name="光纤种子源·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;seed&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;seed&quot;:&quot;qualified&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /><sys:requires state="powered" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${seedTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="shg_function_wait" name="二倍频宽带激光注入·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;shg&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;shg&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /><sys:requires state="powered" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${shgTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="preamp_function_wait" name="再生与双程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;preamp&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;preamp&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /><sys:requires state="powered" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${preampTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="multipass_function_wait" name="多程放大·功能检查" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;function_check&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;functionReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /><act:actionContract /><sys:requires state="powered" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="report_powered" name="报告系统状态：已上电" flowable:expression="${systemStates.report(execution, 'powerChecksVerified')}" />
+      <bpmn:serviceTask id="report_initialized" name="报告系统状态：已初始化" flowable:expression="${systemStates.report(execution, 'functionChecksVerified')}" />
       <bpmn:boundaryEvent id="seed_power_timeout" attachedToRef="seed_power_wait" cancelActivity="true" name="检查超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>
@@ -96,7 +81,8 @@
         </bpmn:timerEventDefinition>
       </bpmn:boundaryEvent>
       <bpmn:sequenceFlow id="multipass_function_timeout__raise_timeout" sourceRef="multipass_function_timeout" targetRef="raise_timeout" />
-      <bpmn:sequenceFlow id="scope_start__power_split" sourceRef="scope_start" targetRef="power_split" />
+      <bpmn:sequenceFlow id="scope_start__system_state_open" sourceRef="scope_start" targetRef="system_state_open" />
+      <bpmn:sequenceFlow id="system_state_open__power_split" sourceRef="system_state_open" targetRef="power_split" />
       <bpmn:sequenceFlow id="power_split__seed_power" sourceRef="power_split" targetRef="seed_power_wait" />
       <bpmn:sequenceFlow id="power_split__shg_power" sourceRef="power_split" targetRef="shg_power_wait" />
       <bpmn:sequenceFlow id="power_split__preamp_power" sourceRef="power_split" targetRef="preamp_power_wait" />
@@ -105,7 +91,8 @@
       <bpmn:sequenceFlow id="shg_power__power_join" sourceRef="shg_power_wait" targetRef="power_join" />
       <bpmn:sequenceFlow id="preamp_power__power_join" sourceRef="preamp_power_wait" targetRef="power_join" />
       <bpmn:sequenceFlow id="multipass_power__power_join" sourceRef="multipass_power_wait" targetRef="power_join" />
-      <bpmn:sequenceFlow id="power_join__function_split" sourceRef="power_join" targetRef="function_split" />
+      <bpmn:sequenceFlow id="power_join__report_powered" sourceRef="power_join" targetRef="report_powered" />
+      <bpmn:sequenceFlow id="report_powered__function_split" sourceRef="report_powered" targetRef="function_split" />
       <bpmn:sequenceFlow id="function_split__seed_function" sourceRef="function_split" targetRef="seed_function_wait" />
       <bpmn:sequenceFlow id="function_split__shg_function" sourceRef="function_split" targetRef="shg_function_wait" />
       <bpmn:sequenceFlow id="function_split__preamp_function" sourceRef="function_split" targetRef="preamp_function_wait" />
@@ -114,7 +101,8 @@
       <bpmn:sequenceFlow id="shg_function__function_join" sourceRef="shg_function_wait" targetRef="function_join" />
       <bpmn:sequenceFlow id="preamp_function__function_join" sourceRef="preamp_function_wait" targetRef="function_join" />
       <bpmn:sequenceFlow id="multipass_function__function_join" sourceRef="multipass_function_wait" targetRef="function_join" />
-      <bpmn:sequenceFlow id="function_join__finish" sourceRef="function_join" targetRef="finish" />
+      <bpmn:sequenceFlow id="function_join__report_initialized" sourceRef="function_join" targetRef="report_initialized" />
+      <bpmn:sequenceFlow id="report_initialized__finish" sourceRef="report_initialized" targetRef="finish" />
       <bpmn:sequenceFlow id="finish__scope_end" sourceRef="finish" targetRef="scope_end" />
     </bpmn:subProcess>
     <bpmn:endEvent id="success" name="流程成功" />
@@ -130,10 +118,6 @@
       <bpmn:messageEventDefinition messageRef="stop_message" />
     </bpmn:boundaryEvent>
     <bpmn:sequenceFlow id="stop_boundary__failure" sourceRef="stop_boundary" targetRef="failure" />
-    <bpmn:boundaryEvent id="qualification_boundary" attachedToRef="normal" cancelActivity="true" name="任一实例资格失效或未知">
-      <bpmn:messageEventDefinition messageRef="qualification_lost" />
-    </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="qualification_boundary__failure" sourceRef="qualification_boundary" targetRef="failure" />
     <bpmn:boundaryEvent id="workflow_timeout" attachedToRef="normal" cancelActivity="true" name="流程超时">
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration>
@@ -146,12 +130,6 @@
   </bpmn:process>
   <bpmndi:BPMNDiagram id="diagram_component_initialization">
     <bpmndi:BPMNPlane id="plane_component_initialization" bpmnElement="component_initialization">
-      <bpmndi:BPMNShape id="shape_qualification_boundary" bpmnElement="qualification_boundary">
-        <ns3:Bounds x="460" y="162" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_qualification_boundary__failure" bpmnElement="qualification_boundary__failure">
-        <ns4:waypoint x="478" y="198" /><ns4:waypoint x="478" y="290" /><ns4:waypoint x="575" y="290" /><ns4:waypoint x="575" y="330" />
-      </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
         <ns3:Bounds x="40" y="110" width="36" height="36" />
       </bpmndi:BPMNShape>
@@ -282,7 +260,7 @@
       <bpmndi:BPMNShape id="shape_multipass_function_timeout" bpmnElement="multipass_function_timeout">
         <ns3:Bounds x="715" y="417" width="30" height="30" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="edge_scope_start__power_split" bpmnElement="scope_start__power_split">
+      <bpmndi:BPMNEdge id="edge_scope_start__system_state_open" bpmnElement="scope_start__system_state_open">
         <ns4:waypoint x="61" y="278" />
         <ns4:waypoint x="85" y="278" />
       </bpmndi:BPMNEdge>
@@ -334,7 +312,7 @@
         <ns4:waypoint x="385" y="278" />
         <ns4:waypoint x="405" y="278" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_power_join__function_split" bpmnElement="power_join__function_split">
+      <bpmndi:BPMNEdge id="edge_power_join__report_powered" bpmnElement="power_join__report_powered">
         <ns4:waypoint x="445" y="278" />
         <ns4:waypoint x="475" y="278" />
       </bpmndi:BPMNEdge>
@@ -386,7 +364,7 @@
         <ns4:waypoint x="775" y="278" />
         <ns4:waypoint x="795" y="278" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="edge_function_join__finish" bpmnElement="function_join__finish">
+      <bpmndi:BPMNEdge id="edge_function_join__report_initialized" bpmnElement="function_join__report_initialized">
         <ns4:waypoint x="835" y="278" />
         <ns4:waypoint x="865" y="278" />
       </bpmndi:BPMNEdge>

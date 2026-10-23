@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {onMounted,onBeforeUnmount,ref,watch} from 'vue';
 import {prepareXml} from './layout';
-import {attachQualificationOverlays} from './qualifications';
 import {attachScopeNavigation,openOverview} from './scope-navigation';
 // @ts-ignore The viewer exposes a stable runtime API; XML is the model contract.
 import BpmnViewer from 'bpmn-js/lib/NavigatedViewer';
@@ -47,7 +46,7 @@ async function render(){
    const doc=new DOMParser().parseFromString(props.xml,'application/xml');if(doc.querySelector('parsererror'))throw Error(doc.querySelector('parsererror')!.textContent||'XML 格式错误');
    updateStateAncestry();
   if(props.kind==='bpmn'){
-   navigation.value=false;cleanup?.();cleanup=undefined;if(!viewer){host.value.replaceChildren();viewer=new BpmnViewer({container:host.value});attachQualificationOverlays(viewer);attachScopeNavigation(viewer,{onChange:mark,onError:(error:any)=>emit('error',error.message)});viewer.on('element.click',(event:any)=>emit('select',event.element.id));}
+   navigation.value=false;cleanup?.();cleanup=undefined;if(!viewer){host.value.replaceChildren();viewer=new BpmnViewer({container:host.value});attachScopeNavigation(viewer,{onChange:mark,onError:(error:any)=>emit('error',error.message)});viewer.on('element.click',(event:any)=>emit('select',event.element.id));}
    await viewer.importXML(await prepareXml(props.xml));if(ticket!==sequence)return;
    const diagrams=viewer.getDefinitions().diagrams;if(!diagrams?.length)throw Error('BPMN 缺少可视化布局（BPMN DI）');
    await openOverview(viewer);if(ticket!==sequence)return;viewer.get('canvas').zoom('fit-viewport','auto');svg=null;lastGood=props.xml;mark();emit('ready');

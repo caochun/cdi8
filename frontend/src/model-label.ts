@@ -6,6 +6,7 @@ export function modelLabel(model:Model,xml=model.draft):string {
   try {
     const doc=new DOMParser().parseFromString(xml,'application/xml');
     if(model.kind==='bpmn')return doc.getElementsByTagNameNS('http://www.omg.org/spec/BPMN/20100524/MODEL','process')[0]?.getAttribute('name')||model.name;
+    if(model.kind==='system')return doc.documentElement.getAttribute('id')||model.name;
     const metadata=[...doc.getElementsByTagNameNS('*','data')].find(item=>item.getAttribute('id')==='componentMetadata');
     return (metadata?JSON.parse(metadata.textContent||'{}').display_name:'')||model.name;
   }catch{return model.name;}

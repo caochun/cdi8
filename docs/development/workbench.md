@@ -94,7 +94,7 @@ SCXML 的解析和执行统一交给 Apache Commons SCXML。Java 校验会实际
 
 本版提供连续执行、手动动作反馈、条件注入、停止及历史快照查看。尚不提供 Flowable 单步执行、断点或虚拟时钟。SCXML 编辑仅保证当前执行器支持子集的可执行性；完整 W3C SCXML 不在本版支持范围内。停止流程终止后续编排，已受理设备动作可能继续。
 
-内置四组件流程仍保留自身的业务资格检查和结束校验；通用联调入口按所选模型与集合配置运行，不要求使用固定四组件。
+内置四组件流程通过 BPMN 操作和独立实验系统状态声明协作；通用联调入口按所选模型与集合配置运行，不要求使用固定四组件。
 
 ## 持久化与接口
 
@@ -107,7 +107,7 @@ Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/
 
 ## GXLF 场景规则
 
-通用工作台按所选模型和设备集合执行；GXLF 的固定模型身份、光源选择及阶段资格集中在后端 `scenarios/gxlf/`。内置 GXLF 流程及工作台发布的对应版本自动关联这些规则；`scenarioId=gxlf` 可以显式选择同一组执行资格检查。
+通用工作台按所选模型和设备集合执行；GXLF 的固定模型身份、光源选择及阶段入口条件集中在后端 `scenarios/gxlf/`。内置 GXLF 流程及工作台发布的对应模型自动关联这些规则；`scenarioId=gxlf` 可以显式选择同一组场景检查。跨设备高层状态使用独立 `.system.xml` 声明，由 BPMN 报告转换并持续核验。
 
 现有 GXLF BPMN 的 `${tango.xxx(...)}` 表达式保持兼容。通用组件命令活动由 `ComponentCommandTasks` 推进，通用流程结束处理可使用 `${componentTasks.succeeded(execution)}` 或 `${componentTasks.failed(execution)}`。自定义模型使用相同的动作名或条件名时，不自动应用 GXLF 专用约束；需要持续保持的条件应声明 `lab:maintain="true"`。
 

@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
-/** GXLF source selection, model identities and stage entry qualifications. */
+/** GXLF source selection, model identities and stage entry checks. */
 @Component
 public class GxlfRunPolicy implements RunPolicy {
     static final Set<String> PROCESS_KEYS = Set.of("component_initialization", "parameter_dispatch",

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import {attachQualificationOverlays} from '../diagrams/qualifications';
 import BpmnViewer from 'bpmn-js/lib/NavigatedViewer';
 import {prepareXml} from '../diagrams/layout';
 import {attachScopeNavigation,openOverview} from '../diagrams/scope-navigation';
@@ -14,7 +13,6 @@ const request=async (url,options={})=>{const response=await fetch(url,{...option
 const $ = id => root.querySelector(`[data-runtime-id="${id}"]`);
 const viewer = new BpmnViewer({container:$('canvas')});
 const childViewer = new BpmnViewer({container:$('child-canvas')});
-attachQualificationOverlays(viewer);attachQualificationOverlays(childViewer);
 attachScopeNavigation(viewer,{select:$('scope'),onChange:paint,onError:showError});
 attachScopeNavigation(childViewer,{onChange:paint,onError:showError});
 let definitions=[], key='', run=null, picked=null, busy=false, loaded=false;
@@ -333,7 +331,7 @@ function expandDevice(device){
 $('expand-flow').onclick=async()=>{
   clearDetailViewer();picked=null;$('detail-title').textContent=childRun?.name||run?.name||'流程图';
   $('expanded-graph').hidden=false;$('expanded-graph').replaceChildren();$('details').replaceChildren();$('detail-count').textContent='';$('detail-dialog').showModal();
-  detailViewer=new BpmnViewer({container:$('expanded-graph')});attachQualificationOverlays(detailViewer);
+  detailViewer=new BpmnViewer({container:$('expanded-graph')});
   attachScopeNavigation(detailViewer,{onChange:()=>paintViewer(detailViewer,childRun||run),onError:showError});
   try{
     const current=childRun||run,target=detailViewer,ticket=revision;const xml=await xmlFor(current);

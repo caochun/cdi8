@@ -103,7 +103,7 @@ class JavaWorkbenchE2eIT {
             config=(ObjectNode)post(base,"/api/workbench/environment",config);
             String stoppedId=post(base,"/api/workbench/runs",config).path("id").asText();
             assertTrue(post(base,"/api/runs/"+stoppedId+"/stop",json.createObjectNode()).hasNonNull("ended"));
-            qualificationLifecycle();
+            systemStateLifecycle();
             gxlfLifecycle();
 
             // Stopping the bridge also stops its device JVM; restart never pretends the old environment is ready.
@@ -237,7 +237,7 @@ class JavaWorkbenchE2eIT {
         }
         fail("GXLF timed out: "+get(base,"/api/runs/"+id));
     }
-    void qualificationLifecycle() throws Exception {
+    void systemStateLifecycle() throws Exception {
         Map<String,JsonNode> models=new HashMap<>();
         for(JsonNode model:get(base,"/api/workbench/models"))models.put(model.path("id").asText(),model);
         ObjectNode config=initializationConfiguration(models);
@@ -266,6 +266,11 @@ class JavaWorkbenchE2eIT {
         assertEquals(refused,post(bridge,"/devices/seed_01/commands",direct),"A rejected command must stay rejected after device readiness changes");
         assertEquals(guardedCompletion,post(bridge,"/devices/seed_01/commands",guarded),"Replay must return the original result after state advancement");
         config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        for(String device:List.of("seed_01","shg_01","preamp_01","multipass_01"))
+            waitFor(()->{
+                JsonNode snapshot=get(bridge,"/devices/"+device);
+                return snapshot.path("source_id").isTextual()&&!snapshot.path("source_id").asText().isBlank();
+            },15);
         JsonNode run=post(base,"/api/workbench/runs",config);String failedId=run.path("id").asText();
 
         waitFor(()->get(bridge,"/devices/seed_01").hasNonNull("active_command_id"),15);
@@ -273,23 +278,21 @@ class JavaWorkbenchE2eIT {
         post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
             .put("command_id",seed.path("active_command_id").asText()).put("outcome","success"));
         waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),10);
-        waitFor(()->get(base,"/api/runs/"+failedId).path("qualificationRegistry").asText()
-            .contains("powerQualified|seed_01"),10);
-        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","qualification-e2e-transient-fault")
+        waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),10);
+        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","system-state-e2e-transient-fault")
             .put("event","fault_confirmed").put("observed_outer_state","异常"));
-        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","qualification-e2e-recovery")
+        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","system-state-e2e-recovery")
             .put("event","recovery_confirmed").put("observed_outer_state","未就绪"));
         post(bridge,"/devices/seed_01/commands",json.createObjectNode()
-            .put("command_id","qualification-e2e-recheck").put("action","power_on_check"));
+            .put("command_id","system-state-e2e-recheck").put("action","power_on_check"));
         post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
-            .put("command_id","qualification-e2e-recheck").put("outcome","success"));
+            .put("command_id","system-state-e2e-recheck").put("outcome","success"));
         waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),10);
 
         waitFor(()->get(base,"/api/runs/"+failedId).hasNonNull("ended"),15);
         JsonNode failed=get(base,"/api/runs/"+failedId);
         assertEquals("FAILED",failed.path("outcome").asText(),failed.toString());
-        assertTrue(failed.path("failureReason").asText().contains("资格"),failed.toString());
-        assertTrue(failed.path("activities").toString().contains("qualification_boundary"),failed.toString());
+        assertFalse(failed.path("failureReason").asText().isBlank(),failed.toString());
         assertEquals("powerOnChecked",get(bridge,"/devices/seed_01").path("state_id").asText(),
             "The device recovered to a power-qualified state before Flowable inspected the event batch");
         assertTrue(failed.path("commands").findValuesAsText("commandAction").stream()
@@ -304,16 +307,14 @@ class JavaWorkbenchE2eIT {
         seed=get(bridge,"/devices/seed_01");
         post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
             .put("command_id",seed.path("active_command_id").asText()).put("outcome","success"));
-        waitFor(()->get(base,"/api/runs/"+disconnectedId).path("qualificationRegistry").asText()
-            .contains("powerQualified|seed_01"),15);
+        waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),15);
         long devicePid=get(bridge,"/lab/environment").path("pid").asLong();
         ProcessHandle.of(devicePid).orElseThrow().destroyForcibly();
         waitFor(()->!ProcessHandle.of(devicePid).map(ProcessHandle::isAlive).orElse(false),10);
         waitFor(()->get(base,"/api/runs/"+disconnectedId).hasNonNull("ended"),20);
         JsonNode disconnected=get(base,"/api/runs/"+disconnectedId);
         assertEquals("FAILED",disconnected.path("outcome").asText(),disconnected.toString());
-        assertTrue(disconnected.path("failureReason").asText().contains("资格"),disconnected.toString());
-        assertTrue(disconnected.path("activities").toString().contains("qualification_boundary"),disconnected.toString());
+        assertFalse(disconnected.path("failureReason").asText().isBlank(),disconnected.toString());
         assertTrue(disconnected.path("commands").findValuesAsText("commandAction").stream()
             .noneMatch(action->action.contains("function_check")),disconnected.path("commands").toString());
 
@@ -351,12 +352,18 @@ class JavaWorkbenchE2eIT {
                     .filter("power_on_check"::equals).count()==4,state.path("commands").toString());
                 assertTrue(state.path("commands").findValuesAsText("commandAction").stream()
                     .filter("function_check"::equals).count()==4,state.path("commands").toString());
-                System.out.println("PASS Java qualification E2E: invalidation blocks function checks; all four components complete initialization");
+                assertEquals("initialized",systemState(state).path("state").asText());
+                System.out.println("PASS Java system-state E2E: invalidation blocks function checks; all four components complete initialization");
                 return;
             }
             Thread.sleep(80);
         }
-        fail("Qualification E2E timed out: "+get(base,"/api/runs/"+successId));
+        fail("System-state E2E timed out: "+get(base,"/api/runs/"+successId));
+    }
+    JsonNode systemState(JsonNode run) {
+        String value=run.path("experimentSystemState").asText();
+        try{return value.isBlank()?json.createObjectNode():json.readTree(value);}
+        catch(Exception ex){throw new IllegalStateException("invalid experimentSystemState",ex);}
     }
     ObjectNode initializationConfiguration(Map<String,JsonNode> models) {
         ObjectNode config=json.createObjectNode().put("entry","component_initialization").put("autoComplete",false);

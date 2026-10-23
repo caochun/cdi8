@@ -95,6 +95,23 @@ public class RunDeploymentService {
                 }
             }
             var deployment=repository.createDeployment().name("workbench-"+release);
+            Map<String,String> systemModels=new LinkedHashMap<>();
+            for(var item:documents.entrySet()) {
+                var refs=item.getValue().getElementsByTagNameNS(cn.cdi8.workbench.systemstate.SystemStateModel.NS,"systemModel");
+                for(int n=0;n<refs.getLength();n++) {
+                    String id=((Element)refs.item(n)).getAttribute("ref");
+                    if(id.isBlank())throw new IllegalArgumentException("systemModel 缺少 ref");
+                    JsonNode record=store.get(id);
+                    if(!"system".equals(record.path("kind").asText()))throw new IllegalArgumentException("引用的不是系统状态模型："+id);
+                    JsonNode revision=record.path("revisions").isEmpty()?null:record.path("revisions").get(record.path("revisions").size()-1);
+                    if(revision==null)throw new IllegalArgumentException("系统状态模型尚未发布："+id);
+                    String xml=revision.path("xml").asText();
+                    if(!cn.cdi8.workbench.systemstate.SystemStateModel.parse(xml).id().equals(id))
+                        throw new IllegalArgumentException("系统状态模型 id 与模型库 id 不一致："+id);
+                    systemModels.put(id,xml);
+                }
+            }
+            for(var model:systemModels.entrySet())deployment.addString("system-model-"+model.getKey()+".xml",model.getValue());
             String entryKey=null;
             for(String id:needed) {
                 Document doc=documents.get(id);var all=doc.getElementsByTagName("*");
@@ -159,15 +176,16 @@ public class RunDeploymentService {
                 metadata.put(row.path("component").asText(),json.readTree(data.item(i).getTextContent()));
         }
         for(String id:needed) {
-            var predicates=documents.get(id).getElementsByTagNameNS(cn.cdi8.workbench.qualification.QualificationModel.NS,"accept");
-            for(int i=0;i<predicates.getLength();i++) {
-                Element predicate=(Element)predicates.item(i);
-                JsonNode model=metadata.get(predicate.getAttribute("component"));
-                if(model==null)throw new IllegalArgumentException("资格谓词缺少组件模型："+predicate.getAttribute("component"));
-                for(String attribute:List.of("states","outerStates")) {
-                    String labels=attribute.equals("states")?"inner_labels":"outer_labels";
-                    for(String state:predicate.getAttribute(attribute).trim().split("\\s+"))
-                        if(!state.isBlank()&&!model.path(labels).has(state))throw new IllegalArgumentException("资格谓词引用不存在的状态："+state);
+            var refs=documents.get(id).getElementsByTagNameNS(cn.cdi8.workbench.systemstate.SystemStateModel.NS,"systemModel");
+            for(int r=0;r<refs.getLength();r++) {
+                String modelId=((Element)refs.item(r)).getAttribute("ref");
+                var record=store.get(modelId);var revision=record.path("revisions").get(record.path("revisions").size()-1);
+                var declared=cn.cdi8.workbench.systemstate.SystemStateModel.parse(revision.path("xml").asText());
+                for(var state:declared.states())for(var predicate:state.predicates()) {
+                    JsonNode componentModel=metadata.get(predicate.component());
+                    if(componentModel==null)throw new IllegalArgumentException("系统状态谓词缺少组件模型："+predicate.component());
+                    for(String key:predicate.states())if(!componentModel.path("inner_labels").has(key))throw new IllegalArgumentException("系统状态引用不存在的叶状态："+key);
+                    for(String key:predicate.outerStates())if(!componentModel.path("outer_labels").has(key))throw new IllegalArgumentException("系统状态引用不存在的外层状态："+key);
                 }
             }
             var tasks=documents.get(id).getElementsByTagNameNS("*","serviceTask");

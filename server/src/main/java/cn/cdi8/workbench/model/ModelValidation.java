@@ -28,8 +28,14 @@ public class ModelValidation {
         if("scxml".equals(kind))return tango.request("POST","/lab/validate",java.util.Map.of("xml",xml));
         ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
         try {
+            if("system".equals(kind)) {
+                var model=cn.cdi8.workbench.systemstate.SystemStateModel.parse(xml);
+                value.put("systemModel",model.id());value.put("valid",true);return value;
+            }
             var model=parse(xml);
-            cn.cdi8.workbench.qualification.QualificationModel.validate(model);
+            cn.cdi8.workbench.systemstate.SystemStateModel.validateProcess(model);
+            for(var process:model.getProcesses()) for(var element:allElements(process))
+                cn.cdi8.workbench.run.ActionContractModel.validateElement(element);
             if(model.getProcesses().isEmpty())throw new IllegalArgumentException("BPMN 缺少 process");
             for(var error:new ProcessValidatorFactory().createDefaultProcessValidator().validate(model)) {
                 if(error.isWarning())continue;
@@ -43,5 +49,10 @@ public class ModelValidation {
                 item.put("line",error.getLocation().getLineNumber()).put("column",error.getLocation().getColumnNumber());
         }
         value.put("valid",diagnostics.isEmpty());return value;
+    }
+    private java.util.List<org.flowable.bpmn.model.FlowElement> allElements(org.flowable.bpmn.model.FlowElementsContainer container) {
+        var result=new java.util.ArrayList<org.flowable.bpmn.model.FlowElement>();
+        for(var element:container.getFlowElements()) { result.add(element);if(element instanceof org.flowable.bpmn.model.SubProcess sub)result.addAll(allElements(sub)); }
+        return result;
     }
 }

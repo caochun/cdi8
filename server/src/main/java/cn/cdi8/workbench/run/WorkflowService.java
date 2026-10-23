@@ -1,7 +1,7 @@
 package cn.cdi8.workbench.run;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
-import cn.cdi8.workbench.qualification.QualificationRuntime;
+import cn.cdi8.workbench.systemstate.SystemStateRuntime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class WorkflowService {
     private final RuntimeService runtime;
-    private final QualificationRuntime qualifications;
+    private final SystemStateRuntime systemStates;
     private final ManagementService management;
     private final RepositoryService repository;
     private final HistoryService history;
@@ -32,18 +32,18 @@ public class WorkflowService {
     private final Map<String,Long> lastQuery = new HashMap<>();
 
     public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history, ManagementService management,
-                           TangoGateway gateway, ObjectMapper json, RunPolicies runPolicies, List<ExecutionPolicy> executionPolicies, QualificationRuntime qualifications,
+                           TangoGateway gateway, ObjectMapper json, RunPolicies runPolicies, List<ExecutionPolicy> executionPolicies, SystemStateRuntime systemStates,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
         this.management=management; this.runtime = runtime; this.repository = repository; this.history = history;
-        this.gateway = gateway; this.json = json; this.qualifications = qualifications;
+        this.gateway = gateway; this.json = json; this.systemStates = systemStates;
         this.runPolicies = runPolicies; this.executionPolicies = List.copyOf(executionPolicies);
         this.commandTimeout = commandTimeout; this.workflowTimeout = workflowTimeout;
     }
 
     @EventListener
     public void event(TangoGateway.Notice event) {
-        qualifications.observe(event);
+        systemStates.observe(event);
         changed.add(event.payload().path("device_id").asText());
     }
 
@@ -84,13 +84,13 @@ public class WorkflowService {
 
     @Scheduled(fixedDelayString = "${control.pump-delay:200}")
     public synchronized void pump() {
-        // Qualifications are checked even during a Tango disconnect.
+        // Declared system-state evidence is checked even during a Tango disconnect.
         Set<String> dirty = new HashSet<>(changed); changed.removeAll(dirty);
         for (var process : runtime.createProcessInstanceQuery().list()) {
             String pid = process.getId();
             try {
-                var violation = qualifications.inspect(pid, false);
-                if (violation != null) { qualifications.interrupt(pid, violation); continue; }
+                var violation = systemStates.inspect(pid, false);
+                if (violation != null) { stop(pid, violation.reason()); continue; }
                 if (!gateway.connected()) continue;
                 String lost = processIssue(pid);
                 if (lost != null) { stop(pid, lost); continue; }
@@ -193,7 +193,7 @@ public class WorkflowService {
             if (lost != null) { stop(execution.getProcessInstanceId(), lost); return; }
             Object parameters=variables.containsKey("commandParameters") ? json.readTree(variables.get("commandParameters").toString()) : Map.of();
             result = sent || attempted ? gateway.result(device, id)
-                : qualifications.dispatch(execution, () -> gateway.execute(device, id, action, parameters));
+                : systemStates.dispatch(execution, () -> gateway.execute(device, id, action, parameters));
             if (result == null) return;
             if (!sent) runtime.setVariableLocal(eid, "sent", true);
         } catch (TangoGateway.GatewayException ex) {
@@ -224,11 +224,11 @@ public class WorkflowService {
                     while (cause.getCause() != null) cause = cause.getCause();
                     String reason = Objects.toString(cause.getMessage(), "设备命令校验失败");
                     try {
-                        var violation = qualifications.inspect(pid, true);
-                        if (violation != null) qualifications.interrupt(pid, violation);
+                        var violation = systemStates.inspect(pid, true);
+                        if (violation != null) stop(pid,violation.reason());
                         else stop(pid, reason);
                     } catch (RuntimeException routingError) {
-                        // Preserve the original failure even if qualification routing cannot be resumed.
+                        // Preserve the original failure if state violation routing cannot be resumed.
                         if (runtime.createProcessInstanceQuery().processInstanceId(pid).count() > 0) stop(pid, reason);
                     }
                 }
@@ -297,8 +297,7 @@ public class WorkflowService {
         value.put("configuration",vars.get("workbenchConfiguration"));
         value.put("modelVersions",vars.get("modelVersions"));
         value.put("initialDeviceSnapshots",vars.get("initialDeviceSnapshots"));
-        value.put("qualificationRegistry",vars.get(QualificationRuntime.REGISTRY));
-        value.put("qualificationAudit",vars.get("qualificationAudit"));
+        value.put("experimentSystemState",vars.get(SystemStateRuntime.STATE));
         value.put("failureReason", vars.get("failureReason")); value.put("communicationError", vars.get("communicationError"));
         var active = runtime.createExecutionQuery().processInstanceId(pid).list();
         value.put("activeActivities", active.stream().map(Execution::getActivityId).filter(Objects::nonNull).distinct().toList());
