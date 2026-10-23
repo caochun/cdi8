@@ -135,6 +135,9 @@ public class ComponentRuntime implements AutoCloseable {
         ObjectNode context=(ObjectNode)parse((String)state.get("context"));
         var value=JSON.createObjectNode();
         value.put("source_id",sourceId);
+        value.put("supports_entry_condition",true);
+        value.put("supports_action_contract",true);
+        value.set("action_contracts",actionContracts(active!=null));
         value.put("state_revision",((Number)first("SELECT COALESCE(MAX(sequence),0) AS revision FROM component_events").get("revision")).longValue());
         value.put("model",model.metadata.path("model_id").asText()).put("model_version",model.metadata.path("model_version").asInt());
         value.put("model_revision",modelRevision);
@@ -151,6 +154,26 @@ public class ComponentRuntime implements AutoCloseable {
         return value;
     }
     public synchronized JsonNode snapshot() { return transaction(this::snapshotValue); }
+    private String actionIssue(String action,boolean busy) {
+        String event=model.requestEvent(action);
+        if(busy) return "设备已有执行中的动作";
+        try {
+            if(!engine.enabled(event)) return "当前状态或守卫不接受动作："+action+"，当前状态为 "+engine.leaf();
+        } catch(RuntimeException ex) { return "动作就绪无法确认："+ex.getMessage(); }
+        return null;
+    }
+    private ObjectNode actionContracts(boolean busy) {
+        var contracts=JSON.createObjectNode();
+        model.metadata.path("actions").fields().forEachRemaining(action -> {
+            var contract=contracts.putObject(action.getKey());
+            contract.put("label",action.getValue().path("label").asText(action.getKey()));
+            contract.putObject("entry").put("idle",true).put("event",model.requestEvent(action.getKey()));
+            String issue=actionIssue(action.getKey(),busy);
+            contract.put("ready",issue==null);
+            if(issue!=null) contract.put("reason",issue);
+        });
+        return contracts;
+    }
     private JsonNode updateResult(String id,String reason) throws SQLException {
         var command=command(id);var result=JSON.createObjectNode();
         result.put("command_id",id).put("action",(String)command.get("action")).put("status",(String)command.get("status"))
@@ -175,10 +198,18 @@ public class ComponentRuntime implements AutoCloseable {
                 return parse((String)previous.get("result"));
             }
             var state=state();
-            if (state.get("active_id")!=null) throw new IllegalArgumentException("已有执行中的任务："+state.get("active_id"));
-            JsonNode binding=model.action(action).path("requests").get(engine.leaf());
-            if (binding==null || !binding.isTextual()) throw new IllegalArgumentException("当前状态不接受动作："+action);
-            var step=engine.dispatch(binding.asText());
+            String entryIssue=checkEntryCondition(parameters,state);
+            // Workflow conditions only tighten these intrinsic device rules.
+            // Every caller gets the same durable refusal, even without a guard.
+            String intrinsicIssue=actionIssue(action,state.get("active_id")!=null);
+            String issue=entryIssue!=null?entryIssue:intrinsicIssue;
+            if(issue!=null) {
+                sql("INSERT INTO component_commands(id,action,parameters,status,result) VALUES(?,?,?,'rejected','{}')",id,action,encode(parameters));
+                return updateResult(id,issue);
+            }
+            String event=model.requestEvent(action);
+            var step=engine.dispatch(event);
+            if(step.transitions().isEmpty()) throw new IllegalStateException("SCXML 未执行已启用的动作请求迁移："+event);
             sql("INSERT INTO component_commands(id,action,parameters,status,result) VALUES(?,?,?,'accepted','{}')",id,action,encode(parameters));
             setLeaf();ObjectNode context=(ObjectNode)parse((String)state.get("context"));
             if (action.equals("parameter_dispatch")) {
@@ -188,8 +219,28 @@ public class ComponentRuntime implements AutoCloseable {
             saveContext(context);
             sql("UPDATE component_state SET active_id=?,last_id=? WHERE id=1",id,id);
             var detail=JSON.createObjectNode().put("task_accepted",true);detail.set("parameters",parameters);
-            log(binding.asText(),step,detail,id,null);return updateResult(id,null);
+            log(event,step,detail,id,null);return updateResult(id,null);
         });
+    }
+    /** Checked in the same monitor and transaction as command acceptance.
+     * Existing command IDs are resolved before this check, preserving replay. */
+    private String checkEntryCondition(JsonNode parameters,Map<String,Object> state) {
+        if(!parameters.has("entry_condition")) return null;
+        JsonNode entry=parameters.get("entry_condition");
+        if(!entry.isObject() || !entry.path("idle").isBoolean() || !entry.path("idle").asBoolean())
+            throw new IllegalArgumentException("entry_condition 必须要求 idle=true");
+        var names=entry.fieldNames();
+        while(names.hasNext()) if(!Set.of("states","outer_states","idle").contains(names.next()))
+            throw new IllegalArgumentException("entry_condition 包含不支持的条件");
+        for(String field:List.of("states","outer_states")) if(entry.has(field) && !entry.get(field).isTextual())
+            throw new IllegalArgumentException("entry_condition 的状态集合必须是空格分隔的字符串");
+        String states=entry.path("states").asText(""),outer=entry.path("outer_states").asText("");
+        if(states.isBlank() && outer.isBlank()) throw new IllegalArgumentException("entry_condition 缺少状态条件");
+        String leaf=(String)state.get("leaf");
+        if(state.get("active_id")!=null) return "动作进入条件不满足：设备已有执行中的任务";
+        if(!Arrays.asList(states.split("\\s+")).contains(leaf) && !Arrays.asList(outer.split("\\s+")).contains(model.outer(leaf)))
+            return "动作进入条件不满足：当前状态为 "+leaf;
+        return null;
     }
     public synchronized JsonNode complete(JsonNode request) {
         requireObject(request);String id=identifier(request,"command_id"),outcome=text(request,"outcome");

@@ -34,6 +34,7 @@ defineExpose({refresh:()=>runtime?.refresh()});
       <div class="overview-item"><span>已登记命令结果</span><strong data-runtime-id="command-summary">—</strong></div>
       <div class="overview-item"><span>运行时间</span><strong data-runtime-id="elapsed">—</strong></div>
     </section>
+    <p data-runtime-id="unresolved-actions" class="unresolved-actions" role="status" hidden></p>
     <div class="runtime-tabs" role="tablist" aria-label="运行调试视图" @keydown="stepTab"><button id="runtime-scene-tab" role="tab" aria-controls="runtime-scene" :aria-selected="view==='scene'" :tabindex="view==='scene'?0:-1" @click="view='scene'">{{selectedRun?.ended?'运行快照':'运行现场'}}</button><button id="runtime-records-tab" role="tab" aria-controls="runtime-records" :aria-selected="view==='records'" :tabindex="view==='records'?0:-1" @click="view='records'">执行记录</button></div>
     <div id="runtime-scene" v-show="view==='scene'" role="tabpanel" aria-labelledby="runtime-scene-tab">
     <div class="debug-workspace">

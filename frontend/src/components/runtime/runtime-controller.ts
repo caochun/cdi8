@@ -53,7 +53,7 @@ function renderWaits(){
   $('wait-empty').textContent=run?.ended?'结束时没有未完成的等待事项':run?'当前没有等待事项，流程可继续推进。':'开始运行后，在此查看等待与反馈。';
   $('wait-diagnostics').hidden=!count;
   let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>'+escape(w.collection+' → '+(conditionLabel[w.condition]||w.condition))+' · '+(w.met?'已满足，等待推进':'未满足')+(w.started?' · 已等待 '+duration(Date.now()-new Date(w.started)):'')+'</small></div><div>'+w.devices.map(d=>'<button data-condition="'+escape(w.condition)+'" data-device="'+escape(d.id)+'">模拟确认 · '+escape(d.id)+'</button>').join('')+'</div></div>').join('');
-  html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+StateCharts.action(modelKey(deviceCache.find(d=>d.id===c.commandDevice)?.snapshot||{}),c.commandAction))+'</b><small>'+(c.sent?'设备已受理，等待动作结果':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
+  html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+StateCharts.action(modelKey(deviceCache.find(d=>d.id===c.commandDevice)?.snapshot||{}),c.commandAction))+'</b><small>'+(c.sent?'设备已受理，等待动作结果':c.dispatchAttempted?'已尝试下发，受理情况待确认；仅查询原命令':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
   const due=flattenRuns().flatMap(r=>r.timers||[]).map(t=>new Date(t.due)).sort((a,b)=>a-b)[0];
   if(due)html+='<p class="muted">最近超时期限：'+escape(due.toLocaleString())+' · 剩余 '+duration(due-Date.now())+'</p>';
   $('wait-list').innerHTML=html;
@@ -66,7 +66,7 @@ $('wait-list').addEventListener('click',async event=>{
 });
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const outcomeLabel = {RUNNING:'执行中', SUCCEEDED:'已完成', FAILED:'已停止'};
-const taskLabel = {accepted:'已接受', succeeded:'已完成', failed:'失败', interrupted:'已中断', rejected:'已拒绝', cancelled:'已取消'};
+const taskLabel = {accepted:'已接受', succeeded:'已完成', failed:'失败', interrupted:'已中断', rejected:'已拒绝', cancelled:'已取消', unconfirmed:'受理待确认'};
 const conditionLabel = {
   safety_permit: '安全许可',
   preamp_repeat_ready: '预放重频模式',
@@ -118,7 +118,7 @@ function showError(error){if(disposed||error?.name==='AbortError')return;$('erro
 function parseResult(command){if(!command?.commandResult)return null;if(typeof command.commandResult==='object')return command.commandResult;try{return JSON.parse(command.commandResult);}catch(_){return null;}}
 function flattenRuns(current=run){return current?[current,...(current.children||[]).flatMap(c=>flattenRuns(c))]:[];}
 function allCommands(){return flattenRuns().flatMap(r=>(r.commands||[]).map(c=>({...c,owner:r})));}
-function commandStatus(c){return parseResult(c)?.status||(c.sent?'accepted':'queued');}
+function commandStatus(c){return parseResult(c)?.status||(c.sent?'accepted':c.dispatchAttempted?'unconfirmed':'queued');}
 function fit(target){
   if(!target.getDefinitions())return;
   const canvas=target.get('canvas'),rect=canvas.getContainer().getBoundingClientRect();
@@ -220,6 +220,10 @@ function showDetails(){
 }
 function renderRun(){
   renderWaits();
+  const unresolved=flattenRuns().flatMap(r=>r.unresolvedDeviceActions||[]);
+  $('unresolved-actions').hidden=!unresolved.length;
+  $('unresolved-actions').textContent=unresolved.length
+    ?'流程已结束，但下列设备动作尚无终态确认：'+unresolved.map(c=>c.device+' / '+c.action).join('、')+'。流程中断不代表设备已停止，请核实设备并按规程处置。':'';
   const state=run?(outcomeLabel[run.outcome]||run.outcome):'流程定义';
   $('outcome').textContent=state;$('diagram-state').textContent=state;
   $('reason').textContent=run?.failureReason||run?.communicationError||'';
@@ -308,12 +312,12 @@ function renderDeviceControls(device){
  if(run?.ended||!device.connected)return;
  const s=device.snapshot||{},metadata=StateCharts.capabilities(modelKey(s));
  const controls=document.createElement('div');controls.className='device-debug-controls';
- const actions=Object.entries(metadata.actions||{}).filter(([key,spec])=>Object.prototype.hasOwnProperty.call(spec.requests||{},s.inner_state||s.state_id));
+ const actions=Object.entries(s.action_contracts||{}).filter(([,spec])=>spec.ready===true);
  for(const [key,spec]of actions){const button=document.createElement('button');button.textContent=spec.label||key;button.disabled=Boolean(s.active_command_id);button.onclick=()=>operate('commands',{command_id:crypto.randomUUID(),action:key,parameters:{}});controls.append(button);}
  if(s.active_command_id)for(const [outcome,label]of [['success','成功反馈'],['failure','失败反馈']]){const button=document.createElement('button');button.textContent=label;button.onclick=()=>operate('simulate',{command_id:s.active_command_id,outcome});controls.append(button);}
  const confirmations=Object.entries(metadata.confirmations||{}).filter(([key,c])=>(c.source_outer||[]).includes(s.outer_state));
  if(confirmations.length){const select=document.createElement('select');for(const [key,c]of confirmations)select.add(new Option(c.label,key));const button=document.createElement('button');button.textContent='注入确认事件';button.onclick=()=>operate('events',{event_id:crypto.randomUUID(),event:select.value,observed_outer_state:metadata.confirmations[select.value].observation});controls.append(select,button);}
- async function operate(operation,payload){if(disposed||changing||run?.ended||!loaded)return;const ticket=revision;const fields=[...controls.querySelectorAll('button,select')].map(c=>[c,c.disabled]);fields.forEach(([c])=>c.disabled=true);try{await api('/workbench/devices/'+encodeURIComponent(device.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});await refreshDevices(ticket);if(disposed||ticket!==revision)return;$('detail-dialog').close();expandDevice(deviceCache.find(d=>d.id===device.id));showError(null);}catch(error){showError(error);}finally{fields.forEach(([c,disabled])=>c.disabled=disabled);}}
+ async function operate(operation,payload){if(disposed||changing||run?.ended||!loaded)return;const ticket=revision;const fields=[...controls.querySelectorAll('button,select')].map(c=>[c,c.disabled]);fields.forEach(([c])=>c.disabled=true);try{const result=await api('/workbench/devices/'+encodeURIComponent(device.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});await refreshDevices(ticket);if(disposed||ticket!==revision)return;$('detail-dialog').close();expandDevice(deviceCache.find(d=>d.id===device.id));if(result?.status==='rejected')throw Error(result.reason||'设备拒绝动作');showError(null);}catch(error){showError(error);}finally{fields.forEach(([c,disabled])=>c.disabled=disabled);}}
  $('details').prepend(controls);
 }
 

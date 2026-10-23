@@ -12,12 +12,18 @@
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
   <state id="notReady" initial="unchecked">
-    <state id="unchecked" />
+    <transition event="shutdown.requested" />
+    <transition event="power-check.requested" />
+    <state id="unchecked">
+    </state>
     <state id="powerOnOk">
+      <transition event="function-check.requested" />
     </state>
     <state id="checkFailed">
+      <transition event="function-check.requested" />
     </state>
-    <state id="shutdownNormal" />
+    <state id="shutdownNormal">
+    </state>
     <transition event="fault.confirmed" target="faultLock" />
     <transition event="communication.failure-confirmed" target="commFault" />
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
@@ -29,15 +35,21 @@
     <transition event="shutdown.confirmed" target="shutdownNormal" type="internal" />
   </state>
   <state id="ready" initial="functionReady">
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="functionReady">
+      <transition event="configuration.requested" />
       <transition event="configuration.validated" target="parameterOk" />
     </state>
     <state id="parameterOk">
+      <transition event="preamp.wakeup.requested" />
       <transition event="configuration.invalidated" target="functionReady" />
-      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="configuration.requested" target="functionReady" />
       <transition event="preamp.wakeup.completed" target="wakeup" />
     </state>
     <state id="standbyReady">
+      <transition event="configuration.requested" />
       <transition event="configuration.validated" target="parameterOk" />
     </state>
     <transition event="standby.completed" target="standbyReady" type="internal" />
@@ -51,20 +63,28 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="wakeup" initial="wakeupReady">
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="wakeupReady">
+      <transition event="energy.coarse-loop.requested" />
       <transition event="energy.coarse-loop.completed" target="coarseLoopOk" />
       <transition event="preamp.wakeup.failed" target="wakeupFailed" />
     </state>
     <state id="coarseLoopOk">
+      <transition event="energy.fine-loop.requested" />
       <transition event="energy.coarse-loop.invalidated" target="wakeupReady" />
       <transition event="energy.fine-loop.completed" target="fineLoopOk" />
     </state>
     <state id="fineLoopOk">
+      <transition event="energy-meter.clear-requested" />
+      <transition event="energy.fine-loop.requested" />
       <transition event="energy.fine-loop.invalidated" target="wakeupReady" />
       <transition event="energy.fine-loop.second-completed" target="fineLoopOk" />
       <transition event="energy-meter.cleared" target="energyMeterCleared" />
     </state>
     <state id="energyMeterCleared">
+      <transition event="energy.collection.requested" />
       <transition event="energy-meter.invalidated" target="fineLoopOk" />
       <transition event="energy.collection.completed" target="energyDataCollected" />
     </state>
@@ -81,10 +101,16 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="fault" initial="faultLock">
-    <state id="wakeupFailed" />
-    <state id="commFault" />
-    <state id="timeoutFault" />
-    <state id="faultLock" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
+    <state id="wakeupFailed">
+    </state>
+    <state id="commFault">
+    </state>
+    <state id="timeoutFault">
+    </state>
+    <state id="faultLock">
+    </state>
     <transition event="fault.confirmed" target="faultLock" />
     <transition event="communication.failure-confirmed" target="commFault" />
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
@@ -142,12 +168,7 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "requests": {
-        "unchecked": "power-check.requested",
-        "powerOnOk": "power-check.requested",
-        "checkFailed": "power-check.requested",
-        "shutdownNormal": "power-check.requested"
-      },
+      "request_event": "power-check.requested",
       "success_events": {
         "unchecked": "power-check.passed",
         "powerOnOk": "power-check.passed",
@@ -165,10 +186,7 @@
     },
     "function_check": {
       "label": "功能检查",
-      "requests": {
-        "powerOnOk": "function-check.requested",
-        "checkFailed": "function-check.requested"
-      },
+      "request_event": "function-check.requested",
       "success_events": {
         "powerOnOk": "qualification.confirmed",
         "checkFailed": "qualification.confirmed"
@@ -183,11 +201,7 @@
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "requests": {
-        "functionReady": "configuration.requested",
-        "parameterOk": "configuration.reconfiguration-accepted",
-        "standbyReady": "configuration.requested"
-      },
+      "request_event": "configuration.requested",
       "success_events": {
         "functionReady": "configuration.validated",
         "parameterOk": "configuration.validated",
@@ -205,9 +219,7 @@
     },
     "preamp_wakeup": {
       "label": "预放唤醒",
-      "requests": {
-        "parameterOk": "preamp.wakeup.requested"
-      },
+      "request_event": "preamp.wakeup.requested",
       "success_events": {
         "parameterOk": "preamp.wakeup.completed"
       },
@@ -221,9 +233,7 @@
     },
     "coarse_loop": {
       "label": "预放能量粗闭环",
-      "requests": {
-        "wakeupReady": "energy.coarse-loop.requested"
-      },
+      "request_event": "energy.coarse-loop.requested",
       "success_events": {
         "wakeupReady": "energy.coarse-loop.completed"
       },
@@ -237,10 +247,7 @@
     },
     "fine_loop": {
       "label": "预放能量精闭环",
-      "requests": {
-        "coarseLoopOk": "energy.fine-loop.requested",
-        "fineLoopOk": "energy.fine-loop.second-requested"
-      },
+      "request_event": "energy.fine-loop.requested",
       "success_events": {
         "coarseLoopOk": "energy.fine-loop.completed",
         "fineLoopOk": "energy.fine-loop.second-completed"
@@ -256,9 +263,7 @@
     },
     "energy_meter_clear": {
       "label": "能量计清零",
-      "requests": {
-        "fineLoopOk": "energy-meter.clear-requested"
-      },
+      "request_event": "energy-meter.clear-requested",
       "success_events": {
         "fineLoopOk": "energy-meter.cleared"
       },
@@ -272,9 +277,7 @@
     },
     "energy_collect": {
       "label": "能量数据采集",
-      "requests": {
-        "energyMeterCleared": "energy.collection.requested"
-      },
+      "request_event": "energy.collection.requested",
       "success_events": {
         "energyMeterCleared": "energy.collection.completed"
       },
@@ -288,16 +291,7 @@
     },
     "standby_reset": {
       "label": "预放待机/复位",
-      "requests": {
-        "functionReady": "standby.requested",
-        "parameterOk": "standby.requested",
-        "standbyReady": "standby.requested",
-        "wakeupReady": "standby.requested",
-        "coarseLoopOk": "standby.requested",
-        "fineLoopOk": "standby.requested",
-        "energyMeterCleared": "standby.requested",
-        "energyDataCollected": "standby.requested"
-      },
+      "request_event": "standby.requested",
       "success_events": {
         "functionReady": "standby.completed",
         "parameterOk": "standby.completed",
@@ -325,24 +319,7 @@
     },
     "shutdown": {
       "label": "关机",
-      "requests": {
-        "unchecked": "shutdown.requested",
-        "powerOnOk": "shutdown.requested",
-        "checkFailed": "shutdown.requested",
-        "shutdownNormal": "shutdown.requested",
-        "functionReady": "shutdown.requested",
-        "parameterOk": "shutdown.requested",
-        "standbyReady": "shutdown.requested",
-        "wakeupReady": "shutdown.requested",
-        "coarseLoopOk": "shutdown.requested",
-        "fineLoopOk": "shutdown.requested",
-        "energyMeterCleared": "shutdown.requested",
-        "energyDataCollected": "shutdown.requested",
-        "wakeupFailed": "shutdown.requested",
-        "commFault": "shutdown.requested",
-        "timeoutFault": "shutdown.requested",
-        "faultLock": "shutdown.requested"
-      },
+      "request_event": "shutdown.requested",
       "success_events": {
         "unchecked": "shutdown.confirmed",
         "powerOnOk": "shutdown.confirmed",
@@ -386,20 +363,7 @@
     },
     "abort_reset": {
       "label": "异常中止复位",
-      "requests": {
-        "functionReady": "abort.requested",
-        "parameterOk": "abort.requested",
-        "standbyReady": "abort.requested",
-        "wakeupReady": "abort.requested",
-        "coarseLoopOk": "abort.requested",
-        "fineLoopOk": "abort.requested",
-        "energyMeterCleared": "abort.requested",
-        "energyDataCollected": "abort.requested",
-        "wakeupFailed": "recovery.requested",
-        "commFault": "recovery.requested",
-        "timeoutFault": "recovery.requested",
-        "faultLock": "recovery.requested"
-      },
+      "request_event": "abort.requested",
       "success_events": {
         "functionReady": "abort.completed",
         "parameterOk": "abort.completed",

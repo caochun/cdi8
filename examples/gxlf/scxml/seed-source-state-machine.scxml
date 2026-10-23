@@ -11,7 +11,7 @@
 
   actions 和 confirmations 是可执行仿真契约：动作请求先建立任务，任务反馈
   再发送 success_events/failure_events；确认事件用于注入设备主动上报的事实。
-  请求事件通常是 task-only event，不改变设备状态；collection.requested 是
+  请求是否受理由 SCXML 请求迁移及守卫决定，通常使用无目标迁移；collection.requested 是
   一个例外，用于在采集完成后重新进入采集中对应的稳定出光状态。
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml"
@@ -19,10 +19,17 @@
        initial="notReady">
 
   <state id="notReady" initial="statusUnknown">
-    <state id="statusUnknown" />
-    <state id="powerOnChecked" />
-    <state id="qualificationInvalid" />
-    <state id="shutdownNormal" />
+    <transition event="shutdown.requested" />
+    <transition event="power-check.requested" />
+    <state id="statusUnknown">
+    </state>
+    <state id="powerOnChecked">
+      <transition event="function-check.requested" />
+    </state>
+    <state id="qualificationInvalid">
+    </state>
+    <state id="shutdownNormal">
+    </state>
 
     <transition event="power-check.passed"
                 target="powerOnChecked"
@@ -43,11 +50,18 @@
   </state>
 
   <state id="ready" initial="qualified">
-    <state id="qualified" />
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="configuration.requested" />
+    <transition event="abort.requested" />
+    <state id="qualified">
+    </state>
     <state id="configured">
+      <transition event="emission.requested" />
       <transition event="emission.stable-confirmed" target="stableEmission" />
     </state>
-    <state id="standbyReady" />
+    <state id="standbyReady">
+    </state>
 
     <transition event="configuration.validated"
                 target="configured"
@@ -69,7 +83,11 @@
   </state>
 
   <state id="emitting" initial="stableEmission">
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="stableEmission">
+      <transition event="collection.requested" />
       <transition event="collection.completed" target="collectionOk" />
     </state>
     <state id="collectionOk">
@@ -88,6 +106,8 @@
   </state>
 
   <state id="fault" initial="faultLocked">
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="faultLocked">
       <transition event="fault.confirmed" target="faultLocked" />
       <transition event="communication.failure-confirmed" target="faultLocked" />
@@ -161,12 +181,7 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "requests": {
-        "statusUnknown": "power-check.requested",
-        "powerOnChecked": "power-check.requested",
-        "qualificationInvalid": "power-check.requested",
-        "shutdownNormal": "power-check.requested"
-      },
+      "request_event": "power-check.requested",
       "success_events": {
         "statusUnknown": "power-check.passed",
         "powerOnChecked": "power-check.passed",
@@ -184,7 +199,7 @@
     },
     "function_check": {
       "label": "功能检查",
-      "requests": {"powerOnChecked": "function-check.requested"},
+      "request_event": "function-check.requested",
       "success_events": {"powerOnChecked": "qualification.confirmed"},
       "failure_events": {"powerOnChecked": "qualification.failed"},
       "success_key": "功能检查通过",
@@ -192,11 +207,7 @@
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "requests": {
-        "qualified": "configuration.requested",
-        "configured": "configuration.requested",
-        "standbyReady": "configuration.requested"
-      },
+      "request_event": "configuration.requested",
       "success_events": {
         "qualified": "configuration.validated",
         "configured": "configuration.validated",
@@ -212,7 +223,7 @@
     },
     "seed_source_emit": {
       "label": "种子源出光",
-      "requests": {"configured": "emission.requested"},
+      "request_event": "emission.requested",
       "success_events": {"configured": "emission.stable-confirmed"},
       "failure_events": {"configured": null},
       "success_key": "稳定出光正常",
@@ -220,10 +231,7 @@
     },
     "laser_parameter_collect": {
       "label": "激光参数采集",
-      "requests": {
-        "stableEmission": "collection.requested",
-        "collectionOk": "collection.requested"
-      },
+      "request_event": "collection.requested",
       "success_events": {
         "stableEmission": "collection.completed",
         "collectionOk": "collection.completed"
@@ -234,13 +242,7 @@
     },
     "standby_reset": {
       "label": "种子源待机/复位",
-      "requests": {
-        "qualified": "standby.requested",
-        "configured": "standby.requested",
-        "standbyReady": "standby.requested",
-        "stableEmission": "standby.requested",
-        "collectionOk": "standby.requested"
-      },
+      "request_event": "standby.requested",
       "success_events": {
         "qualified": "standby.completed",
         "configured": "standby.completed",
@@ -260,16 +262,7 @@
     },
     "abort_reset": {
       "label": "流程终止（异常中止）",
-      "requests": {
-        "qualified": "abort.requested",
-        "configured": "abort.requested",
-        "standbyReady": "abort.requested",
-        "stableEmission": "abort.requested",
-        "collectionOk": "abort.requested",
-        "faultLocked": "recovery.requested",
-        "communicationFault": "recovery.requested",
-        "timeoutFault": "recovery.requested"
-      },
+      "request_event": "abort.requested",
       "success_events": {
         "qualified": "abort.completed",
         "configured": "abort.completed",
@@ -295,20 +288,7 @@
     },
     "shutdown": {
       "label": "关机",
-      "requests": {
-        "statusUnknown": "shutdown.requested",
-        "powerOnChecked": "shutdown.requested",
-        "qualificationInvalid": "shutdown.requested",
-        "shutdownNormal": "shutdown.requested",
-        "qualified": "shutdown.requested",
-        "configured": "shutdown.requested",
-        "standbyReady": "shutdown.requested",
-        "stableEmission": "shutdown.requested",
-        "collectionOk": "shutdown.requested",
-        "faultLocked": "shutdown.requested",
-        "communicationFault": "shutdown.requested",
-        "timeoutFault": "shutdown.requested"
-      },
+      "request_event": "shutdown.requested",
       "success_events": {
         "statusUnknown": "shutdown.confirmed",
         "powerOnChecked": "shutdown.confirmed",

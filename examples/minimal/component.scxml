@@ -8,7 +8,7 @@
   "inner_labels": {"idle":"空闲", "active":"已激活"},
   "context_defaults": {},
   "actions": {
-    "activate": {"label":"激活", "requests":{"idle":"activate.request"},
+    "activate": {"label":"激活", "request_event": "activate.request",
       "success_events":{"idle":"activate.succeeded"},
       "failure_events":{"idle":"activate.failed"},
       "success_key":"激活成功", "failure_key":"激活失败"}
@@ -17,6 +17,7 @@
   ]]></data></datamodel>
   <state id="operating" initial="idle">
     <state id="idle">
+      <transition event="activate.request" />
       <transition event="activate.succeeded" target="active" />
       <transition event="activate.failed" target="idle" />
     </state>

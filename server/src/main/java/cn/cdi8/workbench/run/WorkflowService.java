@@ -180,6 +180,7 @@ public class WorkflowService {
         String id = (String)variables.get("commandId"), device = (String)variables.get("commandDevice"), action = (String)variables.get("commandAction");
         long now = System.currentTimeMillis();
         boolean sent = Boolean.TRUE.equals(variables.get("sent"));
+        boolean attempted=Boolean.TRUE.equals(variables.get("dispatchAttempted"));
         long elapsed = now - lastQuery.getOrDefault(eid, 0L);
         boolean event = dirty.contains(device);
         if (elapsed < (sent ? 5000 : 1000) && !event) return;
@@ -190,11 +191,15 @@ public class WorkflowService {
             // command ID is stable across a lost response or controller restart.
             String lost = processIssue(execution.getProcessInstanceId());
             if (lost != null) { stop(execution.getProcessInstanceId(), lost); return; }
-            result = sent ? gateway.result(device, id) : qualifications.dispatch(execution, () -> gateway.execute(device, id, action, Map.of()));
+            Object parameters=variables.containsKey("commandParameters") ? json.readTree(variables.get("commandParameters").toString()) : Map.of();
+            result = sent || attempted ? gateway.result(device, id)
+                : qualifications.dispatch(execution, () -> gateway.execute(device, id, action, parameters));
             if (result == null) return;
             if (!sent) runtime.setVariableLocal(eid, "sent", true);
         } catch (TangoGateway.GatewayException ex) {
-            if (ex.status() != 409) throw ex;
+            // Query/guarded transport failures say nothing about whether a
+            // physical command ran. Only a device terminal result proves that.
+            if (ex.status() != 409 || sent || attempted || variables.containsKey("commandParameters") || Boolean.TRUE.equals(variables.get("deviceActionContract"))) throw ex;
             result = json.valueToTree(Map.of("command_id", id, "action", action, "status", "rejected", "reason", ex.getMessage()));
         }
         String status = result.path("status").asText();
@@ -321,10 +326,25 @@ public class WorkflowService {
         value.put("timers",management.createTimerJobQuery().processInstanceId(pid).list().stream().map(t->Map.of("due",t.getDuedate(),"id",t.getId())).toList());
         Map<String,Map<String,Object>> byExecution = new LinkedHashMap<>();
         for (var variable : history.createHistoricVariableInstanceQuery().processInstanceId(pid).list()) {
-            if (Set.of("commandId","commandDevice","commandAction","commandNode","sent","commandResult","expectedState").contains(variable.getVariableName()))
+            if (Set.of("commandId","commandDevice","commandAction","commandNode","sent","commandResult","expectedState","commandParameters","deviceActionContract","dispatchAttempted").contains(variable.getVariableName()))
                 byExecution.computeIfAbsent(variable.getExecutionId(), ignored -> new LinkedHashMap<>()).put(variable.getVariableName(), variable.getValue());
         }
         value.put("commands", new ArrayList<>(byExecution.values().stream().filter(row -> row.containsKey("commandId")).toList()));
+        // A cancelled BPMN activity does not prove its physical action stopped.
+        // Describe unresolved commands from recorded evidence, without live reads
+        // that would change the meaning of a historical run.
+        List<Map<String,Object>> unresolved=new ArrayList<>();
+        if(process.getEndTime()!=null) for(var command:byExecution.values()) {
+            if(!command.containsKey("commandId")) continue;
+            if(!Boolean.TRUE.equals(command.get("sent")) && !Boolean.TRUE.equals(command.get("dispatchAttempted"))) continue;
+            boolean terminal=false;
+            if(command.get("commandResult")!=null) try {
+                terminal=Set.of("succeeded","failed","interrupted","rejected","cancelled")
+                    .contains(json.readTree(command.get("commandResult").toString()).path("status").asText());
+            } catch(java.io.IOException ignored) { }
+            if(!terminal) unresolved.add(Map.of("device",command.get("commandDevice"),"commandId",command.get("commandId"),"action",command.get("commandAction")));
+        }
+        value.put("unresolvedDeviceActions",unresolved);
         Map<String, Object> participants = new LinkedHashMap<>();
         var participantPolicy = runPolicies.find(process.getProcessDefinitionKey());
         if (participantPolicy.isPresent()) {

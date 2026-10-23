@@ -10,10 +10,19 @@
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
   <state id="notReady" initial="unchecked">
-    <state id="unchecked" />
-    <state id="powerOnOk" />
-    <state id="checkFailed" />
-    <state id="shutdownNormal" />
+    <transition event="shutdown.requested" />
+    <transition event="power-check.requested" />
+    <state id="unchecked">
+    </state>
+    <state id="powerOnOk">
+      <transition event="abort.requested" />
+      <transition event="function-check.requested" />
+    </state>
+    <state id="checkFailed">
+      <transition event="function-check.requested" />
+    </state>
+    <state id="shutdownNormal">
+    </state>
     <transition event="power-check.passed" target="powerOnOk" type="internal" />
     <transition event="power-check.failed" target="unchecked" type="internal" />
     <transition event="power-check.invalidated" target="unchecked" type="internal" />
@@ -26,14 +35,23 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="ready" initial="functionReady">
-    <state id="functionReady" />
+    <transition event="shutdown.requested" />
+    <transition event="multipass.standby.requested" />
+    <transition event="abort.requested" />
+    <state id="functionReady">
+      <transition event="configuration.requested" />
+    </state>
     <state id="parameterOk">
-      <transition event="configuration.reconfiguration-accepted" target="functionReady" type="internal" />
+      <transition event="multipass.collimation.requested" />
+      <transition event="configuration.requested" target="functionReady" type="internal" />
       <transition event="multipass.collimation.completed" target="collimationReady" />
       <transition event="multipass.collimation.failed" target="parameterOk" type="internal" />
     </state>
-    <state id="resetReady" />
-    <state id="shotReady" />
+    <state id="resetReady">
+      <transition event="configuration.requested" />
+    </state>
+    <state id="shotReady">
+    </state>
     <transition event="configuration.validated" target="parameterOk" type="internal" />
     <transition event="configuration.invalidated" target="functionReady" type="internal" />
     <transition event="multipass.standby.completed" target="resetReady" type="internal" />
@@ -46,6 +64,10 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="collimated" initial="collimationReady">
+    <transition event="shutdown.requested" />
+    <transition event="multipass.standby.requested" />
+    <transition event="multipass.enter-shot.requested" />
+    <transition event="abort.requested" />
     <state id="collimationReady">
       <transition event="multipass.enter-shot.completed" target="shotReady" />
       <transition event="multipass.enter-shot.failed" target="collimationReady" type="internal" />
@@ -62,9 +84,14 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="fault" initial="faultLock">
-    <state id="faultLock" />
-    <state id="commFault" />
-    <state id="timeoutFault" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
+    <state id="faultLock">
+    </state>
+    <state id="commFault">
+    </state>
+    <state id="timeoutFault">
+    </state>
     <transition event="fault.confirmed" target="faultLock" />
     <transition event="communication.failure-confirmed" target="commFault" />
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
@@ -95,50 +122,50 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "requests": {"unchecked": "power-check.requested", "powerOnOk": "power-check.requested", "checkFailed": "power-check.requested", "shutdownNormal": "power-check.requested"},
+      "request_event": "power-check.requested",
       "success_events": {"unchecked": "power-check.passed", "powerOnOk": "power-check.passed", "checkFailed": "power-check.passed", "shutdownNormal": "power-check.passed"},
       "failure_events": {"unchecked": "power-check.failed", "powerOnOk": "power-check.failed", "checkFailed": "power-check.failed", "shutdownNormal": "power-check.failed"},
       "success_key": "上电检查通过", "failure_key": "上电检查未通过"
     },
     "function_check": {
-      "label": "功能检查", "requests": {"powerOnOk": "function-check.requested", "checkFailed": "function-check.requested"},
+      "label": "功能检查", "request_event": "function-check.requested",
       "success_events": {"powerOnOk": "qualification.confirmed", "checkFailed": "qualification.confirmed"},
       "failure_events": {"powerOnOk": "qualification.failed", "checkFailed": "qualification.failed"},
       "success_key": "功能检查通过", "failure_key": "功能检查未通过", "success_observation": "就绪"
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "requests": {"functionReady": "configuration.requested", "parameterOk": "configuration.reconfiguration-accepted", "resetReady": "configuration.requested"},
+      "request_event": "configuration.requested",
       "success_events": {"functionReady": "configuration.validated", "parameterOk": "configuration.validated", "resetReady": "configuration.validated"},
       "failure_events": {"functionReady": null, "parameterOk": null, "resetReady": null},
       "success_key": "参数配置正常", "failure_key": "参数下发失败"
     },
     "optical_collimation": {
-      "label": "光路准直", "requests": {"parameterOk": "multipass.collimation.requested"},
+      "label": "光路准直", "request_event": "multipass.collimation.requested",
       "success_events": {"parameterOk": "multipass.collimation.completed"}, "failure_events": {"parameterOk": "multipass.collimation.failed"},
       "success_key": "光路准直达标", "failure_key": "光路准直失败"
     },
     "enter_shot_state": {
       "label": "进入打靶状态", "preconditions": ["光束引导完成", "流程层安全联锁正常"],
-      "requests": {"collimationReady": "multipass.enter-shot.requested"}, "success_events": {"collimationReady": "multipass.enter-shot.completed"},
+      "request_event": "multipass.enter-shot.requested", "success_events": {"collimationReady": "multipass.enter-shot.completed"},
       "failure_events": {"collimationReady": "multipass.enter-shot.failed"}, "success_key": "进入打靶状态完成", "failure_key": "进入打靶状态失败"
     },
     "standby_reset": {
       "label": "多程待机/复位",
-      "requests": {"functionReady": "multipass.standby.requested", "parameterOk": "multipass.standby.requested", "resetReady": "multipass.standby.requested", "shotReady": "multipass.standby.requested", "collimationReady": "multipass.standby.requested"},
+      "request_event": "multipass.standby.requested",
       "success_events": {"functionReady": "multipass.standby.completed", "parameterOk": "multipass.standby.completed", "resetReady": "multipass.standby.completed", "shotReady": "multipass.standby.completed", "collimationReady": "multipass.standby.completed"},
       "failure_events": {"functionReady": null, "parameterOk": null, "resetReady": null, "shotReady": null, "collimationReady": null}, "success_key": "复位/待机完成", "failure_key": "复位/待机失败"
     },
     "shutdown": {
       "label": "关机",
-      "requests": {"unchecked": "shutdown.requested", "powerOnOk": "shutdown.requested", "checkFailed": "shutdown.requested", "shutdownNormal": "shutdown.requested", "functionReady": "shutdown.requested", "parameterOk": "shutdown.requested", "resetReady": "shutdown.requested", "shotReady": "shutdown.requested", "collimationReady": "shutdown.requested", "faultLock": "shutdown.requested", "commFault": "shutdown.requested", "timeoutFault": "shutdown.requested"},
+      "request_event": "shutdown.requested",
       "success_events": {"unchecked": "shutdown.confirmed", "powerOnOk": "shutdown.confirmed", "checkFailed": "shutdown.confirmed", "shutdownNormal": "shutdown.confirmed", "functionReady": "shutdown.confirmed", "parameterOk": "shutdown.confirmed", "resetReady": "shutdown.confirmed", "shotReady": "shutdown.confirmed", "collimationReady": "shutdown.confirmed", "faultLock": "shutdown.confirmed", "commFault": "shutdown.confirmed", "timeoutFault": "shutdown.confirmed"},
       "failure_events": {"unchecked": null, "powerOnOk": null, "checkFailed": null, "shutdownNormal": null, "functionReady": null, "parameterOk": null, "resetReady": null, "shotReady": null, "collimationReady": null, "faultLock": null, "commFault": null, "timeoutFault": null},
       "success_key": "关机正常", "failure_key": "关机失败"
     },
     "abort_reset": {
       "label": "异常中止复位",
-      "requests": {"powerOnOk": "abort.requested", "functionReady": "abort.requested", "parameterOk": "abort.requested", "resetReady": "abort.requested", "shotReady": "abort.requested", "collimationReady": "abort.requested", "faultLock": "recovery.requested", "commFault": "recovery.requested", "timeoutFault": "recovery.requested"},
+      "request_event": "abort.requested",
       "success_events": {"powerOnOk": "abort.completed", "functionReady": "abort.completed", "parameterOk": "abort.completed", "resetReady": "abort.completed", "shotReady": "abort.completed", "collimationReady": "abort.completed", "faultLock": "recovery.completed", "commFault": "recovery.completed", "timeoutFault": "recovery.completed"},
       "failure_events": {"powerOnOk": null, "functionReady": null, "parameterOk": null, "resetReady": null, "shotReady": null, "collimationReady": null, "faultLock": null, "commFault": null, "timeoutFault": null},
       "success_key": "安全复位完成", "failure_key": "安全复位失败"

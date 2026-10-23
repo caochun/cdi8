@@ -11,7 +11,7 @@
 
   actions 和 confirmations 是可执行仿真契约：动作请求先建立任务，任务反馈
   再发送 success_events/failure_events；确认事件用于注入设备主动上报的事实。
-  请求事件通常是 task-only event，不改变设备状态；collection.requested 是
+  请求是否受理由 SCXML 请求迁移及守卫决定，通常使用无目标迁移；collection.requested 是
   一个例外，用于在采集完成后重新进入采集中对应的稳定出光状态。
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml"
@@ -19,10 +19,18 @@
        initial="notReady">
 
   <state id="notReady" initial="unchecked">
-    <state id="unchecked" />
-    <state id="powerOnOk" />
-    <state id="checkFailed" />
-    <state id="shutdownNormal" />
+    <transition event="shutdown.requested" />
+    <transition event="power-check.requested" />
+    <state id="unchecked">
+    </state>
+    <state id="powerOnOk">
+      <transition event="function-check.requested" />
+    </state>
+    <state id="checkFailed">
+      <transition event="function-check.requested" />
+    </state>
+    <state id="shutdownNormal">
+    </state>
 
     <transition event="power-check.passed"
                 target="powerOnOk"
@@ -43,11 +51,18 @@
   </state>
 
   <state id="ready" initial="functionReady">
-    <state id="functionReady" />
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="configuration.requested" />
+    <transition event="abort.requested" />
+    <state id="functionReady">
+    </state>
     <state id="parameterOk">
+      <transition event="emission.requested" />
       <transition event="emission.stable-confirmed" target="stableEmission" />
     </state>
-    <state id="standbyReset" />
+    <state id="standbyReset">
+    </state>
 
     <transition event="configuration.validated"
                 target="parameterOk"
@@ -69,7 +84,11 @@
   </state>
 
   <state id="emitting" initial="stableEmission">
+    <transition event="standby.requested" />
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="stableEmission">
+      <transition event="collection.requested" />
       <transition event="collection.completed" target="collectionOk" />
     </state>
     <state id="collectionOk">
@@ -88,6 +107,8 @@
   </state>
 
   <state id="fault" initial="faultLock">
+    <transition event="shutdown.requested" />
+    <transition event="abort.requested" />
     <state id="faultLock">
       <transition event="fault.confirmed" target="faultLock" />
       <transition event="communication.failure-confirmed" target="faultLock" />
@@ -162,12 +183,7 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "requests": {
-        "unchecked": "power-check.requested",
-        "powerOnOk": "power-check.requested",
-        "checkFailed": "power-check.requested",
-        "shutdownNormal": "power-check.requested"
-      },
+      "request_event": "power-check.requested",
       "success_events": {
         "unchecked": "power-check.passed",
         "powerOnOk": "power-check.passed",
@@ -185,10 +201,7 @@
     },
     "function_check": {
       "label": "功能检查",
-      "requests": {
-        "powerOnOk": "function-check.requested",
-        "checkFailed": "function-check.requested"
-      },
+      "request_event": "function-check.requested",
       "success_events": {
         "powerOnOk": "qualification.confirmed",
         "checkFailed": "qualification.confirmed"
@@ -202,11 +215,7 @@
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "requests": {
-        "functionReady": "configuration.requested",
-        "parameterOk": "configuration.requested",
-        "standbyReset": "configuration.requested"
-      },
+      "request_event": "configuration.requested",
       "success_events": {
         "functionReady": "configuration.validated",
         "parameterOk": "configuration.validated",
@@ -222,7 +231,7 @@
     },
     "frequency_doubled_emit": {
       "label": "二倍频出光",
-      "requests": {"parameterOk": "emission.requested"},
+      "request_event": "emission.requested",
       "success_events": {"parameterOk": "emission.stable-confirmed"},
       "failure_events": {"parameterOk": null},
       "success_key": "稳定出光正常",
@@ -232,10 +241,7 @@
     },
     "laser_parameter_collect": {
       "label": "激光参数采集",
-      "requests": {
-        "stableEmission": "collection.requested",
-        "collectionOk": "collection.requested"
-      },
+      "request_event": "collection.requested",
       "success_events": {
         "stableEmission": "collection.completed",
         "collectionOk": "collection.completed"
@@ -246,13 +252,7 @@
     },
     "standby_reset": {
       "label": "二倍频待机/复位",
-      "requests": {
-        "functionReady": "standby.requested",
-        "parameterOk": "standby.requested",
-        "standbyReset": "standby.requested",
-        "stableEmission": "standby.requested",
-        "collectionOk": "standby.requested"
-      },
+      "request_event": "standby.requested",
       "success_events": {
         "functionReady": "standby.completed",
         "parameterOk": "standby.completed",
@@ -272,16 +272,7 @@
     },
     "abort_reset": {
       "label": "流程终止（异常中止）",
-      "requests": {
-        "functionReady": "abort.requested",
-        "parameterOk": "abort.requested",
-        "standbyReset": "abort.requested",
-        "stableEmission": "abort.requested",
-        "collectionOk": "abort.requested",
-        "faultLock": "recovery.requested",
-        "commFault": "recovery.requested",
-        "timeoutFault": "recovery.requested"
-      },
+      "request_event": "abort.requested",
       "success_events": {
         "functionReady": "abort.completed",
         "parameterOk": "abort.completed",
@@ -307,20 +298,7 @@
     },
     "shutdown": {
       "label": "关机",
-      "requests": {
-        "unchecked": "shutdown.requested",
-        "powerOnOk": "shutdown.requested",
-        "checkFailed": "shutdown.requested",
-        "shutdownNormal": "shutdown.requested",
-        "functionReady": "shutdown.requested",
-        "parameterOk": "shutdown.requested",
-        "standbyReset": "shutdown.requested",
-        "stableEmission": "shutdown.requested",
-        "collectionOk": "shutdown.requested",
-        "faultLock": "shutdown.requested",
-        "commFault": "shutdown.requested",
-        "timeoutFault": "shutdown.requested"
-      },
+      "request_event": "shutdown.requested",
       "success_events": {
         "unchecked": "shutdown.confirmed",
         "powerOnOk": "shutdown.confirmed",

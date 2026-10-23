@@ -53,6 +53,8 @@ GXLF 的实现集中在 `scenarios/gxlf/`：
 
 ## BPMN 资格与放行约束
 
+设备自身动作准入由 SCXML 动作模型统一定义并在设备本地执行；初始化 BPMN 通过 `ctl:actionContract` 引用设备就绪信息，保留本次实验的资格依赖、集合协作及中断策略。可选 `ctl:entryCondition` 仅表达实验额外收紧的条件。职责划分、设备受理检查及失效处置边界详见 [实验过程约束](process-constraints.md)。
+
 `qualification.QualificationModel` 和 `QualificationRuntime` 解释命名空间 `https://cdi8.cn/control/qualification/v1` 下的 `ctl` 扩展。资格是本次流程的放行凭据，绑定流程实例、子流程作用域和设备实例；设备的 SCXML 业务状态保持独立。
 
 | 声明 | 执行语义 |

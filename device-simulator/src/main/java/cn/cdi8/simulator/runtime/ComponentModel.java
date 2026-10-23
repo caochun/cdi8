@@ -33,6 +33,15 @@ public final class ComponentModel {
                 throw new IllegalArgumentException("componentMetadata.model_version 必须为整数");
             if (!metadata.path("actions").isObject() || metadata.path("actions").isEmpty())
                 throw new IllegalArgumentException("componentMetadata.actions 不能为空");
+            var actions=metadata.path("actions").fields();
+            while(actions.hasNext()) {
+                var action=actions.next();
+                if(action.getValue().has("requests"))
+                    throw new IllegalArgumentException("动作 "+action.getKey()+" 请用 request_event 和 SCXML 请求迁移替换旧 requests 状态表");
+                JsonNode event=action.getValue().path("request_event");
+                if(!event.isTextual() || event.asText().isBlank() || event.asText().matches(".*[\\s*].*"))
+                    throw new IllegalArgumentException("动作 "+action.getKey()+" 的 request_event 必须是单个具体事件名");
+            }
             if (!metadata.path("context_defaults").isObject())
                 throw new IllegalArgumentException("componentMetadata.context_defaults 必须为对象");
             var states = root.getElementsByTagNameNS(root.getNamespaceURI(), "state");
@@ -58,6 +67,7 @@ public final class ComponentModel {
         if (value==null) throw new IllegalArgumentException("未知动作："+name);
         return value;
     }
+    public String requestEvent(String name) { return action(name).path("request_event").asText(); }
     public JsonNode confirmation(String name) {
         JsonNode value=metadata.path("confirmations").get(name);
         if (value==null) throw new IllegalArgumentException("未知确认事件："+name);

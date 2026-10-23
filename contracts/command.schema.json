@@ -6,7 +6,27 @@
   "properties": {
     "command_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$"},
     "action": {"type": "string", "minLength": 1},
-    "parameters": {"type": "object", "default": {}}
+    "parameters": {
+      "type": "object",
+      "default": {},
+      "properties": {
+        "entry_condition": {
+          "type": "object",
+          "description": "Optional experiment-specific restriction; intersects with, and never overrides, the device's intrinsic action contract.",
+          "required": ["idle"],
+          "properties": {
+            "idle": {"const": true},
+            "states": {"type": "string"},
+            "outer_states": {"type": "string"}
+          },
+          "anyOf": [
+            {"required": ["states"], "properties": {"states": {"pattern": "\\S"}}},
+            {"required": ["outer_states"], "properties": {"outer_states": {"pattern": "\\S"}}}
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
   },
   "additionalProperties": true
 }

@@ -54,6 +54,67 @@ class ScxmlEngineTest {
         assertEquals(List.of("a"),engine.dispatch("internal").exits());
         assertEquals(List.of("b","parent"),engine.dispatch("external").exits());
     }
+    @Test void readinessUsesGuardsAndTargetlessTransitionsWithoutExecutingContent() {
+        var engine=new ScxmlEngine("""
+            <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" datamodel="jexl" initial="parent">
+              <datamodel><data id="count" expr="0"/></datamodel>
+              <state id="parent" initial="a">
+                <transition event="request" cond="count == 0 &amp;&amp; In('a') &amp;&amp; _event.name == 'request.work'">
+                  <assign location="count" expr="count + 1"/>
+                </transition>
+                <state id="a"/>
+              </state>
+            </scxml>
+            """);
+        for(int i=0;i<3;i++) {
+            assertTrue(engine.enabled("request.work"));
+            assertFalse(engine.enabled("request.other"));
+            assertFalse(engine.enabled("unknown"));
+            assertEquals("a",engine.leaf());
+        }
+        var step=engine.dispatch("request.work");
+        assertFalse(step.transitions().isEmpty());
+        assertTrue(step.entries().isEmpty());assertTrue(step.exits().isEmpty());
+        assertEquals("a",engine.leaf());
+        assertFalse(engine.enabled("request.work"),"Only the real command may increment count");
+        assertTrue(engine.dispatch("request.work").transitions().isEmpty());
+    }
+    @Test void readinessAndDispatchShareChildPriorityAndAncestorFallback() {
+        var engine=new ScxmlEngine("""
+            <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" datamodel="jexl" initial="parent">
+              <state id="parent" initial="a">
+                <transition event="request" target="c"/>
+                <state id="a"><transition event="request" cond="false" target="b"/></state>
+                <state id="b"/>
+                <state id="c"><transition event="request" target="b"/></state>
+              </state>
+            </scxml>
+            """);
+        assertTrue(engine.enabled("request.work"));
+        assertEquals("c",engine.dispatch("request.work").target());
+        assertTrue(engine.enabled("request.work"));
+        assertEquals("b",engine.dispatch("request.work").target());
+    }
+    @Test void invalidGuardsCannotEnqueueErrorsWhileInspectingReadiness() {
+        var engine=new ScxmlEngine("""
+            <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" datamodel="jexl" initial="a">
+              <state id="a">
+                <transition event="request" cond="undefinedValue &gt; 0"/>
+                <transition event="safe"/>
+                <transition event="error.execution" target="b"/>
+              </state><state id="b"/>
+            </scxml>
+            """);
+        assertThrows(IllegalStateException.class,()->engine.enabled("request"));
+        assertEquals("a",engine.dispatch("safe").target());
+    }
+    @Test void guardsWithSideEffectsAreRejectedWhenLoadingTheModel() {
+        for(String guard:List.of("count = 1","count++","items.clear()","new('java.util.ArrayList')")) {
+            String xml="<scxml xmlns=\"http://www.w3.org/2005/07/scxml\" version=\"1.0\" initial=\"a\">"
+                +"<state id=\"a\"><transition event=\"request\" cond=\""+guard+"\"/></state></scxml>";
+            assertThrows(IllegalArgumentException.class,()->new ScxmlEngine(xml),guard);
+        }
+    }
     @Test void externalEntitiesAreRejected() {
         assertThrows(IllegalArgumentException.class,()->new ScxmlEngine("""
             <!DOCTYPE scxml [<!ENTITY test SYSTEM "file:///etc/passwd">]>

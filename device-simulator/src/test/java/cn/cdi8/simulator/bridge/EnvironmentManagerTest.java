@@ -29,6 +29,21 @@ class EnvironmentManagerTest {
             assertThrows(IllegalArgumentException.class,()->trials.create(broken));
         }
     }
+    @Test void trialCommandsExposeRejectionWithoutReplacingTheActiveCommand() throws Exception {
+        try(var trials=new TrialManager(directory)) {
+            String id=trials.create(xml()).path("id").asText();
+            JsonNode accepted=trials.command(id,JSON.createObjectNode().put("action","power_on_check"));
+            String command=accepted.path("commandResult").path("command_id").asText();
+            assertEquals("accepted",accepted.path("commandResult").path("status").asText());
+            assertEquals(command,accepted.path("snapshot").path("active_command_id").asText());
+            assertTrue(accepted.path("availableActions").isEmpty());
+            JsonNode refused=trials.command(id,JSON.createObjectNode().put("action","shutdown"));
+            assertEquals("rejected",refused.path("commandResult").path("status").asText());
+            assertEquals(command,refused.path("snapshot").path("active_command_id").asText());
+            assertNotEquals(command,refused.path("commandResult").path("command_id").asText());
+            assertFalse(refused.path("commandResult").path("reason").asText().isBlank());
+        }
+    }
     @Test void badConfigurationCannotTouchTheCurrentEnvironment() throws Exception {
         try(var bridge=new JavaControlBridgeApplication.Bridge(null,directory,null)) {
             JsonNode previous=bridge.environmentView();

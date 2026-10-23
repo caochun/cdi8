@@ -40,3 +40,4 @@
 .runtime-view [data-runtime-id="wait-list"]{max-height:230px}
 .runtime-view .activity-focus{max-height:255px}
 @media(max-width:600px){.runtime-view [data-runtime-id="canvas"]{height:240px}.runtime-view .flow-maps:has([data-runtime-id="child-flow"]:not([hidden])) [data-runtime-id="canvas"]{height:150px}.runtime-view [data-runtime-id="child-canvas"]{height:260px}}
+.runtime-view .unresolved-actions{margin:10px 0;padding:12px 14px;border:1px solid #d7a34c;border-radius:8px;background:#fff6e5;color:#785017;font-size:12px;line-height:1.6;overflow-wrap:anywhere}

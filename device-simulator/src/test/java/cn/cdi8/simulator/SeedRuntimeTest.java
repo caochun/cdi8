@@ -22,7 +22,7 @@ class SeedRuntimeTest {
     }
     @Test void completeSeedCycleAndIdempotentFeedback() throws Exception {
         try (var runtime=runtime()) {
-            assertThrows(IllegalArgumentException.class,()->runtime.execute(request("bad","parameter_dispatch")));
+            assertEquals("rejected",runtime.execute(request("bad","parameter_dispatch")).path("status").asText());
             perform(runtime,"power","power_on_check");
             perform(runtime,"function","function_check");
             perform(runtime,"parameters","parameter_dispatch");
@@ -79,7 +79,7 @@ class SeedRuntimeTest {
         try (var runtime=runtime()) {
             var accepted=runtime.execute(request("power","power_on_check"));
             assertThrows(IllegalArgumentException.class,()->runtime.execute(request("power","shutdown")));
-            assertThrows(IllegalArgumentException.class,()->runtime.execute(request("other","shutdown")));
+            assertEquals("rejected",runtime.execute(request("other","shutdown")).path("status").asText());
             assertEquals(encode(accepted),encode(runtime.result("power")));
             runtime.simulate(feedback("power","failure"));
             assertThrows(IllegalArgumentException.class,()->runtime.simulate(feedback("power","success")));

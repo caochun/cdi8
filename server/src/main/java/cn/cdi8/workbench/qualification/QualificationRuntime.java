@@ -54,6 +54,7 @@ public class QualificationRuntime {
             JsonNode targets=json.valueToTree(e.getVariable(collection));
             if(!targets.isArray() || targets.isEmpty()) fail(e,"资格目标集合为空："+collection);
             ObjectNode definition=definitions.putObject(id);definition.set("targets",targets);
+            definition.set("dependsOn",json.valueToTree(QualificationModel.dependencies(q)));
             ObjectNode accept=definition.putObject("accept");
             for(var a:q.getChildElements().get("accept")) {
                 var predicate=accept.putObject(QualificationModel.required(a,"component"));
@@ -81,11 +82,21 @@ public class QualificationRuntime {
         for(var binding:bindings) if("dispatch".equals(QualificationModel.attr(binding,"at")))
             refs.add(QualificationModel.required(binding,"qualificationRef"));
         if(!refs.isEmpty()) e.setVariableLocal("qualificationRequirements",refs.toString());
+        if(!QualificationModel.elements(e.getCurrentFlowElement(),"actionContract").isEmpty())
+            e.setVariableLocal("deviceActionContract",true);
+        for(var entry:QualificationModel.elements(e.getCurrentFlowElement(),"entryCondition")) {
+            var parameters=json.createObjectNode();
+            parameters.putObject("entry_condition").put("states",QualificationModel.attr(entry,"states"))
+                .put("outer_states",QualificationModel.attr(entry,"outerStates")).put("idle",true);
+            e.setVariableLocal("commandParameters",parameters.toString());
+        }
     }
     /** Called under this monitor after both command-result and fresh-state verification. */
     public synchronized void establish(DelegateExecution e,JsonNode snapshot) {
         var bindings=QualificationModel.elements(e.getCurrentFlowElement(),"establish");
         if(bindings.isEmpty()) return;
+        var issue=inspect(e.getProcessInstanceId(),true);
+        if(issue!=null) fail(e,issue.reason());
         String pid=e.getProcessInstanceId(), scopeId=Objects.toString(e.getVariable("qualificationScopeExecution"),"");
         ObjectNode root=registry(pid), scope=(ObjectNode)root.get(scopeId);
         if(scope==null) fail(e,"资格作用域不存在");
@@ -93,11 +104,19 @@ public class QualificationRuntime {
         String device=target.get("id"), component=target.get("component");
         for(var binding:bindings) {
             String ref=QualificationModel.required(binding,"qualificationRef");
+            if(!targetExists(scope.path("definitions").path(ref).path("targets"),device,component))
+                fail(e,"资格目标集合不包含当前组件实例："+ref+"|"+device);
+            for(var dependency:scope.path("definitions").path(ref).path("dependsOn")) {
+                String reason=missing(scope,dependency.asText());
+                if(reason!=null) fail(e,"建立资格 "+ref+" 的依赖未满足："+reason);
+            }
             if(!accepts(scope.path("definitions").path(ref).path("accept").path(component),snapshot))
                 fail(e,device+" 无法建立资格 "+ref+"："+text(snapshot,"state_id"));
             ObjectNode claim=((ObjectNode)scope.get("claims")).putObject(ref+"|"+device);
             claim.put("qualification",ref).put("device",device).put("component",component)
                 .put("cursor",sequence).put("observerId",observerId).put("establishedBy",Objects.toString(e.getVariableLocal("commandId"),""));
+            claim.put("establishedAt",System.currentTimeMillis());
+            claim.set("dependsOn",scope.path("definitions").path(ref).path("dependsOn").deepCopy());
             update(claim,snapshot);
             readAt.put(pid+":"+scopeId+":"+ref+"|"+device,System.currentTimeMillis());
         }
@@ -133,7 +152,49 @@ public class QualificationRuntime {
                 }
             } catch(java.io.IOException ex) { throw new IllegalStateException(ex); }
         }
+        Object parameters=runtime().getVariableLocal(e.getId(),"commandParameters");
+        boolean contractRequired=Boolean.TRUE.equals(runtime().getVariableLocal(e.getId(),"deviceActionContract"));
+        if(contractRequired || parameters!=null) {
+            String reason=null;
+            try {
+                String device=Objects.toString(runtime().getVariableLocal(e.getId(),"commandDevice"),"");
+                JsonNode snapshot=gateway.snapshot(device);
+                if(contractRequired) {
+                    String action=Objects.toString(runtime().getVariableLocal(e.getId(),"commandAction"),"");
+                    JsonNode contract=snapshot.path("action_contracts").path(action);
+                    if(!snapshot.path("supports_action_contract").isBoolean() || !snapshot.path("supports_action_contract").asBoolean())
+                        reason="设备未声明支持动作契约";
+                    else if(!contract.isObject() || !contract.path("ready").isBoolean()) reason="设备动作契约缺失或就绪状态未知："+action;
+                    else if(!contract.path("ready").asBoolean()) reason="设备动作契约未就绪："+contract.path("reason").asText(action);
+                }
+                if(reason==null && parameters!=null) {
+                    var entry=json.readTree(parameters.toString()).path("entry_condition");
+                    if(!snapshot.path("supports_entry_condition").isBoolean() || !snapshot.path("supports_entry_condition").asBoolean()) reason="设备未声明支持受理时进入条件检查";
+                    else if(!snapshot.has("active_command_id")) reason="设备空闲状态未知";
+                    else if(snapshot.hasNonNull("active_command_id")) reason="设备已有执行中的动作";
+                    else if(!contains(text(entry,"states"),text(snapshot,"state_id"))
+                            && !contains(text(entry,"outer_states"),text(snapshot,"outer_state"))) reason="当前状态不满足实验附加进入条件："+text(snapshot,"state_id");
+                }
+                if(reason!=null) reason=device+" 进入条件不满足："+reason;
+            } catch(Exception ex) {
+                reason="动作进入条件无法确认："+ex.getMessage();
+            }
+            if(reason!=null) { reject(e,reason);return null; }
+            // Once a guarded send may have reached the device, recovery queries
+            // that command only. It never treats a lost response as a new action.
+            runtime().setVariableLocal(e.getId(),"dispatchAttempted",true);
+        }
         return send.get();
+    }
+    private boolean targetExists(JsonNode targets,String device,String component) {
+        for(var target:targets) if(device.equals(text(target,"id")) && component.equals(text(target,"component"))) return true;
+        return false;
+    }
+    private void reject(Execution e,String reason) {
+        String pid=e.getProcessInstanceId(), scopeId=Objects.toString(runtime().getVariable(e.getId(),"qualificationScopeExecution"),"");
+        ObjectNode root=registry(pid), scope=(ObjectNode)root.get(scopeId);
+        if(scope==null) throw new IllegalStateException("动作进入条件缺少资格作用域");
+        scope.put("violation",reason);save(pid,root);interrupt(pid,violation(scopeId,scope,reason));
     }
     private String missing(JsonNode scope,String ref) {
         JsonNode definition=scope.path("definitions").path(ref);
@@ -176,6 +237,10 @@ public class QualificationRuntime {
         String device=text(claim,"device"), ref=text(claim,"qualification");
         JsonNode predicate=scope.path("definitions").path(ref).path("accept").path(text(claim,"component"));
         String prefix=device+" 资格 "+ref+" 失效：";
+        for(var dependency:scope.path("definitions").path(ref).path("dependsOn")) {
+            String reason=missing(scope,dependency.asText());
+            if(reason!=null) return prefix+"依赖资格不完整："+reason;
+        }
         if(!gateway.connected()) return prefix+"Tango 事件通道断开，当前资格未知";
         boolean recovering=!observerId.equals(text(claim,"observerId"));
         long recoveredRevision=claim.path("revision").asLong();

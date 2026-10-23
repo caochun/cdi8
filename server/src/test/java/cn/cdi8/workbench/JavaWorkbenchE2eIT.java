@@ -37,6 +37,7 @@ class JavaWorkbenchE2eIT {
                 .replace("sourceRef=\"activate\" targetRef=\"end\"","sourceRef=\"activate\" targetRef=\"await_alignment\"")
                 .replace("</bpmn:process>","<bpmn:sequenceFlow id=\"f3\" sourceRef=\"await_alignment\" targetRef=\"end\" /></bpmn:process>");
             trialsAndValidation(xml);
+            deviceAdmissionFromScxml(xml);
             ObjectNode component=publish("java-component.scxml","scxml",xml),process=publish("java-process.bpmn20.xml","bpmn",flow);
             ObjectNode config=configuration(component,process,false);
             config=(ObjectNode)post(base,"/api/workbench/environment",config);
@@ -126,6 +127,31 @@ class JavaWorkbenchE2eIT {
         }
     }
 
+    void deviceAdmissionFromScxml(String xml) throws Exception {
+        String guarded=xml.replace("<datamodel>","<datamodel><data id=\"quota\" expr=\"1\"/>")
+            .replace("<transition event=\"activate.request\" />",
+                "<transition event=\"activate.request\" cond=\"quota &gt; 0\"><assign location=\"quota\" expr=\"quota - 1\"/></transition>");
+        ObjectNode environment=json.createObjectNode();
+        environment.putArray("devices").addObject().put("id","guarded_01").put("component","demo")
+            .put("revision","scxml-admission-e2e").put("xml",guarded).put("autoComplete",false);
+        post(bridge,"/lab/environment",environment);
+        String endpoint="/devices/guarded_01";
+        for(int i=0;i<3;i++) assertTrue(get(bridge,endpoint).path("action_contracts").path("activate").path("ready").asBoolean());
+        ObjectNode command=json.createObjectNode().put("command_id","scxml-quota-first").put("action","activate");
+        JsonNode accepted=post(bridge,endpoint+"/commands",command);
+        assertEquals("accepted",accepted.path("status").asText());
+        assertEquals("idle",accepted.path("snapshot").path("state_id").asText());
+        post(bridge,endpoint+"/simulate",json.createObjectNode().put("command_id","scxml-quota-first").put("outcome","failure"));
+        JsonNode before=get(bridge,endpoint);
+        assertEquals("idle",before.path("state_id").asText());
+        assertFalse(before.path("action_contracts").path("activate").path("ready").asBoolean());
+        command.put("command_id","scxml-quota-rejected");
+        JsonNode refused=post(bridge,endpoint+"/commands",command);
+        assertEquals("rejected",refused.path("status").asText());
+        assertEquals(before,get(bridge,endpoint));
+        assertEquals(refused,get(bridge,endpoint+"/commands/scxml-quota-rejected"));
+        System.out.println("PASS Tango SCXML admission: readonly readiness, targetless acceptance, false guard rejects without state change");
+    }
     void trialsAndValidation(String xml) throws Exception {
         JsonNode validation=post(base,"/api/workbench/validate",json.valueToTree(Map.of("kind","scxml","xml",xml)));
         assertTrue(validation.path("valid").asBoolean());
@@ -135,6 +161,12 @@ class JavaWorkbenchE2eIT {
         for(String outcome:List.of("failure","success")) {
             trial=post(base,"/api/workbench/trials/"+id+"/commands",json.valueToTree(Map.of("action","activate")));
             String command=trial.path("snapshot").path("active_command_id").asText();
+            assertEquals("accepted",trial.path("commandResult").path("status").asText());
+            assertEquals(command,trial.path("commandResult").path("command_id").asText());
+            assertTrue(trial.path("availableActions").isEmpty());
+            JsonNode refused=post(base,"/api/workbench/trials/"+id+"/commands",json.valueToTree(Map.of("action","activate")));
+            assertEquals("rejected",refused.path("commandResult").path("status").asText());
+            assertEquals(command,refused.path("snapshot").path("active_command_id").asText());
             trial=post(base,"/api/workbench/trials/"+id+"/simulate",json.valueToTree(Map.of("command_id",command,"outcome",outcome)));
             assertEquals(outcome.equals("success")?"active":"idle",trial.path("snapshot").path("state_id").asText());
         }
@@ -210,6 +242,30 @@ class JavaWorkbenchE2eIT {
         for(JsonNode model:get(base,"/api/workbench/models"))models.put(model.path("id").asText(),model);
         ObjectNode config=initializationConfiguration(models);
         config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        // The Tango device must enforce the declared condition, even when its
+        // SCXML permits the action and the caller's earlier read was different.
+        ObjectNode guarded=json.createObjectNode().put("command_id","entry-condition-e2e").put("action","power_on_check");
+        ObjectNode guard=guarded.putObject("parameters").putObject("entry_condition").put("states","powerOnChecked").put("idle",true);
+        JsonNode before=get(bridge,"/devices/seed_01");
+        assertTrue(before.path("supports_entry_condition").asBoolean());
+        assertTrue(before.path("supports_action_contract").asBoolean());
+        assertFalse(before.path("action_contracts").path("function_check").path("ready").asBoolean());
+        ObjectNode direct=json.createObjectNode().put("command_id","intrinsic-function-e2e").put("action","function_check");
+        JsonNode refused=post(bridge,"/devices/seed_01/commands",direct);
+        assertEquals("rejected",refused.path("status").asText(),"Direct Tango calls must obey intrinsic device rules without BPMN guards");
+        assertEquals(before,get(bridge,"/devices/seed_01"));
+        assertEquals("rejected",post(bridge,"/devices/seed_01/commands",guarded).path("status").asText());
+        assertEquals(before.path("state_id"),get(bridge,"/devices/seed_01").path("state_id"));
+        assertFalse(get(bridge,"/devices/seed_01").hasNonNull("active_command_id"));
+        guard.put("states","statusUnknown");
+        guarded.put("command_id","entry-condition-e2e-accepted");
+        assertEquals("accepted",post(bridge,"/devices/seed_01/commands",guarded).path("status").asText());
+        JsonNode guardedCompletion=post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
+            .put("command_id","entry-condition-e2e-accepted").put("outcome","success"));
+        assertTrue(get(bridge,"/devices/seed_01").path("action_contracts").path("function_check").path("ready").asBoolean());
+        assertEquals(refused,post(bridge,"/devices/seed_01/commands",direct),"A rejected command must stay rejected after device readiness changes");
+        assertEquals(guardedCompletion,post(bridge,"/devices/seed_01/commands",guarded),"Replay must return the original result after state advancement");
+        config=(ObjectNode)post(base,"/api/workbench/environment",config);
         JsonNode run=post(base,"/api/workbench/runs",config);String failedId=run.path("id").asText();
 
         waitFor(()->get(bridge,"/devices/seed_01").hasNonNull("active_command_id"),15);
@@ -219,17 +275,47 @@ class JavaWorkbenchE2eIT {
         waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),10);
         waitFor(()->get(base,"/api/runs/"+failedId).path("qualificationRegistry").asText()
             .contains("powerQualified|seed_01"),10);
-        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","qualification-e2e-fault")
+        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","qualification-e2e-transient-fault")
             .put("event","fault_confirmed").put("observed_outer_state","异常"));
+        post(bridge,"/devices/seed_01/events",json.createObjectNode().put("event_id","qualification-e2e-recovery")
+            .put("event","recovery_confirmed").put("observed_outer_state","未就绪"));
+        post(bridge,"/devices/seed_01/commands",json.createObjectNode()
+            .put("command_id","qualification-e2e-recheck").put("action","power_on_check"));
+        post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
+            .put("command_id","qualification-e2e-recheck").put("outcome","success"));
+        waitFor(()->"powerOnChecked".equals(get(bridge,"/devices/seed_01").path("state_id").asText()),10);
 
         waitFor(()->get(base,"/api/runs/"+failedId).hasNonNull("ended"),15);
         JsonNode failed=get(base,"/api/runs/"+failedId);
         assertEquals("FAILED",failed.path("outcome").asText(),failed.toString());
         assertTrue(failed.path("failureReason").asText().contains("资格"),failed.toString());
         assertTrue(failed.path("activities").toString().contains("qualification_boundary"),failed.toString());
+        assertEquals("powerOnChecked",get(bridge,"/devices/seed_01").path("state_id").asText(),
+            "The device recovered to a power-qualified state before Flowable inspected the event batch");
         assertTrue(failed.path("commands").findValuesAsText("commandAction").stream()
             .noneMatch(action->action.contains("function_check")),failed.path("commands").toString());
-        assertEquals("fault",get(bridge,"/devices/seed_01").path("outer_state").asText());
+        assertFalse(failed.path("unresolvedDeviceActions").isEmpty(),"Workflow failure cannot claim the other active device actions stopped");
+
+        // A live Tango device loss makes established evidence unknown and must
+        // interrupt the run before any function-check command is dispatched.
+        config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        run=post(base,"/api/workbench/runs",config);String disconnectedId=run.path("id").asText();
+        waitFor(()->get(bridge,"/devices/seed_01").hasNonNull("active_command_id"),15);
+        seed=get(bridge,"/devices/seed_01");
+        post(bridge,"/devices/seed_01/simulate",json.createObjectNode()
+            .put("command_id",seed.path("active_command_id").asText()).put("outcome","success"));
+        waitFor(()->get(base,"/api/runs/"+disconnectedId).path("qualificationRegistry").asText()
+            .contains("powerQualified|seed_01"),15);
+        long devicePid=get(bridge,"/lab/environment").path("pid").asLong();
+        ProcessHandle.of(devicePid).orElseThrow().destroyForcibly();
+        waitFor(()->!ProcessHandle.of(devicePid).map(ProcessHandle::isAlive).orElse(false),10);
+        waitFor(()->get(base,"/api/runs/"+disconnectedId).hasNonNull("ended"),20);
+        JsonNode disconnected=get(base,"/api/runs/"+disconnectedId);
+        assertEquals("FAILED",disconnected.path("outcome").asText(),disconnected.toString());
+        assertTrue(disconnected.path("failureReason").asText().contains("资格"),disconnected.toString());
+        assertTrue(disconnected.path("activities").toString().contains("qualification_boundary"),disconnected.toString());
+        assertTrue(disconnected.path("commands").findValuesAsText("commandAction").stream()
+            .noneMatch(action->action.contains("function_check")),disconnected.path("commands").toString());
 
         // A fresh generation proves that verified power and function claims
         // allow the real Flowable initialization process to complete.
@@ -249,6 +335,18 @@ class JavaWorkbenchE2eIT {
             if(state.hasNonNull("ended")) {
                 assertEquals("SUCCEEDED",state.path("outcome").asText(),state.toString());
                 assertEquals(8,commandCount(state),"four power checks and four function checks");
+                assertTrue(state.path("unresolvedDeviceActions").isEmpty());
+                for(JsonNode device:get(bridge,"/devices")) if(!"context".equals(device.path("component").asText())) {
+                    String deviceId=device.path("id").asText();
+                    JsonNode last=get(bridge,"/devices/"+deviceId);
+                    String commandId=last.path("last_result").path("command_id").asText();
+                    assertFalse(get(bridge,"/devices/"+deviceId+"/commands/"+commandId)
+                        .path("parameters").has("entry_condition"),"BPMN must reference the device contract without duplicating intrinsic states: "+deviceId);
+                }
+                for(JsonNode command:state.path("commands")) {
+                    assertTrue(command.path("deviceActionContract").asBoolean());
+                    assertTrue(command.path("dispatchAttempted").asBoolean());
+                }
                 assertTrue(state.path("commands").findValuesAsText("commandAction").stream()
                     .filter("power_on_check"::equals).count()==4,state.path("commands").toString());
                 assertTrue(state.path("commands").findValuesAsText("commandAction").stream()
@@ -292,7 +390,8 @@ class JavaWorkbenchE2eIT {
         try(var socket=new ServerSocket(0)){base="http://127.0.0.1:"+socket.getLocalPort();}
         start("workbench",root.resolve("server/target/workbench-server-0.1.0.jar"),List.of(
             "--server.port="+URI.create(base).getPort(),"--control.tango-url="+bridge,
-            "--control.workbench-directory="+temporary.resolve("workbench"),"--spring.datasource.url=jdbc:h2:mem:java-e2e"));
+            "--control.pump-delay=1500","--control.workbench-directory="+temporary.resolve("workbench"),
+            "--spring.datasource.url=jdbc:h2:mem:java-e2e"));
         waitFor(()->{try{return get(base,"/api/connection").path("connected").asBoolean();}catch(Exception ex){return false;}},60);
         assertEquals(200,exchange(base,"/",null).statusCode());
     }
