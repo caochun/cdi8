@@ -140,11 +140,23 @@ public class RunDeploymentService {
                 if(device.path("snapshot").hasNonNull("active_command_id"))throw new IllegalStateException("设备仍有动作："+id);
                 devices.put(id,Map.of("id",id,"component",device.path("component").asText()));
             }
-            variables.put("allComponents",devices.values().stream().filter(d->!d.get("component").equals("context")).toList());
+            var allComponents=devices.values().stream().filter(d->!d.get("component").equals("context")).toList();
+            variables.put("allComponents",allComponents);
+            variables.put("parameterTargets",allComponents.stream().filter(d->!Set.of("vacuum","control-environment").contains(d.get("component"))).toList());
             for(var target:devices.values()) {
                 String collection=target.get("component")+"Targets";
                 variables.computeIfAbsent(collection,k->new ArrayList<Map<String,String>>());
                 ((List<Map<String,String>>)variables.get(collection)).add(target);
+                if(target.get("component").contains("-")) {
+                    StringBuilder aliasBuilder=new StringBuilder();boolean uppercase=false;
+                    for(char character:target.get("component").toCharArray()) {
+                        if(character=='-'){uppercase=true;continue;}
+                        aliasBuilder.append(uppercase?Character.toUpperCase(character):character);uppercase=false;
+                    }
+                    String alias=aliasBuilder+"Targets";
+                    variables.computeIfAbsent(alias,k->new ArrayList<Map<String,String>>());
+                    ((List<Map<String,String>>)variables.get(alias)).add(target);
+                }
             }
             var bindings=config.path("bindings");
             if(bindings.isObject())for(var fields=bindings.fields();fields.hasNext();) {

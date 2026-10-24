@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 业务依据与未决项：docs/domain/gxlf/process-control/系统状态模型设计.md。blocked 转换禁止运行放行。 -->
+<!-- 业务依据：集中管控系统控制流程业务说明.md；阶段/操作/证据对应见 docs/domain/gxlf/process-control/实验主干与系统状态对应表.md。 -->
+<!-- operation 关联 design/gxlf_experiment_backbone.bpmn20.xml 的设计节点，不代表已接入执行。blocked 转换保持阻断。 -->
 <system-state-model xmlns="https://cdi8.cn/system-state/v1" id="gxlf-experiment" initial="uninitialized" evidenceMaxAgeMs="2000">
   <anomaly id="deviceFault" label="设备故障" category="deviceFault" states="faultLock commFault timeoutFault" outerStates="fault" />
   <anomaly id="safetyInterlock" label="全局安全联锁触发" category="safetyInterlock" states="interlockTripped" />
@@ -121,7 +122,7 @@
   </fact>
   <fact id="knownInterlock" label="已建模的环境联锁与靶室真空（不是完整安全联锁）">
     <require collection="allComponents" component="control-environment" states="interlockEstablished" />
-    <require collection="allComponents" component="vacuum" states="vacuumStable" />
+    <require collection="allComponents" component="vacuum" states="functionReady vacuumStable" />
   </fact>
   <fact id="selectedLightStable" label="全部所选光源稳定出光">
     <require collection="sourceTargets" component="seed shg" states="stableEmission" />
@@ -191,7 +192,7 @@
     <require collection="allComponents" component="measurement" states="parameterOk aimPrepared motionPrepared measurementPrepared parametersCollected" />
     <require collection="allComponents" component="frequency-conversion" states="parameterOk poseSet" />
     <require collection="allComponents" component="target-alignment" states="parameterOk targetPrepositioned simulationPositioned beamGuideComplete targetReset shotReady targetRetracted analysisComplete" />
-    <require collection="allComponents" component="vacuum" states="vacuumStable" />
+    <require collection="allComponents" component="vacuum" states="functionReady vacuumStable" />
     <require collection="allComponents" component="diagnostics" states="parameterOk deviceConfirmed acquisitionReady postprocessComplete" />
     <require collection="allComponents" component="synchronization" states="parameterOk repeatConfigured singleConfigured triggerSent countVerified" />
     <require collection="allComponents" component="switch-driver" states="parameterOk chargeComplete triggerReady waveformCollected standbyReady" />
@@ -324,20 +325,20 @@
   </state>
 
   <!-- operation 是业务操作关联说明；只有 BPMN 显式报告并核验设备事实才改变系统状态。 -->
-  <transition id="powerChecksVerified" from="uninitialized" to="powered" operation="gxlf_system_initialization / 全部上电检查完成" />
-  <transition id="functionChecksVerified" from="powered" to="initialized" operation="gxlf_system_initialization / 全部功能检查完成" />
-  <transition id="beginConfiguration" from="initialized" to="configuring" operation="新全流程的参数下发入口（尚未接入 BPMN）" />
-  <transition id="configurationVerified" from="configuring" to="configured" operation="本发参数接收 AND 汇合" blocked="真空模型没有参数接收事实；需补齐业务要求的本发参数确认与发次关联证据" />
-  <transition id="beginPreparation" from="configured" to="preparing" operation="清场、参数后的各准备支路启动（待实现）" />
-  <transition id="safetyVerified" from="preparing" to="interlockedPreparation" operation="门锁 / 人员 / 真空的联合联锁确认" blocked="缺少独立门锁、人员计数、多程钛泵真空事实；风淋门范围待确认" />
-  <transition id="preparationVerified" from="interlockedPreparation" to="prepared" operation="发射准备全部完成 AND 汇合" blocked="同步模型未区分预放与测量两个重频通道，需提供各通道事实" />
-  <transition id="beginFormalPreparation" from="prepared" to="formalPreparation" operation="诊断设置 / 晶体位姿 / 充电准备 / 第二次精闭环等支路启动" />
-  <transition id="chargePrerequisitesVerified" from="formalPreparation" to="chargeReady" operation="全部充电前置 AND 汇合" blocked="缺少两类单次同步通道事实、警灯和警示音乐状态证据" />
-  <transition id="beginCharging" from="chargeReady" to="charging" operation="发射充电动作前切入过渡状态" />
-  <transition id="chargingVerified" from="charging" to="charged" operation="等待泵浦本机 pump.charge.completed；不是 charge 动作成功" />
-  <transition id="countdownStarted" from="charged" to="countdown" operation="同步 T0 / T+3s 准备 / T+5s 输出" blocked="缺少绑定本发的时钟、T0受理和T+3/T+5时序证据；普通 BPMN 定时器不证明瞬时同步" />
-  <transition id="emissionVerified" from="countdown" to="emissionConfirmed" operation="正式发射完成 AND 核验" blocked="同步总体成功是否足够、是否需要泵浦实际触发结果的完成口径尚未确认" />
-  <transition id="beginPostprocessing" from="emissionConfirmed" to="postprocessing" operation="并行采集、待机、预电离、收靶和保护吹扫启动" />
-  <transition id="postprocessingVerified" from="postprocessing" to="postprocessed" operation="后处理链路与预电离完成汇合" blocked="缺少本发关联的采集/待机历史和预电离完成证据；当前叶状态不能证明历史任务已完成" />
-  <transition id="releaseVerified" from="postprocessed" to="released" operation="警示解除 / 屏蔽门解锁 / 实验结束播报" blocked="开门等待全部后处理还是仅最终泵浦待机尚未确认；警示解除和结束播报事实尚未接入" />
+  <transition id="powerChecksVerified" from="uninitialized" to="powered" operation="gxlf_experiment_backbone#report_powered / 全体上电汇合：确认 powered" />
+  <transition id="functionChecksVerified" from="powered" to="initialized" operation="gxlf_experiment_backbone#report_initialized / 全体功能汇合：确认 initialized" />
+  <transition id="beginConfiguration" from="initialized" to="configuring" operation="gxlf_initialization_parameter_dispatch#begin_configuration / 进入本发参数接收" />
+  <transition id="configurationVerified" from="configuring" to="configured" operation="gxlf_initialization_parameter_dispatch#report_configured / 核验本发参数已接收" />
+  <transition id="beginPreparation" from="configured" to="preparing" operation="gxlf_initialization_parameter_dispatch#begin_preparation / 进入发射准备" />
+  <transition id="safetyVerified" from="preparing" to="interlockedPreparation" operation="gxlf_initialization_parameter_dispatch#report_interlocked / 确认 interlockedPreparation（技术验证）" />
+  <transition id="preparationVerified" from="interlockedPreparation" to="prepared" operation="gxlf_initialization_parameter_dispatch#report_prepared / 复核 prepared（技术验证）" />
+  <transition id="beginFormalPreparation" from="prepared" to="formalPreparation" operation="gxlf_experiment_backbone#begin_formal / 进入正式发射准备" />
+  <transition id="chargePrerequisitesVerified" from="formalPreparation" to="chargeReady" operation="gxlf_experiment_backbone#report_charge_ready / 确认 chargeReady（证据缺口阻断）" blocked="缺少两类单次同步通道事实、警灯和警示音乐状态证据" />
+  <transition id="beginCharging" from="chargeReady" to="charging" operation="gxlf_experiment_backbone#begin_charging / 动作前进入 charging" />
+  <transition id="chargingVerified" from="charging" to="charged" operation="gxlf_experiment_backbone#report_charged / 确认 charged" />
+  <transition id="countdownStarted" from="charged" to="countdown" operation="gxlf_experiment_backbone#enter_countdown / 同步阶段入口核验（时序阻断）" blocked="缺少绑定本发的时钟、T0受理和T+3/T+5时序证据；普通 BPMN 定时器不证明瞬时同步" />
+  <transition id="emissionVerified" from="countdown" to="emissionConfirmed" operation="gxlf_experiment_backbone#report_emitted / 正式结果核验（判据待决）" blocked="同步总体成功是否足够、是否需要泵浦实际触发结果的完成口径尚未确认" />
+  <transition id="beginPostprocessing" from="emissionConfirmed" to="postprocessing" operation="gxlf_experiment_backbone#begin_postprocessing / 进入后处理与保护任务阶段" />
+  <transition id="postprocessingVerified" from="postprocessing" to="postprocessed" operation="gxlf_experiment_backbone#report_postprocessed / 确认 postprocessed（历史证据阻断）" blocked="缺少本发关联的采集/待机历史和预电离完成证据；当前叶状态不能证明历史任务已完成" />
+  <transition id="releaseVerified" from="postprocessed" to="released" operation="gxlf_experiment_backbone#report_released / 确认 released（释放规则阻断）" blocked="开门等待全部后处理还是仅最终泵浦待机尚未确认；警示解除和结束播报事实尚未接入" />
 </system-state-model>

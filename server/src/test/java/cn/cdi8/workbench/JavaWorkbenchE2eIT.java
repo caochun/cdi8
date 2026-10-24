@@ -105,6 +105,7 @@ class JavaWorkbenchE2eIT {
             assertTrue(post(base,"/api/runs/"+stoppedId+"/stop",json.createObjectNode()).hasNonNull("ended"));
             systemStateLifecycle();
             fullSystemInitialization();
+            parameterDispatchSlice();
             gxlfLifecycle();
 
             // Stopping the bridge also stops its device JVM; restart never pretends the old environment is ready.
@@ -411,6 +412,33 @@ class JavaWorkbenchE2eIT {
         }
         assertFalse(state.path("evidence").has("context_01"),"The demo condition device cannot prove system facts");
         System.out.println("PASS fourteen Java Tango components: missing device refused / global power barrier / function failure / 28 commands / verified system state");
+    }
+
+    void parameterDispatchSlice() throws Exception {
+        Map<String,JsonNode> models=new HashMap<>();
+        for(JsonNode model:get(base,"/api/workbench/models"))models.put(model.path("id").asText(),model);
+        ObjectNode config=json.createObjectNode().put("entry","gxlf_initialization_parameter_dispatch").put("autoComplete",false);
+        config.putArray("processes").addObject().put("model","gxlf_initialization_parameter_dispatch")
+            .put("revision",latestRevision(models.get("gxlf_initialization_parameter_dispatch")));
+        ArrayNode devices=config.putArray("devices");
+        for(String component:List.of("seed","shg","preamp","multipass","pump","measurement","frequency-conversion",
+                "target-alignment","vacuum","diagnostics","synchronization","switch-driver","cooling","control-environment")) {
+            String model=switch(component){case "seed"->"seed-source-state-machine";case "shg"->"shg-injection-state-machine";default->component+"-state-machine";};
+            devices.addObject().put("model",model).put("revision",latestRevision(models.get(model)))
+                .put("component",component).put("count",1).put("autoComplete",false).put("delayMs",50);
+        }
+        config.putObject("variables").put("commandTimeout","PT30S").put("workflowTimeout","PT180S");
+        config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        String id=post(base,"/api/workbench/runs",config).path("id").asText();
+        Set<String> powerDone=new HashSet<>();completeInitialization(id,powerDone,false);
+        JsonNode run=get(base,"/api/runs/"+id);
+        assertEquals("SUCCEEDED",run.path("outcome").asText(),run.toString());
+        assertEquals(14,powerDone.size());
+        assertEquals(58,commandCount(run),"28 initialization + 12 parameter + 18 preparation commands");
+        assertEquals("prepared",systemState(run).path("state").asText(),run.toString());
+        assertEquals(7,systemState(run).path("history").size(),systemState(run).toString());
+        assertTrue(run.path("unresolvedDeviceActions").isEmpty());
+        System.out.println("PASS system-state technical slice: initialized -> configured -> prepared / 12 parameter + 18 preparation commands / 58 total commands");
     }
     void completeInitialization(String id,Set<String> powerDone,boolean failFunction) throws Exception {
         Set<String> handled=new HashSet<>();boolean failed=false;

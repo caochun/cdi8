@@ -1,0 +1,2055 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:flowable="http://flowable.org/bpmn" xmlns:sys="https://cdi8.cn/system-state/v1" id="definitions_gxlf_backbone" targetNamespace="https://cdi8.cn/gxlf/design">
+  <bpmn:error id="device_error" errorCode="DEVICE_ERROR" />
+  <bpmn:message id="stop_message" name="StopWorkflow" />
+  <bpmn:message id="system_lost" name="SystemConditionLost" />
+  <bpmn:process id="gxlf_experiment_backbone" name="GXLF 实验主干（业务设计，不可执行）" isExecutable="false">
+    <bpmn:documentation>依据：集中管控系统控制流程业务说明.md §3–§6；对应表见 docs/domain/gxlf/process-control/实验主干与系统状态对应表.md。此图用于业务评审，不配置真实设备调用，不纳入自动部署目录。不得仅改 isExecutable 运行：服务预约、本发证据、联锁、时序、异常处置尚未闭环。sys 引用标明设计关联；系统模型 blocked 仍有效。</bpmn:documentation>
+    <bpmn:extensionElements>
+      <sys:systemModel ref="gxlf-experiment" />
+    </bpmn:extensionElements>
+    <bpmn:startEvent id="start" name="已加载本发任务">
+      <bpmn:documentation>业务依据：§1、§3。</bpmn:documentation>
+    </bpmn:startEvent>
+    <bpmn:task id="reserve_services" name="预约服务并固定本发参与实例">
+      <bpmn:documentation>业务依据：§3。需要服务权限、发次、阶段、束线及资源所有权；尚未接入，不以设备在线替代预约。</bpmn:documentation>
+    </bpmn:task>
+    <bpmn:subProcess id="normal" name="实验主干：初始化至现场释放">
+      <bpmn:documentation>业务依据：§3–§6。所有阶段持续检查接口健康与响应超时。联锁建立后贯穿后续阶段；系统条件失效/未知中断编排。</bpmn:documentation>
+      <bpmn:startEvent id="scope_start" name="开始">
+        <bpmn:documentation>业务依据：§3.1。</bpmn:documentation>
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="system_state_open" name="建立系统状态监测" flowable:expression="${systemStates.open(execution)}">
+        <bpmn:documentation>业务依据：§3.1。</bpmn:documentation>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="initialize" name="全体组件初始化">
+        <bpmn:documentation>业务依据：§3.1。与独立十四类初始化流程同口径；在同一系统运行记录内展开，不调用会重置系统状态的子流程。</bpmn:documentation>
+        <bpmn:startEvent id="init_start" name="开始检查">
+          <bpmn:documentation>业务依据：§3.1。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:task id="power_checks" name="全部实例上电检查">
+          <bpmn:documentation>业务依据：§3.1。逐实例命令成功与当前设备证据均须核验。上电检查不执行物理上电。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${allComponents}" flowable:elementVariable="target" />
+        </bpmn:task>
+        <bpmn:task id="function_checks" name="全部实例功能检查">
+          <bpmn:documentation>业务依据：§3.1。逐实例命令成功与当前设备证据均须核验。上电检查不执行物理上电。</bpmn:documentation>
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${allComponents}" flowable:elementVariable="target" />
+        </bpmn:task>
+        <bpmn:serviceTask id="report_powered" name="全体上电汇合：确认 powered" flowable:expression="${systemStates.report(execution, 'powerChecksVerified')}">
+          <bpmn:documentation>业务依据：§3.1。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+          <bpmn:extensionElements>
+            <sys:report transition="powerChecksVerified" />
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:serviceTask id="require_powered" name="复核全体上电仍有效" flowable:expression="${systemStates.require(execution, 'powered')}">
+          <bpmn:documentation>业务依据：§3.1。入口证据检查不代替存续期间持续监测；模型条件不足时不得放行。</bpmn:documentation>
+          <bpmn:extensionElements>
+            <sys:requires state="powered" />
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:serviceTask id="report_initialized" name="全体功能汇合：确认 initialized" flowable:expression="${systemStates.report(execution, 'functionChecksVerified')}">
+          <bpmn:documentation>业务依据：§3.1。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+          <bpmn:extensionElements>
+            <sys:report transition="functionChecksVerified" />
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:endEvent id="init_end" name="检查完成">
+          <bpmn:documentation>业务依据：§3.1。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="init_start__power_checks" sourceRef="init_start" targetRef="power_checks" />
+        <bpmn:sequenceFlow id="power_checks__report_powered" sourceRef="power_checks" targetRef="report_powered" />
+        <bpmn:sequenceFlow id="report_powered__require_powered" sourceRef="report_powered" targetRef="require_powered" />
+        <bpmn:sequenceFlow id="require_powered__function_checks" sourceRef="require_powered" targetRef="function_checks" />
+        <bpmn:sequenceFlow id="function_checks__report_initialized" sourceRef="function_checks" targetRef="report_initialized" />
+        <bpmn:sequenceFlow id="report_initialized__init_end" sourceRef="report_initialized" targetRef="init_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="begin_configuration" name="进入参数接收阶段" flowable:expression="${systemStates.report(execution, 'beginConfiguration')}">
+        <bpmn:documentation>业务依据：§6.1。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="beginConfiguration" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="configure" name="本发参数下发与接收核验">
+        <bpmn:documentation>业务依据：§6.1。</bpmn:documentation>
+        <bpmn:startEvent id="config_start" name="参数入口">
+          <bpmn:documentation>业务依据：§6.1。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:task id="dispatch_parameters" name="按发次、阶段、束线下发参数">
+          <bpmn:documentation>业务依据：§6.1。真空是业务对象但当前无参数控制动作；不可直接复制 allComponents 命令。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="parameter_evidence" name="核对所有本发参数接收证据">
+          <bpmn:documentation>业务依据：§6.1。等待真实观测/本发关联证据，当前无事件相关实现。接口受理不等于设备参数已生效；本发关联协议尚未接入。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:endEvent id="config_end" name="参数证据汇总">
+          <bpmn:documentation>业务依据：§6.1。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="config_start__dispatch_parameters" sourceRef="config_start" targetRef="dispatch_parameters" />
+        <bpmn:sequenceFlow id="dispatch_parameters__parameter_evidence" sourceRef="dispatch_parameters" targetRef="parameter_evidence" />
+        <bpmn:sequenceFlow id="parameter_evidence__config_end" sourceRef="parameter_evidence" targetRef="config_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_configured" name="确认 configured（证据缺口阻断）" flowable:expression="${systemStates.report(execution, 'configurationVerified')}">
+        <bpmn:documentation>业务依据：§6.1。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="configurationVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="begin_preparation" name="展开发射准备阶段" flowable:expression="${systemStates.report(execution, 'beginPreparation')}">
+        <bpmn:documentation>业务依据：§5.1。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="beginPreparation" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="prepare" name="发射准备：联锁建立与并行支路">
+        <bpmn:documentation>业务依据：§5.1、§6.2–§6.22。按各节点 card 的联锁前置条件作保守细化：先确认联锁，再启动受保护支路。§4的并行描述与此时序需评审；不声称保留原31.5分钟工期。</bpmn:documentation>
+        <bpmn:startEvent id="prep_start" name="准备入口">
+          <bpmn:documentation>业务依据：§5.1。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:task id="clear_area" name="清场语音定时喊话">
+          <bpmn:documentation>业务依据：§6.8。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="close_doors" name="关闭并锁定屏蔽门；风淋门待定">
+          <bpmn:documentation>业务依据：§6.9–§6.10。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="interlock_evidence" name="确认门锁、人员归零及真空证据">
+          <bpmn:documentation>业务依据：§3、§6.9–§6.10。等待真实观测/本发关联证据，当前无事件相关实现。knownInterlock 仅环境+靶室真空，不是完整联锁；缺独立门锁、人员及钛泵接口。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:serviceTask id="report_interlocked" name="确认 interlockedPreparation（阻断）" flowable:expression="${systemStates.report(execution, 'safetyVerified')}">
+          <bpmn:documentation>业务依据：§3、§6.9–§6.10。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+          <bpmn:extensionElements>
+            <sys:report transition="safetyVerified" />
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:parallelGateway id="prep_split" name="受保护准备支路并行" />
+        <bpmn:sequenceFlow id="prep_start__clear_area" sourceRef="prep_start" targetRef="clear_area" />
+        <bpmn:sequenceFlow id="clear_area__close_doors" sourceRef="clear_area" targetRef="close_doors" />
+        <bpmn:sequenceFlow id="close_doors__interlock_evidence" sourceRef="close_doors" targetRef="interlock_evidence" />
+        <bpmn:sequenceFlow id="interlock_evidence__report_interlocked" sourceRef="interlock_evidence" targetRef="report_interlocked" />
+        <bpmn:sequenceFlow id="report_interlocked__prep_split" sourceRef="report_interlocked" targetRef="prep_split" />
+        <bpmn:task id="emit_sources" name="按束线选择光源并出光">
+          <bpmn:documentation>业务依据：§6.4。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="repeat_preamp" name="同步预放重频配方">
+          <bpmn:documentation>业务依据：§6.2。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="wakeup" name="预放唤醒">
+          <bpmn:documentation>业务依据：§6.5。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="coarse_loop" name="能量粗闭环">
+          <bpmn:documentation>业务依据：§6.6。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="fine_loop_first" name="第一次能量精闭环">
+          <bpmn:documentation>业务依据：§6.7。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="repeat_measurement" name="同步测量重频配方">
+          <bpmn:documentation>业务依据：§6.3。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="aim_prepare" name="测量靶瞄准备">
+          <bpmn:documentation>业务依据：§6.12。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="target_preposition" name="实验靶预定位">
+          <bpmn:documentation>业务依据：§6.11。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="simulation_position" name="模拟靶定位">
+          <bpmn:documentation>业务依据：§6.13。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="diagnosis_prepare" name="诊断设备发射准备">
+          <bpmn:documentation>业务依据：§6.20。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="collimate" name="光路准直">
+          <bpmn:documentation>业务依据：§6.14。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="beam_guide" name="光束引导">
+          <bpmn:documentation>业务依据：§6.15。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="target_reset" name="实验靶复位">
+          <bpmn:documentation>业务依据：§6.16。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="target_shot" name="靶瞄进入打靶状态">
+          <bpmn:documentation>业务依据：§6.17。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="measurement_motion" name="测量打靶运动准备">
+          <bpmn:documentation>业务依据：§6.18。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="shot_motion" name="打靶运动准备（独立结果）">
+          <bpmn:documentation>业务依据：§6.19。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="pump_prepare" name="泵浦发射准备">
+          <bpmn:documentation>业务依据：§6.21。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:parallelGateway id="light_fork" name="出光支持闭环与准直" />
+        <bpmn:parallelGateway id="wakeup_fork" name="唤醒支持闭环与准直" />
+        <bpmn:parallelGateway id="coarse_join" name="出光与唤醒 AND" />
+        <bpmn:parallelGateway id="simulation_join" name="测量准备与预定位 AND" />
+        <bpmn:parallelGateway id="simulation_fork" name="定位支持诊断与引导" />
+        <bpmn:parallelGateway id="collimation_join" name="出光与唤醒 AND" />
+        <bpmn:parallelGateway id="guide_join" name="准直与模拟定位 AND" />
+        <bpmn:parallelGateway id="guide_fork" name="引导后三路" />
+        <bpmn:parallelGateway id="prep_join" name="全部准备完成 AND（不下发命令）" />
+        <bpmn:receiveTask id="collimation_conditions" name="确认吹扫已停止及准直接口条件">
+          <bpmn:documentation>业务依据：§6.14。等待真实观测/本发关联证据，当前无事件相关实现。联锁持续有效；预放重频、唤醒、光源持续有效。不能用停止普通流程清除吹扫。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:sequenceFlow id="prep_split__emit_sources" sourceRef="prep_split" targetRef="emit_sources" />
+        <bpmn:sequenceFlow id="emit_sources__light_fork" sourceRef="emit_sources" targetRef="light_fork" />
+        <bpmn:sequenceFlow id="prep_split__repeat_preamp" sourceRef="prep_split" targetRef="repeat_preamp" />
+        <bpmn:sequenceFlow id="repeat_preamp__wakeup" sourceRef="repeat_preamp" targetRef="wakeup" />
+        <bpmn:sequenceFlow id="wakeup__wakeup_fork" sourceRef="wakeup" targetRef="wakeup_fork" />
+        <bpmn:sequenceFlow id="light_fork__coarse_join" sourceRef="light_fork" targetRef="coarse_join" />
+        <bpmn:sequenceFlow id="light_fork__collimation_join" sourceRef="light_fork" targetRef="collimation_join" />
+        <bpmn:sequenceFlow id="wakeup_fork__coarse_join" sourceRef="wakeup_fork" targetRef="coarse_join" />
+        <bpmn:sequenceFlow id="wakeup_fork__collimation_join" sourceRef="wakeup_fork" targetRef="collimation_join" />
+        <bpmn:sequenceFlow id="coarse_join__coarse_loop" sourceRef="coarse_join" targetRef="coarse_loop" />
+        <bpmn:sequenceFlow id="coarse_loop__fine_loop_first" sourceRef="coarse_loop" targetRef="fine_loop_first" />
+        <bpmn:sequenceFlow id="fine_loop_first__prep_join" sourceRef="fine_loop_first" targetRef="prep_join" />
+        <bpmn:sequenceFlow id="prep_split__repeat_measurement" sourceRef="prep_split" targetRef="repeat_measurement" />
+        <bpmn:sequenceFlow id="repeat_measurement__aim_prepare" sourceRef="repeat_measurement" targetRef="aim_prepare" />
+        <bpmn:sequenceFlow id="aim_prepare__simulation_join" sourceRef="aim_prepare" targetRef="simulation_join" />
+        <bpmn:sequenceFlow id="prep_split__target_preposition" sourceRef="prep_split" targetRef="target_preposition" />
+        <bpmn:sequenceFlow id="target_preposition__simulation_join" sourceRef="target_preposition" targetRef="simulation_join" />
+        <bpmn:sequenceFlow id="simulation_join__simulation_position" sourceRef="simulation_join" targetRef="simulation_position" />
+        <bpmn:sequenceFlow id="simulation_position__simulation_fork" sourceRef="simulation_position" targetRef="simulation_fork" />
+        <bpmn:sequenceFlow id="simulation_fork__diagnosis_prepare" sourceRef="simulation_fork" targetRef="diagnosis_prepare" />
+        <bpmn:sequenceFlow id="diagnosis_prepare__prep_join" sourceRef="diagnosis_prepare" targetRef="prep_join" />
+        <bpmn:sequenceFlow id="simulation_fork__guide_join" sourceRef="simulation_fork" targetRef="guide_join" />
+        <bpmn:sequenceFlow id="collimation_join__collimation_conditions" sourceRef="collimation_join" targetRef="collimation_conditions" />
+        <bpmn:sequenceFlow id="collimation_conditions__collimate" sourceRef="collimation_conditions" targetRef="collimate" />
+        <bpmn:sequenceFlow id="collimate__guide_join" sourceRef="collimate" targetRef="guide_join" />
+        <bpmn:sequenceFlow id="guide_join__beam_guide" sourceRef="guide_join" targetRef="beam_guide" />
+        <bpmn:sequenceFlow id="beam_guide__guide_fork" sourceRef="beam_guide" targetRef="guide_fork" />
+        <bpmn:sequenceFlow id="guide_fork__target_reset" sourceRef="guide_fork" targetRef="target_reset" />
+        <bpmn:sequenceFlow id="target_reset__target_shot" sourceRef="target_reset" targetRef="target_shot" />
+        <bpmn:sequenceFlow id="target_shot__prep_join" sourceRef="target_shot" targetRef="prep_join" />
+        <bpmn:sequenceFlow id="guide_fork__measurement_motion" sourceRef="guide_fork" targetRef="measurement_motion" />
+        <bpmn:sequenceFlow id="measurement_motion__prep_join" sourceRef="measurement_motion" targetRef="prep_join" />
+        <bpmn:sequenceFlow id="guide_fork__shot_motion" sourceRef="guide_fork" targetRef="shot_motion" />
+        <bpmn:sequenceFlow id="shot_motion__prep_join" sourceRef="shot_motion" targetRef="prep_join" />
+        <bpmn:sequenceFlow id="prep_split__pump_prepare" sourceRef="prep_split" targetRef="pump_prepare" />
+        <bpmn:sequenceFlow id="pump_prepare__prep_join" sourceRef="pump_prepare" targetRef="prep_join" />
+        <bpmn:endEvent id="prep_end" name="准备支路汇合">
+          <bpmn:documentation>业务依据：§6.22。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="prep_join__prep_end" sourceRef="prep_join" targetRef="prep_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_prepared" name="复核 prepared（双通道证据阻断）" flowable:expression="${systemStates.report(execution, 'preparationVerified')}">
+        <bpmn:documentation>业务依据：§6.22。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="preparationVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="begin_formal" name="进入正式发射准备" flowable:expression="${systemStates.report(execution, 'beginFormalPreparation')}">
+        <bpmn:documentation>业务依据：§5.2。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="beginFormalPreparation" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="formal_prepare" name="正式发射充电前置支路">
+        <bpmn:documentation>业务依据：§5.2、§6.23–§6.32。</bpmn:documentation>
+        <bpmn:startEvent id="formal_start" name="前置准备入口">
+          <bpmn:documentation>业务依据：§5.2。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:parallelGateway id="formal_split" name="六路并行" />
+        <bpmn:parallelGateway id="formal_join" name="全部充电前置 AND" />
+        <bpmn:endEvent id="formal_end" name="前置支路汇合">
+          <bpmn:documentation>业务依据：§5.2。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="formal_start__formal_split" sourceRef="formal_start" targetRef="formal_split" />
+        <bpmn:sequenceFlow id="formal_join__formal_end" sourceRef="formal_join" targetRef="formal_end" />
+        <bpmn:task id="diagnosis_acquire" name="诊断设备采集设置">
+          <bpmn:documentation>业务依据：§6.23。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="crystal_pose" name="晶体位姿设置">
+          <bpmn:documentation>业务依据：§6.24。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="charge_prepare" name="发射充电准备">
+          <bpmn:documentation>业务依据：§6.25。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="warning_on" name="警灯及警示音乐开启">
+          <bpmn:documentation>业务依据：§6.32。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="fine_loop_second" name="第二次能量精闭环">
+          <bpmn:documentation>业务依据：§6.26。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="single_preamp" name="预放单次配方">
+          <bpmn:documentation>业务依据：§6.27。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="clear_meter" name="能量计清零">
+          <bpmn:documentation>业务依据：§6.28。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="single_measurement" name="测量单次配方">
+          <bpmn:documentation>业务依据：§6.29。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="shot_measurement" name="打靶测量准备">
+          <bpmn:documentation>业务依据：§6.30。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="switch_charge" name="开关充电">
+          <bpmn:documentation>业务依据：§6.31。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:sequenceFlow id="formal_split__diagnosis_acquire" sourceRef="formal_split" targetRef="diagnosis_acquire" />
+        <bpmn:sequenceFlow id="diagnosis_acquire__formal_join" sourceRef="diagnosis_acquire" targetRef="formal_join" />
+        <bpmn:sequenceFlow id="formal_split__crystal_pose" sourceRef="formal_split" targetRef="crystal_pose" />
+        <bpmn:sequenceFlow id="crystal_pose__formal_join" sourceRef="crystal_pose" targetRef="formal_join" />
+        <bpmn:sequenceFlow id="formal_split__charge_prepare" sourceRef="formal_split" targetRef="charge_prepare" />
+        <bpmn:sequenceFlow id="charge_prepare__warning_on" sourceRef="charge_prepare" targetRef="warning_on" />
+        <bpmn:sequenceFlow id="warning_on__formal_join" sourceRef="warning_on" targetRef="formal_join" />
+        <bpmn:sequenceFlow id="formal_split__fine_loop_second" sourceRef="formal_split" targetRef="fine_loop_second" />
+        <bpmn:sequenceFlow id="fine_loop_second__single_preamp" sourceRef="fine_loop_second" targetRef="single_preamp" />
+        <bpmn:sequenceFlow id="single_preamp__clear_meter" sourceRef="single_preamp" targetRef="clear_meter" />
+        <bpmn:sequenceFlow id="clear_meter__formal_join" sourceRef="clear_meter" targetRef="formal_join" />
+        <bpmn:sequenceFlow id="formal_split__single_measurement" sourceRef="formal_split" targetRef="single_measurement" />
+        <bpmn:sequenceFlow id="single_measurement__shot_measurement" sourceRef="single_measurement" targetRef="shot_measurement" />
+        <bpmn:sequenceFlow id="shot_measurement__formal_join" sourceRef="shot_measurement" targetRef="formal_join" />
+        <bpmn:sequenceFlow id="formal_split__switch_charge" sourceRef="formal_split" targetRef="switch_charge" />
+        <bpmn:sequenceFlow id="switch_charge__formal_join" sourceRef="switch_charge" targetRef="formal_join" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_charge_ready" name="确认 chargeReady（证据缺口阻断）" flowable:expression="${systemStates.report(execution, 'chargePrerequisitesVerified')}">
+        <bpmn:documentation>业务依据：§5.2。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="chargePrerequisitesVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="begin_charging" name="动作前进入 charging" flowable:expression="${systemStates.report(execution, 'beginCharging')}">
+        <bpmn:documentation>业务依据：§6.33。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="beginCharging" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="charge" name="泵浦发射充电">
+        <bpmn:documentation>业务依据：§6.33。</bpmn:documentation>
+        <bpmn:startEvent id="charge_start" name="充电入口">
+          <bpmn:documentation>业务依据：§6.33。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:task id="charge_request" name="请求发射充电">
+          <bpmn:documentation>业务依据：§6.33。动作成功仅到 chargingActive，不是实际充电完成。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="charge_completed" name="等待本机实际充电完成">
+          <bpmn:documentation>业务依据：§6.33。等待真实观测/本发关联证据，当前无事件相关实现。由 pump.charge.completed 确认 chargeComplete。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:endEvent id="charge_end" name="实际完成证据">
+          <bpmn:documentation>业务依据：§6.33。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="charge_start__charge_request" sourceRef="charge_start" targetRef="charge_request" />
+        <bpmn:sequenceFlow id="charge_request__charge_completed" sourceRef="charge_request" targetRef="charge_completed" />
+        <bpmn:sequenceFlow id="charge_completed__charge_end" sourceRef="charge_completed" targetRef="charge_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_charged" name="确认 charged" flowable:expression="${systemStates.report(execution, 'chargingVerified')}">
+        <bpmn:documentation>业务依据：§6.33。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="chargingVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:task id="warning_music_off" name="停止警示音乐，保持警灯">
+        <bpmn:documentation>业务依据：§4、§6.33。</bpmn:documentation>
+      </bpmn:task>
+      <bpmn:serviceTask id="enter_countdown" name="同步阶段入口核验（时序阻断）" flowable:expression="${systemStates.report(execution, 'countdownStarted')}">
+        <bpmn:documentation>业务依据：§6.34–§6.36。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="countdownStarted" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="synchronized_emission" name="主发射同步时序与实际反馈">
+        <bpmn:documentation>业务依据：§6.34–§6.37。协调子协议尚未实现；各 receiveTask 是事件证据槽，不是轮询定时器。T+3准备动作需预先安排，禁止等到第三秒才通过普通调度下发。</bpmn:documentation>
+        <bpmn:startEvent id="timing_start" name="同步入口">
+          <bpmn:documentation>业务依据：§6.34。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:task id="schedule_trigger" name="协调同步、泵浦及开关时序计划">
+          <bpmn:documentation>业务依据：§6.34–§6.36。接口职责需确认。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="t0_accepted" name="确认本发 T0 受理及统一时钟">
+          <bpmn:documentation>业务依据：§6.34。等待真实观测/本发关联证据，当前无事件相关实现。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:parallelGateway id="timing_split" name="同一时基的三个结果" />
+        <bpmn:parallelGateway id="timing_join" name="本发时序证据 AND" />
+        <bpmn:endEvent id="timing_end" name="时序证据汇总">
+          <bpmn:documentation>业务依据：§6.37。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="timing_start__schedule_trigger" sourceRef="timing_start" targetRef="schedule_trigger" />
+        <bpmn:sequenceFlow id="schedule_trigger__t0_accepted" sourceRef="schedule_trigger" targetRef="t0_accepted" />
+        <bpmn:sequenceFlow id="t0_accepted__timing_split" sourceRef="t0_accepted" targetRef="timing_split" />
+        <bpmn:receiveTask id="pump_t3" name="本发 T+3s 泵浦准备确认">
+          <bpmn:documentation>业务依据：§6.35。等待真实观测/本发关联证据，当前无事件相关实现。必须带发次、时基及观测时间，不能以普通 BPMN timer 证明。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:sequenceFlow id="timing_split__pump_t3" sourceRef="timing_split" targetRef="pump_t3" />
+        <bpmn:sequenceFlow id="pump_t3__timing_join" sourceRef="pump_t3" targetRef="timing_join" />
+        <bpmn:receiveTask id="switch_t3" name="本发 T+3s 开关准备确认">
+          <bpmn:documentation>业务依据：§6.36。等待真实观测/本发关联证据，当前无事件相关实现。必须带发次、时基及观测时间，不能以普通 BPMN timer 证明。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:sequenceFlow id="timing_split__switch_t3" sourceRef="timing_split" targetRef="switch_t3" />
+        <bpmn:sequenceFlow id="switch_t3__timing_join" sourceRef="switch_t3" targetRef="timing_join" />
+        <bpmn:receiveTask id="sync_t5" name="本发 T+5s 同步实际输出确认">
+          <bpmn:documentation>业务依据：§6.34。等待真实观测/本发关联证据，当前无事件相关实现。必须带发次、时基及观测时间，不能以普通 BPMN timer 证明。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:sequenceFlow id="timing_split__sync_t5" sourceRef="timing_split" targetRef="sync_t5" />
+        <bpmn:sequenceFlow id="sync_t5__timing_join" sourceRef="sync_t5" targetRef="timing_join" />
+        <bpmn:sequenceFlow id="timing_join__timing_end" sourceRef="timing_join" targetRef="timing_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_emitted" name="正式结果核验（判据待决）" flowable:expression="${systemStates.report(execution, 'emissionVerified')}">
+        <bpmn:documentation>业务依据：§6.37。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="emissionVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="begin_postprocessing" name="进入后处理与保护任务阶段" flowable:expression="${systemStates.report(execution, 'beginPostprocessing')}">
+        <bpmn:documentation>业务依据：§5.3。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="beginPostprocessing" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="postprocess" name="后处理并行支路及预电离子周期">
+        <bpmn:documentation>业务依据：§5.3、§6.38–§6.57。任务结果必须关联本发；吹扫持续任务不由本流程结束清除。</bpmn:documentation>
+        <bpmn:startEvent id="post_start" name="后处理入口">
+          <bpmn:documentation>业务依据：§5.3。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:parallelGateway id="post_split" name="后处理并行" />
+        <bpmn:parallelGateway id="post_join" name="收集各支路证据（非开门授权）" />
+        <bpmn:endEvent id="post_end" name="结果待核验">
+          <bpmn:documentation>业务依据：§5.3。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="post_start__post_split" sourceRef="post_start" targetRef="post_split" />
+        <bpmn:sequenceFlow id="post_join__post_end" sourceRef="post_join" targetRef="post_end" />
+        <bpmn:task id="diagnosis_post" name="物理诊断后处理">
+          <bpmn:documentation>业务依据：§6.38。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="source_collect" name="所选光源激光参数采集">
+          <bpmn:documentation>业务依据：§6.39。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="energy_collect" name="能量数据采集">
+          <bpmn:documentation>业务依据：§6.40。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="preamp_standby" name="预放待机">
+          <bpmn:documentation>业务依据：§6.41。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="measure_collect" name="测量激光参数采集">
+          <bpmn:documentation>业务依据：§6.52。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="target_analysis" name="靶瞄数据分析">
+          <bpmn:documentation>业务依据：§6.53。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="target_retract" name="靶瞄收靶">
+          <bpmn:documentation>业务依据：§6.54。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="waveform_collect" name="放电波形采集">
+          <bpmn:documentation>业务依据：§6.55。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="switch_standby" name="开关待机">
+          <bpmn:documentation>业务依据：§6.56。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:task id="purge_start" name="启动片放保护吹扫">
+          <bpmn:documentation>业务依据：§6.57。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="purge_handover" name="确认吹扫运行并移交持续监测">
+          <bpmn:documentation>业务依据：§6.57。等待真实观测/本发关联证据，当前无事件相关实现。设计接口待实现。40分钟及最后15分钟下一发重叠需独立跨发监护；此节点不等待吹扫自然完成，也不视作吹扫完成。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:sequenceFlow id="post_split__diagnosis_post" sourceRef="post_split" targetRef="diagnosis_post" />
+        <bpmn:sequenceFlow id="diagnosis_post__post_join" sourceRef="diagnosis_post" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__source_collect" sourceRef="post_split" targetRef="source_collect" />
+        <bpmn:sequenceFlow id="source_collect__post_join" sourceRef="source_collect" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__energy_collect" sourceRef="post_split" targetRef="energy_collect" />
+        <bpmn:sequenceFlow id="energy_collect__preamp_standby" sourceRef="energy_collect" targetRef="preamp_standby" />
+        <bpmn:sequenceFlow id="preamp_standby__post_join" sourceRef="preamp_standby" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__measure_collect" sourceRef="post_split" targetRef="measure_collect" />
+        <bpmn:sequenceFlow id="measure_collect__target_analysis" sourceRef="measure_collect" targetRef="target_analysis" />
+        <bpmn:sequenceFlow id="target_analysis__post_join" sourceRef="target_analysis" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__target_retract" sourceRef="post_split" targetRef="target_retract" />
+        <bpmn:sequenceFlow id="target_retract__post_join" sourceRef="target_retract" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__waveform_collect" sourceRef="post_split" targetRef="waveform_collect" />
+        <bpmn:sequenceFlow id="waveform_collect__switch_standby" sourceRef="waveform_collect" targetRef="switch_standby" />
+        <bpmn:sequenceFlow id="switch_standby__post_join" sourceRef="switch_standby" targetRef="post_join" />
+        <bpmn:sequenceFlow id="post_split__purge_start" sourceRef="post_split" targetRef="purge_start" />
+        <bpmn:sequenceFlow id="purge_start__purge_handover" sourceRef="purge_start" targetRef="purge_handover" />
+        <bpmn:sequenceFlow id="purge_handover__post_join" sourceRef="purge_handover" targetRef="post_join" />
+        <bpmn:subProcess id="preionization" name="泵浦后处理及预电离子周期">
+          <bpmn:documentation>业务依据：§6.42–§6.51。本子周期不复用主发 countdown/emissionConfirmed 状态；子周期编号与本发关联、保护时序及完成判据尚需补齐。</bpmn:documentation>
+          <bpmn:startEvent id="preion_start" name="主发后泵浦链路">
+            <bpmn:documentation>业务依据：§6.42。</bpmn:documentation>
+          </bpmn:startEvent>
+          <bpmn:endEvent id="preion_end" name="预电离链路汇总">
+            <bpmn:documentation>业务依据：§6.50。</bpmn:documentation>
+          </bpmn:endEvent>
+          <bpmn:task id="pump_collect_main" name="主发后泵浦数据采集">
+            <bpmn:documentation>业务依据：§6.42。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="pump_standby_main" name="主发后泵浦待机">
+            <bpmn:documentation>业务依据：§6.43。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="preion_prepare" name="预电离发射准备">
+            <bpmn:documentation>业务依据：§6.44。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="preion_music_on" name="预电离警示音乐开启">
+            <bpmn:documentation>业务依据：§6.46。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="preion_charge" name="预电离发射充电请求">
+            <bpmn:documentation>业务依据：§6.45。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="preion_music_off" name="预电离充电后停止音乐">
+            <bpmn:documentation>业务依据：§4。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="preion_schedule" name="预电离同步与泵浦协调触发">
+            <bpmn:documentation>业务依据：§6.47–§6.48。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="pump_collect_preion" name="预电离后泵浦数据采集">
+            <bpmn:documentation>业务依据：§6.49。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="pump_standby_preion" name="预电离后泵浦待机">
+            <bpmn:documentation>业务依据：§6.50。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:task id="warning_lamp_off" name="警灯关闭">
+            <bpmn:documentation>业务依据：§6.51。</bpmn:documentation>
+          </bpmn:task>
+          <bpmn:receiveTask id="preion_charge_completed" name="预电离实际充电完成证据">
+            <bpmn:documentation>业务依据：§6.45。等待真实观测/本发关联证据，当前无事件相关实现。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:receiveTask id="preion_triggered" name="预电离本周期时序及结果证据">
+            <bpmn:documentation>业务依据：§6.47–§6.48。等待真实观测/本发关联证据，当前无事件相关实现。与主发区分的实际触发、准备、时序证据。</bpmn:documentation>
+          </bpmn:receiveTask>
+          <bpmn:sequenceFlow id="preion_start__pump_collect_main" sourceRef="preion_start" targetRef="pump_collect_main" />
+          <bpmn:sequenceFlow id="pump_collect_main__pump_standby_main" sourceRef="pump_collect_main" targetRef="pump_standby_main" />
+          <bpmn:sequenceFlow id="pump_standby_main__preion_prepare" sourceRef="pump_standby_main" targetRef="preion_prepare" />
+          <bpmn:sequenceFlow id="preion_prepare__preion_music_on" sourceRef="preion_prepare" targetRef="preion_music_on" />
+          <bpmn:sequenceFlow id="preion_music_on__preion_charge" sourceRef="preion_music_on" targetRef="preion_charge" />
+          <bpmn:sequenceFlow id="preion_charge__preion_charge_completed" sourceRef="preion_charge" targetRef="preion_charge_completed" />
+          <bpmn:sequenceFlow id="preion_charge_completed__preion_music_off" sourceRef="preion_charge_completed" targetRef="preion_music_off" />
+          <bpmn:sequenceFlow id="preion_music_off__preion_schedule" sourceRef="preion_music_off" targetRef="preion_schedule" />
+          <bpmn:sequenceFlow id="preion_schedule__preion_triggered" sourceRef="preion_schedule" targetRef="preion_triggered" />
+          <bpmn:sequenceFlow id="preion_triggered__pump_collect_preion" sourceRef="preion_triggered" targetRef="pump_collect_preion" />
+          <bpmn:sequenceFlow id="pump_collect_preion__pump_standby_preion" sourceRef="pump_collect_preion" targetRef="pump_standby_preion" />
+          <bpmn:sequenceFlow id="pump_standby_preion__warning_lamp_off" sourceRef="pump_standby_preion" targetRef="warning_lamp_off" />
+          <bpmn:sequenceFlow id="warning_lamp_off__preion_end" sourceRef="warning_lamp_off" targetRef="preion_end" />
+        </bpmn:subProcess>
+        <bpmn:sequenceFlow id="post_split__preionization" sourceRef="post_split" targetRef="preionization" />
+        <bpmn:sequenceFlow id="preionization__post_join" sourceRef="preionization" targetRef="post_join" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_postprocessed" name="确认 postprocessed（历史证据阻断）" flowable:expression="${systemStates.report(execution, 'postprocessingVerified')}">
+        <bpmn:documentation>业务依据：§5.3。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="postprocessingVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:subProcess id="release" name="现场释放：条件确认及物理反馈">
+        <bpmn:documentation>业务依据：§3、§6.58。开门等待全部后处理还是仅泵浦末端待决；图采用不越过全部支路的保守设计。事故紧急解锁不复用正常开门路径。</bpmn:documentation>
+        <bpmn:startEvent id="release_start" name="正常释放入口">
+          <bpmn:documentation>业务依据：§6.58。</bpmn:documentation>
+        </bpmn:startEvent>
+        <bpmn:receiveTask id="release_authorization" name="确认获准的释放规则及本发证据">
+          <bpmn:documentation>业务依据：§3、§6.58。等待真实观测/本发关联证据，当前无事件相关实现。非一个可由操作员随意勾选的布尔量；D5和D7业务规则未决。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:task id="unlock_and_open" name="按批准规则解锁并请求开门">
+          <bpmn:documentation>业务依据：§3、§6.58。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="door_physically_open" name="确认实际门锁与门扇位置">
+          <bpmn:documentation>业务依据：§6.58。等待真实观测/本发关联证据，当前无事件相关实现。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:task id="end_announcement" name="解除警示并播报实验结束">
+          <bpmn:documentation>业务依据：§3。</bpmn:documentation>
+        </bpmn:task>
+        <bpmn:receiveTask id="release_evidence" name="确认警示解除、播报及保护任务归属">
+          <bpmn:documentation>业务依据：§3、§6.57–§6.58。等待真实观测/本发关联证据，当前无事件相关实现。</bpmn:documentation>
+        </bpmn:receiveTask>
+        <bpmn:endEvent id="release_end" name="释放证据汇总">
+          <bpmn:documentation>业务依据：§3。</bpmn:documentation>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="release_start__release_authorization" sourceRef="release_start" targetRef="release_authorization" />
+        <bpmn:sequenceFlow id="release_authorization__unlock_and_open" sourceRef="release_authorization" targetRef="unlock_and_open" />
+        <bpmn:sequenceFlow id="unlock_and_open__door_physically_open" sourceRef="unlock_and_open" targetRef="door_physically_open" />
+        <bpmn:sequenceFlow id="door_physically_open__end_announcement" sourceRef="door_physically_open" targetRef="end_announcement" />
+        <bpmn:sequenceFlow id="end_announcement__release_evidence" sourceRef="end_announcement" targetRef="release_evidence" />
+        <bpmn:sequenceFlow id="release_evidence__release_end" sourceRef="release_evidence" targetRef="release_end" />
+      </bpmn:subProcess>
+      <bpmn:serviceTask id="report_released" name="确认 released（释放规则阻断）" flowable:expression="${systemStates.report(execution, 'releaseVerified')}">
+        <bpmn:documentation>业务依据：§3、§6.58。只申请状态转换，必须复核源状态持续条件和目标条件；blocked 转换不放行。设计任务，非设备操作。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <sys:report transition="releaseVerified" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="scope_end" name="正常业务完成">
+        <bpmn:documentation>业务依据：§6.58。</bpmn:documentation>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="scope_start__system_state_open" sourceRef="scope_start" targetRef="system_state_open" />
+      <bpmn:sequenceFlow id="system_state_open__initialize" sourceRef="system_state_open" targetRef="initialize" />
+      <bpmn:sequenceFlow id="initialize__begin_configuration" sourceRef="initialize" targetRef="begin_configuration" />
+      <bpmn:sequenceFlow id="begin_configuration__configure" sourceRef="begin_configuration" targetRef="configure" />
+      <bpmn:sequenceFlow id="configure__report_configured" sourceRef="configure" targetRef="report_configured" />
+      <bpmn:sequenceFlow id="report_configured__begin_preparation" sourceRef="report_configured" targetRef="begin_preparation" />
+      <bpmn:sequenceFlow id="begin_preparation__prepare" sourceRef="begin_preparation" targetRef="prepare" />
+      <bpmn:sequenceFlow id="prepare__report_prepared" sourceRef="prepare" targetRef="report_prepared" />
+      <bpmn:sequenceFlow id="report_prepared__begin_formal" sourceRef="report_prepared" targetRef="begin_formal" />
+      <bpmn:sequenceFlow id="begin_formal__formal_prepare" sourceRef="begin_formal" targetRef="formal_prepare" />
+      <bpmn:sequenceFlow id="formal_prepare__report_charge_ready" sourceRef="formal_prepare" targetRef="report_charge_ready" />
+      <bpmn:sequenceFlow id="report_charge_ready__begin_charging" sourceRef="report_charge_ready" targetRef="begin_charging" />
+      <bpmn:sequenceFlow id="begin_charging__charge" sourceRef="begin_charging" targetRef="charge" />
+      <bpmn:sequenceFlow id="charge__report_charged" sourceRef="charge" targetRef="report_charged" />
+      <bpmn:sequenceFlow id="report_charged__warning_music_off" sourceRef="report_charged" targetRef="warning_music_off" />
+      <bpmn:sequenceFlow id="warning_music_off__enter_countdown" sourceRef="warning_music_off" targetRef="enter_countdown" />
+      <bpmn:sequenceFlow id="enter_countdown__synchronized_emission" sourceRef="enter_countdown" targetRef="synchronized_emission" />
+      <bpmn:sequenceFlow id="synchronized_emission__report_emitted" sourceRef="synchronized_emission" targetRef="report_emitted" />
+      <bpmn:sequenceFlow id="report_emitted__begin_postprocessing" sourceRef="report_emitted" targetRef="begin_postprocessing" />
+      <bpmn:sequenceFlow id="begin_postprocessing__postprocess" sourceRef="begin_postprocessing" targetRef="postprocess" />
+      <bpmn:sequenceFlow id="postprocess__report_postprocessed" sourceRef="postprocess" targetRef="report_postprocessed" />
+      <bpmn:sequenceFlow id="report_postprocessed__release" sourceRef="report_postprocessed" targetRef="release" />
+      <bpmn:sequenceFlow id="release__report_released" sourceRef="release" targetRef="report_released" />
+      <bpmn:sequenceFlow id="report_released__scope_end" sourceRef="report_released" targetRef="scope_end" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="success" name="正常结束（保护任务可继续）">
+      <bpmn:documentation>业务依据：§6.57–§6.58。</bpmn:documentation>
+    </bpmn:endEvent>
+    <bpmn:boundaryEvent id="device_failure" name="动作失败或超时" attachedToRef="normal" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="device_error" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="device_failure__record_incident" sourceRef="device_failure" targetRef="record_incident" />
+    <bpmn:boundaryEvent id="system_failure" name="系统条件失效或未知" attachedToRef="normal" cancelActivity="true">
+      <bpmn:messageEventDefinition messageRef="system_lost" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="system_failure__record_incident" sourceRef="system_failure" targetRef="record_incident" />
+    <bpmn:boundaryEvent id="manual_stop" name="停止普通编排" attachedToRef="normal" cancelActivity="true">
+      <bpmn:messageEventDefinition messageRef="stop_message" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="manual_stop__record_incident" sourceRef="manual_stop" targetRef="record_incident" />
+    <bpmn:boundaryEvent id="workflow_timeout" name="流程响应期限到期" attachedToRef="normal" cancelActivity="true">
+      <bpmn:documentation>业务依据：§3。响应期限由运行配置与逐节点契约制定；不把计划工期当作超时。</bpmn:documentation>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>${workflowTimeout}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="workflow_timeout__record_incident" sourceRef="workflow_timeout" targetRef="record_incident" />
+    <bpmn:task id="record_incident" name="锁存阶段、原因及逐实例未决动作">
+      <bpmn:documentation>业务依据：§3。取消流程不代表物理停止；SystemConditionLost 为设计消息，当前运行时仍使用 StopWorkflow。</bpmn:documentation>
+    </bpmn:task>
+    <bpmn:task id="response_plan" name="按批准的异常规程处置（待实现）">
+      <bpmn:documentation>业务依据：§3。全体终止、解锁、警报及紧急停充/泄放/触发策略见D1–D9；本节点不伪造自动执行或安全完成。</bpmn:documentation>
+    </bpmn:task>
+    <bpmn:receiveTask id="response_evidence" name="逐实例停止/保护结果核验及人工接管">
+      <bpmn:documentation>业务依据：§3。等待真实观测/本发关联证据，当前无事件相关实现。不提供绕过未知设备的正常结束路径；吹扫保护保持。</bpmn:documentation>
+    </bpmn:receiveTask>
+    <bpmn:endEvent id="failed_end" name="失败归档，不恢复旧发次">
+      <bpmn:documentation>业务依据：§3。</bpmn:documentation>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="record_incident__response_plan" sourceRef="record_incident" targetRef="response_plan" />
+    <bpmn:sequenceFlow id="response_plan__response_evidence" sourceRef="response_plan" targetRef="response_evidence" />
+    <bpmn:sequenceFlow id="response_evidence__failed_end" sourceRef="response_evidence" targetRef="failed_end" />
+    <bpmn:sequenceFlow id="start__reserve_services" sourceRef="start" targetRef="reserve_services" />
+    <bpmn:sequenceFlow id="reserve_services__normal" sourceRef="reserve_services" targetRef="normal" />
+    <bpmn:sequenceFlow id="normal__success" sourceRef="normal" targetRef="success" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram_gxlf_experiment_backbone" name="GXLF 实验主干（业务设计，不可执行）">
+    <bpmndi:BPMNPlane id="plane_gxlf_experiment_backbone" bpmnElement="gxlf_experiment_backbone">
+      <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_reserve_services" bpmnElement="reserve_services">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_normal" bpmnElement="normal" isExpanded="false">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_success" bpmnElement="success">
+        <dc:Bounds x="870" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_record_incident" bpmnElement="record_incident">
+        <dc:Bounds x="600" y="440" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_response_plan" bpmnElement="response_plan">
+        <dc:Bounds x="870" y="440" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_response_evidence" bpmnElement="response_evidence">
+        <dc:Bounds x="1140" y="440" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_failed_end" bpmnElement="failed_end">
+        <dc:Bounds x="1410" y="440" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_device_failure" bpmnElement="device_failure">
+        <dc:Bounds x="605" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_system_failure" bpmnElement="system_failure">
+        <dc:Bounds x="651" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_manual_stop" bpmnElement="manual_stop">
+        <dc:Bounds x="697" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_workflow_timeout" bpmnElement="workflow_timeout">
+        <dc:Bounds x="743" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_device_failure__record_incident" bpmnElement="device_failure__record_incident">
+        <di:waypoint x="641" y="210.0" />
+        <di:waypoint x="620.5" y="210.0" />
+        <di:waypoint x="620.5" y="485.0" />
+        <di:waypoint x="600" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_system_failure__record_incident" bpmnElement="system_failure__record_incident">
+        <di:waypoint x="687" y="210.0" />
+        <di:waypoint x="643.5" y="210.0" />
+        <di:waypoint x="643.5" y="485.0" />
+        <di:waypoint x="600" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_manual_stop__record_incident" bpmnElement="manual_stop__record_incident">
+        <di:waypoint x="733" y="210.0" />
+        <di:waypoint x="666.5" y="210.0" />
+        <di:waypoint x="666.5" y="485.0" />
+        <di:waypoint x="600" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_workflow_timeout__record_incident" bpmnElement="workflow_timeout__record_incident">
+        <di:waypoint x="779" y="210.0" />
+        <di:waypoint x="689.5" y="210.0" />
+        <di:waypoint x="689.5" y="485.0" />
+        <di:waypoint x="600" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_record_incident__response_plan" bpmnElement="record_incident__response_plan">
+        <di:waypoint x="800" y="485.0" />
+        <di:waypoint x="835.0" y="485.0" />
+        <di:waypoint x="835.0" y="485.0" />
+        <di:waypoint x="870" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_response_plan__response_evidence" bpmnElement="response_plan__response_evidence">
+        <di:waypoint x="1070" y="485.0" />
+        <di:waypoint x="1105.0" y="485.0" />
+        <di:waypoint x="1105.0" y="485.0" />
+        <di:waypoint x="1140" y="485.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_response_evidence__failed_end" bpmnElement="response_evidence__failed_end">
+        <di:waypoint x="1340" y="485.0" />
+        <di:waypoint x="1375.0" y="485.0" />
+        <di:waypoint x="1375.0" y="460.0" />
+        <di:waypoint x="1410" y="460.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_start__reserve_services" bpmnElement="start__reserve_services">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_reserve_services__normal" bpmnElement="reserve_services__normal">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_normal__success" bpmnElement="normal__success">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="140.0" />
+        <di:waypoint x="870" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_normal" name="实验主干：初始化至现场释放">
+    <bpmndi:BPMNPlane id="plane_normal" bpmnElement="normal">
+      <bpmndi:BPMNShape id="shape_scope_start" bpmnElement="scope_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_system_state_open" bpmnElement="system_state_open">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_initialize" bpmnElement="initialize" isExpanded="false">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_begin_configuration" bpmnElement="begin_configuration">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_configure" bpmnElement="configure" isExpanded="false">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_configured" bpmnElement="report_configured">
+        <dc:Bounds x="1410" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_begin_preparation" bpmnElement="begin_preparation">
+        <dc:Bounds x="1680" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prepare" bpmnElement="prepare" isExpanded="false">
+        <dc:Bounds x="1950" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_prepared" bpmnElement="report_prepared">
+        <dc:Bounds x="2220" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_begin_formal" bpmnElement="begin_formal">
+        <dc:Bounds x="2490" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_formal_prepare" bpmnElement="formal_prepare" isExpanded="false">
+        <dc:Bounds x="2760" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_charge_ready" bpmnElement="report_charge_ready">
+        <dc:Bounds x="3030" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_begin_charging" bpmnElement="begin_charging">
+        <dc:Bounds x="3300" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_charge" bpmnElement="charge" isExpanded="false">
+        <dc:Bounds x="3570" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_charged" bpmnElement="report_charged">
+        <dc:Bounds x="3840" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_warning_music_off" bpmnElement="warning_music_off">
+        <dc:Bounds x="4110" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_enter_countdown" bpmnElement="enter_countdown">
+        <dc:Bounds x="4380" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_synchronized_emission" bpmnElement="synchronized_emission" isExpanded="false">
+        <dc:Bounds x="4650" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_emitted" bpmnElement="report_emitted">
+        <dc:Bounds x="4920" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_begin_postprocessing" bpmnElement="begin_postprocessing">
+        <dc:Bounds x="5190" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_postprocess" bpmnElement="postprocess" isExpanded="false">
+        <dc:Bounds x="5460" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_postprocessed" bpmnElement="report_postprocessed">
+        <dc:Bounds x="5730" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_release" bpmnElement="release" isExpanded="false">
+        <dc:Bounds x="6000" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_released" bpmnElement="report_released">
+        <dc:Bounds x="6270" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_scope_end" bpmnElement="scope_end">
+        <dc:Bounds x="6540" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_scope_start__system_state_open" bpmnElement="scope_start__system_state_open">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_system_state_open__initialize" bpmnElement="system_state_open__initialize">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_initialize__begin_configuration" bpmnElement="initialize__begin_configuration">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_begin_configuration__configure" bpmnElement="begin_configuration__configure">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_configure__report_configured" bpmnElement="configure__report_configured">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1410" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_configured__begin_preparation" bpmnElement="report_configured__begin_preparation">
+        <di:waypoint x="1610" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1680" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_begin_preparation__prepare" bpmnElement="begin_preparation__prepare">
+        <di:waypoint x="1880" y="165.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1950" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prepare__report_prepared" bpmnElement="prepare__report_prepared">
+        <di:waypoint x="2150" y="165.0" />
+        <di:waypoint x="2185.0" y="165.0" />
+        <di:waypoint x="2185.0" y="165.0" />
+        <di:waypoint x="2220" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_prepared__begin_formal" bpmnElement="report_prepared__begin_formal">
+        <di:waypoint x="2420" y="165.0" />
+        <di:waypoint x="2455.0" y="165.0" />
+        <di:waypoint x="2455.0" y="165.0" />
+        <di:waypoint x="2490" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_begin_formal__formal_prepare" bpmnElement="begin_formal__formal_prepare">
+        <di:waypoint x="2690" y="165.0" />
+        <di:waypoint x="2725.0" y="165.0" />
+        <di:waypoint x="2725.0" y="165.0" />
+        <di:waypoint x="2760" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_prepare__report_charge_ready" bpmnElement="formal_prepare__report_charge_ready">
+        <di:waypoint x="2960" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="3030" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_charge_ready__begin_charging" bpmnElement="report_charge_ready__begin_charging">
+        <di:waypoint x="3230" y="165.0" />
+        <di:waypoint x="3265.0" y="165.0" />
+        <di:waypoint x="3265.0" y="165.0" />
+        <di:waypoint x="3300" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_begin_charging__charge" bpmnElement="begin_charging__charge">
+        <di:waypoint x="3500" y="165.0" />
+        <di:waypoint x="3535.0" y="165.0" />
+        <di:waypoint x="3535.0" y="165.0" />
+        <di:waypoint x="3570" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_charge__report_charged" bpmnElement="charge__report_charged">
+        <di:waypoint x="3770" y="165.0" />
+        <di:waypoint x="3805.0" y="165.0" />
+        <di:waypoint x="3805.0" y="165.0" />
+        <di:waypoint x="3840" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_charged__warning_music_off" bpmnElement="report_charged__warning_music_off">
+        <di:waypoint x="4040" y="165.0" />
+        <di:waypoint x="4075.0" y="165.0" />
+        <di:waypoint x="4075.0" y="165.0" />
+        <di:waypoint x="4110" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_warning_music_off__enter_countdown" bpmnElement="warning_music_off__enter_countdown">
+        <di:waypoint x="4310" y="165.0" />
+        <di:waypoint x="4345.0" y="165.0" />
+        <di:waypoint x="4345.0" y="165.0" />
+        <di:waypoint x="4380" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_enter_countdown__synchronized_emission" bpmnElement="enter_countdown__synchronized_emission">
+        <di:waypoint x="4580" y="165.0" />
+        <di:waypoint x="4615.0" y="165.0" />
+        <di:waypoint x="4615.0" y="165.0" />
+        <di:waypoint x="4650" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_synchronized_emission__report_emitted" bpmnElement="synchronized_emission__report_emitted">
+        <di:waypoint x="4850" y="165.0" />
+        <di:waypoint x="4885.0" y="165.0" />
+        <di:waypoint x="4885.0" y="165.0" />
+        <di:waypoint x="4920" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_emitted__begin_postprocessing" bpmnElement="report_emitted__begin_postprocessing">
+        <di:waypoint x="5120" y="165.0" />
+        <di:waypoint x="5155.0" y="165.0" />
+        <di:waypoint x="5155.0" y="165.0" />
+        <di:waypoint x="5190" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_begin_postprocessing__postprocess" bpmnElement="begin_postprocessing__postprocess">
+        <di:waypoint x="5390" y="165.0" />
+        <di:waypoint x="5425.0" y="165.0" />
+        <di:waypoint x="5425.0" y="165.0" />
+        <di:waypoint x="5460" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_postprocess__report_postprocessed" bpmnElement="postprocess__report_postprocessed">
+        <di:waypoint x="5660" y="165.0" />
+        <di:waypoint x="5695.0" y="165.0" />
+        <di:waypoint x="5695.0" y="165.0" />
+        <di:waypoint x="5730" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_postprocessed__release" bpmnElement="report_postprocessed__release">
+        <di:waypoint x="5930" y="165.0" />
+        <di:waypoint x="5965.0" y="165.0" />
+        <di:waypoint x="5965.0" y="165.0" />
+        <di:waypoint x="6000" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_release__report_released" bpmnElement="release__report_released">
+        <di:waypoint x="6200" y="165.0" />
+        <di:waypoint x="6235.0" y="165.0" />
+        <di:waypoint x="6235.0" y="165.0" />
+        <di:waypoint x="6270" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_released__scope_end" bpmnElement="report_released__scope_end">
+        <di:waypoint x="6470" y="165.0" />
+        <di:waypoint x="6505.0" y="165.0" />
+        <di:waypoint x="6505.0" y="140.0" />
+        <di:waypoint x="6540" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_initialize" name="全体组件初始化">
+    <bpmndi:BPMNPlane id="plane_initialize" bpmnElement="initialize">
+      <bpmndi:BPMNShape id="shape_init_start" bpmnElement="init_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_power_checks" bpmnElement="power_checks">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_function_checks" bpmnElement="function_checks">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_powered" bpmnElement="report_powered">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_require_powered" bpmnElement="require_powered">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_initialized" bpmnElement="report_initialized">
+        <dc:Bounds x="1410" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_init_end" bpmnElement="init_end">
+        <dc:Bounds x="1680" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_init_start__power_checks" bpmnElement="init_start__power_checks">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_power_checks__report_powered" bpmnElement="power_checks__report_powered">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_powered__require_powered" bpmnElement="report_powered__require_powered">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_require_powered__function_checks" bpmnElement="require_powered__function_checks">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_function_checks__report_initialized" bpmnElement="function_checks__report_initialized">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1410" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_initialized__init_end" bpmnElement="report_initialized__init_end">
+        <di:waypoint x="1610" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1645.0" y="140.0" />
+        <di:waypoint x="1680" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_configure" name="本发参数下发与接收核验">
+    <bpmndi:BPMNPlane id="plane_configure" bpmnElement="configure">
+      <bpmndi:BPMNShape id="shape_config_start" bpmnElement="config_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_dispatch_parameters" bpmnElement="dispatch_parameters">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_parameter_evidence" bpmnElement="parameter_evidence">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_config_end" bpmnElement="config_end">
+        <dc:Bounds x="870" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_config_start__dispatch_parameters" bpmnElement="config_start__dispatch_parameters">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_dispatch_parameters__parameter_evidence" bpmnElement="dispatch_parameters__parameter_evidence">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_parameter_evidence__config_end" bpmnElement="parameter_evidence__config_end">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="140.0" />
+        <di:waypoint x="870" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_prepare" name="发射准备：联锁建立与并行支路">
+    <bpmndi:BPMNPlane id="plane_prepare" bpmnElement="prepare">
+      <bpmndi:BPMNShape id="shape_prep_start" bpmnElement="prep_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_clear_area" bpmnElement="clear_area">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_close_doors" bpmnElement="close_doors">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_interlock_evidence" bpmnElement="interlock_evidence">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_report_interlocked" bpmnElement="report_interlocked">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prep_split" bpmnElement="prep_split">
+        <dc:Bounds x="1410" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_emit_sources" bpmnElement="emit_sources">
+        <dc:Bounds x="1680" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_preamp" bpmnElement="repeat_preamp">
+        <dc:Bounds x="1680" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wakeup" bpmnElement="wakeup">
+        <dc:Bounds x="1950" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_loop" bpmnElement="coarse_loop">
+        <dc:Bounds x="2760" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_loop_first" bpmnElement="fine_loop_first">
+        <dc:Bounds x="3030" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_repeat_measurement" bpmnElement="repeat_measurement">
+        <dc:Bounds x="1680" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_aim_prepare" bpmnElement="aim_prepare">
+        <dc:Bounds x="1950" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_target_preposition" bpmnElement="target_preposition">
+        <dc:Bounds x="1680" y="630" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_simulation_position" bpmnElement="simulation_position">
+        <dc:Bounds x="2490" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_diagnosis_prepare" bpmnElement="diagnosis_prepare">
+        <dc:Bounds x="3030" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimate" bpmnElement="collimate">
+        <dc:Bounds x="3030" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_beam_guide" bpmnElement="beam_guide">
+        <dc:Bounds x="3570" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_target_reset" bpmnElement="target_reset">
+        <dc:Bounds x="4110" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_target_shot" bpmnElement="target_shot">
+        <dc:Bounds x="4380" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_measurement_motion" bpmnElement="measurement_motion">
+        <dc:Bounds x="4110" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_shot_motion" bpmnElement="shot_motion">
+        <dc:Bounds x="4110" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_prepare" bpmnElement="pump_prepare">
+        <dc:Bounds x="1680" y="800" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_light_fork" bpmnElement="light_fork">
+        <dc:Bounds x="1950" y="460" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_wakeup_fork" bpmnElement="wakeup_fork">
+        <dc:Bounds x="2220" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_coarse_join" bpmnElement="coarse_join">
+        <dc:Bounds x="2490" y="290" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_simulation_join" bpmnElement="simulation_join">
+        <dc:Bounds x="2220" y="290" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_simulation_fork" bpmnElement="simulation_fork">
+        <dc:Bounds x="2760" y="290" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimation_join" bpmnElement="collimation_join">
+        <dc:Bounds x="2490" y="460" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_guide_join" bpmnElement="guide_join">
+        <dc:Bounds x="3300" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_guide_fork" bpmnElement="guide_fork">
+        <dc:Bounds x="3840" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prep_join" bpmnElement="prep_join">
+        <dc:Bounds x="4650" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_collimation_conditions" bpmnElement="collimation_conditions">
+        <dc:Bounds x="2760" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_prep_end" bpmnElement="prep_end">
+        <dc:Bounds x="4920" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_prep_start__clear_area" bpmnElement="prep_start__clear_area">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_clear_area__close_doors" bpmnElement="clear_area__close_doors">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_close_doors__interlock_evidence" bpmnElement="close_doors__interlock_evidence">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_interlock_evidence__report_interlocked" bpmnElement="interlock_evidence__report_interlocked">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_report_interlocked__prep_split" bpmnElement="report_interlocked__prep_split">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_split__emit_sources" bpmnElement="prep_split__emit_sources">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="165.0" />
+        <di:waypoint x="1680" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_emit_sources__light_fork" bpmnElement="emit_sources__light_fork">
+        <di:waypoint x="1880" y="165.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1915.0" y="480.0" />
+        <di:waypoint x="1950" y="480.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_split__repeat_preamp" bpmnElement="prep_split__repeat_preamp">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="335.0" />
+        <di:waypoint x="1680" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_preamp__wakeup" bpmnElement="repeat_preamp__wakeup">
+        <di:waypoint x="1880" y="335.0" />
+        <di:waypoint x="1915.0" y="335.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1950" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wakeup__wakeup_fork" bpmnElement="wakeup__wakeup_fork">
+        <di:waypoint x="2150" y="165.0" />
+        <di:waypoint x="2185.0" y="165.0" />
+        <di:waypoint x="2185.0" y="140.0" />
+        <di:waypoint x="2220" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_light_fork__coarse_join" bpmnElement="light_fork__coarse_join">
+        <di:waypoint x="1990" y="480.0" />
+        <di:waypoint x="2240.0" y="480.0" />
+        <di:waypoint x="2240.0" y="310.0" />
+        <di:waypoint x="2490" y="310.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_light_fork__collimation_join" bpmnElement="light_fork__collimation_join">
+        <di:waypoint x="1990" y="480.0" />
+        <di:waypoint x="2240.0" y="480.0" />
+        <di:waypoint x="2240.0" y="480.0" />
+        <di:waypoint x="2490" y="480.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wakeup_fork__coarse_join" bpmnElement="wakeup_fork__coarse_join">
+        <di:waypoint x="2260" y="140.0" />
+        <di:waypoint x="2375.0" y="140.0" />
+        <di:waypoint x="2375.0" y="310.0" />
+        <di:waypoint x="2490" y="310.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_wakeup_fork__collimation_join" bpmnElement="wakeup_fork__collimation_join">
+        <di:waypoint x="2260" y="140.0" />
+        <di:waypoint x="2375.0" y="140.0" />
+        <di:waypoint x="2375.0" y="480.0" />
+        <di:waypoint x="2490" y="480.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_join__coarse_loop" bpmnElement="coarse_join__coarse_loop">
+        <di:waypoint x="2530" y="310.0" />
+        <di:waypoint x="2645.0" y="310.0" />
+        <di:waypoint x="2645.0" y="165.0" />
+        <di:waypoint x="2760" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_coarse_loop__fine_loop_first" bpmnElement="coarse_loop__fine_loop_first">
+        <di:waypoint x="2960" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="3030" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_loop_first__prep_join" bpmnElement="fine_loop_first__prep_join">
+        <di:waypoint x="3230" y="165.0" />
+        <di:waypoint x="3940.0" y="165.0" />
+        <di:waypoint x="3940.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_split__repeat_measurement" bpmnElement="prep_split__repeat_measurement">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="505.0" />
+        <di:waypoint x="1680" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_repeat_measurement__aim_prepare" bpmnElement="repeat_measurement__aim_prepare">
+        <di:waypoint x="1880" y="505.0" />
+        <di:waypoint x="1915.0" y="505.0" />
+        <di:waypoint x="1915.0" y="335.0" />
+        <di:waypoint x="1950" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_aim_prepare__simulation_join" bpmnElement="aim_prepare__simulation_join">
+        <di:waypoint x="2150" y="335.0" />
+        <di:waypoint x="2185.0" y="335.0" />
+        <di:waypoint x="2185.0" y="310.0" />
+        <di:waypoint x="2220" y="310.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_split__target_preposition" bpmnElement="prep_split__target_preposition">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="675.0" />
+        <di:waypoint x="1680" y="675.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_target_preposition__simulation_join" bpmnElement="target_preposition__simulation_join">
+        <di:waypoint x="1880" y="675.0" />
+        <di:waypoint x="2050.0" y="675.0" />
+        <di:waypoint x="2050.0" y="310.0" />
+        <di:waypoint x="2220" y="310.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_simulation_join__simulation_position" bpmnElement="simulation_join__simulation_position">
+        <di:waypoint x="2260" y="310.0" />
+        <di:waypoint x="2375.0" y="310.0" />
+        <di:waypoint x="2375.0" y="165.0" />
+        <di:waypoint x="2490" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_simulation_position__simulation_fork" bpmnElement="simulation_position__simulation_fork">
+        <di:waypoint x="2690" y="165.0" />
+        <di:waypoint x="2725.0" y="165.0" />
+        <di:waypoint x="2725.0" y="310.0" />
+        <di:waypoint x="2760" y="310.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_simulation_fork__diagnosis_prepare" bpmnElement="simulation_fork__diagnosis_prepare">
+        <di:waypoint x="2800" y="310.0" />
+        <di:waypoint x="2915.0" y="310.0" />
+        <di:waypoint x="2915.0" y="335.0" />
+        <di:waypoint x="3030" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_diagnosis_prepare__prep_join" bpmnElement="diagnosis_prepare__prep_join">
+        <di:waypoint x="3230" y="335.0" />
+        <di:waypoint x="3940.0" y="335.0" />
+        <di:waypoint x="3940.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_simulation_fork__guide_join" bpmnElement="simulation_fork__guide_join">
+        <di:waypoint x="2800" y="310.0" />
+        <di:waypoint x="3050.0" y="310.0" />
+        <di:waypoint x="3050.0" y="140.0" />
+        <di:waypoint x="3300" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimation_join__collimation_conditions" bpmnElement="collimation_join__collimation_conditions">
+        <di:waypoint x="2530" y="480.0" />
+        <di:waypoint x="2645.0" y="480.0" />
+        <di:waypoint x="2645.0" y="505.0" />
+        <di:waypoint x="2760" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimation_conditions__collimate" bpmnElement="collimation_conditions__collimate">
+        <di:waypoint x="2960" y="505.0" />
+        <di:waypoint x="2995.0" y="505.0" />
+        <di:waypoint x="2995.0" y="505.0" />
+        <di:waypoint x="3030" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_collimate__guide_join" bpmnElement="collimate__guide_join">
+        <di:waypoint x="3230" y="505.0" />
+        <di:waypoint x="3265.0" y="505.0" />
+        <di:waypoint x="3265.0" y="140.0" />
+        <di:waypoint x="3300" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_guide_join__beam_guide" bpmnElement="guide_join__beam_guide">
+        <di:waypoint x="3340" y="140.0" />
+        <di:waypoint x="3455.0" y="140.0" />
+        <di:waypoint x="3455.0" y="165.0" />
+        <di:waypoint x="3570" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_beam_guide__guide_fork" bpmnElement="beam_guide__guide_fork">
+        <di:waypoint x="3770" y="165.0" />
+        <di:waypoint x="3805.0" y="165.0" />
+        <di:waypoint x="3805.0" y="140.0" />
+        <di:waypoint x="3840" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_guide_fork__target_reset" bpmnElement="guide_fork__target_reset">
+        <di:waypoint x="3880" y="140.0" />
+        <di:waypoint x="3995.0" y="140.0" />
+        <di:waypoint x="3995.0" y="165.0" />
+        <di:waypoint x="4110" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_target_reset__target_shot" bpmnElement="target_reset__target_shot">
+        <di:waypoint x="4310" y="165.0" />
+        <di:waypoint x="4345.0" y="165.0" />
+        <di:waypoint x="4345.0" y="165.0" />
+        <di:waypoint x="4380" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_target_shot__prep_join" bpmnElement="target_shot__prep_join">
+        <di:waypoint x="4580" y="165.0" />
+        <di:waypoint x="4615.0" y="165.0" />
+        <di:waypoint x="4615.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_guide_fork__measurement_motion" bpmnElement="guide_fork__measurement_motion">
+        <di:waypoint x="3880" y="140.0" />
+        <di:waypoint x="3995.0" y="140.0" />
+        <di:waypoint x="3995.0" y="335.0" />
+        <di:waypoint x="4110" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_measurement_motion__prep_join" bpmnElement="measurement_motion__prep_join">
+        <di:waypoint x="4310" y="335.0" />
+        <di:waypoint x="4480.0" y="335.0" />
+        <di:waypoint x="4480.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_guide_fork__shot_motion" bpmnElement="guide_fork__shot_motion">
+        <di:waypoint x="3880" y="140.0" />
+        <di:waypoint x="3995.0" y="140.0" />
+        <di:waypoint x="3995.0" y="505.0" />
+        <di:waypoint x="4110" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_shot_motion__prep_join" bpmnElement="shot_motion__prep_join">
+        <di:waypoint x="4310" y="505.0" />
+        <di:waypoint x="4480.0" y="505.0" />
+        <di:waypoint x="4480.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_split__pump_prepare" bpmnElement="prep_split__pump_prepare">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="845.0" />
+        <di:waypoint x="1680" y="845.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_prepare__prep_join" bpmnElement="pump_prepare__prep_join">
+        <di:waypoint x="1880" y="845.0" />
+        <di:waypoint x="3265.0" y="845.0" />
+        <di:waypoint x="3265.0" y="140.0" />
+        <di:waypoint x="4650" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_prep_join__prep_end" bpmnElement="prep_join__prep_end">
+        <di:waypoint x="4690" y="140.0" />
+        <di:waypoint x="4805.0" y="140.0" />
+        <di:waypoint x="4805.0" y="140.0" />
+        <di:waypoint x="4920" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_formal_prepare" name="正式发射充电前置支路">
+    <bpmndi:BPMNPlane id="plane_formal_prepare" bpmnElement="formal_prepare">
+      <bpmndi:BPMNShape id="shape_formal_start" bpmnElement="formal_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_formal_split" bpmnElement="formal_split">
+        <dc:Bounds x="330" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_formal_join" bpmnElement="formal_join">
+        <dc:Bounds x="1410" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_formal_end" bpmnElement="formal_end">
+        <dc:Bounds x="1680" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_diagnosis_acquire" bpmnElement="diagnosis_acquire">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_crystal_pose" bpmnElement="crystal_pose">
+        <dc:Bounds x="600" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_charge_prepare" bpmnElement="charge_prepare">
+        <dc:Bounds x="600" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_warning_on" bpmnElement="warning_on">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_fine_loop_second" bpmnElement="fine_loop_second">
+        <dc:Bounds x="600" y="630" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_single_preamp" bpmnElement="single_preamp">
+        <dc:Bounds x="870" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_clear_meter" bpmnElement="clear_meter">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_single_measurement" bpmnElement="single_measurement">
+        <dc:Bounds x="600" y="800" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_shot_measurement" bpmnElement="shot_measurement">
+        <dc:Bounds x="870" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_switch_charge" bpmnElement="switch_charge">
+        <dc:Bounds x="600" y="970" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_formal_start__formal_split" bpmnElement="formal_start__formal_split">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="330" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_join__formal_end" bpmnElement="formal_join__formal_end">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1680" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__diagnosis_acquire" bpmnElement="formal_split__diagnosis_acquire">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_diagnosis_acquire__formal_join" bpmnElement="diagnosis_acquire__formal_join">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__crystal_pose" bpmnElement="formal_split__crystal_pose">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="335.0" />
+        <di:waypoint x="600" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_crystal_pose__formal_join" bpmnElement="crystal_pose__formal_join">
+        <di:waypoint x="800" y="335.0" />
+        <di:waypoint x="1105.0" y="335.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__charge_prepare" bpmnElement="formal_split__charge_prepare">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="505.0" />
+        <di:waypoint x="600" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_charge_prepare__warning_on" bpmnElement="charge_prepare__warning_on">
+        <di:waypoint x="800" y="505.0" />
+        <di:waypoint x="835.0" y="505.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_warning_on__formal_join" bpmnElement="warning_on__formal_join">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1240.0" y="165.0" />
+        <di:waypoint x="1240.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__fine_loop_second" bpmnElement="formal_split__fine_loop_second">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="675.0" />
+        <di:waypoint x="600" y="675.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_fine_loop_second__single_preamp" bpmnElement="fine_loop_second__single_preamp">
+        <di:waypoint x="800" y="675.0" />
+        <di:waypoint x="835.0" y="675.0" />
+        <di:waypoint x="835.0" y="335.0" />
+        <di:waypoint x="870" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_single_preamp__clear_meter" bpmnElement="single_preamp__clear_meter">
+        <di:waypoint x="1070" y="335.0" />
+        <di:waypoint x="1105.0" y="335.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_clear_meter__formal_join" bpmnElement="clear_meter__formal_join">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__single_measurement" bpmnElement="formal_split__single_measurement">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="845.0" />
+        <di:waypoint x="600" y="845.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_single_measurement__shot_measurement" bpmnElement="single_measurement__shot_measurement">
+        <di:waypoint x="800" y="845.0" />
+        <di:waypoint x="835.0" y="845.0" />
+        <di:waypoint x="835.0" y="505.0" />
+        <di:waypoint x="870" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_shot_measurement__formal_join" bpmnElement="shot_measurement__formal_join">
+        <di:waypoint x="1070" y="505.0" />
+        <di:waypoint x="1240.0" y="505.0" />
+        <di:waypoint x="1240.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_formal_split__switch_charge" bpmnElement="formal_split__switch_charge">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="1015.0" />
+        <di:waypoint x="600" y="1015.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_switch_charge__formal_join" bpmnElement="switch_charge__formal_join">
+        <di:waypoint x="800" y="1015.0" />
+        <di:waypoint x="1105.0" y="1015.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_charge" name="泵浦发射充电">
+    <bpmndi:BPMNPlane id="plane_charge" bpmnElement="charge">
+      <bpmndi:BPMNShape id="shape_charge_start" bpmnElement="charge_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_charge_request" bpmnElement="charge_request">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_charge_completed" bpmnElement="charge_completed">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_charge_end" bpmnElement="charge_end">
+        <dc:Bounds x="870" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_charge_start__charge_request" bpmnElement="charge_start__charge_request">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_charge_request__charge_completed" bpmnElement="charge_request__charge_completed">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_charge_completed__charge_end" bpmnElement="charge_completed__charge_end">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="140.0" />
+        <di:waypoint x="870" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_synchronized_emission" name="主发射同步时序与实际反馈">
+    <bpmndi:BPMNPlane id="plane_synchronized_emission" bpmnElement="synchronized_emission">
+      <bpmndi:BPMNShape id="shape_timing_start" bpmnElement="timing_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_schedule_trigger" bpmnElement="schedule_trigger">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_t0_accepted" bpmnElement="t0_accepted">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_timing_split" bpmnElement="timing_split">
+        <dc:Bounds x="870" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_timing_join" bpmnElement="timing_join">
+        <dc:Bounds x="1410" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_timing_end" bpmnElement="timing_end">
+        <dc:Bounds x="1680" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_t3" bpmnElement="pump_t3">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_switch_t3" bpmnElement="switch_t3">
+        <dc:Bounds x="1140" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_sync_t5" bpmnElement="sync_t5">
+        <dc:Bounds x="1140" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_timing_start__schedule_trigger" bpmnElement="timing_start__schedule_trigger">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_schedule_trigger__t0_accepted" bpmnElement="schedule_trigger__t0_accepted">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_t0_accepted__timing_split" bpmnElement="t0_accepted__timing_split">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="140.0" />
+        <di:waypoint x="870" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_timing_split__pump_t3" bpmnElement="timing_split__pump_t3">
+        <di:waypoint x="910" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_t3__timing_join" bpmnElement="pump_t3__timing_join">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_timing_split__switch_t3" bpmnElement="timing_split__switch_t3">
+        <di:waypoint x="910" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="335.0" />
+        <di:waypoint x="1140" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_switch_t3__timing_join" bpmnElement="switch_t3__timing_join">
+        <di:waypoint x="1340" y="335.0" />
+        <di:waypoint x="1375.0" y="335.0" />
+        <di:waypoint x="1375.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_timing_split__sync_t5" bpmnElement="timing_split__sync_t5">
+        <di:waypoint x="910" y="140.0" />
+        <di:waypoint x="1025.0" y="140.0" />
+        <di:waypoint x="1025.0" y="505.0" />
+        <di:waypoint x="1140" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_sync_t5__timing_join" bpmnElement="sync_t5__timing_join">
+        <di:waypoint x="1340" y="505.0" />
+        <di:waypoint x="1375.0" y="505.0" />
+        <di:waypoint x="1375.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_timing_join__timing_end" bpmnElement="timing_join__timing_end">
+        <di:waypoint x="1450" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1565.0" y="140.0" />
+        <di:waypoint x="1680" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_postprocess" name="后处理并行支路及预电离子周期">
+    <bpmndi:BPMNPlane id="plane_postprocess" bpmnElement="postprocess">
+      <bpmndi:BPMNShape id="shape_post_start" bpmnElement="post_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_post_split" bpmnElement="post_split">
+        <dc:Bounds x="330" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_post_join" bpmnElement="post_join">
+        <dc:Bounds x="1140" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_post_end" bpmnElement="post_end">
+        <dc:Bounds x="1410" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_diagnosis_post" bpmnElement="diagnosis_post">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_source_collect" bpmnElement="source_collect">
+        <dc:Bounds x="600" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_energy_collect" bpmnElement="energy_collect">
+        <dc:Bounds x="600" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preamp_standby" bpmnElement="preamp_standby">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_measure_collect" bpmnElement="measure_collect">
+        <dc:Bounds x="600" y="630" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_target_analysis" bpmnElement="target_analysis">
+        <dc:Bounds x="870" y="290" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_target_retract" bpmnElement="target_retract">
+        <dc:Bounds x="600" y="800" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_waveform_collect" bpmnElement="waveform_collect">
+        <dc:Bounds x="600" y="970" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_switch_standby" bpmnElement="switch_standby">
+        <dc:Bounds x="870" y="460" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_purge_start" bpmnElement="purge_start">
+        <dc:Bounds x="600" y="1140" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_purge_handover" bpmnElement="purge_handover">
+        <dc:Bounds x="870" y="630" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preionization" bpmnElement="preionization" isExpanded="false">
+        <dc:Bounds x="600" y="1310" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_post_start__post_split" bpmnElement="post_start__post_split">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="330" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_join__post_end" bpmnElement="post_join__post_end">
+        <di:waypoint x="1180" y="140.0" />
+        <di:waypoint x="1295.0" y="140.0" />
+        <di:waypoint x="1295.0" y="140.0" />
+        <di:waypoint x="1410" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__diagnosis_post" bpmnElement="post_split__diagnosis_post">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_diagnosis_post__post_join" bpmnElement="diagnosis_post__post_join">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="970.0" y="165.0" />
+        <di:waypoint x="970.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__source_collect" bpmnElement="post_split__source_collect">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="335.0" />
+        <di:waypoint x="600" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_source_collect__post_join" bpmnElement="source_collect__post_join">
+        <di:waypoint x="800" y="335.0" />
+        <di:waypoint x="970.0" y="335.0" />
+        <di:waypoint x="970.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__energy_collect" bpmnElement="post_split__energy_collect">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="505.0" />
+        <di:waypoint x="600" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_energy_collect__preamp_standby" bpmnElement="energy_collect__preamp_standby">
+        <di:waypoint x="800" y="505.0" />
+        <di:waypoint x="835.0" y="505.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preamp_standby__post_join" bpmnElement="preamp_standby__post_join">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__measure_collect" bpmnElement="post_split__measure_collect">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="675.0" />
+        <di:waypoint x="600" y="675.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_measure_collect__target_analysis" bpmnElement="measure_collect__target_analysis">
+        <di:waypoint x="800" y="675.0" />
+        <di:waypoint x="835.0" y="675.0" />
+        <di:waypoint x="835.0" y="335.0" />
+        <di:waypoint x="870" y="335.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_target_analysis__post_join" bpmnElement="target_analysis__post_join">
+        <di:waypoint x="1070" y="335.0" />
+        <di:waypoint x="1105.0" y="335.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__target_retract" bpmnElement="post_split__target_retract">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="845.0" />
+        <di:waypoint x="600" y="845.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_target_retract__post_join" bpmnElement="target_retract__post_join">
+        <di:waypoint x="800" y="845.0" />
+        <di:waypoint x="970.0" y="845.0" />
+        <di:waypoint x="970.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__waveform_collect" bpmnElement="post_split__waveform_collect">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="1015.0" />
+        <di:waypoint x="600" y="1015.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_waveform_collect__switch_standby" bpmnElement="waveform_collect__switch_standby">
+        <di:waypoint x="800" y="1015.0" />
+        <di:waypoint x="835.0" y="1015.0" />
+        <di:waypoint x="835.0" y="505.0" />
+        <di:waypoint x="870" y="505.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_switch_standby__post_join" bpmnElement="switch_standby__post_join">
+        <di:waypoint x="1070" y="505.0" />
+        <di:waypoint x="1105.0" y="505.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__purge_start" bpmnElement="post_split__purge_start">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="1185.0" />
+        <di:waypoint x="600" y="1185.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_purge_start__purge_handover" bpmnElement="purge_start__purge_handover">
+        <di:waypoint x="800" y="1185.0" />
+        <di:waypoint x="835.0" y="1185.0" />
+        <di:waypoint x="835.0" y="675.0" />
+        <di:waypoint x="870" y="675.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_purge_handover__post_join" bpmnElement="purge_handover__post_join">
+        <di:waypoint x="1070" y="675.0" />
+        <di:waypoint x="1105.0" y="675.0" />
+        <di:waypoint x="1105.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_post_split__preionization" bpmnElement="post_split__preionization">
+        <di:waypoint x="370" y="140.0" />
+        <di:waypoint x="485.0" y="140.0" />
+        <di:waypoint x="485.0" y="1355.0" />
+        <di:waypoint x="600" y="1355.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preionization__post_join" bpmnElement="preionization__post_join">
+        <di:waypoint x="800" y="1355.0" />
+        <di:waypoint x="970.0" y="1355.0" />
+        <di:waypoint x="970.0" y="140.0" />
+        <di:waypoint x="1140" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_preionization" name="泵浦后处理及预电离子周期">
+    <bpmndi:BPMNPlane id="plane_preionization" bpmnElement="preionization">
+      <bpmndi:BPMNShape id="shape_preion_start" bpmnElement="preion_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_end" bpmnElement="preion_end">
+        <dc:Bounds x="3570" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_collect_main" bpmnElement="pump_collect_main">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_standby_main" bpmnElement="pump_standby_main">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_prepare" bpmnElement="preion_prepare">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_music_on" bpmnElement="preion_music_on">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_charge" bpmnElement="preion_charge">
+        <dc:Bounds x="1410" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_music_off" bpmnElement="preion_music_off">
+        <dc:Bounds x="1950" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_schedule" bpmnElement="preion_schedule">
+        <dc:Bounds x="2220" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_collect_preion" bpmnElement="pump_collect_preion">
+        <dc:Bounds x="2760" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_pump_standby_preion" bpmnElement="pump_standby_preion">
+        <dc:Bounds x="3030" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_warning_lamp_off" bpmnElement="warning_lamp_off">
+        <dc:Bounds x="3300" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_charge_completed" bpmnElement="preion_charge_completed">
+        <dc:Bounds x="1680" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_preion_triggered" bpmnElement="preion_triggered">
+        <dc:Bounds x="2490" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_preion_start__pump_collect_main" bpmnElement="preion_start__pump_collect_main">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_collect_main__pump_standby_main" bpmnElement="pump_collect_main__pump_standby_main">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_standby_main__preion_prepare" bpmnElement="pump_standby_main__preion_prepare">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_prepare__preion_music_on" bpmnElement="preion_prepare__preion_music_on">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_music_on__preion_charge" bpmnElement="preion_music_on__preion_charge">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1410" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_charge__preion_charge_completed" bpmnElement="preion_charge__preion_charge_completed">
+        <di:waypoint x="1610" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1680" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_charge_completed__preion_music_off" bpmnElement="preion_charge_completed__preion_music_off">
+        <di:waypoint x="1880" y="165.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1915.0" y="165.0" />
+        <di:waypoint x="1950" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_music_off__preion_schedule" bpmnElement="preion_music_off__preion_schedule">
+        <di:waypoint x="2150" y="165.0" />
+        <di:waypoint x="2185.0" y="165.0" />
+        <di:waypoint x="2185.0" y="165.0" />
+        <di:waypoint x="2220" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_schedule__preion_triggered" bpmnElement="preion_schedule__preion_triggered">
+        <di:waypoint x="2420" y="165.0" />
+        <di:waypoint x="2455.0" y="165.0" />
+        <di:waypoint x="2455.0" y="165.0" />
+        <di:waypoint x="2490" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_preion_triggered__pump_collect_preion" bpmnElement="preion_triggered__pump_collect_preion">
+        <di:waypoint x="2690" y="165.0" />
+        <di:waypoint x="2725.0" y="165.0" />
+        <di:waypoint x="2725.0" y="165.0" />
+        <di:waypoint x="2760" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_collect_preion__pump_standby_preion" bpmnElement="pump_collect_preion__pump_standby_preion">
+        <di:waypoint x="2960" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="2995.0" y="165.0" />
+        <di:waypoint x="3030" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_pump_standby_preion__warning_lamp_off" bpmnElement="pump_standby_preion__warning_lamp_off">
+        <di:waypoint x="3230" y="165.0" />
+        <di:waypoint x="3265.0" y="165.0" />
+        <di:waypoint x="3265.0" y="165.0" />
+        <di:waypoint x="3300" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_warning_lamp_off__preion_end" bpmnElement="warning_lamp_off__preion_end">
+        <di:waypoint x="3500" y="165.0" />
+        <di:waypoint x="3535.0" y="165.0" />
+        <di:waypoint x="3535.0" y="140.0" />
+        <di:waypoint x="3570" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="diagram_release" name="现场释放：条件确认及物理反馈">
+    <bpmndi:BPMNPlane id="plane_release" bpmnElement="release">
+      <bpmndi:BPMNShape id="shape_release_start" bpmnElement="release_start">
+        <dc:Bounds x="60" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_release_authorization" bpmnElement="release_authorization">
+        <dc:Bounds x="330" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_unlock_and_open" bpmnElement="unlock_and_open">
+        <dc:Bounds x="600" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_door_physically_open" bpmnElement="door_physically_open">
+        <dc:Bounds x="870" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_end_announcement" bpmnElement="end_announcement">
+        <dc:Bounds x="1140" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_release_evidence" bpmnElement="release_evidence">
+        <dc:Bounds x="1410" y="120" width="200" height="90" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_release_end" bpmnElement="release_end">
+        <dc:Bounds x="1680" y="120" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_release_start__release_authorization" bpmnElement="release_start__release_authorization">
+        <di:waypoint x="100" y="140.0" />
+        <di:waypoint x="215.0" y="140.0" />
+        <di:waypoint x="215.0" y="165.0" />
+        <di:waypoint x="330" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_release_authorization__unlock_and_open" bpmnElement="release_authorization__unlock_and_open">
+        <di:waypoint x="530" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="565.0" y="165.0" />
+        <di:waypoint x="600" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_unlock_and_open__door_physically_open" bpmnElement="unlock_and_open__door_physically_open">
+        <di:waypoint x="800" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="835.0" y="165.0" />
+        <di:waypoint x="870" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_door_physically_open__end_announcement" bpmnElement="door_physically_open__end_announcement">
+        <di:waypoint x="1070" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1105.0" y="165.0" />
+        <di:waypoint x="1140" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_end_announcement__release_evidence" bpmnElement="end_announcement__release_evidence">
+        <di:waypoint x="1340" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1375.0" y="165.0" />
+        <di:waypoint x="1410" y="165.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="edge_release_evidence__release_end" bpmnElement="release_evidence__release_end">
+        <di:waypoint x="1610" y="165.0" />
+        <di:waypoint x="1645.0" y="165.0" />
+        <di:waypoint x="1645.0" y="140.0" />
+        <di:waypoint x="1680" y="140.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

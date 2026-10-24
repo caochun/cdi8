@@ -70,8 +70,8 @@ class SystemStateModelTest {
             for(var transition:model.transitions())if(transition.blockedReason().isBlank()&&reachable.contains(transition.from()))
                 changed|=reachable.add(transition.to());
         }while(changed);
-        assertThat(reachable).containsExactlyInAnyOrder("uninitialized","powered","initialized","configuring");
-        assertThat(model.transition("safetyVerified").blockedReason()).contains("人员","钛泵");
+        assertThat(reachable).containsExactlyInAnyOrder("uninitialized","powered","initialized","configuring","configured","preparing","interlockedPreparation","prepared","formalPreparation");
+        assertThat(model.transition("safetyVerified").blockedReason()).isBlank();
         assertThat(model.transition("countdownStarted").blockedReason()).contains("T+3/T+5");
     }
 
@@ -108,6 +108,29 @@ class SystemStateModelTest {
         assertThat(power.getOutgoingFlows().get(0).getTargetRef()).isEqualTo("report_powered");
         assertThat(((org.flowable.bpmn.model.FlowNode)scope.getFlowElement("report_powered")).getOutgoingFlows().get(0).getTargetRef()).isEqualTo("function_checks");
     }
+
+    @Test void experimentBackboneDesignCoversEveryDeclaredSystemTransitionWithoutMakingItExecutable() throws Exception {
+        var bpmn = ModelValidation.parse(Files.readString(Path.of("examples/gxlf/design/gxlf_experiment_backbone.bpmn20.xml")));
+        SystemStateModel.validateProcess(bpmn);
+        assertThat(bpmn.getMainProcess().isExecutable()).isFalse();
+        var system = SystemStateModel.parse(Files.readString(Path.of("examples/gxlf/system/gxlf-experiment.system.xml")));
+        var reports = new HashSet<String>();
+        for (var element : allElements(bpmn.getMainProcess()))
+            for (var report : SystemStateModel.elements(element, "report"))
+                reports.add(SystemStateModel.attr(report, "transition"));
+        assertThat(reports).containsExactlyInAnyOrderElementsOf(system.transitions().stream()
+            .map(SystemStateModel.Transition::id).toList());
+        assertThat(system.transitions().stream().filter(t -> !t.blockedReason().isBlank()).count()).isEqualTo(5);
+    }
+
+    private List<org.flowable.bpmn.model.FlowElement> allElements(org.flowable.bpmn.model.FlowElementsContainer container) {
+        var result = new ArrayList<org.flowable.bpmn.model.FlowElement>();
+        for (var element : container.getFlowElements()) {
+            result.add(element);
+            if (element instanceof org.flowable.bpmn.model.SubProcess sub) result.addAll(allElements(sub));
+        }
+        return result;
+    }
     @Test void gxlfDeclarationDefinesStatesPredicatesAndTransitions() throws Exception {
         var model=SystemStateModel.parse(Files.readString(Path.of("examples/gxlf/system/gxlf-initialization.system.xml")));
         assertThat(model.id()).isEqualTo("gxlf-initialization");
@@ -116,6 +139,21 @@ class SystemStateModelTest {
         assertThat(model.state("initialized").predicates()).hasSize(4);
         assertThat(model.state("uninitialized").predicates().get(0).states())
             .contains("statusUnknown", "powerOnChecked");
+    }
+
+    @Test void initializationParameterSliceUsesTheSameSystemStateAndTwelveParameterTargets() throws Exception {
+        var bpmn = ModelValidation.parse(Files.readString(Path.of("examples/gxlf/bpmn/gxlf_initialization_parameter_dispatch.bpmn20.xml")));
+        SystemStateModel.validateProcess(bpmn);
+        var process = bpmn.getMainProcess();
+        assertThat(SystemStateModel.attr(SystemStateModel.elements(process, "systemModel").get(0), "ref"))
+            .isEqualTo("gxlf-experiment");
+        var scope = (org.flowable.bpmn.model.SubProcess) process.getFlowElement("normal");
+        var parameter = (org.flowable.bpmn.model.ServiceTask) scope.getFlowElement("parameter_checks");
+        assertThat(parameter.getLoopCharacteristics().getInputDataItem()).isEqualTo("${parameterTargets}");
+        assertThat(SystemStateModel.elements(parameter, "requires")).extracting(e -> SystemStateModel.attr(e, "state"))
+            .containsExactly("configuring");
+        assertThat(SystemStateModel.elements((org.flowable.bpmn.model.FlowElement) scope.getFlowElement("report_configured"), "report"))
+            .extracting(e -> SystemStateModel.attr(e, "transition")).containsExactly("configurationVerified");
     }
 
     @Test void rejectsTransitionsToUnknownStatesAndUnobservableNonInitialStates() {

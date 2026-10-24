@@ -9,6 +9,7 @@
 | 流程 | 职责 |
 |---|---|
 | `component_initialization` | 四类组件并行上电检查和功能检查 |
+| `gxlf_initialization_parameter_dispatch` | 十四类组件初始化、参数下发及技术验证版发射准备 |
 | `parameter_dispatch` | 四类组件参数下发 |
 | `optical_frontend_preparation` | 选定光源出光、同步预放重频、预放唤醒、闭环与多程准直 |
 | `formal_emission` | 正式发射前置条件、第二次精闭环、能量计清零和触发证据 |
@@ -30,11 +31,15 @@
 
 ## 当前执行范围
 
+完整实验的[主干设计 BPMN](design/gxlf_experiment_backbone.bpmn20.xml)与系统状态的对应关系已整理在[实验主干与系统状态对应表](../../docs/domain/gxlf/process-control/实验主干与系统状态对应表.md)。主干按业务说明保留并行、屏障、证据等待和异常路径，明确标为非执行设计；不改变下面的实际执行范围。
+
+新增的 `gxlf_initialization_parameter_dispatch` 是第一段可执行技术验证切片：同一份系统状态记录从 `uninitialized` 经过 `powered`、`initialized`、`configuring` 到 `configured`，并对十二类可参数化设备执行参数下发，再执行技术验证版发射准备动作链。它暂时使用当前状态和命令终态作为参数生效判据，并使用模拟控制环境联锁和真空状态假设；生产发次/版本关联、完整安全联锁和双通道证据仍需替换为正式证据协议。
+
 初始化要求组件处于未就绪；上电检查只确认设备均已上电，功能检查通过后才取得业务就绪资格。参数下发后，前期准备流程可以选择种子源、二倍频或两者参与供光。
 
 十四类设备初始化已接入独立 BPMN。工作台选择入口“GXLF 十四类设备初始化”，配置十四类设备实例、应用环境后即可调试。Java 端到端测试每类使用一个实例，验证 28 条命令；不代表业务名义的 259 台规模已经验收。
 
-[`gxlf-experiment.system.xml`](system/gxlf-experiment.system.xml) 声明从初始化到现场释放的 17 个系统状态。命名设备事实、进入条件、持续条件和转换阻断统一表达；完整联锁、双通道同步、本发时序及后处理历史证据不足的转换明确阻断。六步建模过程见 [GXLF 系统状态模型设计](../../docs/domain/gxlf/process-control/系统状态模型设计.md)。十四类设备的后续全生命周期操作 BPMN 尚未实现。
+[`gxlf-experiment.system.xml`](system/gxlf-experiment.system.xml) 声明从初始化到现场释放的 17 个系统状态。命名设备事实、进入条件、持续条件和转换阻断统一表达；完整联锁、双通道同步、本发时序及后处理历史证据不足的转换明确阻断。完整实验主干已经有非执行 BPMN 业务设计；十四类设备的后续全生命周期操作尚未接入可执行 BPMN。六步建模过程见 [GXLF 系统状态模型设计](../../docs/domain/gxlf/process-control/系统状态模型设计.md)。
 
 原六个四组件流程仍保留为简化演示，引用新目录的四份设备模型。诊断、泵浦等结果在这条旧演示链路中仍由明确标识的条件设备提供；这些条件不作为新系统声明的完整联锁证据。外部条件默认 false，自动完成动作不会自动满足这些条件。
 
