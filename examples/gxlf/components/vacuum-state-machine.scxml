@@ -1,0 +1,800 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  真空靶室分系统：父状态严格映射状态表 E 列，子状态映射 D 列。
+  单一活动叶状态；内部确认事件驱动；保留失败重试、自环、资格撤销、异常恢复和关机闭环。
+  请求不会直接当作设备已完成；外部业务条件在流程层检查。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="powerOnOk">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="checkFailed">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="shutdownNormal">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="power-check.invalidated" target="unchecked" type="internal" />
+  </state>
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="vacuum.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="vacuum.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="vacuum.pumping.observed" target="pumpingActive" />
+    </state>
+    <state id="resetReady">
+      <transition event="function-check.requested" />
+      <transition event="vacuum.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="vacuum.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="pumping" initial="pumpingActive">
+    <state id="pumpingActive">
+      <transition event="vacuum.holding.observed" target="vacuumStable" />
+      <transition event="vacuum.repressurizing.observed" target="pressureRestoring" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="vacuumHolding" initial="vacuumStable">
+    <state id="vacuumStable">
+      <transition event="vacuum.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="vacuum.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="vacuum.holding.observed" target="vacuumStable" />
+      <transition event="vacuum.repressurizing.observed" target="pressureRestoring" />
+      <transition event="vacuum.holding.failed" target="vacuumHoldFault" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="repressurizing" initial="pressureRestoring">
+    <state id="pressureRestoring">
+      <transition event="vacuum.atmosphere.observed" target="pressureRestored" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="atmospheric" initial="pressureRestored">
+    <state id="pressureRestored">
+      <transition event="vacuum.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="vacuum.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="vacuum.pumping.observed" target="pumpingActive" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+  </state>
+  <state id="fault" initial="faultLock">
+    <state id="faultLock">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="faultLock" />
+    </state>
+    <state id="commFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="commFault" />
+    </state>
+    <state id="timeoutFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="timeoutFault" />
+    </state>
+    <state id="runTerminated">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="runTerminated" />
+    </state>
+    <state id="vacuumHoldFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="vacuumHoldFault" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" type="internal" />
+    <transition event="communication.failure-confirmed" target="commFault" type="internal" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" type="internal" />
+    <transition event="run.terminated" target="runTerminated" type="internal" />
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "fault_codes": {
+    "fault_confirmed": "faultLock",
+    "communication_fault_confirmed": "commFault",
+    "timeout_confirmed": "timeoutFault",
+    "holding_failed": "vacuumHoldFault"
+  },
+  "model_id": "vacuum-hierarchical-v4",
+  "model_version": 4,
+  "display_name": "真空靶室分系统",
+  "execution_model": "hierarchical-single-active-state",
+  "configuration_valid_states": [
+    "pumpingActive",
+    "vacuumStable",
+    "pressureRestoring",
+    "pressureRestored"
+  ],
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "pumping": "抽真空中",
+    "vacuumHolding": "真空保持",
+    "repressurizing": "负压中",
+    "atmospheric": "负压完成",
+    "fault": "异常"
+  },
+  "inner_labels": {
+    "unchecked": "未上电/离线",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过/业务资格撤销",
+    "shutdownNormal": "关机正常",
+    "functionReady": "业务就绪完成（真空与联锁可用）",
+    "resetReady": "复位/待机完成",
+    "pumpingActive": "抽真空中",
+    "vacuumStable": "真空度保持",
+    "pressureRestoring": "复压中",
+    "pressureRestored": "复压完成",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时",
+    "runTerminated": "本发终止，待内部安全复位",
+    "vacuumHoldFault": "真空度保持失败(需要叠加是否是设备故障的信息)"
+  },
+  "context_defaults": {
+    "fault_origin": null,
+    "faults": [],
+    "power_status": "unknown",
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "shot_id": null,
+    "phase_id": null,
+    "task_id": null,
+    "run_terminated": false
+  },
+  "actions": {
+    "power_on_check": {
+      "label": "开机自检",
+      "success_events": {
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
+      },
+      "failure_events": {
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
+      },
+      "success_key": "开机自检完成",
+      "failure_key": "开机自检失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "failure_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "request_event": "power-check.requested"
+    },
+    "function_check": {
+      "label": "功能检查",
+      "success_events": {
+        "powerOnOk": "qualification.confirmed",
+        "checkFailed": "qualification.confirmed",
+        "resetReady": "qualification.confirmed"
+      },
+      "failure_events": {
+        "powerOnOk": "qualification.failed",
+        "checkFailed": "qualification.failed",
+        "resetReady": "qualification.failed"
+      },
+      "success_key": "功能检查完成",
+      "failure_key": "功能检查失败",
+      "success_observation": {
+        "powerOnOk": "就绪",
+        "checkFailed": "就绪",
+        "resetReady": "就绪"
+      },
+      "failure_observation": {
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "resetReady": "未就绪"
+      },
+      "request_event": "function-check.requested"
+    },
+    "standby_reset": {
+      "label": "待机/复位",
+      "success_events": {
+        "functionReady": "vacuum.standby.completed",
+        "resetReady": "vacuum.standby.completed",
+        "vacuumStable": "vacuum.standby.completed",
+        "pressureRestored": "vacuum.standby.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null
+      },
+      "success_key": "待机/复位完成",
+      "failure_key": "待机/复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "resetReady": "就绪",
+        "vacuumStable": "就绪",
+        "pressureRestored": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null
+      },
+      "request_event": "vacuum.standby.requested"
+    },
+    "abort_reset": {
+      "label": "异常中止后的安全复位",
+      "success_events": {
+        "functionReady": "abort.completed",
+        "resetReady": "abort.completed",
+        "vacuumStable": "abort.completed",
+        "pressureRestored": "abort.completed",
+        "faultLock": "recovery.completed",
+        "commFault": "recovery.completed",
+        "timeoutFault": "recovery.completed",
+        "runTerminated": "recovery.completed",
+        "vacuumHoldFault": "recovery.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "vacuumHoldFault": null
+      },
+      "success_key": "异常中止后的安全复位完成",
+      "failure_key": "异常中止后的安全复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "resetReady": "就绪",
+        "vacuumStable": "就绪",
+        "pressureRestored": "就绪",
+        "faultLock": "就绪",
+        "commFault": "就绪",
+        "timeoutFault": "就绪",
+        "runTerminated": "就绪",
+        "vacuumHoldFault": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "vacuumHoldFault": null
+      },
+      "request_event": "abort.requested"
+    },
+    "shutdown": {
+      "label": "关机",
+      "success_events": {
+        "unchecked": "shutdown.confirmed",
+        "powerOnOk": "shutdown.confirmed",
+        "checkFailed": "shutdown.confirmed",
+        "shutdownNormal": "shutdown.confirmed",
+        "functionReady": "shutdown.confirmed",
+        "resetReady": "shutdown.confirmed",
+        "vacuumStable": "shutdown.confirmed",
+        "pressureRestored": "shutdown.confirmed",
+        "faultLock": "shutdown.confirmed",
+        "commFault": "shutdown.confirmed",
+        "timeoutFault": "shutdown.confirmed",
+        "runTerminated": "shutdown.confirmed",
+        "vacuumHoldFault": "shutdown.confirmed"
+      },
+      "failure_events": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "vacuumHoldFault": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪",
+        "functionReady": "未就绪",
+        "resetReady": "未就绪",
+        "vacuumStable": "未就绪",
+        "pressureRestored": "未就绪",
+        "faultLock": "异常",
+        "commFault": "异常",
+        "timeoutFault": "异常",
+        "runTerminated": "异常",
+        "vacuumHoldFault": "异常"
+      },
+      "failure_observation": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "resetReady": null,
+        "vacuumStable": null,
+        "pressureRestored": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "vacuumHoldFault": null
+      },
+      "request_event": "shutdown.requested"
+    }
+  },
+  "confirmations": {
+    "fault_confirmed": {
+      "label": "设备内部故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "异常"
+    },
+    "pumping_observed": {
+      "label": "观测到抽真空开始",
+      "source_outer": [
+        "ready",
+        "atmospheric"
+      ],
+      "source_states": [
+        "functionReady",
+        "pressureRestored"
+      ],
+      "machine_event": "vacuum.pumping.observed",
+      "observation": "抽真空中"
+    },
+    "holding_observed": {
+      "label": "观测到真空稳定保持",
+      "source_outer": [
+        "pumping",
+        "vacuumHolding"
+      ],
+      "source_states": [
+        "pumpingActive",
+        "vacuumStable"
+      ],
+      "machine_event": "vacuum.holding.observed",
+      "observation": "真空保持"
+    },
+    "repressurizing_observed": {
+      "label": "观测到复压开始",
+      "source_outer": [
+        "vacuumHolding",
+        "pumping"
+      ],
+      "source_states": [
+        "vacuumStable",
+        "pumpingActive"
+      ],
+      "machine_event": "vacuum.repressurizing.observed",
+      "observation": "负压中"
+    },
+    "pressure_restored": {
+      "label": "观测到已恢复大气压",
+      "source_outer": [
+        "repressurizing"
+      ],
+      "source_states": [
+        "pressureRestoring"
+      ],
+      "machine_event": "vacuum.atmosphere.observed",
+      "observation": "负压完成"
+    },
+    "holding_failed": {
+      "label": "真空保持失败反馈",
+      "source_outer": [
+        "vacuumHolding"
+      ],
+      "source_states": [
+        "vacuumStable"
+      ],
+      "machine_event": "vacuum.holding.failed",
+      "observation": "异常"
+    },
+    "qualification_invalidated": {
+      "label": "业务资格撤销（未就绪）",
+      "source_outer": [
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric"
+      ],
+      "source_states": [
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored"
+      ],
+      "machine_event": "qualification.invalidated",
+      "observation": "未就绪"
+    },
+    "power_check_invalidated": {
+      "label": "上电资格撤销（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored"
+      ],
+      "machine_event": "power-check.invalidated",
+      "observation": "未就绪"
+    },
+    "run_terminated": {
+      "label": "本发终止确认（异常）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "pumping",
+        "vacuumHolding",
+        "repressurizing",
+        "atmospheric",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "pumpingActive",
+        "vacuumStable",
+        "pressureRestoring",
+        "pressureRestored",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "run.terminated",
+      "observation": "异常"
+    },
+    "recovery_confirmed": {
+      "label": "安全恢复完成确认（就绪）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "设备安全下电确认（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "vacuumHolding",
+        "atmospheric"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "vacuumStable",
+        "pressureRestored"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "未就绪"
+    },
+    "shutdown_confirmed_1": {
+      "label": "设备安全下电确认（异常）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "vacuumHoldFault"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "异常"
+    }
+  },
+  "source_inventory": {
+    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+    "sheet": "分系统状态表",
+    "read_date": "2026-10-23",
+    "row_coverage": {
+      "146": {
+        "states": [
+          "unchecked"
+        ]
+      },
+      "147": {
+        "states": [
+          "functionReady"
+        ]
+      },
+      "148": {
+        "states": [
+          "pumpingActive"
+        ]
+      },
+      "149": {
+        "states": [
+          "vacuumStable"
+        ]
+      },
+      "150": {
+        "states": [
+          "pressureRestoring"
+        ]
+      },
+      "151": {
+        "states": [
+          "vacuumStable"
+        ]
+      },
+      "152": {
+        "states": [
+          "pressureRestored"
+        ]
+      },
+      "153": {
+        "states": [
+          "resetReady"
+        ]
+      },
+      "154": {
+        "states": [
+          "shutdownNormal"
+        ]
+      },
+      "155": {
+        "states": [
+          "vacuumHoldFault"
+        ]
+      },
+      "156": {
+        "states": [
+          "faultLock"
+        ]
+      },
+      "157": {
+        "states": [
+          "commFault"
+        ]
+      },
+      "158": {
+        "states": [
+          "timeoutFault"
+        ]
+      }
+    }
+  },
+  "modeling_notes": [
+    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+    "第148至152行均标注非控制类节点，仅提供内部观测确认，不新增抽真空/复压控制动作。",
+    "保留 E 列原称“负压中/负压完成”，子状态仍为“复压中/复压完成”。第149、151行共同映射同一个真空度保持子状态。",
+    "复压一旦实际开始，真空资格即撤销，不从复压中跳回真空保持；需完成复压，再观测重新抽真空。抽真空中和复压中不提供直接关机/复位成功跳转。"
+  ]
+}
+    ]]></data>
+  </datamodel>
+</scxml>

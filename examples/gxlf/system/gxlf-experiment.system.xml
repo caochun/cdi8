@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 业务依据与未决项：docs/domain/gxlf/process-control/系统状态模型设计.md。blocked 转换禁止运行放行。 -->
+<system-state-model xmlns="https://cdi8.cn/system-state/v1" id="gxlf-experiment" initial="uninitialized" evidenceMaxAgeMs="2000">
+  <fact id="initialChecks" label="十四类组件正在上电检查">
+    <require collection="allComponents" component="seed" states="statusUnknown powerOnChecked" />
+    <require collection="allComponents" component="shg" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="preamp" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="multipass" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="pump" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="measurement" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="frequency-conversion" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="target-alignment" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="vacuum" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="diagnostics" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="synchronization" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="switch-driver" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="cooling" states="unchecked powerOnOk" />
+    <require collection="allComponents" component="control-environment" states="unchecked powerOnOk" />
+  </fact>
+  <fact id="powerChecked" label="全体上电检查已通过">
+    <require collection="allComponents" component="seed" states="powerOnChecked" />
+    <require collection="allComponents" component="shg" states="powerOnOk" />
+    <require collection="allComponents" component="preamp" states="powerOnOk" />
+    <require collection="allComponents" component="multipass" states="powerOnOk" />
+    <require collection="allComponents" component="pump" states="powerOnOk" />
+    <require collection="allComponents" component="measurement" states="powerOnOk" />
+    <require collection="allComponents" component="frequency-conversion" states="powerOnOk" />
+    <require collection="allComponents" component="target-alignment" states="powerOnOk" />
+    <require collection="allComponents" component="vacuum" states="powerOnOk" />
+    <require collection="allComponents" component="diagnostics" states="powerOnOk" />
+    <require collection="allComponents" component="synchronization" states="powerOnOk" />
+    <require collection="allComponents" component="switch-driver" states="powerOnOk" />
+    <require collection="allComponents" component="cooling" states="powerOnOk" />
+    <require collection="allComponents" component="control-environment" states="powerOnOk" />
+  </fact>
+  <fact id="powerMaintained" label="上电已确认，允许执行功能检查">
+    <require collection="allComponents" component="seed" states="powerOnChecked qualified" />
+    <require collection="allComponents" component="shg" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="preamp" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="multipass" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="pump" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="measurement" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="frequency-conversion" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="target-alignment" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="vacuum" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="diagnostics" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="synchronization" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="switch-driver" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="cooling" states="powerOnOk functionReady" />
+    <require collection="allComponents" component="control-environment" states="powerOnOk functionReady" />
+  </fact>
+  <fact id="functionChecked" label="全体功能检查已通过">
+    <require collection="allComponents" component="seed" states="qualified" />
+    <require collection="allComponents" component="shg" states="functionReady" />
+    <require collection="allComponents" component="preamp" states="functionReady" />
+    <require collection="allComponents" component="multipass" states="functionReady" />
+    <require collection="allComponents" component="pump" states="functionReady" />
+    <require collection="allComponents" component="measurement" states="functionReady" />
+    <require collection="allComponents" component="frequency-conversion" states="functionReady" />
+    <require collection="allComponents" component="target-alignment" states="functionReady" />
+    <require collection="allComponents" component="vacuum" states="functionReady" />
+    <require collection="allComponents" component="diagnostics" states="functionReady" />
+    <require collection="allComponents" component="synchronization" states="functionReady" />
+    <require collection="allComponents" component="switch-driver" states="functionReady" />
+    <require collection="allComponents" component="cooling" states="functionReady" />
+    <require collection="allComponents" component="control-environment" states="functionReady" />
+  </fact>
+  <fact id="configurationInProgress" label="允许参数接收，未接入参数动作的设备保持基础就绪">
+    <require collection="allComponents" component="seed" states="qualified configured" />
+    <require collection="allComponents" component="shg" states="functionReady parameterOk" />
+    <require collection="allComponents" component="preamp" states="functionReady parameterOk" />
+    <require collection="allComponents" component="multipass" states="functionReady parameterOk" />
+    <require collection="allComponents" component="pump" states="functionReady parameterOk" />
+    <require collection="allComponents" component="measurement" states="functionReady parameterOk" />
+    <require collection="allComponents" component="frequency-conversion" states="functionReady parameterOk" />
+    <require collection="allComponents" component="target-alignment" states="functionReady parameterOk" />
+    <require collection="allComponents" component="vacuum" states="functionReady" />
+    <require collection="allComponents" component="diagnostics" states="functionReady parameterOk" />
+    <require collection="allComponents" component="synchronization" states="functionReady parameterOk" />
+    <require collection="allComponents" component="switch-driver" states="functionReady parameterOk" />
+    <require collection="allComponents" component="cooling" states="functionReady parameterOk" />
+    <require collection="allComponents" component="control-environment" states="functionReady" />
+  </fact>
+  <fact id="configurationAccepted" label="十二类可控参数已接收，真空与环境保持可观测">
+    <require collection="allComponents" component="seed" states="configured" />
+    <require collection="allComponents" component="shg" states="parameterOk" />
+    <require collection="allComponents" component="preamp" states="parameterOk" />
+    <require collection="allComponents" component="multipass" states="parameterOk" />
+    <require collection="allComponents" component="pump" states="parameterOk" />
+    <require collection="allComponents" component="measurement" states="parameterOk" />
+    <require collection="allComponents" component="frequency-conversion" states="parameterOk" />
+    <require collection="allComponents" component="target-alignment" states="parameterOk" />
+    <require collection="allComponents" component="vacuum" states="functionReady pumpingActive vacuumStable" />
+    <require collection="allComponents" component="diagnostics" states="parameterOk" />
+    <require collection="allComponents" component="synchronization" states="parameterOk" />
+    <require collection="allComponents" component="switch-driver" states="parameterOk" />
+    <require collection="allComponents" component="cooling" states="parameterOk" />
+    <require collection="allComponents" component="control-environment" states="functionReady clearanceComplete interlockEstablished" />
+  </fact>
+  <fact id="configuredDevices" label="发射前参数持续有效，真空与环境独立观测">
+    <require collection="allComponents" component="seed" states="configured stableEmission collectionOk" />
+    <require collection="allComponents" component="shg" states="parameterOk stableEmission collectionOk" />
+    <require collection="allComponents" component="preamp" states="parameterOk wakeupReady coarseLoopOk fineLoopOk energyMeterCleared energyDataCollected" />
+    <require collection="allComponents" component="multipass" states="parameterOk collimationReady shotReady" />
+    <require collection="allComponents" component="pump" states="parameterOk emissionPrepared chargePrepared chargingActive chargeComplete triggerReady dataCollected" />
+    <require collection="allComponents" component="measurement" states="parameterOk aimPrepared motionPrepared measurementPrepared parametersCollected" />
+    <require collection="allComponents" component="frequency-conversion" states="parameterOk poseSet" />
+    <require collection="allComponents" component="target-alignment" states="parameterOk targetPrepositioned simulationPositioned beamGuideComplete targetReset shotReady targetRetracted analysisComplete" />
+    <require collection="allComponents" component="vacuum" states="functionReady pumpingActive vacuumStable" />
+    <require collection="allComponents" component="diagnostics" states="parameterOk deviceConfirmed acquisitionReady postprocessComplete" />
+    <require collection="allComponents" component="synchronization" states="parameterOk repeatConfigured singleConfigured triggerSent countVerified" />
+    <require collection="allComponents" component="switch-driver" states="parameterOk chargeComplete triggerReady waveformCollected" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeActive purgeComplete" />
+    <require collection="allComponents" component="control-environment" states="functionReady clearanceComplete interlockEstablished" />
+  </fact>
+  <fact id="knownInterlock" label="已建模的环境联锁与靶室真空（不是完整安全联锁）">
+    <require collection="allComponents" component="control-environment" states="interlockEstablished" />
+    <require collection="allComponents" component="vacuum" states="vacuumStable" />
+  </fact>
+  <fact id="selectedLightStable" label="全部所选光源稳定出光">
+    <require collection="sourceTargets" component="seed shg" states="stableEmission" />
+  </fact>
+  <fact id="preparationHardware" label="各准备链路的当前完成事实">
+    <require collection="allComponents" component="preamp" states="fineLoopOk" />
+    <require collection="allComponents" component="multipass" states="shotReady" />
+    <require collection="allComponents" component="measurement" states="motionPrepared" />
+    <require collection="allComponents" component="target-alignment" states="shotReady" />
+    <require collection="allComponents" component="diagnostics" states="deviceConfirmed" />
+    <require collection="allComponents" component="pump" states="emissionPrepared" />
+    <require collection="allComponents" component="synchronization" states="repeatConfigured" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeComplete" />
+  </fact>
+  <fact id="formalHardware" label="发射充电的设备前置事实">
+    <require collection="allComponents" component="diagnostics" states="acquisitionReady" />
+    <require collection="allComponents" component="frequency-conversion" states="poseSet" />
+    <require collection="allComponents" component="pump" states="chargePrepared" />
+    <require collection="allComponents" component="preamp" states="energyMeterCleared" />
+    <require collection="allComponents" component="synchronization" states="singleConfigured" />
+    <require collection="allComponents" component="measurement" states="measurementPrepared" />
+    <require collection="allComponents" component="switch-driver" states="chargeComplete" />
+    <require collection="allComponents" component="multipass" states="shotReady" />
+    <require collection="allComponents" component="target-alignment" states="shotReady" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeComplete" />
+  </fact>
+  <fact id="chargingHardware" label="泵浦正在启动充电或等待本机充电完成确认">
+    <require collection="allComponents" component="pump" states="chargePrepared chargingActive chargeComplete" />
+  </fact>
+  <fact id="chargeSupportMaintained" label="泵浦充电期间其他发射前置条件持续保持">
+    <require collection="allComponents" component="diagnostics" states="acquisitionReady" />
+    <require collection="allComponents" component="frequency-conversion" states="poseSet" />
+    <require collection="allComponents" component="preamp" states="energyMeterCleared" />
+    <require collection="allComponents" component="synchronization" states="singleConfigured" />
+    <require collection="allComponents" component="measurement" states="measurementPrepared" />
+    <require collection="allComponents" component="switch-driver" states="chargeComplete" />
+    <require collection="allComponents" component="multipass" states="shotReady" />
+    <require collection="allComponents" component="target-alignment" states="shotReady" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeComplete" />
+  </fact>
+  <fact id="chargedHardware" label="泵浦实际充电完成">
+    <require collection="allComponents" component="pump" states="chargeComplete" />
+  </fact>
+  <fact id="countdownHardware" label="倒计时允许的设备演进（时间证据另行核验）">
+    <require collection="allComponents" component="pump" states="chargeComplete triggerReady" />
+    <require collection="allComponents" component="switch-driver" states="chargeComplete triggerReady" />
+    <require collection="allComponents" component="synchronization" states="singleConfigured triggerSent" />
+    <require collection="allComponents" component="preamp" states="energyMeterCleared" />
+    <require collection="allComponents" component="measurement" states="measurementPrepared" />
+    <require collection="allComponents" component="diagnostics" states="acquisitionReady" />
+    <require collection="allComponents" component="frequency-conversion" states="poseSet" />
+    <require collection="allComponents" component="multipass" states="shotReady" />
+    <require collection="allComponents" component="target-alignment" states="shotReady" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeComplete" />
+  </fact>
+  <fact id="emissionObserved" label="已观察到同步输出与两个触发准备事实">
+    <require collection="allComponents" component="synchronization" states="triggerSent" />
+    <require collection="allComponents" component="pump" states="triggerReady" />
+    <require collection="allComponents" component="switch-driver" states="triggerReady" />
+  </fact>
+  <fact id="postprocessingDevices" label="后处理期间允许采集、待机及保护吹扫">
+    <require collection="allComponents" component="seed" states="configured stableEmission collectionOk standbyReady" />
+    <require collection="allComponents" component="shg" states="parameterOk stableEmission collectionOk standbyReset" />
+    <require collection="allComponents" component="preamp" states="parameterOk wakeupReady coarseLoopOk fineLoopOk energyMeterCleared energyDataCollected standbyReady" />
+    <require collection="allComponents" component="multipass" states="parameterOk collimationReady shotReady" />
+    <require collection="allComponents" component="pump" states="parameterOk emissionPrepared chargePrepared chargingActive chargeComplete triggerReady dataCollected standbyReady" />
+    <require collection="allComponents" component="measurement" states="parameterOk aimPrepared motionPrepared measurementPrepared parametersCollected" />
+    <require collection="allComponents" component="frequency-conversion" states="parameterOk poseSet" />
+    <require collection="allComponents" component="target-alignment" states="parameterOk targetPrepositioned simulationPositioned beamGuideComplete targetReset shotReady targetRetracted analysisComplete" />
+    <require collection="allComponents" component="vacuum" states="vacuumStable" />
+    <require collection="allComponents" component="diagnostics" states="parameterOk deviceConfirmed acquisitionReady postprocessComplete" />
+    <require collection="allComponents" component="synchronization" states="parameterOk repeatConfigured singleConfigured triggerSent countVerified" />
+    <require collection="allComponents" component="switch-driver" states="parameterOk chargeComplete triggerReady waveformCollected standbyReady" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeActive purgeComplete" />
+    <require collection="allComponents" component="control-environment" states="interlockEstablished" />
+  </fact>
+  <fact id="postprocessingObserved" label="后处理链路当前可见结果（缺少本发历史关联）">
+    <require collection="sourceTargets" component="seed shg" states="collectionOk" />
+    <require collection="allComponents" component="preamp" states="standbyReady" />
+    <require collection="allComponents" component="pump" states="standbyReady" />
+    <require collection="allComponents" component="measurement" states="parametersCollected" />
+    <require collection="allComponents" component="target-alignment" states="analysisComplete" />
+    <require collection="allComponents" component="diagnostics" states="postprocessComplete" />
+    <require collection="allComponents" component="synchronization" states="countVerified" />
+    <require collection="allComponents" component="switch-driver" states="standbyReady" />
+    <require collection="allComponents" component="cooling" states="purgeActive purgeComplete" />
+  </fact>
+  <fact id="releasedDevices" label="退出环境联锁后设备仍可观测，保护任务单独保持">
+    <require collection="allComponents" component="seed" states="configured stableEmission collectionOk standbyReady" />
+    <require collection="allComponents" component="shg" states="parameterOk stableEmission collectionOk standbyReset" />
+    <require collection="allComponents" component="preamp" states="parameterOk wakeupReady coarseLoopOk fineLoopOk energyMeterCleared energyDataCollected standbyReady" />
+    <require collection="allComponents" component="multipass" states="parameterOk collimationReady shotReady" />
+    <require collection="allComponents" component="pump" states="parameterOk emissionPrepared chargePrepared chargingActive chargeComplete triggerReady dataCollected standbyReady" />
+    <require collection="allComponents" component="measurement" states="parameterOk aimPrepared motionPrepared measurementPrepared parametersCollected" />
+    <require collection="allComponents" component="frequency-conversion" states="parameterOk poseSet" />
+    <require collection="allComponents" component="target-alignment" states="parameterOk targetPrepositioned simulationPositioned beamGuideComplete targetReset shotReady targetRetracted analysisComplete" />
+    <require collection="allComponents" component="vacuum" states="vacuumStable pressureRestoring pressureRestored" />
+    <require collection="allComponents" component="diagnostics" states="parameterOk deviceConfirmed acquisitionReady postprocessComplete" />
+    <require collection="allComponents" component="synchronization" states="parameterOk repeatConfigured singleConfigured triggerSent countVerified" />
+    <require collection="allComponents" component="switch-driver" states="parameterOk chargeComplete triggerReady waveformCollected standbyReady" />
+    <require collection="allComponents" component="cooling" states="parameterOk purgeActive purgeComplete" />
+    <require collection="allComponents" component="control-environment" states="interlockExited" />
+  </fact>
+
+  <state id="uninitialized" label="未初始化 / 上电检查中">
+    <use fact="initialChecks" />
+  </state>
+
+  <state id="powered" label="全体上电已确认 / 功能检查中">
+    <use fact="powerMaintained" />
+    <use fact="powerChecked" scope="entry" />
+  </state>
+
+  <state id="initialized" label="全体功能检查已通过">
+    <use fact="functionChecked" />
+  </state>
+
+  <state id="configuring" label="本发参数接收中">
+    <use fact="configurationInProgress" />
+  </state>
+
+  <state id="configured" label="本发参数就绪">
+    <use fact="configurationAccepted" />
+  </state>
+
+  <state id="preparing" label="发射准备展开 / 联锁建立中">
+    <use fact="configuredDevices" />
+  </state>
+
+  <state id="interlockedPreparation" label="完整联锁成立后的准备阶段">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+  </state>
+
+  <state id="prepared" label="全部发射准备完成">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="preparationHardware" />
+  </state>
+
+  <state id="formalPreparation" label="正式发射准备中">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+  </state>
+
+  <state id="chargeReady" label="全部发射充电前置完成">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="formalHardware" />
+  </state>
+
+  <state id="charging" label="泵浦发射充电中">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="chargingHardware" />
+    <use fact="chargeSupportMaintained" />
+  </state>
+
+  <state id="charged" label="泵浦实际充电完成">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="chargedHardware" />
+    <use fact="chargeSupportMaintained" />
+  </state>
+
+  <state id="countdown" label="同步倒计时与触发准备">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="countdownHardware" />
+  </state>
+
+  <state id="emissionConfirmed" label="正式发射已确认">
+    <use fact="configuredDevices" />
+    <use fact="knownInterlock" />
+    <use fact="selectedLightStable" />
+    <use fact="emissionObserved" />
+    <use fact="countdownHardware" />
+  </state>
+
+  <state id="postprocessing" label="发射后处理 / 预电离链路中">
+    <use fact="postprocessingDevices" />
+    <use fact="knownInterlock" />
+  </state>
+
+  <state id="postprocessed" label="后处理链路完成 / 保护吹扫独立监测">
+    <use fact="postprocessingDevices" />
+    <use fact="knownInterlock" />
+    <use fact="postprocessingObserved" />
+  </state>
+
+  <state id="released" label="正常解除联锁与现场释放">
+    <use fact="releasedDevices" />
+    <use fact="postprocessingObserved" />
+  </state>
+
+  <!-- operation 是业务操作关联说明；只有 BPMN 显式报告并核验设备事实才改变系统状态。 -->
+  <transition id="powerChecksVerified" from="uninitialized" to="powered" operation="gxlf_system_initialization / 全部上电检查完成" />
+  <transition id="functionChecksVerified" from="powered" to="initialized" operation="gxlf_system_initialization / 全部功能检查完成" />
+  <transition id="beginConfiguration" from="initialized" to="configuring" operation="新全流程的参数下发入口（尚未接入 BPMN）" />
+  <transition id="configurationVerified" from="configuring" to="configured" operation="本发参数接收 AND 汇合" blocked="真空模型没有参数接收事实；需补齐业务要求的本发参数确认与发次关联证据" />
+  <transition id="beginPreparation" from="configured" to="preparing" operation="清场、参数后的各准备支路启动（待实现）" />
+  <transition id="safetyVerified" from="preparing" to="interlockedPreparation" operation="门锁 / 人员 / 真空的联合联锁确认" blocked="缺少独立门锁、人员计数、多程钛泵真空事实；风淋门范围待确认" />
+  <transition id="preparationVerified" from="interlockedPreparation" to="prepared" operation="发射准备全部完成 AND 汇合" blocked="同步模型未区分预放与测量两个重频通道，需提供各通道事实" />
+  <transition id="beginFormalPreparation" from="prepared" to="formalPreparation" operation="诊断设置 / 晶体位姿 / 充电准备 / 第二次精闭环等支路启动" />
+  <transition id="chargePrerequisitesVerified" from="formalPreparation" to="chargeReady" operation="全部充电前置 AND 汇合" blocked="缺少两类单次同步通道事实、警灯和警示音乐状态证据" />
+  <transition id="beginCharging" from="chargeReady" to="charging" operation="发射充电动作前切入过渡状态" />
+  <transition id="chargingVerified" from="charging" to="charged" operation="等待泵浦本机 pump.charge.completed；不是 charge 动作成功" />
+  <transition id="countdownStarted" from="charged" to="countdown" operation="同步 T0 / T+3s 准备 / T+5s 输出" blocked="缺少绑定本发的时钟、T0受理和T+3/T+5时序证据；普通 BPMN 定时器不证明瞬时同步" />
+  <transition id="emissionVerified" from="countdown" to="emissionConfirmed" operation="正式发射完成 AND 核验" blocked="同步总体成功是否足够、是否需要泵浦实际触发结果的完成口径尚未确认" />
+  <transition id="beginPostprocessing" from="emissionConfirmed" to="postprocessing" operation="并行采集、待机、预电离、收靶和保护吹扫启动" />
+  <transition id="postprocessingVerified" from="postprocessing" to="postprocessed" operation="后处理链路与预电离完成汇合" blocked="缺少本发关联的采集/待机历史和预电离完成证据；当前叶状态不能证明历史任务已完成" />
+  <transition id="releaseVerified" from="postprocessed" to="released" operation="警示解除 / 屏蔽门解锁 / 实验结束播报" blocked="开门等待全部后处理还是仅最终泵浦待机尚未确认；警示解除和结束播报事实尚未接入" />
+</system-state-model>

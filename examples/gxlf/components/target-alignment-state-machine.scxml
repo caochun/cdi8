@@ -1,0 +1,1157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  靶瞄准定位系统：父状态严格映射状态表 E 列，子状态映射 D 列。
+  单一活动叶状态；内部确认事件驱动；保留失败重试、自环、资格撤销、异常恢复和关机闭环。
+  请求不会直接当作设备已完成；外部业务条件在流程层检查。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="powerOnOk">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="checkFailed">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="shutdownNormal">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="power-check.invalidated" target="unchecked" type="internal" />
+  </state>
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="configuration.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="parameterOk">
+      <transition event="configuration.requested" target="functionReady" />
+      <transition event="target.preposition.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="target.preposition.completed" target="targetPrepositioned" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="resetReady">
+      <transition event="function-check.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="targetRetracted">
+      <transition event="target.analysis.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.analysis.completed" target="analysisComplete" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="analysisComplete">
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" type="internal" />
+  </state>
+  <state id="aimCapable" initial="targetPrepositioned">
+    <state id="targetPrepositioned">
+      <transition event="target.simulation-position.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.simulation-position.completed" target="simulationPositioned" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="target.alignment.failed" target="alignmentFault" />
+      <transition event="target.position.invalidated" target="parameterOk" />
+    </state>
+    <state id="simulationPositioned">
+      <transition event="target.beam-guide.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.beam-guide.completed" target="beamGuideComplete" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="target.alignment.failed" target="alignmentFault" />
+      <transition event="target.position.invalidated" target="parameterOk" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" />
+  </state>
+  <state id="beamGuided" initial="beamGuideComplete">
+    <state id="beamGuideComplete">
+      <transition event="target.reset.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.reset.completed" target="targetReset" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="target.alignment.failed" target="alignmentFault" />
+      <transition event="target.position.invalidated" target="parameterOk" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" />
+  </state>
+  <state id="targetPositioned" initial="targetReset">
+    <state id="targetReset">
+      <transition event="target.enter-shot.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.enter-shot.completed" target="shotReady" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="target.alignment.failed" target="alignmentFault" />
+      <transition event="target.position.invalidated" target="parameterOk" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" />
+  </state>
+  <state id="shotCapable" initial="shotReady">
+    <state id="shotReady">
+      <transition event="target.retract.requested" />
+      <transition event="target-alignment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="target.retract.completed" target="targetRetracted" />
+      <transition event="target-alignment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="target.alignment.failed" target="alignmentFault" />
+      <transition event="target.position.invalidated" target="parameterOk" />
+      <transition event="target.shot-state.invalidated" target="targetReset" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" />
+  </state>
+  <state id="fault" initial="faultLock">
+    <state id="faultLock">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="faultLock" />
+    </state>
+    <state id="commFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="commFault" />
+    </state>
+    <state id="timeoutFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="timeoutFault" />
+    </state>
+    <state id="runTerminated">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="runTerminated" />
+    </state>
+    <state id="alignmentFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="alignmentFault" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" type="internal" />
+    <transition event="communication.failure-confirmed" target="commFault" type="internal" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" type="internal" />
+    <transition event="run.terminated" target="runTerminated" type="internal" />
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "fault_codes": {
+    "fault_confirmed": "faultLock",
+    "communication_fault_confirmed": "commFault",
+    "timeout_confirmed": "timeoutFault",
+    "alignment_fault_confirmed": "alignmentFault"
+  },
+  "model_id": "target-alignment-hierarchical-v4",
+  "model_version": 4,
+  "display_name": "靶瞄准定位系统",
+  "execution_model": "hierarchical-single-active-state",
+  "configuration_valid_states": [
+    "parameterOk",
+    "targetPrepositioned",
+    "simulationPositioned",
+    "beamGuideComplete",
+    "targetReset",
+    "shotReady",
+    "targetRetracted",
+    "analysisComplete"
+  ],
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "aimCapable": "具备瞄靶条件",
+    "beamGuided": "瞄靶（光束引导）完成",
+    "targetPositioned": "实验靶就位",
+    "shotCapable": "具备打靶状态",
+    "fault": "异常"
+  },
+  "inner_labels": {
+    "unchecked": "未上电/离线",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过/业务资格撤销",
+    "shutdownNormal": "关机正常",
+    "functionReady": "业务就绪完成（具备定位锁定能力）",
+    "parameterOk": "参数配置正常",
+    "resetReady": "复位/待机完成",
+    "targetPrepositioned": "实验靶预定位到位并锁定",
+    "simulationPositioned": "模拟靶定位到位",
+    "beamGuideComplete": "光束引导完成",
+    "targetReset": "实验靶复位到位并锁定",
+    "shotReady": "靶瞄进入打靶状态",
+    "targetRetracted": "靶瞄收靶",
+    "analysisComplete": "靶瞄数据分析完成",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时",
+    "runTerminated": "本发终止，待内部安全复位",
+    "alignmentFault": "靶瞄偏差超限"
+  },
+  "context_defaults": {
+    "fault_origin": null,
+    "faults": [],
+    "power_status": "unknown",
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "shot_id": null,
+    "phase_id": null,
+    "task_id": null,
+    "run_terminated": false
+  },
+  "actions": {
+    "power_on_check": {
+      "label": "开机自检",
+      "success_events": {
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
+      },
+      "failure_events": {
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
+      },
+      "success_key": "开机自检完成",
+      "failure_key": "开机自检失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "failure_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "request_event": "power-check.requested"
+    },
+    "function_check": {
+      "label": "功能检查",
+      "success_events": {
+        "powerOnOk": "qualification.confirmed",
+        "checkFailed": "qualification.confirmed",
+        "resetReady": "qualification.confirmed"
+      },
+      "failure_events": {
+        "powerOnOk": "qualification.failed",
+        "checkFailed": "qualification.failed",
+        "resetReady": "qualification.failed"
+      },
+      "success_key": "功能检查完成",
+      "failure_key": "功能检查失败",
+      "success_observation": {
+        "powerOnOk": "就绪",
+        "checkFailed": "就绪",
+        "resetReady": "就绪"
+      },
+      "failure_observation": {
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "resetReady": "未就绪"
+      },
+      "request_event": "function-check.requested"
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "success_events": {
+        "functionReady": "configuration.validated",
+        "parameterOk": "configuration.validated"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null
+      },
+      "success_key": "参数下发完成",
+      "failure_key": "参数下发失败",
+      "success_observation": {
+        "functionReady": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null
+      },
+      "request_event": "configuration.requested"
+    },
+    "target_preposition": {
+      "label": "实验靶预定位",
+      "success_events": {
+        "parameterOk": "target.preposition.completed"
+      },
+      "failure_events": {
+        "parameterOk": null
+      },
+      "success_key": "实验靶预定位完成",
+      "failure_key": "实验靶预定位失败",
+      "success_observation": {
+        "parameterOk": "具备瞄靶条件"
+      },
+      "failure_observation": {
+        "parameterOk": null
+      },
+      "request_event": "target.preposition.requested"
+    },
+    "simulation_position": {
+      "label": "模拟靶定位",
+      "success_events": {
+        "targetPrepositioned": "target.simulation-position.completed"
+      },
+      "failure_events": {
+        "targetPrepositioned": null
+      },
+      "success_key": "模拟靶定位完成",
+      "failure_key": "模拟靶定位失败",
+      "success_observation": {
+        "targetPrepositioned": "具备瞄靶条件"
+      },
+      "failure_observation": {
+        "targetPrepositioned": null
+      },
+      "request_event": "target.simulation-position.requested"
+    },
+    "beam_guide": {
+      "label": "光束引导",
+      "success_events": {
+        "simulationPositioned": "target.beam-guide.completed"
+      },
+      "failure_events": {
+        "simulationPositioned": null
+      },
+      "success_key": "光束引导完成",
+      "failure_key": "光束引导失败",
+      "success_observation": {
+        "simulationPositioned": "瞄靶（光束引导）完成"
+      },
+      "failure_observation": {
+        "simulationPositioned": null
+      },
+      "request_event": "target.beam-guide.requested"
+    },
+    "target_reset": {
+      "label": "实验靶复位",
+      "success_events": {
+        "beamGuideComplete": "target.reset.completed"
+      },
+      "failure_events": {
+        "beamGuideComplete": null
+      },
+      "success_key": "实验靶复位完成",
+      "failure_key": "实验靶复位失败",
+      "success_observation": {
+        "beamGuideComplete": "实验靶就位"
+      },
+      "failure_observation": {
+        "beamGuideComplete": null
+      },
+      "request_event": "target.reset.requested"
+    },
+    "enter_shot": {
+      "label": "靶瞄进入打靶状态",
+      "success_events": {
+        "targetReset": "target.enter-shot.completed"
+      },
+      "failure_events": {
+        "targetReset": null
+      },
+      "success_key": "靶瞄进入打靶状态完成",
+      "failure_key": "靶瞄进入打靶状态失败",
+      "success_observation": {
+        "targetReset": "具备打靶状态"
+      },
+      "failure_observation": {
+        "targetReset": null
+      },
+      "request_event": "target.enter-shot.requested"
+    },
+    "retract": {
+      "label": "靶瞄收靶",
+      "success_events": {
+        "shotReady": "target.retract.completed"
+      },
+      "failure_events": {
+        "shotReady": null
+      },
+      "success_key": "靶瞄收靶完成",
+      "failure_key": "靶瞄收靶失败",
+      "success_observation": {
+        "shotReady": "就绪"
+      },
+      "failure_observation": {
+        "shotReady": null
+      },
+      "request_event": "target.retract.requested"
+    },
+    "analyze": {
+      "label": "靶瞄数据分析",
+      "success_events": {
+        "targetRetracted": "target.analysis.completed"
+      },
+      "failure_events": {
+        "targetRetracted": null
+      },
+      "success_key": "靶瞄数据分析完成",
+      "failure_key": "靶瞄数据分析失败",
+      "success_observation": {
+        "targetRetracted": "就绪"
+      },
+      "failure_observation": {
+        "targetRetracted": null
+      },
+      "request_event": "target.analysis.requested"
+    },
+    "standby_reset": {
+      "label": "待机/复位",
+      "success_events": {
+        "functionReady": "target-alignment.standby.completed",
+        "parameterOk": "target-alignment.standby.completed",
+        "resetReady": "target-alignment.standby.completed",
+        "targetPrepositioned": "target-alignment.standby.completed",
+        "simulationPositioned": "target-alignment.standby.completed",
+        "beamGuideComplete": "target-alignment.standby.completed",
+        "targetReset": "target-alignment.standby.completed",
+        "shotReady": "target-alignment.standby.completed",
+        "targetRetracted": "target-alignment.standby.completed",
+        "analysisComplete": "target-alignment.standby.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null
+      },
+      "success_key": "待机/复位完成",
+      "failure_key": "待机/复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "parameterOk": "就绪",
+        "resetReady": "就绪",
+        "targetPrepositioned": "就绪",
+        "simulationPositioned": "就绪",
+        "beamGuideComplete": "就绪",
+        "targetReset": "就绪",
+        "shotReady": "就绪",
+        "targetRetracted": "就绪",
+        "analysisComplete": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null
+      },
+      "request_event": "target-alignment.standby.requested"
+    },
+    "abort_reset": {
+      "label": "异常中止后的安全复位",
+      "success_events": {
+        "functionReady": "abort.completed",
+        "parameterOk": "abort.completed",
+        "resetReady": "abort.completed",
+        "targetPrepositioned": "abort.completed",
+        "simulationPositioned": "abort.completed",
+        "beamGuideComplete": "abort.completed",
+        "targetReset": "abort.completed",
+        "shotReady": "abort.completed",
+        "targetRetracted": "abort.completed",
+        "analysisComplete": "abort.completed",
+        "faultLock": "recovery.completed",
+        "commFault": "recovery.completed",
+        "timeoutFault": "recovery.completed",
+        "runTerminated": "recovery.completed",
+        "alignmentFault": "recovery.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "alignmentFault": null
+      },
+      "success_key": "异常中止后的安全复位完成",
+      "failure_key": "异常中止后的安全复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "parameterOk": "就绪",
+        "resetReady": "就绪",
+        "targetPrepositioned": "就绪",
+        "simulationPositioned": "就绪",
+        "beamGuideComplete": "就绪",
+        "targetReset": "就绪",
+        "shotReady": "就绪",
+        "targetRetracted": "就绪",
+        "analysisComplete": "就绪",
+        "faultLock": "就绪",
+        "commFault": "就绪",
+        "timeoutFault": "就绪",
+        "runTerminated": "就绪",
+        "alignmentFault": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "alignmentFault": null
+      },
+      "request_event": "abort.requested"
+    },
+    "shutdown": {
+      "label": "关机",
+      "success_events": {
+        "unchecked": "shutdown.confirmed",
+        "powerOnOk": "shutdown.confirmed",
+        "checkFailed": "shutdown.confirmed",
+        "shutdownNormal": "shutdown.confirmed",
+        "functionReady": "shutdown.confirmed",
+        "parameterOk": "shutdown.confirmed",
+        "resetReady": "shutdown.confirmed",
+        "targetPrepositioned": "shutdown.confirmed",
+        "simulationPositioned": "shutdown.confirmed",
+        "beamGuideComplete": "shutdown.confirmed",
+        "targetReset": "shutdown.confirmed",
+        "shotReady": "shutdown.confirmed",
+        "targetRetracted": "shutdown.confirmed",
+        "analysisComplete": "shutdown.confirmed",
+        "faultLock": "shutdown.confirmed",
+        "commFault": "shutdown.confirmed",
+        "timeoutFault": "shutdown.confirmed",
+        "runTerminated": "shutdown.confirmed",
+        "alignmentFault": "shutdown.confirmed"
+      },
+      "failure_events": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "alignmentFault": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪",
+        "functionReady": "未就绪",
+        "parameterOk": "未就绪",
+        "resetReady": "未就绪",
+        "targetPrepositioned": "未就绪",
+        "simulationPositioned": "未就绪",
+        "beamGuideComplete": "未就绪",
+        "targetReset": "未就绪",
+        "shotReady": "未就绪",
+        "targetRetracted": "未就绪",
+        "analysisComplete": "未就绪",
+        "faultLock": "异常",
+        "commFault": "异常",
+        "timeoutFault": "异常",
+        "runTerminated": "异常",
+        "alignmentFault": "异常"
+      },
+      "failure_observation": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "targetPrepositioned": null,
+        "simulationPositioned": null,
+        "beamGuideComplete": null,
+        "targetReset": null,
+        "shotReady": null,
+        "targetRetracted": null,
+        "analysisComplete": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "alignmentFault": null
+      },
+      "request_event": "shutdown.requested"
+    }
+  },
+  "confirmations": {
+    "fault_confirmed": {
+      "label": "设备内部故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "异常"
+    },
+    "alignment_fault_confirmed": {
+      "label": "靶瞄偏差超限",
+      "source_outer": [
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady"
+      ],
+      "machine_event": "target.alignment.failed",
+      "observation": "异常"
+    },
+    "position_invalidated": {
+      "label": "定位锁定失效",
+      "source_outer": [
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady"
+      ],
+      "machine_event": "target.position.invalidated",
+      "observation": "就绪"
+    },
+    "shot_invalidated": {
+      "label": "打靶姿态资格撤销",
+      "source_outer": [
+        "shotCapable"
+      ],
+      "source_states": [
+        "shotReady"
+      ],
+      "machine_event": "target.shot-state.invalidated",
+      "observation": "实验靶就位"
+    },
+    "qualification_invalidated": {
+      "label": "业务资格撤销（未就绪）",
+      "source_outer": [
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete"
+      ],
+      "machine_event": "qualification.invalidated",
+      "observation": "未就绪"
+    },
+    "configuration_invalidated": {
+      "label": "参数资格撤销（就绪）",
+      "source_outer": [
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete"
+      ],
+      "machine_event": "configuration.invalidated",
+      "observation": "就绪"
+    },
+    "power_check_invalidated": {
+      "label": "上电资格撤销（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete"
+      ],
+      "machine_event": "power-check.invalidated",
+      "observation": "未就绪"
+    },
+    "run_terminated": {
+      "label": "本发终止确认（异常）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "run.terminated",
+      "observation": "异常"
+    },
+    "recovery_confirmed": {
+      "label": "安全恢复完成确认（就绪）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "设备安全下电确认（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "aimCapable",
+        "beamGuided",
+        "targetPositioned",
+        "shotCapable"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "targetPrepositioned",
+        "simulationPositioned",
+        "beamGuideComplete",
+        "targetReset",
+        "shotReady",
+        "targetRetracted",
+        "analysisComplete"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "未就绪"
+    },
+    "shutdown_confirmed_1": {
+      "label": "设备安全下电确认（异常）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "alignmentFault"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "异常"
+    }
+  },
+  "source_inventory": {
+    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+    "sheet": "分系统状态表",
+    "read_date": "2026-10-23",
+    "row_coverage": {
+      "116": {
+        "states": [
+          "unchecked"
+        ]
+      },
+      "117": {
+        "states": [
+          "functionReady"
+        ]
+      },
+      "118": {
+        "states": [
+          "parameterOk"
+        ]
+      },
+      "119": {
+        "states": [
+          "targetPrepositioned"
+        ]
+      },
+      "120": {
+        "states": [
+          "simulationPositioned"
+        ]
+      },
+      "121": {
+        "states": [
+          "beamGuideComplete"
+        ]
+      },
+      "122": {
+        "states": [
+          "targetReset"
+        ]
+      },
+      "123": {
+        "states": [
+          "shotReady"
+        ]
+      },
+      "124": {
+        "states": [
+          "targetRetracted"
+        ]
+      },
+      "125": {
+        "states": [
+          "analysisComplete"
+        ]
+      },
+      "126": {
+        "states": [
+          "resetReady"
+        ]
+      },
+      "127": {
+        "states": [
+          "resetReady"
+        ]
+      },
+      "128": {
+        "states": [
+          "shutdownNormal"
+        ]
+      },
+      "129": {
+        "states": [
+          "faultLock"
+        ]
+      },
+      "130": {
+        "states": [
+          "alignmentFault"
+        ]
+      },
+      "131": {
+        "states": [
+          "commFault"
+        ]
+      },
+      "132": {
+        "states": [
+          "timeoutFault"
+        ]
+      }
+    }
+  },
+  "modeling_notes": [
+    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+    "第125行对测量完成的要求保留为流程层分析动作准入条件；本机只在自身数据分析完成后进入 analysisComplete，不接收外部测量结果作为自身完成事件。"
+  ]
+}
+    ]]></data>
+  </datamodel>
+</scxml>

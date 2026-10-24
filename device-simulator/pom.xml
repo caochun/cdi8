@@ -34,7 +34,7 @@
     </testResources>
     <resources>
       <resource><directory>src/main/resources</directory></resource>
-      <resource><directory>../examples/gxlf/scxml</directory><targetPath>models</targetPath><includes>
+      <resource><directory>../examples/gxlf/components</directory><targetPath>models</targetPath><includes>
         <include>*-state-machine.scxml</include>
       </includes></resource>
     </resources>

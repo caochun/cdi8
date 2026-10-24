@@ -12,17 +12,23 @@
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
   <state id="notReady" initial="unchecked">
-    <transition event="shutdown.requested" />
-    <transition event="power-check.requested" />
-    <state id="unchecked">
+    <state id="unchecked" >
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
     <state id="powerOnOk">
+      <transition event="power-check.requested" />
       <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
     <state id="checkFailed">
+      <transition event="power-check.requested" />
       <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
-    <state id="shutdownNormal">
+    <state id="shutdownNormal" >
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
     <transition event="fault.confirmed" target="faultLock" />
     <transition event="communication.failure-confirmed" target="commFault" />
@@ -35,21 +41,28 @@
     <transition event="shutdown.confirmed" target="shutdownNormal" type="internal" />
   </state>
   <state id="ready" initial="functionReady">
-    <transition event="standby.requested" />
-    <transition event="shutdown.requested" />
-    <transition event="abort.requested" />
     <state id="functionReady">
       <transition event="configuration.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="configuration.validated" target="parameterOk" />
     </state>
     <state id="parameterOk">
-      <transition event="preamp.wakeup.requested" />
-      <transition event="configuration.invalidated" target="functionReady" />
       <transition event="configuration.requested" target="functionReady" />
+      <transition event="preamp.wakeup.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
+      <transition event="configuration.invalidated" target="functionReady" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
       <transition event="preamp.wakeup.completed" target="wakeup" />
     </state>
     <state id="standbyReady">
       <transition event="configuration.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="configuration.validated" target="parameterOk" />
     </state>
     <transition event="standby.completed" target="standbyReady" type="internal" />
@@ -63,32 +76,44 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="wakeup" initial="wakeupReady">
-    <transition event="standby.requested" />
-    <transition event="shutdown.requested" />
-    <transition event="abort.requested" />
     <state id="wakeupReady">
       <transition event="energy.coarse-loop.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="energy.coarse-loop.completed" target="coarseLoopOk" />
       <transition event="preamp.wakeup.failed" target="wakeupFailed" />
     </state>
     <state id="coarseLoopOk">
       <transition event="energy.fine-loop.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="energy.coarse-loop.invalidated" target="wakeupReady" />
       <transition event="energy.fine-loop.completed" target="fineLoopOk" />
     </state>
     <state id="fineLoopOk">
-      <transition event="energy-meter.clear-requested" />
       <transition event="energy.fine-loop.requested" />
+      <transition event="energy-meter.clear-requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="energy.fine-loop.invalidated" target="wakeupReady" />
       <transition event="energy.fine-loop.second-completed" target="fineLoopOk" />
       <transition event="energy-meter.cleared" target="energyMeterCleared" />
     </state>
     <state id="energyMeterCleared">
       <transition event="energy.collection.requested" />
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
       <transition event="energy-meter.invalidated" target="fineLoopOk" />
       <transition event="energy.collection.completed" target="energyDataCollected" />
     </state>
     <state id="energyDataCollected">
+      <transition event="standby.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
     </state>
     <transition event="standby.completed" target="standbyReady" />
     <transition event="abort.completed" target="standbyReady" />
@@ -101,15 +126,21 @@
     <transition event="execution.timeout-confirmed" target="timeoutFault" />
   </state>
   <state id="fault" initial="faultLock">
-    <transition event="shutdown.requested" />
-    <transition event="abort.requested" />
-    <state id="wakeupFailed">
+    <state id="wakeupFailed" >
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
     </state>
-    <state id="commFault">
+    <state id="commFault" >
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
     </state>
-    <state id="timeoutFault">
+    <state id="timeoutFault" >
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
     </state>
-    <state id="faultLock">
+    <state id="faultLock" >
+      <transition event="shutdown.requested" />
+      <transition event="abort.requested" />
     </state>
     <transition event="fault.confirmed" target="faultLock" />
     <transition event="communication.failure-confirmed" target="commFault" />
@@ -123,7 +154,14 @@
   "model_id": "preamp-hierarchical-v3",
   "model_version": 3,
   "execution_model": "hierarchical-single-active-state",
-  "configuration_valid_states": ["parameterOk", "wakeupReady", "coarseLoopOk", "fineLoopOk", "energyMeterCleared", "energyDataCollected"],
+  "configuration_valid_states": [
+    "parameterOk",
+    "wakeupReady",
+    "coarseLoopOk",
+    "fineLoopOk",
+    "energyMeterCleared",
+    "energyDataCollected"
+  ],
   "display_name": "再生与双程放大组件",
   "outer_labels": {
     "notReady": "未就绪",
@@ -168,7 +206,6 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "request_event": "power-check.requested",
       "success_events": {
         "unchecked": "power-check.passed",
         "powerOnOk": "power-check.passed",
@@ -182,11 +219,11 @@
         "shutdownNormal": "power-check.failed"
       },
       "success_key": "上电检查通过",
-      "failure_key": "上电检查未通过"
+      "failure_key": "上电检查未通过",
+      "request_event": "power-check.requested"
     },
     "function_check": {
       "label": "功能检查",
-      "request_event": "function-check.requested",
       "success_events": {
         "powerOnOk": "qualification.confirmed",
         "checkFailed": "qualification.confirmed"
@@ -197,11 +234,11 @@
       },
       "success_key": "功能检查通过",
       "failure_key": "功能检查未通过",
-      "success_observation": "就绪"
+      "success_observation": "就绪",
+      "request_event": "function-check.requested"
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "request_event": "configuration.requested",
       "success_events": {
         "functionReady": "configuration.validated",
         "parameterOk": "configuration.validated",
@@ -215,11 +252,11 @@
       "success_key": "参数配置正常",
       "failure_key": "参数下发失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "configuration.requested"
     },
     "preamp_wakeup": {
       "label": "预放唤醒",
-      "request_event": "preamp.wakeup.requested",
       "success_events": {
         "parameterOk": "preamp.wakeup.completed"
       },
@@ -229,11 +266,11 @@
       "success_key": "预放完成唤醒并具备闭环条件",
       "failure_key": "预放唤醒失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "preamp.wakeup.requested"
     },
     "coarse_loop": {
       "label": "预放能量粗闭环",
-      "request_event": "energy.coarse-loop.requested",
       "success_events": {
         "wakeupReady": "energy.coarse-loop.completed"
       },
@@ -243,11 +280,11 @@
       "success_key": "粗闭环达标",
       "failure_key": "粗闭环失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "energy.coarse-loop.requested"
     },
     "fine_loop": {
       "label": "预放能量精闭环",
-      "request_event": "energy.fine-loop.requested",
       "success_events": {
         "coarseLoopOk": "energy.fine-loop.completed",
         "fineLoopOk": "energy.fine-loop.second-completed"
@@ -259,11 +296,11 @@
       "success_key": "精闭环达标",
       "failure_key": "精闭环失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "energy.fine-loop.requested"
     },
     "energy_meter_clear": {
       "label": "能量计清零",
-      "request_event": "energy-meter.clear-requested",
       "success_events": {
         "fineLoopOk": "energy-meter.cleared"
       },
@@ -273,11 +310,11 @@
       "success_key": "能量计已清零",
       "failure_key": "能量计清零失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "energy-meter.clear-requested"
     },
     "energy_collect": {
       "label": "能量数据采集",
-      "request_event": "energy.collection.requested",
       "success_events": {
         "energyMeterCleared": "energy.collection.completed"
       },
@@ -287,11 +324,11 @@
       "success_key": "能量数据采集完成",
       "failure_key": "能量数据采集失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "energy.collection.requested"
     },
     "standby_reset": {
       "label": "预放待机/复位",
-      "request_event": "standby.requested",
       "success_events": {
         "functionReady": "standby.completed",
         "parameterOk": "standby.completed",
@@ -315,11 +352,11 @@
       "success_key": "复位/待机完成",
       "failure_key": "复位/待机失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "standby.requested"
     },
     "shutdown": {
       "label": "关机",
-      "request_event": "shutdown.requested",
       "success_events": {
         "unchecked": "shutdown.confirmed",
         "powerOnOk": "shutdown.confirmed",
@@ -359,11 +396,11 @@
       "success_key": "关机正常",
       "failure_key": "关机失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "shutdown.requested"
     },
     "abort_reset": {
       "label": "异常中止复位",
-      "request_event": "abort.requested",
       "success_events": {
         "functionReady": "abort.completed",
         "parameterOk": "abort.completed",
@@ -395,66 +432,98 @@
       "success_key": "安全复位完成",
       "failure_key": "安全复位失败",
       "success_observation": null,
-      "failure_observation": null
+      "failure_observation": null,
+      "request_event": "abort.requested"
     }
   },
   "confirmations": {
     "qualification_confirmed": {
       "label": "业务资格确认",
-      "source_outer": ["notReady"],
+      "source_outer": [
+        "notReady"
+      ],
       "machine_event": "qualification.confirmed",
       "observation": "就绪"
     },
     "qualification_invalidated": {
       "label": "业务资格失效确认",
-      "source_outer": ["ready", "wakeup"],
+      "source_outer": [
+        "ready",
+        "wakeup"
+      ],
       "machine_event": "qualification.invalidated",
       "observation": "未就绪"
     },
     "configuration_invalidated": {
       "label": "参数配置失效确认",
-      "source_outer": ["ready", "wakeup"],
+      "source_outer": [
+        "ready",
+        "wakeup"
+      ],
       "machine_event": "configuration.invalidated",
       "observation": "就绪"
     },
     "shutdown_confirmed": {
       "label": "安全下电完成",
-      "source_outer": ["notReady", "ready", "wakeup"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup"
+      ],
       "machine_event": "shutdown.confirmed",
       "observation": "未就绪"
     },
     "shutdown_while_fault_confirmed": {
       "label": "异常状态下安全下电完成",
-      "source_outer": ["fault"],
+      "source_outer": [
+        "fault"
+      ],
       "machine_event": "shutdown.confirmed",
       "observation": "异常"
     },
     "fault_confirmed": {
       "label": "设备故障确认",
-      "source_outer": ["notReady", "ready", "wakeup", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup",
+        "fault"
+      ],
       "machine_event": "fault.confirmed",
       "observation": "异常"
     },
     "communication_fault_confirmed": {
       "label": "通信异常确认",
-      "source_outer": ["notReady", "ready", "wakeup", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup",
+        "fault"
+      ],
       "machine_event": "communication.failure-confirmed",
       "observation": "异常"
     },
     "timeout_confirmed": {
       "label": "执行超时确认",
-      "source_outer": ["notReady", "ready", "wakeup", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "wakeup",
+        "fault"
+      ],
       "machine_event": "execution.timeout-confirmed",
       "observation": "异常"
     },
     "recovery_confirmed": {
       "label": "异常恢复并完成安全复位",
-      "source_outer": ["fault"],
+      "source_outer": [
+        "fault"
+      ],
       "machine_event": "recovery.completed",
       "observation": "未就绪"
     }
   }
 }
-  ]]></data>
+    ]]></data>
   </datamodel>
 </scxml>

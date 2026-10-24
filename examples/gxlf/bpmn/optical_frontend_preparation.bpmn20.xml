@@ -55,7 +55,7 @@
       </bpmn:boundaryEvent>
       <bpmn:sequenceFlow id="fine_timeout__raise_timeout" sourceRef="fine_timeout" targetRef="raise_timeout" />
       <bpmn:receiveTask id="wait_environment" lab:condition="collimation_environment_ready" lab:collection="contextTargets" lab:maintain="true" name="等待准直环境条件" />
-      <bpmn:serviceTask id="collimate_wait" name="多程光路准直" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;optical_collimation&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;collimationReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
+      <bpmn:serviceTask id="collimate_wait" name="多程光路准直" flowable:delegateExpression="${componentCommand}"><bpmn:extensionElements><flowable:field name="action" stringValue="{&quot;multipass&quot;:&quot;collimation&quot;}" /><flowable:field name="expectedState" stringValue="{&quot;multipass&quot;:&quot;collimationReady&quot;}" /><flowable:field name="componentCommand" stringValue="true" /></bpmn:extensionElements><bpmn:multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${multipassTargets}" flowable:elementVariable="target" /></bpmn:serviceTask>
       <bpmn:boundaryEvent id="collimate_timeout" attachedToRef="collimate_wait" cancelActivity="true" name="动作超时">
         <bpmn:timerEventDefinition>
           <bpmn:timeDuration>${commandTimeout}</bpmn:timeDuration>

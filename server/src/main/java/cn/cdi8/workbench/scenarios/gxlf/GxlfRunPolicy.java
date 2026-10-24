@@ -58,7 +58,7 @@ public class GxlfRunPolicy implements RunPolicy {
                 if (selectedSources.contains(component)) light.add(target);
                 String model = state.path("model").asText();
                 String expectedModel = Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                    "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3").get(component);
+                    "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v4").get(component);
                 if (!model.equals(expectedModel)) throw new IllegalStateException("组件模型不匹配：" + id);
                 if (preparation) {
                     Set<String> ready = component.equals("seed")

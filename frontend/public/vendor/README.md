@@ -11,6 +11,6 @@ BPMN-JS-LICENSE; the original visible bpmn.io watermark is retained.
 SCHVIZ and its React/SCXML dependencies are copied at Maven resource processing
 time from `frontend/public/vendor/schviz`, together with
 their license files. The authoritative SCXML models are packaged from
-`examples/gxlf/scxml`. No separate vendored copy is maintained
+`examples/gxlf/components`. No separate vendored copy is maintained
 in this directory. The web renderer adapts only its display input for the legacy
 SCHVIZ parser; it does not execute or modify the component models.

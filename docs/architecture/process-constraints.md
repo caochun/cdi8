@@ -37,6 +37,25 @@
 
 `require` 对集合中指定组件的每台设备都成立；`states` 与 `outerStates` 是“或”关系。集合为空、集合里没有该组件、设备快照缺少来源 ID 或修订号，均不能作为有效证据。初始状态也可以声明设备谓词，以便在操作开始后立即持续监控；未声明谓词的初始状态只记录流程给定的起点。其他状态必须包含设备谓词。状态转换只能引用模型中已声明的状态。
 
+十四类设备的全生命周期声明位于 `examples/gxlf/system/gxlf-experiment.system.xml`，新增以下语法：
+
+```xml
+<fact id="light" label="全部所选光源稳定">
+  <require collection="sourceTargets" component="seed shg" states="stableEmission" />
+</fact>
+<state id="prepared" label="准备完成">
+  <use fact="light" />
+  <require collection="allComponents" component="pump"
+           states="emissionPrepared" scope="entry" />
+</state>
+<transition id="ready" from="preparing" to="prepared"
+            operation="全部准备支路汇合" blocked="尚缺双通道同步证据" />
+```
+
+`fact` 只包含 `require`，`use` 展开为这些条件的 AND。`component` 支持空格分隔的候选组件，集合里所有匹配实例都要满足；选择一个或两个光源均可。默认 `scope="invariant"` 是持续条件，`scope="entry"` 只在转换进入时核验。非初始状态必须至少有持续条件，不能只有进入条件。未定义事实引用、重复定义、未知 scope 或空事实均拒绝。
+
+转换先以事件和快照验证源状态的持续条件，再以本次快照验证目标的全部条件；不会用目标条件回放进入前的中间状态。同次转换每台设备的源、目标检查复用一份快照。`blocked` 非空时拒绝推进并保留有效源状态；`operation` 只作说明。前端预览分别展示进入/持续条件及阻断原因。
+
 BPMN 在 process 级引用声明，并在操作节点报告转换或要求当前状态：
 
 ```xml
@@ -73,4 +92,6 @@ BPMN 在 process 级引用声明，并在操作节点报告转换或要求当前
 
 ## 验证
 
-`WorkflowIntegrationTest` 覆盖系统状态正常转换、参与设备条件不满足、事件中的瞬态失效、断连未知、失效锁存及阻止后续操作。`JavaWorkbenchE2eIT` 通过 Java Workbench、Java Tango bridge 与 JTango 设备验证设备状态事件驱动系统失效，以及四组件初始化成功路径。设备侧 `ComponentRuntimeTest` 独立验证动作准入、忙闲互斥和幂等反馈。
+`WorkflowIntegrationTest` 覆盖系统状态正常转换、参与设备条件不满足、事件中的瞬态失效、断连未知、失效锁存及阻止后续操作。`SystemStateRuntimeTest` 补充进入/持续条件边界、同设备多个谓词、证据游标持久化及事件完整性。`SystemStateModelTest` 核对十四份设备状态引用、初始化汇合和未决转换可达性。
+
+`JavaWorkbenchE2eIT` 通过 Java Workbench、Java Tango bridge 与 JTango 设备验证设备状态事件驱动系统失效、四组件初始化和十四类初始化；十四类路径验证缺设备拒绝、全体上电屏障、功能失败及 28 条命令成功。设备侧 `ComponentRuntimeTest` 验证动作准入、忙闲互斥和幂等反馈，`GxlfComponentsTest` 验证十四模型及泵浦、吹扫、真空和联锁异常边界。详见 [GXLF 系统状态模型设计](../domain/gxlf/process-control/系统状态模型设计.md)。

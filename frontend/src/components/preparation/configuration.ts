@@ -55,7 +55,7 @@ export function deviceIssues(rows:DeviceGroup[],models:Model[]):string[] {
   rows.forEach((row,i)=>{
     const label='组件 '+(i+1)+'：';
     if(!models.some(m=>m.kind==='scxml'&&m.id===row.model&&m.revisions.some(r=>r.id===row.revision)))issues.push(label+'请选择已保存的状态机版本');
-    if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(row.component)||row.component==='context')issues.push(label+'组件类型需使用字母、数字或下划线，不能使用保留类型 context');
+    if(!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(row.component)||row.component==='context')issues.push(label+'组件类型需以字母或下划线开头，可包含数字、下划线和连字符，不能使用保留类型 context');
     if(types.has(row.component))issues.push(label+'组件类型重复：'+row.component);types.add(row.component);
     if(!Number.isInteger(row.count)||row.count<1||row.count>200)issues.push(label+'实例数量需为 1–200 的整数');
     if(!Number.isInteger(row.delayMs)||row.delayMs<0||row.delayMs>3600000)issues.push(label+'反馈延迟需为 0–3600000 毫秒的整数');

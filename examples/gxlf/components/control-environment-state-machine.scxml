@@ -1,0 +1,852 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  控制环境组件：父状态严格映射状态表 E 列，子状态映射 D 列。
+  单一活动叶状态；内部确认事件驱动；保留失败重试、自环、资格撤销、异常恢复和关机闭环。
+  请求不会直接当作设备已完成；外部业务条件在流程层检查。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="powerOnOk">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="checkFailed">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="shutdownNormal">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="power-check.invalidated" target="unchecked" type="internal" />
+    <transition event="environment.interlock.tripped" target="interlockTripped" />
+  </state>
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="environment.clearance.requested" />
+      <transition event="control-environment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="environment.clearance.completed" target="clearanceComplete" />
+      <transition event="control-environment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.door-unlock.completed" target="interlockExited" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="resetReady">
+      <transition event="function-check.requested" />
+      <transition event="control-environment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="control-environment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.door-unlock.completed" target="interlockExited" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="interlockExited">
+      <transition event="environment.clearance.requested" />
+      <transition event="control-environment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="control-environment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.door-unlock.completed" target="interlockExited" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+      <transition event="environment.clearance.completed" target="clearanceComplete" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="environment.interlock.tripped" target="interlockTripped" />
+  </state>
+  <state id="areaCleared" initial="clearanceComplete">
+    <state id="clearanceComplete">
+      <transition event="environment.door-lock.requested" />
+      <transition event="control-environment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="environment.door-lock.completed" target="interlockEstablished" />
+      <transition event="control-environment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.door-unlock.completed" target="interlockExited" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+      <transition event="environment.clearance.invalidated" target="functionReady" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="environment.interlock.tripped" target="interlockTripped" />
+  </state>
+  <state id="interlocked" initial="interlockEstablished">
+    <state id="interlockEstablished">
+      <transition event="control-environment.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="control-environment.standby.completed" target="resetReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="environment.door-unlock.completed" target="interlockExited" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+      <transition event="environment.door.unexpected-open" target="interlockTripped" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="environment.interlock.tripped" target="interlockTripped" />
+  </state>
+  <state id="fault" initial="faultLock">
+    <state id="faultLock">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="faultLock" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="commFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="commFault" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="timeoutFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="timeoutFault" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="runTerminated">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="runTerminated" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <state id="interlockTripped">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="environment.door-unlock.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="interlockTripped" />
+      <transition event="environment.door-unlock.completed" target="interlockTripped" />
+      <transition event="environment.interlock.tripped" target="interlockTripped" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" type="internal" />
+    <transition event="communication.failure-confirmed" target="commFault" type="internal" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" type="internal" />
+    <transition event="run.terminated" target="runTerminated" type="internal" />
+    <transition event="environment.interlock.tripped" target="interlockTripped" type="internal" />
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "fault_codes": {
+    "fault_confirmed": "faultLock",
+    "communication_fault_confirmed": "commFault",
+    "timeout_confirmed": "timeoutFault",
+    "interlock_tripped": "interlockTripped"
+  },
+  "model_id": "control-environment-hierarchical-v4",
+  "model_version": 4,
+  "display_name": "控制环境组件",
+  "execution_model": "hierarchical-single-active-state",
+  "configuration_valid_states": [
+    "clearanceComplete",
+    "interlockEstablished",
+    "interlockExited"
+  ],
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "areaCleared": "清场完成",
+    "interlocked": "安全联锁状态\n（不含真空度）",
+    "fault": "异常"
+  },
+  "inner_labels": {
+    "unchecked": "未上电/离线",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过/业务资格撤销",
+    "shutdownNormal": "关机正常",
+    "functionReady": "业务就绪（具备清场、屏蔽门权限控制能力）",
+    "resetReady": "复位/待机完成",
+    "clearanceComplete": "清场完成",
+    "interlockEstablished": "安全联锁中",
+    "interlockExited": "退出安全联锁",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时",
+    "runTerminated": "本发终止，待内部安全复位",
+    "interlockTripped": "安全联锁触发"
+  },
+  "context_defaults": {
+    "fault_origin": null,
+    "faults": [],
+    "power_status": "unknown",
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "shot_id": null,
+    "phase_id": null,
+    "task_id": null,
+    "run_terminated": false
+  },
+  "actions": {
+    "power_on_check": {
+      "label": "开机自检",
+      "success_events": {
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
+      },
+      "failure_events": {
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
+      },
+      "success_key": "开机自检完成",
+      "failure_key": "开机自检失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "failure_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "request_event": "power-check.requested"
+    },
+    "function_check": {
+      "label": "自检通过、待机",
+      "success_events": {
+        "powerOnOk": "qualification.confirmed",
+        "checkFailed": "qualification.confirmed",
+        "resetReady": "qualification.confirmed"
+      },
+      "failure_events": {
+        "powerOnOk": "qualification.failed",
+        "checkFailed": "qualification.failed",
+        "resetReady": "qualification.failed"
+      },
+      "success_key": "自检通过、待机完成",
+      "failure_key": "自检通过、待机失败",
+      "success_observation": {
+        "powerOnOk": "就绪",
+        "checkFailed": "就绪",
+        "resetReady": "就绪"
+      },
+      "failure_observation": {
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "resetReady": "未就绪"
+      },
+      "request_event": "function-check.requested"
+    },
+    "clear_area": {
+      "label": "清场",
+      "success_events": {
+        "functionReady": "environment.clearance.completed",
+        "interlockExited": "environment.clearance.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "interlockExited": null
+      },
+      "success_key": "清场完成",
+      "failure_key": "清场失败",
+      "success_observation": {
+        "functionReady": "清场完成",
+        "interlockExited": "清场完成"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "interlockExited": null
+      },
+      "request_event": "environment.clearance.requested"
+    },
+    "lock_door": {
+      "label": "屏蔽门锁定",
+      "success_events": {
+        "clearanceComplete": "environment.door-lock.completed"
+      },
+      "failure_events": {
+        "clearanceComplete": null
+      },
+      "success_key": "屏蔽门锁定完成",
+      "failure_key": "屏蔽门锁定失败",
+      "success_observation": {
+        "clearanceComplete": "安全联锁状态\n（不含真空度）"
+      },
+      "failure_observation": {
+        "clearanceComplete": null
+      },
+      "request_event": "environment.door-lock.requested"
+    },
+    "standby_reset": {
+      "label": "待机/复位",
+      "success_events": {
+        "functionReady": "control-environment.standby.completed",
+        "resetReady": "control-environment.standby.completed",
+        "clearanceComplete": "control-environment.standby.completed",
+        "interlockEstablished": "control-environment.standby.completed",
+        "interlockExited": "control-environment.standby.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null
+      },
+      "success_key": "待机/复位完成",
+      "failure_key": "待机/复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "resetReady": "就绪",
+        "clearanceComplete": "就绪",
+        "interlockEstablished": "就绪",
+        "interlockExited": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null
+      },
+      "request_event": "control-environment.standby.requested"
+    },
+    "abort_reset": {
+      "label": "异常中止后的安全复位",
+      "success_events": {
+        "functionReady": "abort.completed",
+        "resetReady": "abort.completed",
+        "clearanceComplete": "abort.completed",
+        "interlockEstablished": "abort.completed",
+        "interlockExited": "abort.completed",
+        "faultLock": "recovery.completed",
+        "commFault": "recovery.completed",
+        "timeoutFault": "recovery.completed",
+        "runTerminated": "recovery.completed",
+        "interlockTripped": "recovery.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "interlockTripped": null
+      },
+      "success_key": "异常中止后的安全复位完成",
+      "failure_key": "异常中止后的安全复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "resetReady": "就绪",
+        "clearanceComplete": "就绪",
+        "interlockEstablished": "就绪",
+        "interlockExited": "就绪",
+        "faultLock": "就绪",
+        "commFault": "就绪",
+        "timeoutFault": "就绪",
+        "runTerminated": "就绪",
+        "interlockTripped": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "interlockTripped": null
+      },
+      "request_event": "abort.requested"
+    },
+    "shutdown": {
+      "label": "关机",
+      "success_events": {
+        "unchecked": "shutdown.confirmed",
+        "powerOnOk": "shutdown.confirmed",
+        "checkFailed": "shutdown.confirmed",
+        "shutdownNormal": "shutdown.confirmed",
+        "functionReady": "shutdown.confirmed",
+        "resetReady": "shutdown.confirmed",
+        "clearanceComplete": "shutdown.confirmed",
+        "interlockEstablished": "shutdown.confirmed",
+        "interlockExited": "shutdown.confirmed",
+        "faultLock": "shutdown.confirmed",
+        "commFault": "shutdown.confirmed",
+        "timeoutFault": "shutdown.confirmed",
+        "runTerminated": "shutdown.confirmed",
+        "interlockTripped": "shutdown.confirmed"
+      },
+      "failure_events": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "interlockTripped": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪",
+        "functionReady": "未就绪",
+        "resetReady": "未就绪",
+        "clearanceComplete": "未就绪",
+        "interlockEstablished": "未就绪",
+        "interlockExited": "未就绪",
+        "faultLock": "异常",
+        "commFault": "异常",
+        "timeoutFault": "异常",
+        "runTerminated": "异常",
+        "interlockTripped": "异常"
+      },
+      "failure_observation": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "resetReady": null,
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockExited": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "interlockTripped": null
+      },
+      "request_event": "shutdown.requested"
+    },
+    "unlock_door": {
+      "label": "屏蔽门开启",
+      "success_events": {
+        "clearanceComplete": "environment.door-unlock.completed",
+        "interlockEstablished": "environment.door-unlock.completed",
+        "interlockTripped": "environment.door-unlock.completed",
+        "functionReady": "environment.door-unlock.completed",
+        "resetReady": "environment.door-unlock.completed",
+        "interlockExited": "environment.door-unlock.completed"
+      },
+      "failure_events": {
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockTripped": null,
+        "functionReady": null,
+        "resetReady": null,
+        "interlockExited": null
+      },
+      "success_key": "屏蔽门开启完成",
+      "failure_key": "屏蔽门开启失败",
+      "success_observation": {
+        "clearanceComplete": "就绪",
+        "interlockEstablished": "就绪",
+        "interlockTripped": "异常",
+        "functionReady": "就绪",
+        "resetReady": "就绪",
+        "interlockExited": "就绪"
+      },
+      "failure_observation": {
+        "clearanceComplete": null,
+        "interlockEstablished": null,
+        "interlockTripped": null,
+        "functionReady": null,
+        "resetReady": null,
+        "interlockExited": null
+      },
+      "request_event": "environment.door-unlock.requested"
+    }
+  },
+  "confirmations": {
+    "fault_confirmed": {
+      "label": "设备内部故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "异常"
+    },
+    "interlock_tripped": {
+      "label": "本组件确认安全联锁触发",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "environment.interlock.tripped",
+      "observation": "异常"
+    },
+    "clearance_invalidated": {
+      "label": "清场资格撤销",
+      "source_outer": [
+        "areaCleared"
+      ],
+      "source_states": [
+        "clearanceComplete"
+      ],
+      "machine_event": "environment.clearance.invalidated",
+      "observation": "就绪"
+    },
+    "door_unexpected_open": {
+      "label": "联锁中门意外打开",
+      "source_outer": [
+        "interlocked"
+      ],
+      "source_states": [
+        "interlockEstablished"
+      ],
+      "machine_event": "environment.door.unexpected-open",
+      "observation": "异常"
+    },
+    "qualification_invalidated": {
+      "label": "业务资格撤销（未就绪）",
+      "source_outer": [
+        "ready",
+        "areaCleared",
+        "interlocked"
+      ],
+      "source_states": [
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited"
+      ],
+      "machine_event": "qualification.invalidated",
+      "observation": "未就绪"
+    },
+    "power_check_invalidated": {
+      "label": "上电资格撤销（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited"
+      ],
+      "machine_event": "power-check.invalidated",
+      "observation": "未就绪"
+    },
+    "run_terminated": {
+      "label": "本发终止确认（异常）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "run.terminated",
+      "observation": "异常"
+    },
+    "recovery_confirmed": {
+      "label": "安全恢复完成确认（就绪）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "设备安全下电确认（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "areaCleared",
+        "interlocked"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "resetReady",
+        "clearanceComplete",
+        "interlockEstablished",
+        "interlockExited"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "未就绪"
+    },
+    "shutdown_confirmed_1": {
+      "label": "设备安全下电确认（异常）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "interlockTripped"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "异常"
+    }
+  },
+  "source_inventory": {
+    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+    "sheet": "分系统状态表",
+    "read_date": "2026-10-23",
+    "row_coverage": {
+      "180": {
+        "states": [
+          "unchecked"
+        ]
+      },
+      "181": {
+        "states": [
+          "functionReady"
+        ]
+      },
+      "182": {
+        "states": [
+          "clearanceComplete"
+        ]
+      },
+      "183": {
+        "states": [
+          "interlockEstablished"
+        ]
+      },
+      "184": {
+        "states": [
+          "interlockExited"
+        ]
+      },
+      "185": {
+        "states": [
+          "interlockTripped"
+        ]
+      },
+      "186": {
+        "states": [
+          "commFault"
+        ]
+      },
+      "187": {
+        "states": [
+          "timeoutFault"
+        ]
+      }
+    }
+  },
+  "modeling_notes": [
+    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+    "第183行父状态原文“安全联锁状态（不含真空度）”保留；仅使用本组件联锁建立/触发反馈，不把真空作为本组件独立的状态序列。",
+    "正常屏蔽门开启进入 ready/interlockExited。安全联锁触发后立即允许开门，开门成功在异常子状态自环，保留触发锁存；安全恢复完成后才回到 resetReady。",
+    "本表未列关机与故障锁定行，按参考模型补充内部关机、通用故障、终止及恢复闭环；不改写表内映射。"
+  ]
+}
+    ]]></data>
+  </datamodel>
+</scxml>

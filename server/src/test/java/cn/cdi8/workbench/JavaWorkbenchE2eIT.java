@@ -104,6 +104,7 @@ class JavaWorkbenchE2eIT {
             String stoppedId=post(base,"/api/workbench/runs",config).path("id").asText();
             assertTrue(post(base,"/api/runs/"+stoppedId+"/stop",json.createObjectNode()).hasNonNull("ended"));
             systemStateLifecycle();
+            fullSystemInitialization();
             gxlfLifecycle();
 
             // Stopping the bridge also stops its device JVM; restart never pretends the old environment is ready.
@@ -359,6 +360,84 @@ class JavaWorkbenchE2eIT {
             Thread.sleep(80);
         }
         fail("System-state E2E timed out: "+get(base,"/api/runs/"+successId));
+    }
+    void fullSystemInitialization() throws Exception {
+        Map<String,JsonNode> models=new HashMap<>();
+        for(JsonNode model:get(base,"/api/workbench/models"))models.put(model.path("id").asText(),model);
+        ObjectNode config=json.createObjectNode().put("entry","gxlf_system_initialization").put("autoComplete",false);
+        config.putArray("processes").addObject().put("model","gxlf_system_initialization")
+            .put("revision",latestRevision(models.get("gxlf_system_initialization")));
+        ArrayNode devices=config.putArray("devices");
+        for(String component:List.of("seed","shg","preamp","multipass","pump","measurement","frequency-conversion",
+                "target-alignment","vacuum","diagnostics","synchronization","switch-driver","cooling","control-environment")) {
+            String model=switch(component){case "seed"->"seed-source-state-machine";case "shg"->"shg-injection-state-machine";default->component+"-state-machine";};
+            devices.addObject().put("model",model).put("revision",latestRevision(models.get(model)))
+                .put("component",component).put("count",1).put("autoComplete",false).put("delayMs",50);
+        }
+        config.putObject("bindings").putArray("sourceTargets").add("seed_01").add("shg_01");
+        config.putObject("variables").put("commandTimeout","PT30S").put("workflowTimeout","PT120S");
+
+        // Missing a required component is rejected before starting any workflow.
+        ObjectNode missing=config.deepCopy();((ArrayNode)missing.path("devices")).remove(13);
+        missing=(ObjectNode)post(base,"/api/workbench/environment",missing);
+        var rejected=exchange(base,"/api/workbench/runs",missing);
+        assertEquals(409,rejected.statusCode(),rejected.body());
+        assertTrue(rejected.body().contains("control-environment"),rejected.body());
+
+        config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        String failedId=post(base,"/api/workbench/runs",config).path("id").asText();
+        Set<String> powerDone=new HashSet<>();
+        completeInitialization(failedId,powerDone,true);
+        JsonNode failed=get(base,"/api/runs/"+failedId);
+        assertEquals("FAILED",failed.path("outcome").asText(),failed.toString());
+        assertEquals(14,powerDone.size(),"All power checks must finish before any function check");
+        assertEquals("powered",systemState(failed).path("state").asText());
+        assertFalse(failed.path("unresolvedDeviceActions").isEmpty(),"Failure must expose other active actions");
+
+        config=(ObjectNode)post(base,"/api/workbench/environment",config);
+        String successId=post(base,"/api/workbench/runs",config).path("id").asText();
+        powerDone=new HashSet<>();completeInitialization(successId,powerDone,false);
+        JsonNode succeeded=get(base,"/api/runs/"+successId);
+        assertEquals("SUCCEEDED",succeeded.path("outcome").asText(),succeeded.toString());
+        assertEquals(28,commandCount(succeeded));assertEquals(14,powerDone.size());
+        assertTrue(succeeded.path("unresolvedDeviceActions").isEmpty());
+        JsonNode state=systemState(succeeded);
+        assertEquals("gxlf-experiment",state.path("model").asText());
+        assertEquals("initialized",state.path("state").asText());
+        assertEquals("valid",state.path("integrity").asText());assertEquals(2,state.path("history").size());
+        for(String device:powerDone) {
+            assertTrue(succeeded.path("initialDeviceSnapshots").has(device),device);
+            assertTrue(state.path("evidence").has(device),device);
+        }
+        assertFalse(state.path("evidence").has("context_01"),"The demo condition device cannot prove system facts");
+        System.out.println("PASS fourteen Java Tango components: missing device refused / global power barrier / function failure / 28 commands / verified system state");
+    }
+    void completeInitialization(String id,Set<String> powerDone,boolean failFunction) throws Exception {
+        Set<String> handled=new HashSet<>();boolean failed=false;
+        long deadline=System.nanoTime()+Duration.ofSeconds(90).toNanos();
+        while(System.nanoTime()<deadline) {
+            JsonNode run=get(base,"/api/runs/"+id);if(run.hasNonNull("ended"))return;
+            for(JsonNode device:get(bridge,"/devices")) {
+                String deviceId=device.path("id").asText();JsonNode snapshot=device.path("snapshot");
+                if(!snapshot.hasNonNull("active_command_id"))continue;
+                String commandId=snapshot.path("active_command_id").asText();if(!handled.add(commandId))continue;
+                String action=get(bridge,"/devices/"+deviceId+"/commands/"+commandId).path("action").asText();
+                if("function_check".equals(action)) {
+                    assertEquals(14,powerDone.size(),"Function check cannot precede the full power barrier");
+                    if(failFunction) {
+                        if(!failed) {
+                            post(bridge,"/devices/"+deviceId+"/simulate",json.createObjectNode()
+                                .put("command_id",commandId).put("outcome","failure"));failed=true;
+                        }
+                        continue;
+                    }
+                }
+                post(bridge,"/devices/"+deviceId+"/simulate",json.createObjectNode().put("command_id",commandId).put("outcome","success"));
+                if("power_on_check".equals(action))powerDone.add(deviceId);
+            }
+            Thread.sleep(80);
+        }
+        fail("Fourteen-component initialization timed out: "+get(base,"/api/runs/"+id));
     }
     JsonNode systemState(JsonNode run) {
         String value=run.path("experimentSystemState").asText();

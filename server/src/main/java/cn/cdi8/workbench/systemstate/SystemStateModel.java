@@ -2,26 +2,39 @@ package cn.cdi8.workbench.systemstate;
 
 import java.io.StringReader;
 import java.util.*;
-import javax.xml.stream.*;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Element;
+import org.xml.sax.InputSource;
 import org.flowable.bpmn.model.*;
 
 /** Declarative whole-system states and evidence-gated transitions. */
 public final class SystemStateModel {
     public static final String NS = "https://cdi8.cn/system-state/v1";
-    public record Predicate(String collection, String component, Set<String> states, Set<String> outerStates) {}
-    public record State(String id, String label, List<Predicate> predicates) {}
-    public record Transition(String id, String from, String to) {}
+    public record Predicate(String collection, String component, Set<String> states, Set<String> outerStates) {
+        public Set<String> components() { return words(component); }
+        public boolean matchesComponent(String value) { return components().contains(value); }
+    }
+    public record Fact(String id, String label, List<Predicate> predicates) {}
+    public record State(String id, String label, List<Predicate> predicates, List<Predicate> entryPredicates) {
+        public List<Predicate> allPredicates() {
+            var result = new ArrayList<>(predicates); result.addAll(entryPredicates); return List.copyOf(result);
+        }
+    }
+    public record Transition(String id, String from, String to, String operation, String blockedReason) {}
 
     private final String id;
     private final String initial;
     private final long evidenceMaxAgeMs;
+    private final Map<String, Fact> facts;
     private final Map<String, State> states;
     private final Map<String, Transition> transitions;
 
     private SystemStateModel(String id, String initial, long evidenceMaxAgeMs,
-                             Map<String, State> states, Map<String, Transition> transitions) {
+                             Map<String, Fact> facts, Map<String, State> states, Map<String, Transition> transitions) {
         this.id=id; this.initial=initial; this.evidenceMaxAgeMs=evidenceMaxAgeMs;
-        this.states=Map.copyOf(states); this.transitions=Map.copyOf(transitions);
+        this.facts=Collections.unmodifiableMap(new LinkedHashMap<>(facts));
+        this.states=Collections.unmodifiableMap(new LinkedHashMap<>(states));
+        this.transitions=Collections.unmodifiableMap(new LinkedHashMap<>(transitions));
     }
     public String id() { return id; }
     public String initial() { return initial; }
@@ -38,68 +51,101 @@ public final class SystemStateModel {
     }
     public Set<String> stateIds() { return states.keySet(); }
     public Collection<State> states() { return states.values(); }
+    public Collection<Fact> facts() { return facts.values(); }
+    public Collection<Transition> transitions() { return transitions.values(); }
 
     public static SystemStateModel parse(String xml) {
         try {
-            var factory=XMLInputFactory.newFactory();
-            factory.setProperty(XMLInputFactory.SUPPORT_DTD,false);
-            factory.setProperty("javax.xml.stream.isSupportingExternalEntities",false);
-            var reader=factory.createXMLStreamReader(new StringReader(xml));
-            String id=null,initial=null;long maxAge=2000;
-            Map<String,State> states=new LinkedHashMap<>();Map<String,Transition> transitions=new LinkedHashMap<>();
-            StateBuilder state=null;
-            while(reader.hasNext()) {
-                int event=reader.next();
-                if(event==XMLStreamConstants.START_ELEMENT) {
-                    String name=reader.getLocalName();
-                    if("system-state-model".equals(name)) {
-                        if(!NS.equals(reader.getNamespaceURI()))throw new IllegalArgumentException("系统状态模型命名空间错误");
-                        id=required(reader,"id");initial=required(reader,"initial");
-                        String age=reader.getAttributeValue(null,"evidenceMaxAgeMs");if(age!=null)maxAge=Long.parseLong(age);
-                    } else if("state".equals(name)) {
-                        state=new StateBuilder(required(reader,"id"),required(reader,"label"));
-                    } else if("require".equals(name)) {
-                        if(state==null)throw new IllegalArgumentException("系统状态条件必须位于 state 内");
-                        String collection=required(reader,"collection"),component=required(reader,"component");
-                        Set<String> leaves=words(reader.getAttributeValue(null,"states"));
-                        Set<String> outers=words(reader.getAttributeValue(null,"outerStates"));
-                        if(leaves.isEmpty()&&outers.isEmpty())throw new IllegalArgumentException("系统状态 require 缺少 states 或 outerStates");
-                        state.predicates.add(new Predicate(collection,component,leaves,outers));
-                    } else if("transition".equals(name)) {
-                        var transition=new Transition(required(reader,"id"),required(reader,"from"),required(reader,"to"));
-                        if(transitions.putIfAbsent(transition.id(),transition)!=null)throw new IllegalArgumentException("系统状态转换重复："+transition.id());
-                    } else if(!"system-state-model".equals(name))throw new IllegalArgumentException("不支持的系统状态元素："+name);
-                } else if(event==XMLStreamConstants.END_ELEMENT && "state".equals(reader.getLocalName())) {
-                    if(state==null)throw new IllegalArgumentException("系统状态格式错误");
-                    if(states.putIfAbsent(state.id,new State(state.id,state.label,List.copyOf(state.predicates)))!=null)
-                        throw new IllegalArgumentException("系统状态重复："+state.id);
-                    state=null;
+            var factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            var root = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();
+            if (!"system-state-model".equals(root.getLocalName()) || !NS.equals(root.getNamespaceURI()))
+                throw new IllegalArgumentException("系统状态模型根元素或命名空间错误");
+            String id = required(root, "id"), initial = required(root, "initial");
+            long maxAge = root.hasAttribute("evidenceMaxAgeMs") ? Long.parseLong(root.getAttribute("evidenceMaxAgeMs")) : 2000;
+            Map<String, Fact> facts = new LinkedHashMap<>();
+            Map<String, State> states = new LinkedHashMap<>();
+            Map<String, Transition> transitions = new LinkedHashMap<>();
+            var children = children(root);
+            // Definitions may follow their uses; facts contain conjunctions of device predicates only.
+            for (var child : children) if ("fact".equals(child.getLocalName())) {
+                var predicates = new ArrayList<Predicate>();
+                for (var condition : children(child)) {
+                    if (!"require".equals(condition.getLocalName()) || condition.hasAttribute("scope"))
+                        throw new IllegalArgumentException("fact 只能包含无 scope 的 require");
+                    predicates.add(predicate(condition));
                 }
+                if (predicates.isEmpty()) throw new IllegalArgumentException("系统事实不能为空");
+                var fact = new Fact(required(child, "id"), required(child, "label"), List.copyOf(predicates));
+                if (facts.putIfAbsent(fact.id(), fact) != null) throw new IllegalArgumentException("系统事实重复：" + fact.id());
             }
-            reader.close();
-            if(id==null||initial==null||!states.containsKey(initial))throw new IllegalArgumentException("系统状态模型缺少有效 initial");
-            for(var stateDefinition:states.values())if(!stateDefinition.id().equals(initial)&&stateDefinition.predicates().isEmpty())
-                throw new IllegalArgumentException("非初始系统状态必须声明设备条件："+stateDefinition.id());
-            if(maxAge<100||maxAge>60000)throw new IllegalArgumentException("evidenceMaxAgeMs 必须在 100–60000 之间");
-            for(var transition:transitions.values())if(!states.containsKey(transition.from())||!states.containsKey(transition.to()))
-                throw new IllegalArgumentException("系统状态转换引用未定义状态："+transition.id());
-            for(var transition:transitions.values())if(transition.from().equals(transition.to()))
-                throw new IllegalArgumentException("系统状态转换不能指向自身："+transition.id());
-            return new SystemStateModel(id,initial,maxAge,states,transitions);
-        } catch(XMLStreamException ex) { throw new IllegalArgumentException("系统状态模型 XML 无效："+ex.getMessage(),ex); }
+            for (var child : children) switch (child.getLocalName()) {
+                case "fact" -> { }
+                case "state" -> {
+                    var invariant = new ArrayList<Predicate>(); var entry = new ArrayList<Predicate>();
+                    for (var condition : children(child)) {
+                        String scope = condition.hasAttribute("scope") ? condition.getAttribute("scope") : "invariant";
+                        if (!Set.of("invariant", "entry").contains(scope)) throw new IllegalArgumentException("未知条件 scope：" + scope);
+                        List<Predicate> predicates;
+                        if ("require".equals(condition.getLocalName())) predicates = List.of(predicate(condition));
+                        else if ("use".equals(condition.getLocalName())) {
+                            String ref = required(condition, "fact");
+                            if (!facts.containsKey(ref)) throw new IllegalArgumentException("引用未定义系统事实：" + ref);
+                            if (!children(condition).isEmpty()) throw new IllegalArgumentException("use 不能包含子元素");
+                            predicates = facts.get(ref).predicates();
+                        } else throw new IllegalArgumentException("不支持的系统状态条件：" + condition.getLocalName());
+                        ("entry".equals(scope) ? entry : invariant).addAll(predicates);
+                    }
+                    var state = new State(required(child, "id"), required(child, "label"), List.copyOf(invariant), List.copyOf(entry));
+                    if (states.putIfAbsent(state.id(), state) != null) throw new IllegalArgumentException("系统状态重复：" + state.id());
+                }
+                case "transition" -> {
+                    if (!children(child).isEmpty()) throw new IllegalArgumentException("transition 不能包含子元素");
+                    var transition = new Transition(required(child, "id"), required(child, "from"), required(child, "to"),
+                        child.getAttribute("operation"), child.getAttribute("blocked"));
+                    if (transitions.putIfAbsent(transition.id(), transition) != null)
+                        throw new IllegalArgumentException("系统状态转换重复：" + transition.id());
+                }
+                default -> throw new IllegalArgumentException("不支持的系统状态元素：" + child.getLocalName());
+            }
+            if (!states.containsKey(initial)) throw new IllegalArgumentException("系统状态模型缺少有效 initial");
+            for (var state : states.values()) if (!state.id().equals(initial) && state.predicates().isEmpty())
+                throw new IllegalArgumentException("非初始系统状态必须声明设备条件：" + state.id());
+            if (maxAge < 100 || maxAge > 60000) throw new IllegalArgumentException("evidenceMaxAgeMs 必须在 100–60000 之间");
+            for (var transition : transitions.values()) {
+                if (!states.containsKey(transition.from()) || !states.containsKey(transition.to()))
+                    throw new IllegalArgumentException("系统状态转换引用未定义状态：" + transition.id());
+                if (transition.from().equals(transition.to())) throw new IllegalArgumentException("系统状态转换不能指向自身：" + transition.id());
+            }
+            return new SystemStateModel(id, initial, maxAge, facts, states, transitions);
+        } catch (IllegalArgumentException ex) { throw ex; }
+        catch (Exception ex) { throw new IllegalArgumentException("系统状态模型 XML 无效：" + ex.getMessage(), ex); }
     }
-    private static String required(XMLStreamReader reader,String name) {
-        String value=reader.getAttributeValue(null,name);
-        if(value==null||value.isBlank())throw new IllegalArgumentException("缺少属性 "+name+"（"+reader.getLocalName()+"）");
-        return value.trim();
+    private static List<Element> children(Element parent) {
+        var result = new ArrayList<Element>();
+        for (var node = parent.getFirstChild(); node != null; node = node.getNextSibling()) if (node instanceof Element child) {
+            if (!NS.equals(child.getNamespaceURI())) throw new IllegalArgumentException("系统状态子元素命名空间错误");
+            result.add(child);
+        }
+        return result;
+    }
+    private static Predicate predicate(Element element) {
+        if (!children(element).isEmpty()) throw new IllegalArgumentException("require 不能包含子元素");
+        var leaves = words(element.getAttribute("states")); var outers = words(element.getAttribute("outerStates"));
+        if (leaves.isEmpty() && outers.isEmpty()) throw new IllegalArgumentException("系统状态 require 缺少 states 或 outerStates");
+        return new Predicate(required(element, "collection"), required(element, "component"), leaves, outers);
+    }
+    private static String required(Element element, String name) {
+        String value = element.getAttribute(name).trim();
+        if (value.isEmpty()) throw new IllegalArgumentException("缺少属性 " + name + "（" + element.getLocalName() + "）");
+        return value;
     }
     private static Set<String> words(String value) {
-        if(value==null||value.isBlank())return Set.of();
-        return Set.of(value.trim().split("\\s+"));
-    }
-    private static final class StateBuilder {
-        final String id,label;final List<Predicate> predicates=new ArrayList<>();
-        StateBuilder(String id,String label){this.id=id;this.label=label;}
+        if (value == null || value.isBlank()) return Set.of();
+        return Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(value.trim().split("\\s+"))));
     }
 
     public static void validateProcess(BpmnModel model) {

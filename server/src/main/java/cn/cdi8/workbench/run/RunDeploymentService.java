@@ -96,8 +96,8 @@ public class RunDeploymentService {
             }
             var deployment=repository.createDeployment().name("workbench-"+release);
             Map<String,String> systemModels=new LinkedHashMap<>();
-            for(var item:documents.entrySet()) {
-                var refs=item.getValue().getElementsByTagNameNS(cn.cdi8.workbench.systemstate.SystemStateModel.NS,"systemModel");
+            for(String processId:needed) {
+                var refs=documents.get(processId).getElementsByTagNameNS(cn.cdi8.workbench.systemstate.SystemStateModel.NS,"systemModel");
                 for(int n=0;n<refs.getLength();n++) {
                     String id=((Element)refs.item(n)).getAttribute("ref");
                     if(id.isBlank())throw new IllegalArgumentException("systemModel 缺少 ref");
@@ -181,9 +181,12 @@ public class RunDeploymentService {
                 String modelId=((Element)refs.item(r)).getAttribute("ref");
                 var record=store.get(modelId);var revision=record.path("revisions").get(record.path("revisions").size()-1);
                 var declared=cn.cdi8.workbench.systemstate.SystemStateModel.parse(revision.path("xml").asText());
-                for(var state:declared.states())for(var predicate:state.predicates()) {
-                    JsonNode componentModel=metadata.get(predicate.component());
-                    if(componentModel==null)throw new IllegalArgumentException("系统状态谓词缺少组件模型："+predicate.component());
+                var predicates=new ArrayList<cn.cdi8.workbench.systemstate.SystemStateModel.Predicate>();
+                declared.states().forEach(state->predicates.addAll(state.allPredicates()));
+                declared.facts().forEach(fact->predicates.addAll(fact.predicates()));
+                for(var predicate:predicates)for(String component:predicate.components()) {
+                    JsonNode componentModel=metadata.get(component);
+                    if(componentModel==null)throw new IllegalArgumentException("系统状态谓词缺少组件模型："+component);
                     for(String key:predicate.states())if(!componentModel.path("inner_labels").has(key))throw new IllegalArgumentException("系统状态引用不存在的叶状态："+key);
                     for(String key:predicate.outerStates())if(!componentModel.path("outer_labels").has(key))throw new IllegalArgumentException("系统状态引用不存在的外层状态："+key);
                 }

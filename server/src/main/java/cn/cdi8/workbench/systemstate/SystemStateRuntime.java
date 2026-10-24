@@ -84,16 +84,23 @@ public class SystemStateRuntime {
         requireValid(state);
         if(!transition.from().equals(state.path("state").asText()))
             throw new IllegalStateException("系统状态转换来源不匹配：要求 "+transition.from()+"，当前为 "+state.path("state").asText());
+        Map<String,JsonNode> snapshots=new HashMap<>();
         String sourceStatus=checkState(execution.getProcessInstanceId(),definition,
-            definition.state(transition.from()),state,true);
+            definition.state(transition.from()).predicates(),state,true,true,snapshots);
         if(sourceStatus!=null) {
             Violation issue=latch(execution.getProcessInstanceId(),state,
                 sourceStatus.startsWith("未知：")?"unknown":"violated",
                 sourceStatus.replaceFirst("^(未知：|违反：)",""));
             throw new IllegalStateException(issue.reason());
         }
+        if(!transition.blockedReason().isBlank()) {
+            runtime().setVariable(execution.getProcessInstanceId(),STATE,state.toString());
+            throw new IllegalStateException("系统状态转换尚未放行："+transition.blockedReason());
+        }
+        // Target conditions start at this boundary. Intermediate observations made
+        // while the source state was active must not be judged by target conditions.
         String targetStatus=checkState(execution.getProcessInstanceId(),definition,
-            definition.state(transition.to()),state,true);
+            definition.state(transition.to()).allPredicates(),state,true,false,snapshots);
         if(targetStatus!=null) {
             Violation issue=latch(execution.getProcessInstanceId(),state,
                 targetStatus.startsWith("未知：")?"unknown":"violated",
@@ -165,47 +172,60 @@ public class SystemStateRuntime {
         SystemStateModel model;
         try { model=model(process.getProcessDefinitionId(),modelId); }
         catch(Exception ex){return latch(pid,state,"unknown","系统状态声明无法恢复："+ex.getMessage());}
-        String status=checkState(pid,model,model.state(state.path("state").asText()),state,forceRead);
+        String status=checkState(pid,model,model.state(state.path("state").asText()).predicates(),state,forceRead,true,new HashMap<>());
         if(status!=null)return latch(pid,state,status.startsWith("未知：")?"unknown":"violated",status.replaceFirst("^(未知：|违反：)",""));
+        runtime().setVariable(pid,STATE,state.toString());
         return null;
     }
-    private String checkState(String pid,SystemStateModel model,SystemStateModel.State target,ObjectNode state,boolean forceRead) {
+    private String checkState(String pid,SystemStateModel model,List<SystemStateModel.Predicate> predicates,
+                              ObjectNode state,boolean forceRead,boolean replayEvents,Map<String,JsonNode> snapshots) {
         ObjectNode evidence=(ObjectNode)state.path("evidence");
         long initialCursor=evidence.path("eventCursor").asLong(0);
-        long now=System.currentTimeMillis();
-        for(var predicate:target.predicates()) {
+        if(!gateway.connected())return "未知：Tango 连接已断开，无法确认实验系统状态";
+        if(!eventEpoch.equals(evidence.path("eventEpoch").asText()))return "未知：控制服务重启后系统状态事件连续性无法确认";
+        if(initialCursor<lostBefore)return "未知：系统状态事件证据出现缺口";
+        for(var observation:observations)if(observation.sequence()>initialCursor
+                &&"connection_lost".equals(observation.value().path("type").asText()))return "未知：Tango 事件通道曾断开";
+        Map<String,List<SystemStateModel.Predicate>> byDevice=new LinkedHashMap<>();
+        for(var predicate:predicates) {
             Object raw=runtime().getVariable(pid,predicate.collection());
             if(!(raw instanceof List<?> targets)||targets.isEmpty())return "违反：系统状态目标集合为空："+predicate.collection();
             boolean matched=false;
             for(Object item:targets) {
                 if(!(item instanceof Map<?,?> targetDevice))return "违反：系统状态目标格式无效";
                 String device=Objects.toString(targetDevice.get("id"),""),component=Objects.toString(targetDevice.get("component"),"");
-                if(!predicate.component().equals(component))continue;
+                if(device.isBlank()||component.isBlank())return "违反：系统状态目标缺少设备编号或组件类型";
+                if(!predicate.matchesComponent(component))continue;
                 matched=true;
-                ObjectNode prior=evidence.has(device)?(ObjectNode)evidence.get(device):json.createObjectNode();
-                if(!prior.has("cursor"))prior.put("cursor",initialCursor);
-                String reason=observeEvents(device,predicate,prior);
-                if(reason!=null)return reason;
-                long observed=prior.path("observedAt").asLong(0);
-                if(forceRead||now-observed>=model.evidenceMaxAgeMs()/2) {
-                    if(!gateway.connected())return "未知：Tango 连接已断开，无法确认 "+device;
-                    try {
-                        JsonNode snapshot=gateway.snapshot(device);
-                        reason=evidenceProblem(prior,snapshot);
-                        if(reason!=null)return reason;
-                        if(!accepts(predicate,snapshot))return "违反："+device+" 当前状态不满足系统状态 "+target.label()+"："+snapshot.path("state_id").asText();
-                        update(prior,snapshot,sequence,now);evidence.set(device,prior);
-                    }catch(Exception ex){return "未知：读取设备 "+device+" 状态失败："+ex.getMessage();}
-                }
+                byDevice.computeIfAbsent(device,key->new ArrayList<>()).add(predicate);
             }
             if(!matched)return "违反：系统状态条件未匹配任何 "+predicate.component()+" 设备："+predicate.collection();
         }
+        long now=System.currentTimeMillis();
+        for(var entry:byDevice.entrySet()) {
+            String device=entry.getKey();var conditions=entry.getValue();
+            ObjectNode prior=evidence.has(device)?(ObjectNode)evidence.get(device):json.createObjectNode();
+            if(!prior.has("cursor"))prior.put("cursor",initialCursor);
+            evidence.set(device,prior);
+            String reason=replayEvents?observeEvents(device,conditions,prior):null;
+            if(reason!=null)return reason;
+            if(forceRead||now-prior.path("observedAt").asLong(0)>=model.evidenceMaxAgeMs()/2) {
+                try {
+                    JsonNode snapshot=snapshots.computeIfAbsent(device,key->gateway.snapshot(key).deepCopy());
+                    reason=evidenceProblem(prior,snapshot);
+                    if(reason!=null)return reason;
+                    if(conditions.stream().anyMatch(predicate->!accepts(predicate,snapshot)))
+                        return "违反："+device+" 当前状态不满足系统状态条件："+snapshot.path("state_id").asText();
+                    update(prior,snapshot,sequence,now);
+                }catch(Exception ex){return "未知：读取设备 "+device+" 状态失败："+ex.getMessage();}
+            }
+        }
+        evidence.put("eventCursor",sequence);
         return null;
     }
-    private String observeEvents(String device,SystemStateModel.Predicate predicate,ObjectNode evidence) {
+    private String observeEvents(String device,List<SystemStateModel.Predicate> predicates,ObjectNode evidence) {
         long cursor=evidence.path("cursor").asLong(0);
         if(cursor<lostBefore)return "未知：系统状态事件证据出现缺口";
-        long latest=cursor;
         for(Observation observation:observations)if(observation.sequence()>cursor) {
             JsonNode event=observation.value();
             if("connection_lost".equals(event.path("type").asText()))return "未知：Tango 事件通道曾断开";
@@ -213,11 +233,10 @@ public class SystemStateRuntime {
             if(!event.path("connected").asBoolean(true))return "未知：设备断连："+device;
             JsonNode snapshot=event.path("snapshot");String reason=evidenceProblem(evidence,snapshot);
             if(reason!=null)return reason;
-            if(!accepts(predicate,snapshot))return "违反：设备事件显示系统状态条件失效："+device+" / "+snapshot.path("state_id").asText();
+            if(predicates.stream().anyMatch(predicate->!accepts(predicate,snapshot)))return "违反：设备事件显示系统状态条件失效："+device+" / "+snapshot.path("state_id").asText();
             update(evidence,snapshot,observation.sequence(),System.currentTimeMillis());
-            latest=observation.sequence();
         }
-        if(latest>cursor)evidence.put("cursor",latest);
+        evidence.put("cursor",sequence);
         return null;
     }
     private String evidenceProblem(JsonNode previous,JsonNode current) {

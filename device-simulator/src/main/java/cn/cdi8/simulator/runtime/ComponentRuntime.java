@@ -286,8 +286,16 @@ public class ComponentRuntime implements AutoCloseable {
         JsonNode normalized=request.deepCopy();
         if (!normalized.has("observed_outer_state")) {
             try {
-                JsonNode observation=model.action((String)command(id).get("action")).path(outcome+"_observation");
-                if (observation.isObject()) observation=observation.path(engine.leaf());
+                var command=command(id);
+                JsonNode observation;
+                // A replay must use the original observation. Completion may have
+                // moved the device out of the state used by the observation map.
+                if (command.get("completion")!=null)
+                    observation=parse((String)command.get("completion")).path("observed_outer_state");
+                else {
+                    observation=model.action((String)command.get("action")).path(outcome+"_observation");
+                    if (observation.isObject()) observation=observation.path(engine.leaf());
+                }
                 ((ObjectNode)normalized).set("observed_outer_state",observation.isMissingNode()?NullNode.instance:observation);
             } catch (SQLException ex) { throw new IllegalStateException(ex); }
         }

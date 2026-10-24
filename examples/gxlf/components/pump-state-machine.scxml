@@ -1,0 +1,1124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  泵浦分系统：父状态严格映射状态表 E 列，子状态映射 D 列。
+  单一活动叶状态；内部确认事件驱动；保留失败重试、自环、资格撤销、异常恢复和关机闭环。
+  请求不会直接当作设备已完成；外部业务条件在流程层检查。
+-->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" version="1.0" initial="notReady">
+  <state id="notReady" initial="unchecked">
+    <state id="unchecked">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="powerOnOk">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="checkFailed">
+      <transition event="power-check.requested" />
+      <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="shutdownNormal">
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="power-check.passed" target="powerOnOk" />
+      <transition event="power-check.failed" target="unchecked" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="power-check.invalidated" target="unchecked" type="internal" />
+  </state>
+  <state id="ready" initial="functionReady">
+    <state id="functionReady">
+      <transition event="configuration.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="parameterOk">
+      <transition event="configuration.requested" target="functionReady" />
+      <transition event="pump.emission-prepare.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="configuration.reconfiguration-accepted" target="functionReady" />
+      <transition event="pump.emission-prepare.completed" target="emissionPrepared" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="resetReady">
+      <transition event="function-check.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="emissionPrepared">
+      <transition event="pump.charge-prepare.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.charge-prepare.completed" target="chargePrepared" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="dataCollected">
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <state id="standbyReady">
+      <transition event="function-check.requested" />
+      <transition event="configuration.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="configuration.validated" target="parameterOk" />
+      <transition event="qualification.confirmed" target="functionReady" />
+      <transition event="qualification.failed" target="checkFailed" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" type="internal" />
+  </state>
+  <state id="chargeCapable" initial="chargePrepared">
+    <state id="chargePrepared">
+      <transition event="pump.charge.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.charge.started" target="chargingActive" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="checkFailed" />
+    <transition event="power-check.invalidated" target="unchecked" />
+    <transition event="configuration.invalidated" target="functionReady" />
+  </state>
+  <state id="charging" initial="chargingActive">
+    <state id="chargingActive">
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.charge.completed" target="chargeComplete" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="pump.protection.completed" target="resetReady" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="power-check.invalidated" target="faultLock" />
+    <transition event="configuration.invalidated" target="faultLock" />
+  </state>
+  <state id="charged" initial="chargeComplete">
+    <state id="chargeComplete">
+      <transition event="pump.trigger-prepare.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.trigger-prepare.completed" target="triggerReady" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="pump.protection.completed" target="resetReady" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="power-check.invalidated" target="faultLock" />
+    <transition event="configuration.invalidated" target="faultLock" />
+  </state>
+  <state id="armed" initial="triggerReady">
+    <state id="triggerReady">
+      <transition event="pump.data-collection.requested" />
+      <transition event="pump.standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="pump.data-collection.completed" target="dataCollected" />
+      <transition event="pump.standby.completed" target="standbyReady" />
+      <transition event="abort.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="shutdownNormal" />
+      <transition event="pump.protection.completed" target="resetReady" />
+      <transition event="pump.trigger-window.invalidated" target="chargeComplete" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" />
+    <transition event="communication.failure-confirmed" target="commFault" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" />
+    <transition event="run.terminated" target="runTerminated" />
+    <transition event="qualification.invalidated" target="faultLock" />
+    <transition event="power-check.invalidated" target="faultLock" />
+    <transition event="configuration.invalidated" target="faultLock" />
+  </state>
+  <state id="fault" initial="faultLock">
+    <state id="faultLock">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="faultLock" />
+    </state>
+    <state id="commFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="commFault" />
+    </state>
+    <state id="timeoutFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="timeoutFault" />
+    </state>
+    <state id="runTerminated">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
+      <transition event="recovery.completed" target="resetReady" />
+      <transition event="shutdown.confirmed" target="runTerminated" />
+    </state>
+    <transition event="fault.confirmed" target="faultLock" type="internal" />
+    <transition event="communication.failure-confirmed" target="commFault" type="internal" />
+    <transition event="execution.timeout-confirmed" target="timeoutFault" type="internal" />
+    <transition event="run.terminated" target="runTerminated" type="internal" />
+  </state>
+  <datamodel>
+    <data id="componentMetadata"><![CDATA[
+{
+  "fault_codes": {
+    "fault_confirmed": "faultLock",
+    "communication_fault_confirmed": "commFault",
+    "timeout_confirmed": "timeoutFault",
+    "qualification_invalidated_1": "faultLock",
+    "configuration_invalidated_1": "faultLock",
+    "power_check_invalidated_1": "faultLock"
+  },
+  "model_id": "pump-hierarchical-v4",
+  "model_version": 4,
+  "display_name": "泵浦分系统",
+  "execution_model": "hierarchical-single-active-state",
+  "configuration_valid_states": [
+    "parameterOk",
+    "emissionPrepared",
+    "chargePrepared",
+    "chargingActive",
+    "chargeComplete",
+    "triggerReady",
+    "dataCollected"
+  ],
+  "outer_labels": {
+    "notReady": "未就绪",
+    "ready": "就绪",
+    "chargeCapable": "具备充电条件",
+    "charging": "泵浦充电中",
+    "charged": "泵浦充电完成",
+    "armed": "泵浦待触发",
+    "fault": "异常"
+  },
+  "inner_labels": {
+    "unchecked": "未上电/离线",
+    "powerOnOk": "上电检查通过，待功能检查",
+    "checkFailed": "功能检查未通过/业务资格撤销",
+    "shutdownNormal": "关机正常",
+    "functionReady": "业务就绪（具备安全充电与触发准备能力）",
+    "parameterOk": "参数配置正常",
+    "resetReady": "复位/待机完成",
+    "emissionPrepared": "发射准备完成",
+    "chargePrepared": "充电准备完成",
+    "chargingActive": "泵浦充电中",
+    "chargeComplete": "泵浦充电中/达标/完成",
+    "triggerReady": "泵浦触发窗口已就绪",
+    "dataCollected": "泵浦发射数据已采集",
+    "faultLock": "故障锁定",
+    "commFault": "通信异常",
+    "timeoutFault": "执行超时",
+    "runTerminated": "本发终止，待内部安全复位",
+    "standbyReady": "泵浦回到待机安全位"
+  },
+  "context_defaults": {
+    "fault_origin": null,
+    "faults": [],
+    "power_status": "unknown",
+    "configuration": {
+      "status": "unknown",
+      "version": null
+    },
+    "shot_id": null,
+    "phase_id": null,
+    "task_id": null,
+    "run_terminated": false
+  },
+  "actions": {
+    "power_on_check": {
+      "label": "开机自检",
+      "success_events": {
+        "unchecked": "power-check.passed",
+        "powerOnOk": "power-check.passed",
+        "checkFailed": "power-check.passed",
+        "shutdownNormal": "power-check.passed"
+      },
+      "failure_events": {
+        "unchecked": "power-check.failed",
+        "powerOnOk": "power-check.failed",
+        "checkFailed": "power-check.failed",
+        "shutdownNormal": "power-check.failed"
+      },
+      "success_key": "开机自检完成",
+      "failure_key": "开机自检失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "failure_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪"
+      },
+      "request_event": "power-check.requested"
+    },
+    "function_check": {
+      "label": "功能检查",
+      "success_events": {
+        "powerOnOk": "qualification.confirmed",
+        "checkFailed": "qualification.confirmed",
+        "resetReady": "qualification.confirmed",
+        "standbyReady": "qualification.confirmed"
+      },
+      "failure_events": {
+        "powerOnOk": "qualification.failed",
+        "checkFailed": "qualification.failed",
+        "resetReady": "qualification.failed",
+        "standbyReady": "qualification.failed"
+      },
+      "success_key": "功能检查完成",
+      "failure_key": "功能检查失败",
+      "success_observation": {
+        "powerOnOk": "就绪",
+        "checkFailed": "就绪",
+        "resetReady": "就绪",
+        "standbyReady": "就绪"
+      },
+      "failure_observation": {
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "resetReady": "未就绪",
+        "standbyReady": "未就绪"
+      },
+      "request_event": "function-check.requested"
+    },
+    "parameter_dispatch": {
+      "label": "参数下发",
+      "success_events": {
+        "functionReady": "configuration.validated",
+        "parameterOk": "configuration.validated",
+        "standbyReady": "configuration.validated"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "standbyReady": null
+      },
+      "success_key": "参数下发完成",
+      "failure_key": "参数下发失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "standbyReady": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "standbyReady": null
+      },
+      "request_event": "configuration.requested"
+    },
+    "emission_prepare": {
+      "label": "泵浦发射准备",
+      "success_events": {
+        "parameterOk": "pump.emission-prepare.completed"
+      },
+      "failure_events": {
+        "parameterOk": null
+      },
+      "success_key": "泵浦发射准备完成",
+      "failure_key": "泵浦发射准备失败",
+      "success_observation": {
+        "parameterOk": "就绪"
+      },
+      "failure_observation": {
+        "parameterOk": null
+      },
+      "request_event": "pump.emission-prepare.requested"
+    },
+    "charge_prepare": {
+      "label": "充电准备",
+      "success_events": {
+        "emissionPrepared": "pump.charge-prepare.completed"
+      },
+      "failure_events": {
+        "emissionPrepared": null
+      },
+      "success_key": "充电准备完成",
+      "failure_key": "充电准备失败",
+      "success_observation": {
+        "emissionPrepared": "具备充电条件"
+      },
+      "failure_observation": {
+        "emissionPrepared": null
+      },
+      "request_event": "pump.charge-prepare.requested"
+    },
+    "charge": {
+      "label": "泵浦开始充电",
+      "success_events": {
+        "chargePrepared": "pump.charge.started"
+      },
+      "failure_events": {
+        "chargePrepared": null
+      },
+      "success_key": "泵浦开始充电完成",
+      "failure_key": "泵浦开始充电失败",
+      "success_observation": {
+        "chargePrepared": "泵浦充电中"
+      },
+      "failure_observation": {
+        "chargePrepared": null
+      },
+      "request_event": "pump.charge.requested"
+    },
+    "trigger_prepare": {
+      "label": "泵浦触发准备",
+      "success_events": {
+        "chargeComplete": "pump.trigger-prepare.completed"
+      },
+      "failure_events": {
+        "chargeComplete": null
+      },
+      "success_key": "泵浦触发准备完成",
+      "failure_key": "泵浦触发准备失败",
+      "success_observation": {
+        "chargeComplete": "泵浦待触发"
+      },
+      "failure_observation": {
+        "chargeComplete": null
+      },
+      "request_event": "pump.trigger-prepare.requested"
+    },
+    "collect": {
+      "label": "泵浦数据采集",
+      "success_events": {
+        "triggerReady": "pump.data-collection.completed"
+      },
+      "failure_events": {
+        "triggerReady": null
+      },
+      "success_key": "泵浦数据采集完成",
+      "failure_key": "泵浦数据采集失败",
+      "success_observation": {
+        "triggerReady": "就绪"
+      },
+      "failure_observation": {
+        "triggerReady": null
+      },
+      "request_event": "pump.data-collection.requested"
+    },
+    "standby_reset": {
+      "label": "待机/复位",
+      "success_events": {
+        "functionReady": "pump.standby.completed",
+        "parameterOk": "pump.standby.completed",
+        "resetReady": "pump.standby.completed",
+        "emissionPrepared": "pump.standby.completed",
+        "chargePrepared": "pump.standby.completed",
+        "chargingActive": "pump.standby.completed",
+        "chargeComplete": "pump.standby.completed",
+        "triggerReady": "pump.standby.completed",
+        "dataCollected": "pump.standby.completed",
+        "standbyReady": "pump.standby.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "standbyReady": null
+      },
+      "success_key": "待机/复位完成",
+      "failure_key": "待机/复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "parameterOk": "就绪",
+        "resetReady": "就绪",
+        "emissionPrepared": "就绪",
+        "chargePrepared": "就绪",
+        "chargingActive": "就绪",
+        "chargeComplete": "就绪",
+        "triggerReady": "就绪",
+        "dataCollected": "就绪",
+        "standbyReady": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "standbyReady": null
+      },
+      "request_event": "pump.standby.requested"
+    },
+    "abort_reset": {
+      "label": "异常中止后的安全复位",
+      "success_events": {
+        "functionReady": "abort.completed",
+        "parameterOk": "abort.completed",
+        "resetReady": "abort.completed",
+        "emissionPrepared": "abort.completed",
+        "chargePrepared": "abort.completed",
+        "chargingActive": "abort.completed",
+        "chargeComplete": "abort.completed",
+        "triggerReady": "abort.completed",
+        "dataCollected": "abort.completed",
+        "standbyReady": "abort.completed",
+        "faultLock": "recovery.completed",
+        "commFault": "recovery.completed",
+        "timeoutFault": "recovery.completed",
+        "runTerminated": "recovery.completed"
+      },
+      "failure_events": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "standbyReady": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null
+      },
+      "success_key": "异常中止后的安全复位完成",
+      "failure_key": "异常中止后的安全复位失败",
+      "success_observation": {
+        "functionReady": "就绪",
+        "parameterOk": "就绪",
+        "resetReady": "就绪",
+        "emissionPrepared": "就绪",
+        "chargePrepared": "就绪",
+        "chargingActive": "就绪",
+        "chargeComplete": "就绪",
+        "triggerReady": "就绪",
+        "dataCollected": "就绪",
+        "standbyReady": "就绪",
+        "faultLock": "就绪",
+        "commFault": "就绪",
+        "timeoutFault": "就绪",
+        "runTerminated": "就绪"
+      },
+      "failure_observation": {
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "standbyReady": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null
+      },
+      "request_event": "abort.requested"
+    },
+    "shutdown": {
+      "label": "关机",
+      "success_events": {
+        "unchecked": "shutdown.confirmed",
+        "powerOnOk": "shutdown.confirmed",
+        "checkFailed": "shutdown.confirmed",
+        "shutdownNormal": "shutdown.confirmed",
+        "functionReady": "shutdown.confirmed",
+        "parameterOk": "shutdown.confirmed",
+        "resetReady": "shutdown.confirmed",
+        "emissionPrepared": "shutdown.confirmed",
+        "chargePrepared": "shutdown.confirmed",
+        "chargingActive": "shutdown.confirmed",
+        "chargeComplete": "shutdown.confirmed",
+        "triggerReady": "shutdown.confirmed",
+        "dataCollected": "shutdown.confirmed",
+        "faultLock": "shutdown.confirmed",
+        "commFault": "shutdown.confirmed",
+        "timeoutFault": "shutdown.confirmed",
+        "runTerminated": "shutdown.confirmed",
+        "standbyReady": "shutdown.confirmed"
+      },
+      "failure_events": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "standbyReady": null
+      },
+      "success_key": "关机完成",
+      "failure_key": "关机失败",
+      "success_observation": {
+        "unchecked": "未就绪",
+        "powerOnOk": "未就绪",
+        "checkFailed": "未就绪",
+        "shutdownNormal": "未就绪",
+        "functionReady": "未就绪",
+        "parameterOk": "未就绪",
+        "resetReady": "未就绪",
+        "emissionPrepared": "未就绪",
+        "chargePrepared": "未就绪",
+        "chargingActive": "未就绪",
+        "chargeComplete": "未就绪",
+        "triggerReady": "未就绪",
+        "dataCollected": "未就绪",
+        "faultLock": "异常",
+        "commFault": "异常",
+        "timeoutFault": "异常",
+        "runTerminated": "异常",
+        "standbyReady": "未就绪"
+      },
+      "failure_observation": {
+        "unchecked": null,
+        "powerOnOk": null,
+        "checkFailed": null,
+        "shutdownNormal": null,
+        "functionReady": null,
+        "parameterOk": null,
+        "resetReady": null,
+        "emissionPrepared": null,
+        "chargePrepared": null,
+        "chargingActive": null,
+        "chargeComplete": null,
+        "triggerReady": null,
+        "dataCollected": null,
+        "faultLock": null,
+        "commFault": null,
+        "timeoutFault": null,
+        "runTerminated": null,
+        "standbyReady": null
+      },
+      "request_event": "shutdown.requested"
+    }
+  },
+  "confirmations": {
+    "charging_started": {
+      "label": "设备已实际开始充电",
+      "source_outer": [
+        "chargeCapable"
+      ],
+      "source_states": [
+        "chargePrepared"
+      ],
+      "machine_event": "pump.charge.started",
+      "observation": "泵浦充电中"
+    },
+    "charging_completed": {
+      "label": "设备确认本次充电已实际完成",
+      "source_outer": [
+        "charging"
+      ],
+      "source_states": [
+        "chargingActive"
+      ],
+      "machine_event": "pump.charge.completed",
+      "observation": "泵浦充电完成"
+    },
+    "fault_confirmed": {
+      "label": "设备内部故障确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable",
+        "charging",
+        "charged",
+        "armed",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady",
+        "dataCollected",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "standbyReady"
+      ],
+      "machine_event": "fault.confirmed",
+      "observation": "异常"
+    },
+    "communication_fault_confirmed": {
+      "label": "通信异常确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable",
+        "charging",
+        "charged",
+        "armed",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady",
+        "dataCollected",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "standbyReady"
+      ],
+      "machine_event": "communication.failure-confirmed",
+      "observation": "异常"
+    },
+    "timeout_confirmed": {
+      "label": "执行超时确认",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable",
+        "charging",
+        "charged",
+        "armed",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady",
+        "dataCollected",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "standbyReady"
+      ],
+      "machine_event": "execution.timeout-confirmed",
+      "observation": "异常"
+    },
+    "protection_completed": {
+      "label": "内部停充泄放完成，撤销充电资格",
+      "source_outer": [
+        "charging",
+        "charged",
+        "armed"
+      ],
+      "source_states": [
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady"
+      ],
+      "machine_event": "pump.protection.completed",
+      "observation": "就绪"
+    },
+    "trigger_window_invalidated": {
+      "label": "仅触发窗口失效，充电仍有效",
+      "source_outer": [
+        "armed"
+      ],
+      "source_states": [
+        "triggerReady"
+      ],
+      "machine_event": "pump.trigger-window.invalidated",
+      "observation": "泵浦充电完成"
+    },
+    "qualification_invalidated": {
+      "label": "业务资格撤销（未就绪）",
+      "source_outer": [
+        "ready",
+        "chargeCapable"
+      ],
+      "source_states": [
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "dataCollected",
+        "standbyReady"
+      ],
+      "machine_event": "qualification.invalidated",
+      "observation": "未就绪"
+    },
+    "qualification_invalidated_1": {
+      "label": "业务资格撤销（异常）",
+      "source_outer": [
+        "charging",
+        "charged",
+        "armed"
+      ],
+      "source_states": [
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady"
+      ],
+      "machine_event": "qualification.invalidated",
+      "observation": "异常"
+    },
+    "configuration_invalidated": {
+      "label": "参数资格撤销（就绪）",
+      "source_outer": [
+        "ready",
+        "chargeCapable"
+      ],
+      "source_states": [
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "dataCollected",
+        "standbyReady"
+      ],
+      "machine_event": "configuration.invalidated",
+      "observation": "就绪"
+    },
+    "configuration_invalidated_1": {
+      "label": "参数资格撤销（异常）",
+      "source_outer": [
+        "charging",
+        "charged",
+        "armed"
+      ],
+      "source_states": [
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady"
+      ],
+      "machine_event": "configuration.invalidated",
+      "observation": "异常"
+    },
+    "power_check_invalidated": {
+      "label": "上电资格撤销（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "dataCollected",
+        "standbyReady"
+      ],
+      "machine_event": "power-check.invalidated",
+      "observation": "未就绪"
+    },
+    "power_check_invalidated_1": {
+      "label": "上电资格撤销（异常）",
+      "source_outer": [
+        "charging",
+        "charged",
+        "armed"
+      ],
+      "source_states": [
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady"
+      ],
+      "machine_event": "power-check.invalidated",
+      "observation": "异常"
+    },
+    "run_terminated": {
+      "label": "本发终止确认（异常）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable",
+        "charging",
+        "charged",
+        "armed",
+        "fault"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady",
+        "dataCollected",
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated",
+        "standbyReady"
+      ],
+      "machine_event": "run.terminated",
+      "observation": "异常"
+    },
+    "recovery_confirmed": {
+      "label": "安全恢复完成确认（就绪）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated"
+      ],
+      "machine_event": "recovery.completed",
+      "observation": "就绪"
+    },
+    "shutdown_confirmed": {
+      "label": "设备安全下电确认（未就绪）",
+      "source_outer": [
+        "notReady",
+        "ready",
+        "chargeCapable",
+        "charging",
+        "charged",
+        "armed"
+      ],
+      "source_states": [
+        "unchecked",
+        "powerOnOk",
+        "checkFailed",
+        "shutdownNormal",
+        "functionReady",
+        "parameterOk",
+        "resetReady",
+        "emissionPrepared",
+        "chargePrepared",
+        "chargingActive",
+        "chargeComplete",
+        "triggerReady",
+        "dataCollected",
+        "standbyReady"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "未就绪"
+    },
+    "shutdown_confirmed_1": {
+      "label": "设备安全下电确认（异常）",
+      "source_outer": [
+        "fault"
+      ],
+      "source_states": [
+        "faultLock",
+        "commFault",
+        "timeoutFault",
+        "runTerminated"
+      ],
+      "machine_event": "shutdown.confirmed",
+      "observation": "异常"
+    }
+  },
+  "source_inventory": {
+    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+    "sheet": "分系统状态表",
+    "read_date": "2026-10-23",
+    "row_coverage": {
+      "50": {
+        "states": [
+          "unchecked"
+        ]
+      },
+      "51": {
+        "states": [
+          "functionReady"
+        ]
+      },
+      "52": {
+        "states": [
+          "parameterOk"
+        ]
+      },
+      "53": {
+        "states": [
+          "emissionPrepared"
+        ]
+      },
+      "54": {
+        "states": [
+          "chargePrepared"
+        ]
+      },
+      "55": {
+        "states": [
+          "chargingActive"
+        ]
+      },
+      "56": {
+        "states": [
+          "chargeComplete"
+        ]
+      },
+      "57": {
+        "states": [
+          "triggerReady"
+        ]
+      },
+      "58": {
+        "states": [
+          "dataCollected"
+        ]
+      },
+      "59": {
+        "states": [
+          "standbyReady"
+        ]
+      },
+      "60": {
+        "states": [
+          "resetReady"
+        ]
+      },
+      "61": {
+        "states": [
+          "shutdownNormal"
+        ]
+      },
+      "62": {
+        "states": [
+          "faultLock"
+        ]
+      },
+      "63": {
+        "states": [
+          "commFault"
+        ]
+      },
+      "64": {
+        "states": [
+          "timeoutFault"
+        ]
+      }
+    }
+  },
+  "modeling_notes": [
+    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+    "第56行 D 列混写“中/达标/完成”，依据 E 列泵浦充电完成及实际完成回调，只映射 chargeComplete；不把充电开始当作完成。",
+    "充电故障时先异常锁存；设备自主停充泄放完成的 pump.protection.completed 才回到基础就绪。高能态的配置或资格失效进入异常，避免误报安全就绪。",
+    "数据采集只使用泵浦自身完成反馈；不额外等待同步或开关结果确认。"
+  ]
+}
+    ]]></data>
+  </datamodel>
+</scxml>

@@ -11,7 +11,7 @@
 
   actions 和 confirmations 是可执行仿真契约：动作请求先建立任务，任务反馈
   再发送 success_events/failure_events；确认事件用于注入设备主动上报的事实。
-  请求是否受理由 SCXML 请求迁移及守卫决定，通常使用无目标迁移；collection.requested 是
+  请求事件通常是 task-only event，不改变设备状态；collection.requested 是
   一个例外，用于在采集完成后重新进入采集中对应的稳定出光状态。
 -->
 <scxml xmlns="http://www.w3.org/2005/07/scxml"
@@ -19,17 +19,23 @@
        initial="notReady">
 
   <state id="notReady" initial="unchecked">
-    <transition event="shutdown.requested" />
-    <transition event="power-check.requested" />
-    <state id="unchecked">
+    <state id="unchecked" >
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
-    <state id="powerOnOk">
+    <state id="powerOnOk" >
+      <transition event="power-check.requested" />
       <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
-    <state id="checkFailed">
+    <state id="checkFailed" >
+      <transition event="power-check.requested" />
       <transition event="function-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
-    <state id="shutdownNormal">
+    <state id="shutdownNormal" >
+      <transition event="power-check.requested" />
+      <transition event="shutdown.requested" />
     </state>
 
     <transition event="power-check.passed"
@@ -51,17 +57,25 @@
   </state>
 
   <state id="ready" initial="functionReady">
-    <transition event="standby.requested" />
-    <transition event="shutdown.requested" />
-    <transition event="configuration.requested" />
-    <transition event="abort.requested" />
-    <state id="functionReady">
+    <state id="functionReady" >
+      <transition event="configuration.requested" />
+      <transition event="standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
     </state>
     <state id="parameterOk">
+      <transition event="configuration.requested" target="functionReady" />
       <transition event="emission.requested" />
+      <transition event="standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="emission.stable-confirmed" target="stableEmission" />
     </state>
-    <state id="standbyReset">
+    <state id="standbyReset" >
+      <transition event="configuration.requested" />
+      <transition event="standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
     </state>
 
     <transition event="configuration.validated"
@@ -84,14 +98,17 @@
   </state>
 
   <state id="emitting" initial="stableEmission">
-    <transition event="standby.requested" />
-    <transition event="shutdown.requested" />
-    <transition event="abort.requested" />
     <state id="stableEmission">
       <transition event="collection.requested" />
+      <transition event="standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="collection.completed" target="collectionOk" />
     </state>
     <state id="collectionOk">
+      <transition event="standby.requested" />
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="collection.requested" target="stableEmission" />
     </state>
 
@@ -107,21 +124,25 @@
   </state>
 
   <state id="fault" initial="faultLock">
-    <transition event="shutdown.requested" />
-    <transition event="abort.requested" />
     <state id="faultLock">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="fault.confirmed" target="faultLock" />
       <transition event="communication.failure-confirmed" target="faultLock" />
       <transition event="execution.timeout-confirmed" target="faultLock" />
       <transition event="shutdown.confirmed" target="faultLock" />
     </state>
     <state id="commFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="fault.confirmed" target="faultLock" />
       <transition event="communication.failure-confirmed" target="commFault" />
       <transition event="execution.timeout-confirmed" target="commFault" />
       <transition event="shutdown.confirmed" target="commFault" />
     </state>
     <state id="timeoutFault">
+      <transition event="abort.requested" />
+      <transition event="shutdown.requested" />
       <transition event="fault.confirmed" target="faultLock" />
       <transition event="communication.failure-confirmed" target="commFault" />
       <transition event="execution.timeout-confirmed" target="timeoutFault" />
@@ -138,7 +159,11 @@
   "model_version": 2,
   "display_name": "二倍频宽带激光注入组件",
   "execution_model": "hierarchical-single-active-state",
-  "configuration_valid_states": ["parameterOk", "stableEmission", "collectionOk"],
+  "configuration_valid_states": [
+    "parameterOk",
+    "stableEmission",
+    "collectionOk"
+  ],
   "fault_codes": {
     "fault_confirmed": "locked",
     "communication_fault_confirmed": "communication",
@@ -183,7 +208,6 @@
   "actions": {
     "power_on_check": {
       "label": "上电检查",
-      "request_event": "power-check.requested",
       "success_events": {
         "unchecked": "power-check.passed",
         "powerOnOk": "power-check.passed",
@@ -197,11 +221,11 @@
         "shutdownNormal": "power-check.failed"
       },
       "success_key": "上电检查通过",
-      "failure_key": "上电检查未通过"
+      "failure_key": "上电检查未通过",
+      "request_event": "power-check.requested"
     },
     "function_check": {
       "label": "功能检查",
-      "request_event": "function-check.requested",
       "success_events": {
         "powerOnOk": "qualification.confirmed",
         "checkFailed": "qualification.confirmed"
@@ -211,11 +235,11 @@
         "checkFailed": "qualification.failed"
       },
       "success_key": "功能检查通过",
-      "failure_key": "功能检查未通过"
+      "failure_key": "功能检查未通过",
+      "request_event": "function-check.requested"
     },
     "parameter_dispatch": {
       "label": "参数下发",
-      "request_event": "configuration.requested",
       "success_events": {
         "functionReady": "configuration.validated",
         "parameterOk": "configuration.validated",
@@ -227,32 +251,39 @@
         "standbyReset": "configuration.invalidated"
       },
       "success_key": "参数配置生效",
-      "failure_key": "参数配置未生效"
+      "failure_key": "参数配置未生效",
+      "request_event": "configuration.requested"
     },
     "frequency_doubled_emit": {
       "label": "二倍频出光",
-      "request_event": "emission.requested",
-      "success_events": {"parameterOk": "emission.stable-confirmed"},
-      "failure_events": {"parameterOk": null},
+      "success_events": {
+        "parameterOk": "emission.stable-confirmed"
+      },
+      "failure_events": {
+        "parameterOk": null
+      },
       "success_key": "稳定出光正常",
       "failure_key": "出光未建立",
       "success_observation": "出光",
-      "failure_observation": "就绪"
+      "failure_observation": "就绪",
+      "request_event": "emission.requested"
     },
     "laser_parameter_collect": {
       "label": "激光参数采集",
-      "request_event": "collection.requested",
       "success_events": {
         "stableEmission": "collection.completed",
         "collectionOk": "collection.completed"
       },
-      "failure_events": {"stableEmission": null, "collectionOk": null},
+      "failure_events": {
+        "stableEmission": null,
+        "collectionOk": null
+      },
       "success_key": "采集正常",
-      "failure_key": "采集失败"
+      "failure_key": "采集失败",
+      "request_event": "collection.requested"
     },
     "standby_reset": {
       "label": "二倍频待机/复位",
-      "request_event": "standby.requested",
       "success_events": {
         "functionReady": "standby.completed",
         "parameterOk": "standby.completed",
@@ -268,11 +299,11 @@
         "collectionOk": null
       },
       "success_key": "复位/待机完成",
-      "failure_key": "复位/待机失败"
+      "failure_key": "复位/待机失败",
+      "request_event": "standby.requested"
     },
     "abort_reset": {
       "label": "流程终止（异常中止）",
-      "request_event": "abort.requested",
       "success_events": {
         "functionReady": "abort.completed",
         "parameterOk": "abort.completed",
@@ -294,11 +325,11 @@
         "timeoutFault": null
       },
       "success_key": "安全复位完成",
-      "failure_key": "安全复位失败"
+      "failure_key": "安全复位失败",
+      "request_event": "abort.requested"
     },
     "shutdown": {
       "label": "关机",
-      "request_event": "shutdown.requested",
       "success_events": {
         "unchecked": "shutdown.confirmed",
         "powerOnOk": "shutdown.confirmed",
@@ -328,67 +359,101 @@
         "timeoutFault": null
       },
       "success_key": "关机正常",
-      "failure_key": "关机失败"
+      "failure_key": "关机失败",
+      "request_event": "shutdown.requested"
     }
   },
   "confirmations": {
     "qualification_confirmed": {
       "label": "业务资格确认",
-      "source_outer": ["notReady"],
+      "source_outer": [
+        "notReady"
+      ],
       "machine_event": "qualification.confirmed",
       "observation": "就绪"
     },
     "qualification_invalidated": {
       "label": "业务资格失效确认",
-      "source_outer": ["ready", "emitting"],
+      "source_outer": [
+        "ready",
+        "emitting"
+      ],
       "machine_event": "qualification.invalidated",
       "observation": "未就绪"
     },
     "configuration_invalidated": {
       "label": "参数配置失效确认",
-      "source_outer": ["ready", "emitting"],
+      "source_outer": [
+        "ready",
+        "emitting"
+      ],
       "machine_event": "configuration.invalidated",
       "observation": "就绪"
     },
     "emission_lost_confirmed": {
       "label": "稳定出光丢失确认",
-      "source_outer": ["emitting"],
+      "source_outer": [
+        "emitting"
+      ],
       "machine_event": "emission.lost-confirmed",
       "observation": "就绪"
     },
     "shutdown_confirmed": {
       "label": "安全下电完成",
-      "source_outer": ["notReady", "ready", "emitting"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting"
+      ],
       "machine_event": "shutdown.confirmed",
       "observation": "未就绪"
     },
     "shutdown_while_fault_confirmed": {
       "label": "异常状态下安全下电完成",
-      "source_outer": ["fault"],
+      "source_outer": [
+        "fault"
+      ],
       "machine_event": "shutdown.confirmed",
       "observation": "异常"
     },
     "fault_confirmed": {
       "label": "设备故障确认",
-      "source_outer": ["notReady", "ready", "emitting", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting",
+        "fault"
+      ],
       "machine_event": "fault.confirmed",
       "observation": "异常"
     },
     "communication_fault_confirmed": {
       "label": "通信异常确认",
-      "source_outer": ["notReady", "ready", "emitting", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting",
+        "fault"
+      ],
       "machine_event": "communication.failure-confirmed",
       "observation": "异常"
     },
     "timeout_confirmed": {
       "label": "执行超时确认",
-      "source_outer": ["notReady", "ready", "emitting", "fault"],
+      "source_outer": [
+        "notReady",
+        "ready",
+        "emitting",
+        "fault"
+      ],
       "machine_event": "execution.timeout-confirmed",
       "observation": "异常"
     },
     "recovery_confirmed": {
       "label": "异常恢复并完成安全复位",
-      "source_outer": ["fault"],
+      "source_outer": [
+        "fault"
+      ],
       "machine_event": "recovery.completed",
       "observation": "未就绪"
     }

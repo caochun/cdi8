@@ -47,7 +47,7 @@ class WorkflowIntegrationTest {
             devices.put(kind+"_01", kind);
             ObjectNode s=json.createObjectNode().put("outer_state","ready").put("state_id", kind.equals("seed") ? "qualified" : "functionReady");
             s.put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3","context","preparation-context-demo-v1").get(kind));
+                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v4","context","preparation-context-demo-v1").get(kind));
             s.putNull("active_command_id");s.putObject("conditions").put("safety_permit",false).put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
             s.put("state_revision", 0).put("source_id",kind+"-test-instance").put("supports_entry_condition",true);
             gateway.addContracts(s,kind);
@@ -74,7 +74,7 @@ class WorkflowIntegrationTest {
             if("context".equals(kind)) return;
             try {
                 String filename=Map.of("seed","seed-source","shg","shg-injection","preamp","preamp","multipass","multipass").get(kind);
-                String xml=Files.readString(Path.of("examples/gxlf/scxml/"+filename+"-state-machine.scxml"));
+                String xml=Files.readString(Path.of("examples/gxlf/components/"+filename+"-state-machine.scxml"));
                 var metadata=json.readTree(xml.substring(xml.indexOf("<![CDATA[")+9,xml.indexOf("]]>")));
                 var factory=javax.xml.parsers.DocumentBuilderFactory.newInstance();factory.setNamespaceAware(true);
                 factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
@@ -170,7 +170,7 @@ class WorkflowIntegrationTest {
         ObjectNode s=json.createObjectNode().put("outer_state","ready")
             .put("state_id", kind.equals("seed") ? "qualified" : "functionReady")
             .put("model",Map.of("seed","seed-source-reference-v2","shg","shg-injection-hierarchical-v2",
-                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v3").get(kind));
+                "preamp","preamp-hierarchical-v3","multipass","multipass-hierarchical-v4").get(kind));
         s.putNull("active_command_id");
         s.putObject("conditions").put("safety_permit",false)
             .put("preamp_repeat_ready",false).put("collimation_environment_ready",false);
@@ -199,12 +199,12 @@ class WorkflowIntegrationTest {
                 case "laser_parameter_collect" -> "collectionOk";
                 case "energy_collect" -> "energyDataCollected";
                 case "standby_reset" -> "standbyReady";
-                case "optical_collimation" -> "collimationReady";
+                case "collimation" -> "collimationReady";
                 case "preamp_repeat" -> "";
                 default -> throw new AssertionError(action);
             };
             if(action.equals("preamp_repeat"))((ObjectNode)state.path("conditions")).put("preamp_repeat_ready",true);
-            else {state.put("state_id",next);state.put("outer_state",next.equals("stableEmission")?"emitting":Set.of("wakeupReady","coarseLoopOk","fineLoopOk").contains(next)?"wakeup":action.equals("power_on_check")?"notReady":action.equals("optical_collimation")?"collimated":"ready");}
+            else {state.put("state_id",next);state.put("outer_state",next.equals("stableEmission")?"emitting":Set.of("wakeupReady","coarseLoopOk","fineLoopOk").contains(next)?"wakeup":action.equals("power_on_check")?"notReady":action.equals("collimation")?"collimated":"ready");}
             state.put("state_revision",state.path("state_revision").asLong()+1);
             state.set("last_result",result.deepCopy());
             result.set("snapshot",state.deepCopy());
@@ -523,7 +523,7 @@ class WorkflowIntegrationTest {
         assertThat(completedView.path("children").get(4).path("commands")).hasSize(3);
         assertThat(results.values()).extracting(r -> r.path("action").asText())
             .contains("power_on_check", "function_check", "parameter_dispatch", "seed_source_emit",
-                "preamp_wakeup", "coarse_loop", "fine_loop", "optical_collimation");
+                "preamp_wakeup", "coarse_loop", "fine_loop", "collimation");
     }
 
     @Test void lifecyclePropagatesInitializationFailureFromCalledProcess() {

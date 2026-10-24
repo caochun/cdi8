@@ -167,8 +167,14 @@ class ComponentRuntimeTest {
                 runtime.reportEvent(JSON.createObjectNode().put("event_id","fault").put("event","fault_confirmed").put("observed_outer_state","异常"));
                 assertEquals("accepted",runtime.execute(request("recover","abort_reset")).path("status").asText());
                 assertEquals("succeeded",runtime.simulate(feedback("recover")).path("status").asText());
-                assertEquals("notReady",runtime.snapshot().path("outer_state").asText());
-                assertTrue(runtime.snapshot().path("action_contracts").path("power_on_check").path("ready").asBoolean());
+                if(resource.equals("multipass")) {
+                    assertEquals("resetReady",runtime.snapshot().path("state_id").asText());
+                    assertTrue(runtime.snapshot().path("action_contracts").path("function_check").path("ready").asBoolean());
+                    assertFalse(runtime.snapshot().path("action_contracts").path("parameter_dispatch").path("ready").asBoolean());
+                } else {
+                    assertEquals("notReady",runtime.snapshot().path("outer_state").asText());
+                    assertTrue(runtime.snapshot().path("action_contracts").path("power_on_check").path("ready").asBoolean());
+                }
             }
         }
     }
@@ -195,7 +201,7 @@ class ComponentRuntimeTest {
             "seed-source-state-machine.scxml",List.of("power_on_check","function_check","parameter_dispatch","seed_source_emit","laser_parameter_collect","standby_reset","shutdown"),
             "shg-injection-state-machine.scxml",List.of("power_on_check","function_check","parameter_dispatch","frequency_doubled_emit","laser_parameter_collect","standby_reset","shutdown"),
             "preamp-state-machine.scxml",List.of("power_on_check","function_check","parameter_dispatch","preamp_wakeup","coarse_loop","fine_loop","energy_meter_clear","energy_collect","standby_reset","shutdown"),
-            "multipass-state-machine.scxml",List.of("power_on_check","function_check","parameter_dispatch","optical_collimation","enter_shot_state","standby_reset","shutdown")
+            "multipass-state-machine.scxml",List.of("power_on_check","function_check","parameter_dispatch","collimation","enter_shot","standby_reset","shutdown")
         );
         for (var entry:actions.entrySet()) {
             var component=new ComponentModel(model(entry.getKey()));
