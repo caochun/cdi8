@@ -64,6 +64,7 @@ public class SystemStateRuntime {
         var definition=model(execution.getProcessDefinitionId(),id);var state=json.createObjectNode();
         state.put("state",definition.initial()).put("integrity","valid").put("model",id)
             .put("changedAt",System.currentTimeMillis()).putNull("lastTransition").putNull("reason");
+        state.put("anomalyStatus","clear").putArray("incidents").addAll(json.createArrayNode());
         state.putArray("history");state.putObject("evidence").put("eventCursor",sequence).put("eventEpoch",eventEpoch);
         execution.setVariable(STATE,state.toString());
     }
@@ -81,6 +82,12 @@ public class SystemStateRuntime {
         var definition=model(execution.getProcessDefinitionId(),Objects.toString(execution.getVariable("systemStateModelId"),""));
         var transition=definition.transition(transitionId);
         ObjectNode state=current(execution.getProcessInstanceId());
+        String anomaly=captureObserved(execution.getProcessInstanceId(),definition,state);
+        if(anomaly!=null) {
+            String integrity="evidenceUnknown".equals(anomaly)?"unknown":"violated";
+            Violation issue=latch(execution.getProcessInstanceId(),state,integrity,"系统异常已锁存："+anomaly);
+            throw new IllegalStateException(issue.reason());
+        }
         requireValid(state);
         if(!transition.from().equals(state.path("state").asText()))
             throw new IllegalStateException("系统状态转换来源不匹配：要求 "+transition.from()+"，当前为 "+state.path("state").asText());
@@ -122,6 +129,7 @@ public class SystemStateRuntime {
     public synchronized JsonNode dispatch(org.flowable.engine.runtime.Execution execution,java.util.function.Supplier<JsonNode> send) {
         Violation issue=inspect(execution.getProcessInstanceId(),true);
         if(issue!=null)return rejected(execution,issue.reason());
+        if(hasPendingCommandOutcome(execution.getProcessInstanceId()))return rejected(execution,"存在结果未知的设备命令；核对原命令前禁止下发新动作");
         var variables=runtime().getVariablesLocal(execution.getId());
         Object parameters=variables.get("commandParameters");
         boolean contract=Boolean.TRUE.equals(variables.get("deviceActionContract"));
@@ -150,6 +158,45 @@ public class SystemStateRuntime {
         }
         return send.get();
     }
+    public synchronized void commandOutcomeUnknown(String pid,String device,String commandId,String action,String reason) {
+        if(!runtime().hasVariable(pid,STATE))return;
+        ObjectNode state=current(pid);var process=runtime().createProcessInstanceQuery().processInstanceId(pid).singleResult();
+        if(process==null)return;
+        SystemStateModel definition=model(process.getProcessDefinitionId(),state.path("model").asText());
+        var declaration=definition.anomaly("commandOutcomeUnknown");ArrayNode incidents=(ArrayNode)state.withArray("incidents");
+        ObjectNode incident=null;
+        for(JsonNode existing:incidents)if("commandOutcomeUnknown".equals(existing.path("type").asText())
+                &&commandId.equals(existing.path("commandId").asText()))incident=(ObjectNode)existing;
+        if(incident==null) {
+            incident=json.createObjectNode().put("id","commandOutcomeUnknown:"+commandId).put("type",declaration.id())
+                .put("label",declaration.label()).put("category",declaration.category()).put("status","awaitingReconciliation")
+                .put("device",device).put("component",component(pid,device)).put("stage",state.path("state").asText())
+                .put("commandId",commandId).put("action",action).put("detectedAt",System.currentTimeMillis());
+            incidents.add(incident);
+        }
+        incident.put("reason",reason).put("lastSeenAt",System.currentTimeMillis());state.put("anomalyStatus","latched");
+        runtime().setVariable(pid,STATE,state.toString());
+    }
+    public synchronized void commandOutcomeResolved(String pid,String commandId,String outcome) {
+        if(!runtime().hasVariable(pid,STATE))return;
+        ObjectNode state=current(pid);boolean changed=false;
+        for(JsonNode item:state.path("incidents"))if(item instanceof ObjectNode incident
+                &&"commandOutcomeUnknown".equals(incident.path("type").asText())
+                &&commandId.equals(incident.path("commandId").asText())
+                &&"awaitingReconciliation".equals(incident.path("status").asText())) {
+            incident.put("status","reconciled").put("observedOutcome",outcome).put("reconciledAt",System.currentTimeMillis());changed=true;
+        }
+        if(changed)runtime().setVariable(pid,STATE,state.toString());
+    }
+    private boolean hasPendingCommandOutcome(String pid) {
+        if(!runtime().hasVariable(pid,STATE))return false;
+        try {
+            JsonNode state=json.readTree(runtime().getVariable(pid,STATE).toString());
+            for(JsonNode incident:state.path("incidents"))if("commandOutcomeUnknown".equals(incident.path("type").asText())
+                    &&"awaitingReconciliation".equals(incident.path("status").asText()))return true;
+        } catch(Exception ignored) { return true; }
+        return false;
+    }
     private boolean contains(String choices,String value) { return !value.isBlank()&&Arrays.asList(choices.trim().split("\\s+")).contains(value); }
     private JsonNode rejected(org.flowable.engine.runtime.Execution execution,String reason) {
         var value=json.createObjectNode().put("command_id",Objects.toString(runtime().getVariableLocal(execution.getId(),"commandId"),""))
@@ -161,17 +208,19 @@ public class SystemStateRuntime {
     public synchronized Violation inspect(String pid,boolean forceRead) {
         if(!runtime().hasVariable(pid,STATE))return null;
         ObjectNode state=current(pid);
-        if(!state.path("integrity").asText().equals("valid"))return new Violation(state.path("reason").asText("实验系统状态已失效"));
-        if(!gateway.connected())return latch(pid,state,"unknown","Tango 连接已断开，无法确认实验系统状态");
-        JsonNode evidence=state.path("evidence");
-        if(evidence.has("eventEpoch")&&!eventEpoch.equals(evidence.path("eventEpoch").asText())
-                &&evidence.fields().hasNext())return latch(pid,state,"unknown","控制服务重启后系统状态事件连续性无法确认");
         String modelId=state.path("model").asText();
         var process=runtime().createProcessInstanceQuery().processInstanceId(pid).singleResult();
         if(process==null)return null;
         SystemStateModel model;
         try { model=model(process.getProcessDefinitionId(),modelId); }
         catch(Exception ex){return latch(pid,state,"unknown","系统状态声明无法恢复："+ex.getMessage());}
+        String anomaly=captureObserved(pid,model,state);
+        if(anomaly!=null)return latch(pid,state,"evidenceUnknown".equals(anomaly)?"unknown":"violated","系统异常已锁存："+anomaly);
+        if(!state.path("integrity").asText().equals("valid"))return new Violation(state.path("reason").asText("实验系统状态已失效"));
+        if(!gateway.connected())return latch(pid,state,"unknown","Tango 连接已断开，无法确认实验系统状态");
+        JsonNode evidence=state.path("evidence");
+        if(evidence.has("eventEpoch")&&!eventEpoch.equals(evidence.path("eventEpoch").asText())
+                &&evidence.fields().hasNext())return latch(pid,state,"unknown","控制服务重启后系统状态事件连续性无法确认");
         String status=checkState(pid,model,model.state(state.path("state").asText()).predicates(),state,forceRead,true,new HashMap<>());
         if(status!=null)return latch(pid,state,status.startsWith("未知：")?"unknown":"violated",status.replaceFirst("^(未知：|违反：)",""));
         runtime().setVariable(pid,STATE,state.toString());
@@ -207,15 +256,24 @@ public class SystemStateRuntime {
             ObjectNode prior=evidence.has(device)?(ObjectNode)evidence.get(device):json.createObjectNode();
             if(!prior.has("cursor"))prior.put("cursor",initialCursor);
             evidence.set(device,prior);
-            String reason=replayEvents?observeEvents(device,conditions,prior):null;
+            String reason=replayEvents?observeEvents(pid,model,state,device,conditions,prior):null;
             if(reason!=null)return reason;
             if(forceRead||now-prior.path("observedAt").asLong(0)>=model.evidenceMaxAgeMs()/2) {
                 try {
                     JsonNode snapshot=snapshots.computeIfAbsent(device,key->gateway.snapshot(key).deepCopy());
                     reason=evidenceProblem(prior,snapshot);
-                    if(reason!=null)return reason;
-                    if(conditions.stream().anyMatch(predicate->!accepts(predicate,snapshot)))
+                    if(reason!=null) {
+                        recordIfDeclared(state,model,"evidenceUnknown",device,component(pid,device),snapshot,reason,sequence);
+                        return reason;
+                    }
+                    String anomaly=classifySnapshot(model,snapshot);
+                    if(anomaly!=null)recordIncident(state,model,anomaly,device,component(pid,device),snapshot,
+                        model.anomaly(anomaly).label(),sequence);
+                    if(conditions.stream().anyMatch(predicate->!accepts(predicate,snapshot))) {
+                        recordIfDeclared(state,model,"stateConditionLost",device,component(pid,device),snapshot,
+                            "当前设备状态不满足系统阶段条件",sequence);
                         return "违反："+device+" 当前状态不满足系统状态条件："+snapshot.path("state_id").asText();
+                    }
                     update(prior,snapshot,sequence,now);
                 }catch(Exception ex){return "未知：读取设备 "+device+" 状态失败："+ex.getMessage();}
             }
@@ -223,7 +281,8 @@ public class SystemStateRuntime {
         evidence.put("eventCursor",sequence);
         return null;
     }
-    private String observeEvents(String device,List<SystemStateModel.Predicate> predicates,ObjectNode evidence) {
+    private String observeEvents(String pid,SystemStateModel model,ObjectNode state,String device,
+                                 List<SystemStateModel.Predicate> predicates,ObjectNode evidence) {
         long cursor=evidence.path("cursor").asLong(0);
         if(cursor<lostBefore)return "未知：系统状态事件证据出现缺口";
         for(Observation observation:observations)if(observation.sequence()>cursor) {
@@ -232,8 +291,15 @@ public class SystemStateRuntime {
             if(!device.equals(event.path("device_id").asText()))continue;
             if(!event.path("connected").asBoolean(true))return "未知：设备断连："+device;
             JsonNode snapshot=event.path("snapshot");String reason=evidenceProblem(evidence,snapshot);
-            if(reason!=null)return reason;
-            if(predicates.stream().anyMatch(predicate->!accepts(predicate,snapshot)))return "违反：设备事件显示系统状态条件失效："+device+" / "+snapshot.path("state_id").asText();
+            if(reason!=null) {
+                recordIfDeclared(state,model,"evidenceUnknown",device,component(pid,device),snapshot,reason,observation.sequence());
+                return reason;
+            }
+            if(predicates.stream().anyMatch(predicate->!accepts(predicate,snapshot))) {
+                recordIfDeclared(state,model,"stateConditionLost",device,component(pid,device),snapshot,
+                    "设备事件显示系统阶段条件失效",observation.sequence());
+                return "违反：设备事件显示系统状态条件失效："+device+" / "+snapshot.path("state_id").asText();
+            }
             update(evidence,snapshot,observation.sequence(),System.currentTimeMillis());
         }
         evidence.put("cursor",sequence);
@@ -254,8 +320,98 @@ public class SystemStateRuntime {
             .put("state",snapshot.path("state_id").asText()).put("outerState",snapshot.path("outer_state").asText())
             .put("cursor",cursor).put("observedAt",now).put("eventEpoch",eventEpoch);
     }
+    private String captureObserved(String pid,SystemStateModel model,ObjectNode state) {
+        long cursor=state.path("evidence").path("eventCursor").asLong(0);
+        String primary=null;
+        for(Observation observation:observations)if(observation.sequence()>cursor) {
+            JsonNode event=observation.value();String device=event.path("device_id").asText("");
+            if(!device.isBlank()&&!participant(pid,device))continue;
+            JsonNode snapshot=event.path("snapshot");String anomaly=null,reason="";
+            if("connection_lost".equals(event.path("type").asText())) {
+                anomaly="evidenceUnknown";reason="Tango 事件通道断开";
+            } else if(event.has("connected")&&!event.path("connected").asBoolean()) {
+                anomaly="evidenceUnknown";reason="设备连接中断";
+            } else if(!device.isBlank()&&snapshot.isObject()) {
+                anomaly=classifySnapshot(model,snapshot);
+                if(anomaly!=null)reason=model.anomaly(anomaly).label();
+            }
+            if(anomaly==null)continue;
+            String component=component(pid,device);
+            if(declaredAnomaly(model,anomaly))
+                recordIncident(state,model,anomaly,device,component,snapshot,reason,observation.sequence());
+            int candidatePriority=priority(model,anomaly),primaryPriority=primary==null?Integer.MAX_VALUE:priority(model,primary);
+            if(primary==null||candidatePriority<primaryPriority)primary=anomaly;
+            ((ObjectNode)state.path("evidence")).put("eventCursor",observation.sequence());
+        }
+        if(primary!=null)runtime().setVariable(pid,STATE,state.toString());
+        return primary;
+    }
+    private boolean participant(String pid,String id) {
+        Object raw=runtime().getVariable(pid,"allComponents");
+        if(!(raw instanceof List<?> values))return true;
+        return values.stream().anyMatch(item->item instanceof Map<?,?> device&&id.equals(Objects.toString(device.get("id"),"")));
+    }
+    private String component(String pid,String id) {
+        if(id.isBlank())return "system";
+        Object raw=runtime().getVariable(pid,"allComponents");
+        if(raw instanceof List<?> values)for(Object item:values)if(item instanceof Map<?,?> device&&id.equals(Objects.toString(device.get("id"),"")))
+            return Objects.toString(device.get("component"),"unknown");
+        return "unknown";
+    }
+    private int priority(String category) {
+        return switch(category) { case "safetyInterlock" -> 0;case "deviceFault" -> 1;case "stateConditionLost" -> 2;default -> 3; };
+    }
+    private int priority(SystemStateModel model,String id) {
+        for(var anomaly:model.anomalies())if(anomaly.id().equals(id))return priority(anomaly.category());
+        return 3;
+    }
+    private boolean declaredAnomaly(SystemStateModel model,String id) {
+        for(var anomaly:model.anomalies())if(anomaly.id().equals(id))return true;
+        return false;
+    }
+    private void recordIfDeclared(ObjectNode state,SystemStateModel model,String type,String device,String component,
+                                  JsonNode snapshot,String reason,long observation) {
+        if(declaredAnomaly(model,type))recordIncident(state,model,type,device,component,snapshot,reason,observation);
+    }
+    private String classifySnapshot(SystemStateModel model,JsonNode snapshot) {
+        String leaf=snapshot.path("state_id").asText(),outer=snapshot.path("outer_state").asText();
+        for(var declaration:model.anomalies())if(declaration.states().contains(leaf)||declaration.outerStates().contains(outer))return declaration.id();
+        if(snapshot.path("faults").isArray()&&!snapshot.path("faults").isEmpty()
+                &&model.anomalies().stream().anyMatch(item->item.id().equals("deviceFault")))return "deviceFault";
+        return null;
+    }
+    private String recordIncident(ObjectNode state,SystemStateModel model,String type,String device,String component,
+                                  JsonNode snapshot,String reason,long observation) {
+        ArrayNode incidents=(ArrayNode)state.withArray("incidents");
+        String incidentId=type+":"+(device.isBlank()?"system":device)+":"+snapshot.path("source_id").asText()+":"+
+            snapshot.path("state_revision").asText(Long.toString(observation));
+        for(JsonNode existing:incidents)if(incidentId.equals(existing.path("id").asText()))return incidentId;
+        var incident=json.createObjectNode().put("id",incidentId).put("type",type)
+            .put("label",model.anomaly(type).label()).put("category",model.anomaly(type).category())
+            .put("status","latched").put("device",device).put("component",component)
+            .put("stage",state.path("state").asText()).put("reason",reason).put("detectedAt",System.currentTimeMillis());
+        if(snapshot!=null&&snapshot.isObject()) {
+            incident.put("sourceId",snapshot.path("source_id").asText()).put("revision",snapshot.path("state_revision").asLong())
+                .put("stateId",snapshot.path("state_id").asText()).put("outerState",snapshot.path("outer_state").asText());
+            if(snapshot.hasNonNull("fault_origin"))incident.set("faultOrigin",snapshot.get("fault_origin").deepCopy());
+            if(snapshot.path("faults").isArray())incident.set("faults",snapshot.path("faults").deepCopy());
+        }
+        incidents.add(incident);state.put("anomalyStatus","latched");
+        return incidentId;
+    }
     private Violation latch(String pid,ObjectNode state,String integrity,String reason) {
         state.put("integrity",integrity).put("reason",reason).put("invalidatedAt",System.currentTimeMillis());
+        try {
+            var process=runtime().createProcessInstanceQuery().processInstanceId(pid).singleResult();
+            if(process!=null) {
+                var definition=model(process.getProcessDefinitionId(),state.path("model").asText());
+                String type="unknown".equals(integrity)?"evidenceUnknown":"stateConditionLost";
+                boolean existing=false;
+                for(JsonNode incident:state.path("incidents"))if(type.equals(incident.path("type").asText()))existing=true;
+                if(!existing&&definition.anomalies().stream().anyMatch(item->item.id().equals(type)))
+                    recordIncident(state,definition,type,"","system",null,reason,sequence);
+            }
+        } catch(RuntimeException ignored) { }
         runtime().setVariable(pid,STATE,state.toString());return new Violation(reason);
     }
     private ObjectNode current(String pid) {

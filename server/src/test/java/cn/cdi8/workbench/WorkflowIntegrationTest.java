@@ -449,6 +449,7 @@ class WorkflowIntegrationTest {
         assertThat(results.get(original).path("status").asText()).isEqualTo("succeeded");
         assertThat(gateway.calls).as("Guarded commands must not be submitted a second time").isEqualTo(results.size());
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("RUNNING");
+        assertThat(systemState(pid).path("incidents").findValuesAsText("status")).contains("reconciled");
     }
     @Test void uncertainGuardedSubmissionDoesNotBecomeARejectionOrStartANewAction() {
         String pid=startInitialization();gateway.loseRequest=true;workflows.pump();
@@ -457,6 +458,10 @@ class WorkflowIntegrationTest {
         assertThat(gateway.calls).isEqualTo(1);assertThat(results).isEmpty();
         assertThat(workflows.view(pid).get("outcome")).isEqualTo("RUNNING");
         assertThat(workflows.view(pid).get("communicationError").toString()).contains("result unavailable");
+        assertThat(systemState(pid).path("incidents")).anySatisfy(incident->{
+            assertThat(incident.path("type").asText()).isEqualTo("commandOutcomeUnknown");
+            assertThat(incident.path("status").asText()).isEqualTo("awaitingReconciliation");
+        });
         workflows.stop(pid,"uncertain submission; verify device manually");
         assertThat((List<?>)workflows.view(pid).get("unresolvedDeviceActions")).hasSize(1);
         assertThat((List<Map<String,Object>>)workflows.view(pid).get("commands"))
@@ -480,6 +485,34 @@ class WorkflowIntegrationTest {
         assertThat(systemState(pid).path("integrity").asText()).isEqualTo("violated");
         assertThat(systemState(pid).path("reason").asText()).contains("seed_01");
         assertThat((List<Map<String,Object>>)workflows.view(pid).get("unresolvedDeviceActions")).hasSize(4);
+    }
+    @Test void simultaneousSafetyInterlockAndDeviceFaultArePreservedBeforeWorkflowStops() {
+        String pid=launchInitialization();advanceToPowered(pid);
+        int commandsBefore=gateway.calls;
+        var failed=snapshots.get("seed_01");failed.put("outer_state","fault").put("state_id","faultLock").put("state_revision",failed.path("state_revision").asLong()+1)
+            .put("fault_origin","power-supply").putArray("faults").add("overcurrent");notice("seed_01");
+        stateEvent("shg_01","interlocked","interlockTripped");notice("shg_01");
+        workflows.pump();
+
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+        var incidents=systemState(pid).path("incidents");
+        assertThat(incidents).hasSize(2);
+        assertThat(incidents.findValuesAsText("type")).containsExactly("deviceFault","safetyInterlock");
+        assertThat(incidents.get(0).path("faultOrigin").asText()).isEqualTo("power-supply");
+        assertThat(incidents.get(0).path("faults").get(0).asText()).isEqualTo("overcurrent");
+        assertThat(systemState(pid).path("anomalyStatus").asText()).isEqualTo("latched");
+        assertThat(systemState(pid).path("reason").asText()).contains("safetyInterlock");
+        assertThat(gateway.calls).isEqualTo(commandsBefore);
+    }
+    @Test void eventChannelLossIsRecordedAsUnknownAndStopsNormalWorkflow() {
+        String pid=launchInitialization();advanceToPowered(pid);
+        workflows.event(new TangoGateway.Notice(json.createObjectNode().put("type","connection_lost")));
+        workflows.pump();
+
+        assertThat(workflows.view(pid).get("outcome")).isEqualTo("FAILED");
+        assertThat(systemState(pid).path("integrity").asText()).isEqualTo("unknown");
+        assertThat(systemState(pid).path("incidents")).hasSize(1);
+        assertThat(systemState(pid).path("incidents").get(0).path("type").asText()).isEqualTo("evidenceUnknown");
     }
     @Test void transientSystemStateViolationIsObservedEvenIfDeviceRecoversBeforeCoordinatorPump() {
         String pid=launchInitialization();advanceToPowered(pid);

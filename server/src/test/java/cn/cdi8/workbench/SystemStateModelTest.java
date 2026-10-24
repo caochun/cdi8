@@ -60,6 +60,9 @@ class SystemStateModelTest {
         assertThat(model.state("released").predicates()).anySatisfy(predicate->{
             assertThat(predicate.component()).isEqualTo("pump");assertThat(predicate.states()).containsExactly("standbyReady");
         });
+        assertThat(model.anomalies()).extracting(SystemStateModel.Anomaly::category)
+            .contains("deviceFault","safetyInterlock","stateConditionLost","unknown","commandOutcomeUnknown");
+        assertThat(model.anomaly("safetyInterlock").states()).containsExactly("interlockTripped");
         // An unresolved evidence gap must never leave an executable route to emission.
         Set<String> reachable=new HashSet<>(Set.of(model.initial()));boolean changed;
         do {

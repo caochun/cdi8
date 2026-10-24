@@ -218,6 +218,7 @@ function showDetails(){
 }
 function renderRun(){
   renderWaits();
+  renderSystemIncidents();
   const unresolved=flattenRuns().flatMap(r=>r.unresolvedDeviceActions||[]);
   $('unresolved-actions').hidden=!unresolved.length;
   $('unresolved-actions').textContent=unresolved.length
@@ -237,6 +238,20 @@ function renderRun(){
   if(run?.ended)$('details').querySelector('.device-debug-controls')?.remove();
   $('process').disabled=Boolean(run);onRunChange(run);paint();renderDevices();
 }
+function renderSystemIncidents(){
+  const host=$('system-incidents');
+  let state=run?.experimentSystemState;
+  if(typeof state==='string'){try{state=JSON.parse(state);}catch(_){state=null;}}
+  const incidents=Array.isArray(state?.incidents)?state.incidents:[];
+  host.hidden=incidents.length===0;
+  $('incident-count').textContent=incidents.length?`${incidents.length} 项 · ${state?.integrity==='unknown'?'状态未知':state?.integrity==='violated'?'已阻断':'需关注'}`:'';
+  $('incident-list').innerHTML=incidents.map(item=>{
+    const target=item.device?`${item.device} · ${componentLabel[item.component]||item.component||'设备'}`:'系统';
+    const facts=[item.stage?'发生阶段：'+item.stage:'',item.stateId?'设备状态：'+item.stateId:'',item.faultOrigin?'故障来源：'+item.faultOrigin:'',Array.isArray(item.faults)&&item.faults.length?'故障代码：'+item.faults.join('、'):'',item.reason||''].filter(Boolean);
+    const time=item.detectedAt?new Date(item.detectedAt).toLocaleString():'';
+    return '<article class="incident-row '+escape(item.category||'')+'"><div><strong>'+escape(item.label||item.type||'系统异常')+'</strong><span>'+escape(target)+'</span><time>'+escape(time)+'</time></div><p>'+facts.map(escape).join(' · ')+'</p></article>';
+  }).join('');
+}
 function duration(ms){if(!Number.isFinite(ms))return '—';const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)} 分 ${seconds%60} 秒`;}
 for(const target of [viewer,childViewer]){
   target.on('element.click',e=>{if(!/SequenceFlow|label|Process/.test(e.element.type))selectNode(target,e.element.id);});
@@ -245,7 +260,7 @@ $('fit').onclick=()=>{fit(viewer);fit(childViewer);};
 $('process').onchange=()=>setRun('');
 function makeCard(device){
   const card=document.createElement('article');card.className='device';card.dataset.device=device.id;
-  card.innerHTML='<div class="device-head"><div><strong class="device-name"></strong><span class="component-name"></span></div><span class="device-state"></span></div><button class="chart-button" title="展开完整状态机"><div class="state-chart"></div><span class="expand-hint">展开状态机 ↗</span></button><div class="device-action"></div><div class="device-progress"></div><div class="command-trail"></div>';
+  card.innerHTML='<div class="device-head"><div><strong class="device-name"></strong><span class="component-name"></span></div><span class="device-state"></span></div><button class="chart-button" title="展开完整状态机"><div class="state-chart"></div><span class="expand-hint">展开状态机 ↗</span></button><div class="device-action"></div><div class="device-alert" hidden></div><div class="device-progress"></div><div class="command-trail"></div>';
   card.querySelector('.chart-button').onclick=()=>expandDevice(card.currentDevice);
   cardNodes.set(device.id,card);return card;
 }
@@ -263,14 +278,25 @@ function renderDevices(){
     card.currentDevice=device;
     const s=device.snapshot||{},mine=commands.filter(c=>c.commandDevice===device.id),latest=mine[mine.length-1];
     const status=latest?commandStatus(latest):'',done=mine.filter(c=>commandStatus(c)==='succeeded').length;
+    const faultCodes=Array.isArray(s.faults)?s.faults.filter(Boolean):[];
+    const faultState=s.outer_state==='fault'||['faultLock','commFault','timeoutFault'].includes(s.state_id)||faultCodes.length>0;
+    const interlock=s.state_id==='interlockTripped';
     const failure=['failed','interrupted','rejected','cancelled'].includes(status),active=device.connected&&Boolean(s.active_command_id);
-    if(failure||s.outer_state==='fault')failed++;if(active)working++;
-    card.classList.toggle('is-offline',!device.connected);card.classList.toggle('is-failed',failure||s.outer_state==='fault');card.classList.toggle('is-working',active);
+    if(failure||faultState||interlock)failed++;if(active)working++;
+    card.classList.toggle('is-offline',!device.connected);card.classList.toggle('is-failed',failure||faultState||interlock);card.classList.toggle('is-working',active);
     const selected=commands.filter(c=>c.commandNode===picked&&c.owner.id===ownerFor(selectedViewer)?.id);
     card.classList.toggle('node-related',selected.some(c=>c.commandDevice===device.id));
     card.querySelector('.device-name').textContent=device.id;card.querySelector('.component-name').textContent=componentLabel[device.component]||device.component;
     const badge=card.querySelector('.device-state');badge.textContent=device.unrecorded?'未记录':device.connected?(s.outer_state_label||s.outer_state||'状态未确认'):'离线';
     badge.className='device-state '+(device.connected?'online':'offline');
+    const alert=card.querySelector('.device-alert');
+    const details=[];
+    if(interlock)details.push('已确认安全联锁触发');
+    if(faultState)details.push('设备异常：'+(s.state_id||s.outer_state||'故障状态'));
+    if(s.fault_origin)details.push('来源：'+s.fault_origin);
+    if(faultCodes.length)details.push('故障：'+faultCodes.join('、'));
+    if(!device.connected&&run&&!run.ended)details.push('设备状态未知，连接中断');
+    alert.hidden=details.length===0;alert.textContent=details.join(' · ');
     const chart=card.querySelector('.state-chart');
     StateCharts.update(chart,modelKey(s),{...s,connected:device.connected});
     if(device.unrecorded)chart.textContent='本次运行未记录设备状态';
@@ -290,10 +316,10 @@ async function refreshDevices(ticket=revision){
   deviceCache=devices;renderDevices();renderContext(historyDevices(devices).filter(d=>d.component==='context'));
 }
 function renderContext(devices){
-  const signature=JSON.stringify([Boolean(run?.ended),devices.map(d=>[d.id,d.connected,d.snapshot?.conditions])]);
+  const signature=JSON.stringify([Boolean(run?.ended),devices.map(d=>[d.id,d.connected,d.snapshot?.conditions,d.snapshot?.state_id,d.snapshot?.faults,d.snapshot?.fault_origin])]);
   const host=$('context-devices');if(host.signature===signature)return;host.signature=signature;
   let met=0,total=0;
-  host.innerHTML=devices.map(d=>'<div class="conditions"><div class="conditions-title">'+escape(d.id)+' · '+(d.connected?'已连接':'离线')+'</div>'+Object.entries(d.snapshot?.conditions||{}).map(([name,value])=>{
+  host.innerHTML=devices.map(d=>'<div class="conditions"><div class="conditions-title">'+escape(d.id)+' · '+(d.connected?'已连接':'离线')+(d.snapshot?.state_id==='interlockTripped'?' · 安全联锁已触发':'')+'</div>'+((d.snapshot?.fault_origin||d.snapshot?.faults?.length)?'<div class="context-alert">'+escape([d.snapshot.fault_origin,...(d.snapshot.faults||[])].filter(Boolean).join(' · '))+'</div>':'')+Object.entries(d.snapshot?.conditions||{}).map(([name,value])=>{
     total++;if(value)met++;
     return '<label class="condition"><input type="checkbox" data-device="'+escape(d.id)+'" data-condition="'+escape(name)+'"'+(value?' checked':'')+(!d.connected||run?.ended?' disabled':'')+'><span>'+escape(conditionLabel[name]||name)+'</span><i>'+(value?'满足':'未满足')+'</i></label>';
   }).join('')+'</div>').join('');

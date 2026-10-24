@@ -15,6 +15,7 @@ public final class SystemStateModel {
         public boolean matchesComponent(String value) { return components().contains(value); }
     }
     public record Fact(String id, String label, List<Predicate> predicates) {}
+    public record Anomaly(String id, String label, String category, Set<String> states, Set<String> outerStates) {}
     public record State(String id, String label, List<Predicate> predicates, List<Predicate> entryPredicates) {
         public List<Predicate> allPredicates() {
             var result = new ArrayList<>(predicates); result.addAll(entryPredicates); return List.copyOf(result);
@@ -26,13 +27,16 @@ public final class SystemStateModel {
     private final String initial;
     private final long evidenceMaxAgeMs;
     private final Map<String, Fact> facts;
+    private final Map<String, Anomaly> anomalies;
     private final Map<String, State> states;
     private final Map<String, Transition> transitions;
 
     private SystemStateModel(String id, String initial, long evidenceMaxAgeMs,
-                             Map<String, Fact> facts, Map<String, State> states, Map<String, Transition> transitions) {
+                             Map<String, Fact> facts, Map<String, Anomaly> anomalies,
+                             Map<String, State> states, Map<String, Transition> transitions) {
         this.id=id; this.initial=initial; this.evidenceMaxAgeMs=evidenceMaxAgeMs;
         this.facts=Collections.unmodifiableMap(new LinkedHashMap<>(facts));
+        this.anomalies=Collections.unmodifiableMap(new LinkedHashMap<>(anomalies));
         this.states=Collections.unmodifiableMap(new LinkedHashMap<>(states));
         this.transitions=Collections.unmodifiableMap(new LinkedHashMap<>(transitions));
     }
@@ -52,6 +56,12 @@ public final class SystemStateModel {
     public Set<String> stateIds() { return states.keySet(); }
     public Collection<State> states() { return states.values(); }
     public Collection<Fact> facts() { return facts.values(); }
+    public Anomaly anomaly(String id) {
+        Anomaly value=anomalies.get(id);
+        if(value==null) throw new IllegalArgumentException("系统异常类型未定义："+id);
+        return value;
+    }
+    public Collection<Anomaly> anomalies() { return anomalies.values(); }
     public Collection<Transition> transitions() { return transitions.values(); }
 
     public static SystemStateModel parse(String xml) {
@@ -67,6 +77,7 @@ public final class SystemStateModel {
             String id = required(root, "id"), initial = required(root, "initial");
             long maxAge = root.hasAttribute("evidenceMaxAgeMs") ? Long.parseLong(root.getAttribute("evidenceMaxAgeMs")) : 2000;
             Map<String, Fact> facts = new LinkedHashMap<>();
+            Map<String, Anomaly> anomalies = new LinkedHashMap<>();
             Map<String, State> states = new LinkedHashMap<>();
             Map<String, Transition> transitions = new LinkedHashMap<>();
             var children = children(root);
@@ -82,8 +93,20 @@ public final class SystemStateModel {
                 var fact = new Fact(required(child, "id"), required(child, "label"), List.copyOf(predicates));
                 if (facts.putIfAbsent(fact.id(), fact) != null) throw new IllegalArgumentException("系统事实重复：" + fact.id());
             }
+            for (var child : children) if ("anomaly".equals(child.getLocalName())) {
+                if (!children(child).isEmpty()) throw new IllegalArgumentException("anomaly 不能包含子元素");
+                var leafStates=words(child.getAttribute("states"));var outerStates=words(child.getAttribute("outerStates"));
+                String category=required(child,"category");
+                if(leafStates.isEmpty()&&outerStates.isEmpty()&& !Set.of("stateConditionLost","unknown","commandOutcomeUnknown").contains(category))
+                    throw new IllegalArgumentException("系统异常类型缺少可观察状态："+child.getAttribute("id"));
+                var anomaly=new Anomaly(required(child,"id"),required(child,"label"),category,leafStates,outerStates);
+                if(!Set.of("deviceFault","safetyInterlock","stateConditionLost","unknown","commandOutcomeUnknown").contains(anomaly.category()))
+                    throw new IllegalArgumentException("未知系统异常分类："+anomaly.category());
+                if(anomalies.putIfAbsent(anomaly.id(),anomaly)!=null)throw new IllegalArgumentException("系统异常类型重复："+anomaly.id());
+            }
             for (var child : children) switch (child.getLocalName()) {
                 case "fact" -> { }
+                case "anomaly" -> { }
                 case "state" -> {
                     var invariant = new ArrayList<Predicate>(); var entry = new ArrayList<Predicate>();
                     for (var condition : children(child)) {
@@ -120,7 +143,7 @@ public final class SystemStateModel {
                     throw new IllegalArgumentException("系统状态转换引用未定义状态：" + transition.id());
                 if (transition.from().equals(transition.to())) throw new IllegalArgumentException("系统状态转换不能指向自身：" + transition.id());
             }
-            return new SystemStateModel(id, initial, maxAge, facts, states, transitions);
+            return new SystemStateModel(id, initial, maxAge, facts, anomalies, states, transitions);
         } catch (IllegalArgumentException ex) { throw ex; }
         catch (Exception ex) { throw new IllegalArgumentException("系统状态模型 XML 无效：" + ex.getMessage(), ex); }
     }

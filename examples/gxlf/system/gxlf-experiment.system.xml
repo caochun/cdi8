@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 业务依据与未决项：docs/domain/gxlf/process-control/系统状态模型设计.md。blocked 转换禁止运行放行。 -->
 <system-state-model xmlns="https://cdi8.cn/system-state/v1" id="gxlf-experiment" initial="uninitialized" evidenceMaxAgeMs="2000">
+  <anomaly id="deviceFault" label="设备故障" category="deviceFault" states="faultLock commFault timeoutFault" outerStates="fault" />
+  <anomaly id="safetyInterlock" label="全局安全联锁触发" category="safetyInterlock" states="interlockTripped" />
+  <anomaly id="stateConditionLost" label="系统阶段条件失效" category="stateConditionLost" />
+  <anomaly id="evidenceUnknown" label="系统状态未知" category="unknown" />
+  <anomaly id="commandOutcomeUnknown" label="设备命令结果未知" category="commandOutcomeUnknown" />
+
   <fact id="initialChecks" label="十四类组件正在上电检查">
     <require collection="allComponents" component="seed" states="statusUnknown powerOnChecked" />
     <require collection="allComponents" component="shg" states="unchecked powerOnOk" />

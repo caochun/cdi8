@@ -139,6 +139,43 @@ class SystemStateRuntimeTest {
             assertEquals("unknown",f.current().path("integrity").asText(),failure);
         }
     }
+    @Test void safetyInterlockAndDeviceFaultAreClassifiedAndLatchedTogether() throws Exception {
+        String xml=HEADER+"<anomaly id=\"deviceFault\" label=\"设备故障\" category=\"deviceFault\" states=\"faultLock commFault timeoutFault\" outerStates=\"fault\"/>"+
+            "<anomaly id=\"safetyInterlock\" label=\"安全联锁触发\" category=\"safetyInterlock\" states=\"interlockTripped\"/>"+
+            "<anomaly id=\"stateConditionLost\" label=\"系统条件失效\" category=\"stateConditionLost\"/>"+
+            "<anomaly id=\"evidenceUnknown\" label=\"状态未知\" category=\"unknown\"/>"+
+            "<state id=\"initial\" label=\"Initial\">"+condition("good")+"</state>"+FOOTER;
+        var f=new Fixture(xml);
+        f.variables.put("allComponents",List.of(Map.of("id","seed_01","component","seed"),Map.of("id","context_01","component","context")));
+        f.set("faultLock",2);f.snapshot.put("outer_state","fault").put("fault_origin","power-supply").putArray("faults").add("overcurrent");
+        f.states.observe(new TangoGateway.Notice(f.json.createObjectNode().put("device_id","seed_01").put("connected",true).set("snapshot",f.snapshot.deepCopy())));
+        var interlock=f.json.createObjectNode().put("source_id","context-instance").put("state_revision",3).put("state_id","interlockTripped").put("outer_state","interlocked");
+        f.states.observe(new TangoGateway.Notice(f.json.createObjectNode().put("device_id","context_01").put("connected",true).set("snapshot",interlock)));
+
+        assertNotNull(f.states.inspect("pid",true));
+        assertEquals("violated",f.current().path("integrity").asText());
+        assertEquals("latched",f.current().path("anomalyStatus").asText());
+        assertEquals(2,f.current().path("incidents").size());
+        assertEquals("safetyInterlock",f.current().path("incidents").get(1).path("type").asText());
+        assertEquals("deviceFault",f.current().path("incidents").get(0).path("type").asText());
+        assertEquals("overcurrent",f.current().path("incidents").get(0).path("faults").get(0).asText());
+
+        f.event("good",4);
+        assertNotNull(f.states.inspect("pid",true),"A recovered snapshot must not clear a latched incident");
+        assertEquals(2,f.current().path("incidents").size());
+    }
+    @Test void communicationLossIsRecordedAsUnknownNotAsDeviceFault() throws Exception {
+        String xml=HEADER+"<anomaly id=\"deviceFault\" label=\"设备故障\" category=\"deviceFault\" states=\"faultLock\" outerStates=\"fault\"/>"+
+            "<anomaly id=\"stateConditionLost\" label=\"系统条件失效\" category=\"stateConditionLost\"/>"+
+            "<anomaly id=\"evidenceUnknown\" label=\"状态未知\" category=\"unknown\"/>"+
+            "<state id=\"initial\" label=\"Initial\">"+condition("good")+"</state>"+FOOTER;
+        var f=new Fixture(xml);
+        f.states.observe(new TangoGateway.Notice(f.json.createObjectNode().put("type","connection_lost")));
+        assertNotNull(f.states.inspect("pid",true));
+        assertEquals("unknown",f.current().path("integrity").asText());
+        assertEquals("evidenceUnknown",f.current().path("incidents").get(0).path("type").asText());
+        assertEquals("unknown",f.current().path("incidents").get(0).path("category").asText());
+    }
     @Test void unsuccessfulEntryCheckCannotEstablishTheDestinationState() throws Exception {
         var f=new Fixture(HEADER+"<state id=\"initial\" label=\"Initial\">"+condition("good")+"</state>"+
             "<state id=\"next\" label=\"Next\">"+condition("good ready")+

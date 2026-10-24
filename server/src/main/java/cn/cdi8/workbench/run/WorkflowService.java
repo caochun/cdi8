@@ -199,11 +199,14 @@ public class WorkflowService {
         } catch (TangoGateway.GatewayException ex) {
             // Query/guarded transport failures say nothing about whether a
             // physical command ran. Only a device terminal result proves that.
-            if (ex.status() != 409 || sent || attempted || variables.containsKey("commandParameters") || Boolean.TRUE.equals(variables.get("deviceActionContract"))) throw ex;
+            boolean uncertain=sent||attempted||Boolean.TRUE.equals(runtime.getVariableLocal(eid,"dispatchAttempted"));
+            if(uncertain)systemStates.commandOutcomeUnknown(execution.getProcessInstanceId(),device,id,action,ex.getMessage());
+            if (ex.status() != 409 || uncertain || variables.containsKey("commandParameters") || Boolean.TRUE.equals(variables.get("deviceActionContract"))) throw ex;
             result = json.valueToTree(Map.of("command_id", id, "action", action, "status", "rejected", "reason", ex.getMessage()));
         }
         String status = result.path("status").asText();
         if (Set.of("succeeded","failed","interrupted","rejected","cancelled").contains(status)) {
+            systemStates.commandOutcomeResolved(execution.getProcessInstanceId(),id,status);
             runtime.setVariableLocal(eid, "commandResult", result.toString());
             runtime.setVariable(execution.getProcessInstanceId(), "communicationError", "");
             // The custom component-command activity verifies the terminal
