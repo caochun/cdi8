@@ -17,10 +17,11 @@ public final class SystemDefinitionModel {
     private final int invariantCount;
     private final int connectionCount;
     private final int openIssueCount;
+    private final Map<String, Set<String>> capabilities;
 
     private SystemDefinitionModel(String id, String name, String version,
                                   int componentTypeCount, int instanceSetCount, int invariantCount,
-                                  int connectionCount, int openIssueCount) {
+                                  int connectionCount, int openIssueCount, Map<String, Set<String>> capabilities) {
         this.id = id;
         this.name = name;
         this.version = version;
@@ -29,6 +30,7 @@ public final class SystemDefinitionModel {
         this.invariantCount = invariantCount;
         this.connectionCount = connectionCount;
         this.openIssueCount = openIssueCount;
+        this.capabilities = Collections.unmodifiableMap(new LinkedHashMap<>(capabilities));
     }
 
     public String id() { return id; }
@@ -39,6 +41,9 @@ public final class SystemDefinitionModel {
     public int invariantCount() { return invariantCount; }
     public int connectionCount() { return connectionCount; }
     public int openIssueCount() { return openIssueCount; }
+    public boolean hasCapability(String component, String capability) {
+        return capabilities.getOrDefault(component, Set.of()).contains(capability);
+    }
 
     public static SystemDefinitionModel parse(String xml) {
         try {
@@ -77,6 +82,7 @@ public final class SystemDefinitionModel {
             var interfaceIds = ids(section(root, "interfaces"), "interface");
             var externalIds = ids(section(root, "externalInterfaces"), "externalInterface");
             var controlNodeIds = ids(controlNodes, "controlNode");
+            Map<String, Set<String>> capabilitiesByType = new LinkedHashMap<>();
             for (var type : children(componentTypes)) {
                 requireElement(type, "componentType");
                 required(type, "id"); required(type, "label"); positive(type, "quantity");
@@ -94,14 +100,23 @@ public final class SystemDefinitionModel {
                 for (var child : children(type)) if (!Set.of("port", "capability").contains(child.getLocalName()))
                     throw new IllegalArgumentException("设备类型包含不支持的子元素：" + child.getLocalName());
                 validateScopedIds(type, "capability");
+                var typeCapabilities = new LinkedHashSet<String>();
                 for (var capability : capabilities) {
                     requireElement(capability, "capability");
                     required(capability, "id"); required(capability, "label"); required(capability, "kind");
+                    typeCapabilities.add(capability.getAttribute("id"));
                 }
+                capabilitiesByType.put(type.getAttribute("id"), Set.copyOf(typeCapabilities));
             }
             if (controlNodes != null) for (var node : children(controlNodes)) {
                 requireElement(node, "controlNode"); required(node, "id"); required(node, "label"); required(node, "role");
                 validateScopedIds(node, "port"); validateScopedIds(node, "capability");
+                var controlCapabilities = new LinkedHashSet<String>();
+                for (var capability : children(node).stream().filter(child -> "capability".equals(child.getLocalName())).toList()) {
+                    required(capability, "id"); required(capability, "label"); required(capability, "kind");
+                    controlCapabilities.add(capability.getAttribute("id"));
+                }
+                capabilitiesByType.put(node.getAttribute("id"), Set.copyOf(controlCapabilities));
                 for (var port : children(node).stream().filter(child -> "port".equals(child.getLocalName())).toList()) {
                     required(port, "id"); required(port, "direction");
                     if (!interfaceIds.contains(required(port, "interfaceRef")))
@@ -153,7 +168,7 @@ public final class SystemDefinitionModel {
                 openIssueCount++;
             }
             return new SystemDefinitionModel(id, name, version, children(componentTypes).size(), children(instanceSets).size(),
-                invariants == null ? 0 : children(invariants).size(), connectionCount, openIssueCount);
+                invariants == null ? 0 : children(invariants).size(), connectionCount, openIssueCount, capabilitiesByType);
         } catch (IllegalArgumentException ex) {
             throw ex;
         } catch (Exception ex) {

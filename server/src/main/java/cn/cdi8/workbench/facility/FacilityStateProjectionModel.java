@@ -16,11 +16,13 @@ public final class FacilityStateProjectionModel {
     private final int factCount;
     private final int guardCount;
     private final int invalidatorCount;
+    private final Set<String> guardIds;
 
     private FacilityStateProjectionModel(String id, String definitionRef, String bindingRef,
-                                         int observationCount, int factCount, int guardCount, int invalidatorCount) {
+                                         int observationCount, int factCount, int guardCount, int invalidatorCount, Set<String> guardIds) {
         this.id=id; this.definitionRef=definitionRef; this.bindingRef=bindingRef;
         this.observationCount=observationCount; this.factCount=factCount; this.guardCount=guardCount; this.invalidatorCount=invalidatorCount;
+        this.guardIds=Set.copyOf(guardIds);
     }
     public String id() { return id; }
     public String definitionRef() { return definitionRef; }
@@ -29,6 +31,7 @@ public final class FacilityStateProjectionModel {
     public int factCount() { return factCount; }
     public int guardCount() { return guardCount; }
     public int invalidatorCount() { return invalidatorCount; }
+    public boolean hasGuard(String id) { return guardIds.contains(id); }
 
     public static FacilityStateProjectionModel parse(String xml) {
         try {
@@ -56,9 +59,9 @@ public final class FacilityStateProjectionModel {
                     if(!req.hasAttribute("fact")&&!req.hasAttribute("observation")&&!req.hasAttribute("instanceSet"))throw new IllegalArgumentException("事实 require 缺少来源："+fact.getAttribute("id"));
                 }
             }
-            int guardCount=0;if(guards!=null)for(var guard:children(guards)){requireElement(guard,"guard");required(guard,"id");required(guard,"label");for(var req:children(guard)){requireElement(req,"require");String ref=required(req,"fact");if(!factIds.contains(ref))throw new IllegalArgumentException("guard 引用未定义事实："+ref);}guardCount++;}
+            int guardCount=0;var guardIds=new LinkedHashSet<String>();if(guards!=null)for(var guard:children(guards)){requireElement(guard,"guard");String guardId=required(guard,"id");required(guard,"label");if(!guardIds.add(guardId))throw new IllegalArgumentException("guard 编号重复："+guardId);for(var req:children(guard)){requireElement(req,"require");String ref=required(req,"fact");if(!factIds.contains(ref))throw new IllegalArgumentException("guard 引用未定义事实："+ref);}guardCount++;}
             int invalidatorCount=0;if(invalidators!=null)for(var item:children(invalidators)){requireElement(item,"invalidate");required(item,"event");required(item,"result");required(item,"reason");invalidatorCount++;}
-            return new FacilityStateProjectionModel(id,definitionRef,bindingRef,children(observations).size(),children(facts).size(),guardCount,invalidatorCount);
+            return new FacilityStateProjectionModel(id,definitionRef,bindingRef,children(observations).size(),children(facts).size(),guardCount,invalidatorCount,guardIds);
         }catch(IllegalArgumentException ex){throw ex;}catch(Exception ex){throw new IllegalArgumentException("设施状态投影 XML 无效："+ex.getMessage(),ex);}
     }
     private static Element root(String xml)throws Exception{if(xml==null||xml.isBlank())throw new IllegalArgumentException("设施状态投影 XML 为空");var f=DocumentBuilderFactory.newInstance();f.setNamespaceAware(true);f.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);f.setFeature("http://xml.org/sax/features/external-general-entities",false);f.setFeature("http://xml.org/sax/features/external-parameter-entities",false);return f.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();}

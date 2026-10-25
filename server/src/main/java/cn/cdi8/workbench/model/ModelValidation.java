@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import cn.cdi8.workbench.systemdefinition.SystemDefinitionModel;
 import cn.cdi8.workbench.facility.FacilityBindingModel;
 import cn.cdi8.workbench.facility.FacilityStateProjectionModel;
+import cn.cdi8.workbench.facility.FacilityBpmnModel;
 
 @Service
 public class ModelValidation {
@@ -63,6 +64,7 @@ public class ModelValidation {
             }
             var model=parse(xml);
             cn.cdi8.workbench.systemstate.SystemStateModel.validateProcess(model);
+            FacilityBpmnModel.validateProcess(model);
             for(var process:model.getProcesses()) for(var element:allElements(process))
                 cn.cdi8.workbench.run.ActionContractModel.validateElement(element);
             if(model.getProcesses().isEmpty())throw new IllegalArgumentException("BPMN 缺少 process");
