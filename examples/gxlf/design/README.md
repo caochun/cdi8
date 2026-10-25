@@ -1,9 +1,14 @@
 # 实验主干设计模型
 
-[gxlf_experiment_backbone.bpmn20.xml](gxlf_experiment_backbone.bpmn20.xml) 根据[控制流程业务说明](../../../docs/domain/gxlf/process-control/集中管控系统控制流程业务说明.md)建立实验主干，包含阶段内的关键并行汇合、系统转换检查点与异常出口。
+[gxlf_shot_run_backbone.bpmn20.xml](gxlf_shot_run_backbone.bpmn20.xml) 根据[控制流程业务说明](../../../docs/domain/gxlf/process-control/集中管控系统控制流程业务说明.md)建立新的发次主干，包含初始化、参数接收、发射准备、同步触发、后处理和发次结束。
 
-本目录是非执行设计，`isExecutable="false"`，不在 server 的 `bpmn/*.bpmn20.xml` 打包目录内。可以导入工作台查看；不能仅改变执行标志就下发设备动作。
+本目录是非执行设计，`isExecutable="false"`。它只表达 BPMN 的操作编排、并行汇合、设施放行条件和发次证据边界，不直接下发设备动作。
 
-该设计文件保留上一阶段的系统状态检查点，当前不再把它解释为设施系统定义。新的设施结构源文件是 [gxlf-facility.system-definition.xml](../system/gxlf-facility.system-definition.xml)；待发次运行模型完成后，主干中的检查点会迁移为设施事实和本发证据引用。
+模型复用：
 
-阶段操作、入口/持续条件、完成证据、异常去向、设计假设和未决项见[实验主干与系统状态对应表](../../../docs/domain/gxlf/process-control/实验主干与系统状态对应表.md)。当前可执行的十四类设备初始化仍使用 [gxlf_system_initialization.bpmn20.xml](../bpmn/gxlf_system_initialization.bpmn20.xml)；第一段连续的初始化加参数下发技术验证使用 [gxlf_initialization_parameter_dispatch.bpmn20.xml](../bpmn/gxlf_initialization_parameter_dispatch.bpmn20.xml)。
+- [设施系统定义](../system/gxlf-facility.system-definition.xml)：设备、端口、拓扑、能力和不变量；
+- [设施实例绑定](../system/gxlf-facility-binding.xml)：逻辑实例和束线映射；
+- [设施状态投影](../system/gxlf-facility-state-projection.xml)：设施观测、事实和放行谓词；
+- [发次运行模型](../../../contracts/shot-run.schema.json)：本发阶段和证据记录。
+
+`fac:requires` 表示设施放行条件，`run:stage` 和 `run:records` 表示本发阶段及证据。设备动作接入和 Flowable 扩展运行时将在后续实现。

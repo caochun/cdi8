@@ -4,13 +4,9 @@
 
 ## 流程与组件
 
-`bpmn/` 中除下列六个四组件演示流程外，新增了 [`gxlf_system_initialization`](bpmn/gxlf_system_initialization.bpmn20.xml)：对十四类设备全体并行上电检查，全部完成后才并行执行功能检查，分别报告 `powered` 和 `initialized`。
+当前不再打包旧的可执行 GXLF BPMN。新的发次主干设计位于 [`design/gxlf_shot_run_backbone.bpmn20.xml`](design/gxlf_shot_run_backbone.bpmn20.xml)，标记为 `isExecutable="false"`，用于表达设施放行条件和发次证据边界。
 
-| 流程 | 职责 |
-|---|---|
-| `gxlf_initialization_parameter_dispatch` | 十四类组件初始化、参数下发及技术验证版发射准备 |
-
-`components/` 替换原 `scxml/`，保存十四类设备模型。其中原四类为：
+`components/` 保存十四类设备模型。其中原四类为：
 
 | 组件 | model_id | model_version |
 |---|---|---:|
@@ -19,29 +15,15 @@
 | 再生与双程放大 | `preamp-hierarchical-v3` | 3 |
 | 多程放大 | `multipass-hierarchical-v4` | 4 |
 
-其余十类为泵浦、测量、频率转换、靶瞄、真空、诊断、同步、开关驱动、冷却、控制环境。详见 [设备建模说明](components/建模说明.md)。多程动作使用 `collimation` 和 `enter_shot`。
+其余十类为泵浦、测量、频率转换、靶瞄、真空、诊断、同步、开关驱动、冷却、控制环境。详见 [设备建模说明](components/建模说明.md)。
 
-这些元数据版本与工作台为不可变 XML 快照生成的版本 ID 分开使用，不作为运行业务状态。
+## 当前建模范围
 
-## 当前执行范围
+设施结构由 [`gxlf-facility.system-definition.xml`](system/gxlf-facility.system-definition.xml) 声明；逻辑实例和束线映射由 [`gxlf-facility-binding.xml`](system/gxlf-facility-binding.xml) 声明；实时设施事实由 [`gxlf-facility-state-projection.xml`](system/gxlf-facility-state-projection.xml) 声明；本发数据边界由 [`shot-run.schema.json`](../../contracts/shot-run.schema.json) 声明。
 
-完整实验的[主干设计 BPMN](design/gxlf_experiment_backbone.bpmn20.xml)与系统状态的对应关系已整理在[实验主干与系统状态对应表](../../docs/domain/gxlf/process-control/实验主干与系统状态对应表.md)。主干按业务说明保留并行、屏障、证据等待和异常路径，明确标为非执行设计；不改变下面的实际执行范围。
+新的发次 BPMN 主干只编排初始化、参数接收、发射准备、同步触发、后处理和结束，并通过 `fac:requires`、`run:stage` 和 `run:records` 引用设施事实及本发证据。设备动作接入和 Flowable 扩展运行时仍待完成。
 
-`gxlf_initialization_parameter_dispatch` 曾是第一段可执行技术验证切片，但它依赖已经删除的综合系统状态模型。当前保留该 BPMN 作为业务草稿，待设施状态投影和发次运行模型建立后重新接入；不能把它当作当前可运行入口。
-
-初始化要求组件处于未就绪；上电检查只确认设备均已上电，功能检查通过后才取得业务就绪资格。参数下发后，前期准备流程可以选择种子源、二倍频或两者参与供光。
-
-十四类设备初始化 BPMN 同样处于待迁移状态。新的系统定义按业务名义声明设备数量，但不代表当前工作台已经按 259 台规模完成联调。
-
-[`gxlf-facility.system-definition.xml`](system/gxlf-facility.system-definition.xml) 是当前唯一的设施系统定义源文件。它声明 14 类分系统、60 条束线资源、设备能力、端口、Tango/HTTP/建安接口、光路/同步/控制/联锁拓扑及显式连接，以及数量、覆盖和安全不变量。它不声明设备当前状态，也不包含发次阶段、参数、采集历史或正式发射结果。
-
-[`gxlf-facility-binding.xml`](system/gxlf-facility-binding.xml) 声明逻辑实例、束线映射和外部接口如何由运行环境解析；[`gxlf-facility-state-projection.xml`](system/gxlf-facility-state-projection.xml) 声明设备观测如何组合为设施事实和可复用放行谓词。两者都不保存某一次发射的阶段或结果。
-
-设备的动态状态仍由 `components/` 下的 SCXML 描述；发次运行模型和 BPMN 主干将分别在后续建模。旧的综合状态模型和设施状态投影已经删除，避免继续把设施结构和发次运行语义混在一起。
-
-正式发射完成表示触发链路完成，完整任务仍需等待发射后处理结束。真实分系统、配方参数、束线 / 能量拓扑、发次证据和物理停止策略仍需接入。
-
-工作台只运行一个顶层任务。停止后设备已受理的动作可能继续；下一次运行会拒绝仍有活动命令的设备。组件状态持久化，重复初始化需要先确认设备回到未就绪。
+设备动态状态由 `components/` 下的 SCXML 描述。设施当前状态、发次阶段和 BPMN 令牌不再放进同一个综合 XML。
 
 ## 验证与业务资料
 
