@@ -54,7 +54,7 @@
 
 四组件初始化流程用操作模型执行四类组件的并行上电检查，汇合后报告 `uninitialized → powered`；接着执行功能检查，完成后报告 `powered → initialized`。系统状态声明单独定义这三个整体状态以及每个目标状态要求的设备事实。`sys:requires state="powered"` 表示一个后续 BPMN 操作开始前必须再次确认系统仍处于 `powered`。
 
-流程模型与系统状态声明的实现示例分别位于 [`component_initialization.bpmn20.xml`](../../examples/gxlf/bpmn/component_initialization.bpmn20.xml) 和 [`gxlf-initialization.system.xml`](../../examples/gxlf/system/gxlf-initialization.system.xml)。设备动作契约与系统状态声明分开：BPMN 可以引用 SCXML 暴露的动作就绪结果，最终受理仍由设备模型执行。
+流程模型与系统状态声明的实现示例分别位于 [`gxlf_initialization_parameter_dispatch.bpmn20.xml`](../../examples/gxlf/bpmn/gxlf_initialization_parameter_dispatch.bpmn20.xml) 和 [`gxlf-experiment.system.xml`](../../examples/gxlf/system/gxlf-experiment.system.xml)。设备动作契约与系统状态声明分开：BPMN 可以引用 SCXML 暴露的动作就绪结果，最终受理仍由设备模型执行。
 
 十四类设备的完整生命周期声明为 [`gxlf-experiment.system.xml`](../../examples/gxlf/system/gxlf-experiment.system.xml)，初始化段已通过独立 [`gxlf_system_initialization.bpmn20.xml`](../../examples/gxlf/bpmn/gxlf_system_initialization.bpmn20.xml) 联动。完整安全联锁、同步时序、本发历史和后处理口径缺少证据的转换明确阻断。六步建模过程、设备映射和当前可执行范围见 [GXLF 系统状态模型设计](../domain/gxlf/process-control/系统状态模型设计.md)。
 

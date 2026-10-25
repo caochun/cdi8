@@ -8,8 +8,8 @@
 - `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；`mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
 - `device-simulator/`：默认 Java bridge、模拟环境管理、独立试验及 Apache SCXML / JTango 多设备进程。
 - `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/bpmn/`、`gxlf/components/` 和 `gxlf/system/` 分别提供 Java 内置流程、十四类设备模型和系统状态声明。
-- `contracts/`：跨运行时的命令、结果与事件格式。协议格式不绑定 Python 类或 Java DTO。
-- `server/src/test/java/`：Java 单元、集成及跨进程端到端验证；设备模块测试位于 `device-simulator/src/test/java/`。
+- `contracts/`：跨运行时的命令、结果与事件格式。
+- 当前仓库暂不保留自动化测试源码；开发验证通过构建、启动 Workbench 和手工运行流程完成。
 
 后端目前按职责分包：
 

@@ -1,6 +1,6 @@
 # Java SCXML / Tango 模拟设备
 
-`device-simulator/` 是工作台默认的 Java 设备运行服务。模型校验、独立试验、动态环境创建和 SCXML 组件执行均在 Java 中完成，通过真实 JTango 与 Flowable 联调；不需要 Python、PyTango 或 Tango 数据库。Vue / TypeScript 继续负责浏览器界面。
+`device-simulator/` 是工作台唯一的 Java 设备运行服务。模型校验、独立试验、动态环境创建和 SCXML 组件执行均在 Java 中完成，通过真实 JTango 与 Flowable 联调。Vue / TypeScript 继续负责浏览器界面。
 
 ## 组成
 
@@ -46,8 +46,6 @@ bridge 关闭会清理设备子进程；bridge 意外退出时子进程检测父
 - `data/java-simulator/trials/<试验ID>/`：独立试验 XML 和 SQLite。
 - `data/java-simulator/environments/<环境ID>/`：模型 XML、`request.json`、`devices.json`、环境描述、各设备 SQLite 和 `device-server.log`；失败记录也保留。
 
-从 Python 切换时保留原模型库和历史，旧模拟设备数据库不自动迁入 Java。首次切换必须在运行准备重新创建设备。
-
 ## 外部设备及单独启动
 
 ```bash
@@ -85,13 +83,13 @@ HTTP 路径保持既有契约：`/devices`、`/devices/{id}`、设备 `commands`
 
 ```bash
 # 默认 Java 单元与集成测试
-mvn test
-# 构建并启动隔离 Java 服务完成端到端验证，不依赖 Python 测试驱动
+mvn package
+# 构建并启动隔离 Java 服务
 make java-workbench-smoke
 # 已打包时单独运行端到端测试
-mvn -pl server -Dexec.skip=true -Dtest=JavaWorkbenchE2eIT test
+mvn -pl server -Dexec.skip=true package
 ```
 
 端到端测试覆盖：校验与独立试验、失败/成功反馈、双设备实例及隔离、固定模型版本、重复反馈、条件等待、自动完成、Flowable 历史和设备追踪、版本变更后重建、非法配置保留旧环境、设备崩溃恢复、bridge 重启，以及四组件与条件设备参与的 GXLF 双光源完整生命周期。
 
-端到端验证只使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable；不再保留 Python 驱动的端到端脚本。Python 模拟器实现仍可独立作为协议参考。
+端到端验证只使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable。

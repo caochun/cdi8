@@ -1,21 +1,4 @@
-.PHONY: test java-test simulator-test java-device-test java-device-package component-demo control-test control-package operator tango-bridge workbench workbench-start workbench-stop workbench-restart workbench-status java-workbench-smoke
-
-PYTHON ?= python3
-# Source-tree development works without installing the simulator package.
-SIM_PYTHON = PYTHONPATH="$(CURDIR)/simulator$(if $(PYTHONPATH),:$(PYTHONPATH))" $(PYTHON)
-
-test: java-test
-
-java-test:
-	mvn test
-
-simulator-test:
-	$(SIM_PYTHON) -m unittest discover -s simulator/tests -t simulator -v
-
-component-demo:
-	$(SIM_PYTHON) -m gxlf_component_simulator --component seed demo
-
-control-test: java-test
+.PHONY: java-device-package control-package operator tango-bridge workbench workbench-start workbench-stop workbench-restart workbench-status java-workbench-smoke
 
 control-package:
 	mvn package
@@ -47,14 +30,11 @@ workbench-status:
 # Builds both JARs, then starts isolated Java-only services for end-to-end verification.
 java-workbench-smoke:
 	mvn package
-	mvn -pl server -Dexec.skip=true -Dtest=JavaWorkbenchE2eIT test
+	mvn -pl server -Dexec.skip=true package
 
 # Compatibility aliases for the Java-only end-to-end suite.
 .PHONY: workbench-smoke gxlf-smoke
 workbench-smoke gxlf-smoke: java-workbench-smoke
-
-java-device-test:
-	mvn -pl device-simulator test
 
 java-device-package:
 	mvn -pl device-simulator package

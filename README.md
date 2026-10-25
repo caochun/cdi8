@@ -23,19 +23,18 @@ Java Device Server：多个 SCXML 组件实例及条件设备 + 独立 SQLite
 | [examples/minimal/](examples/minimal/) | 新建模型使用的最小 BPMN / SCXML，前端直接导入这些 XML |
 | [examples/gxlf/](examples/gxlf/) | GXLF 的六个 BPMN 和四个 SCXML 示例模型 |
 | [contracts/](contracts/) | 命令、结果、设备事件的接口约定和 JSON Schema |
-| [simulator/](simulator/) | 可选的 Python 协议对照实现；默认构建、启动和测试不依赖它 |
 | [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的通用组件模拟器 |
-| [server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java](server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java) | 隔离 Java Workbench、Java Tango bridge、设备服务及 Flowable 的端到端验证 |
+| `server/`、`device-simulator/` | Java Workbench、Java Tango bridge 和设备服务生产代码 |
 | [docs/architecture/](docs/architecture/) | 模块边界、资源归属及 Java 模拟环境生命周期 |
 | [docs/development/](docs/development/) | 开发工作台操作和模型约定 |
 | [docs/domain/gxlf/](docs/domain/gxlf/) | GXLF 状态定义与业务流程说明 |
 | `data/` | 本地模型库、配置、数据库和运行事件，不提交 Git |
 
-Java 构建不读取 Python 源码目录。示例从 `examples/` 打包，浏览器资源从 `frontend/` 打包；Python 源码运行也读取相同的权威资源，安装包则携带必要副本。
+Java 构建从 `examples/` 打包模型，浏览器资源从 `frontend/` 打包；默认运行链路只使用 Java。
 
 ## 启动
 
-需要 Java 17+、Maven、Node.js 22.12+。默认服务端链路全部使用 Java，不需要 Python、PyTango 或 Tango 数据库。以下命令在仓库根目录执行。
+需要 Java 17+、Maven、Node.js 22.12+。以下命令在仓库根目录执行。
 
 ```bash
 # 构建两个 Java 模块和前端，并在后台启动 Java bridge 与工作台
@@ -49,7 +48,7 @@ make workbench-restart
 
 访问 **http://127.0.0.1:8080/**。首次启动 bridge 没有设备，在“运行准备”选择模型版本后点击“创建模拟设备”；也可先“使用示例方案”预填四组件配置。Java bridge 创建一个设备子 JVM，承载全部组件实例和同步条件设备。
 
-JAR 运行副本、PID 和日志保存在 `data/runtime/`，构建目录可以安全重新打包。已有工作台模型、版本、配置及 Flowable 数据继续使用 `data/`。从旧 Python 环境切换后需要重新创建设备，旧设备的活动状态不会自动导入 Java SQLite；历史运行仍可查看。
+JAR 运行副本、PID 和日志保存在 `data/runtime/`，构建目录可以安全重新打包。已有工作台模型、版本、配置及 Flowable 数据继续使用 `data/`；历史运行仍可查看。
 
 也可分开启动：
 
@@ -72,14 +71,13 @@ java -jar server/target/workbench-server-0.1.0.jar
 ## 开发与验证
 
 ```bash
-# 构建前端、执行 Java 测试并打包；根 POM 默认聚合 device-simulator 和 server 模块
+# 构建前端并打包；根 POM 默认聚合 device-simulator 和 server 模块
 mvn clean package
 
-# 已有前端构建时只执行 Java 测试
-mvn -Dexec.skip=true test
+# 已有前端构建时只打包 Java 模块
+mvn -Dexec.skip=true package
 
-# Python 测试；安装 PyTango 后也执行真实 Tango 集成用例
-make simulator-test PYTHON=.venv/bin/python
+# 当前暂不维护自动化测试用例；开发验证通过启动 Workbench 和手工运行流程完成。
 
 # 启动 Java 后端，工作目录保持为仓库根目录
 make operator
@@ -88,7 +86,7 @@ make operator
 npm run dev --prefix frontend
 ```
 
-全 Java 验证会启动隔离的 Java bridge、Java 多设备进程和 Java Workbench，不使用 Python 服务或 Python 测试驱动：
+全 Java 验证会启动隔离的 Java bridge、Java 多设备进程和 Java Workbench：
 
 ```bash
 make java-workbench-smoke
@@ -96,15 +94,13 @@ make java-workbench-smoke
 
 覆盖模型校验、独立试验、双设备实例、版本固定、反馈幂等、自动完成、条件等待、完整 GXLF 双光源流程、运行记录、环境重建、设备进程崩溃与 bridge 重启。它使用临时模型库和数据库，不修改日常工作台环境。
 
-Python 模拟器源码作为独立参考实现保留；工作台端到端验证统一使用 Java 服务和 Java Tango 设备。
-
 ## 运行数据和当前范围
 
 - 工作台数据库默认 `data/control-v2`；模型、版本、运行方案与运行快照保存在 `data/workbench/`。
-- Java 独立试验位于 `data/java-simulator/trials/`；每代模拟环境的模型、配置、SQLite 和设备日志位于 `data/java-simulator/environments/<环境ID>/`。Python 旧数据保留原处，不参与默认运行。
+- Java 独立试验位于 `data/java-simulator/trials/`；每代模拟环境的模型、配置、SQLite 和设备日志位于 `data/java-simulator/environments/<环境ID>/`。
 - 模型编辑不覆盖 `examples/`；导出 XML 后可经代码审查更新示例源文件。
 - SCXML 校验、独立试验及模拟设备统一使用 Java / Apache Commons SCXML；组件协议要求单一活动叶子状态，不支持 `parallel`。
-- 一个 Java 设备 JVM 按选定的 SCXML 元数据承载多个逻辑设备，Java bridge 通过真实 JTango 命令、属性和事件访问它们；事件不可用时补读快照。Python 仅保留为可选对照源码。
+- 一个 Java 设备 JVM 按选定的 SCXML 元数据承载多个逻辑设备，Java bridge 通过真实 JTango 命令、属性和事件访问它们；事件不可用时补读快照。
 - GXLF 的启动、完成和持续资格规则集中在后端 `scenarios/gxlf/`；通用执行通过规则接口调用。运行调试已原生集成 Vue。
 
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。

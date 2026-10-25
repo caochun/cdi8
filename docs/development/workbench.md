@@ -21,7 +21,7 @@ make java-workbench-smoke
 
 启动器 `java scripts/Workbench.java start|stop|restart|status` 管理后台进程及 `data/runtime/` 中的运行副本和日志。Java bridge 常驻，创建/重建环境时启动新的 Java 设备子 JVM；全部新设备能通过 Tango 读取快照后才切换，失败保留旧环境。新旧代设备使用独立端口及 DServer 身份；旧事件流关闭后后端自动重连，防止混入旧设备事件。停止 bridge 会停止设备子进程，bridge 意外退出时设备进程也会检测父进程并退出。
 
-首次启动及 bridge 重启后环境为 `empty`，需在运行准备中“创建模拟设备”。设备进程退出时环境标为 `failed`，重建生成新的环境 ID。旧 Python 环境状态不自动导入；模型库、不可变版本和 Flowable 历史记录继续保留。
+首次启动及 bridge 重启后环境为 `empty`，需在运行准备中“创建模拟设备”。设备进程退出时环境标为 `failed`，重建生成新的环境 ID。模型库、不可变版本和 Flowable 历史记录继续保留。
 
 ## 模型、草稿和版本
 

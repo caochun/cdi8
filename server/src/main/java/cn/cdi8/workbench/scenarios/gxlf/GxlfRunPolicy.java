@@ -10,32 +10,29 @@ import org.springframework.stereotype.Component;
 /** GXLF source selection, model identities and stage entry checks. */
 @Component
 public class GxlfRunPolicy implements RunPolicy {
-    static final Set<String> PROCESS_KEYS = Set.of("component_initialization", "parameter_dispatch", "gxlf_initialization_parameter_dispatch",
-        "optical_frontend_preparation", "formal_emission", "post_emission_processing", "emission_task_lifecycle");
+    static final Set<String> PROCESS_KEYS = Set.of("gxlf_initialization_parameter_dispatch");
     private final TangoGateway gateway;
 
     public GxlfRunPolicy(TangoGateway gateway) { this.gateway = gateway; }
     @Override public Set<String> processKeys() { return PROCESS_KEYS; }
     @Override public List<String> defaultSources(String key) {
-        return Set.of("component_initialization", "parameter_dispatch").contains(key) ? List.of() : List.of("seed");
+        return List.of();
     }
     @Override public Map<String, Object> defaults(Map<String, Object> variables) {
         return Map.of("scenarioId", "gxlf", "sourceTargets", variables.getOrDefault("seedTargets", List.of()));
     }
     @Override public List<String> participantCollections(String key) {
         String original = RunPolicies.originalKey(key);
-        if (Set.of("component_initialization", "parameter_dispatch").contains(original)) return List.of("allComponents");
         if ("gxlf_initialization_parameter_dispatch".equals(original)) return List.of("allComponents", "parameterTargets");
-        if ("emission_task_lifecycle".equals(original)) return List.of("allComponents", "contextTargets");
-        return List.of("sourceTargets", "preampTargets", "multipassTargets", "contextTargets");
+        return List.of("allComponents");
     }
     @Override public Map<String, Object> variables(String key, List<String> sources) {
         List<String> selectedSources = sources == null ? List.of() : sources;
-        boolean requiresSources = Set.of("optical_frontend_preparation", "formal_emission", "post_emission_processing", "emission_task_lifecycle").contains(key);
-        boolean parameterDispatch = key.equals("parameter_dispatch");
-        boolean preparation = key.equals("optical_frontend_preparation");
-        boolean formalEmission = key.equals("formal_emission");
-        boolean postEmission = key.equals("post_emission_processing");
+        boolean requiresSources = false;
+        boolean parameterDispatch = false;
+        boolean preparation = false;
+        boolean formalEmission = false;
+        boolean postEmission = false;
         if (!Set.of("seed", "shg").containsAll(selectedSources)
                 || (requiresSources && selectedSources.isEmpty()))
             throw new IllegalArgumentException("请选择至少一类光源");
@@ -108,7 +105,7 @@ public class GxlfRunPolicy implements RunPolicy {
             }
         }
         if (all.isEmpty()) throw new IllegalStateException("没有可控组件");
-        boolean requiresAllModeledComponents = Set.of("component_initialization", "parameter_dispatch", "gxlf_initialization_parameter_dispatch", "formal_emission", "post_emission_processing", "emission_task_lifecycle").contains(key);
+        boolean requiresAllModeledComponents = true;
         if (requiresAllModeledComponents && (seed.isEmpty() || shg.isEmpty() || preamp.isEmpty() || multipass.isEmpty()))
             throw new IllegalStateException("初始化需要种子源、二倍频、再生与双程放大、多程放大四类组件");
         if (requiresSources && (preamp.isEmpty() || multipass.isEmpty() || light.isEmpty() || context.size()!=1))

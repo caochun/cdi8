@@ -73,14 +73,20 @@ function addDevice(){
   draft.value.devices.push({model:model.id,revision:model.revisions.at(-1)!.id,component,count:1,autoComplete:true,delayMs:500});
 }
 function useExample(){
-  const ids=['seed-source-state-machine','shg-injection-state-machine','preamp-state-machine','multipass-state-machine'];
-  if(!modelFor('emission_task_lifecycle')?.revisions.length||ids.some(id=>!modelFor(id)?.revisions.length)){localError.value='GXLF 示例模型不完整，请先导入并保存示例模型版本';return;}
-  const devices=ids.map((id,i)=>({model:id,revision:modelFor(id)!.revisions.at(-1)!.id,component:['seed','shg','preamp','multipass'][i],count:1,autoComplete:true,delayMs:500}));
+  const components=[
+    ['seed-source-state-machine','seed'],['shg-injection-state-machine','shg'],['preamp-state-machine','preamp'],['multipass-state-machine','multipass'],
+    ['pump-state-machine','pump'],['measurement-state-machine','measurement'],['frequency-conversion-state-machine','frequency-conversion'],
+    ['target-alignment-state-machine','target-alignment'],['vacuum-state-machine','vacuum'],['diagnostics-state-machine','diagnostics'],
+    ['synchronization-state-machine','synchronization'],['switch-driver-state-machine','switch-driver'],['cooling-state-machine','cooling'],
+    ['control-environment-state-machine','control-environment']
+  ] as const;
+  if(!modelFor('gxlf_initialization_parameter_dispatch')?.revisions.length||components.some(([id])=>!modelFor(id)?.revisions.length)){localError.value='GXLF 十四类示例模型不完整，请先导入并保存示例模型版本';return;}
+  const devices=components.map(([id,component])=>({model:id,revision:modelFor(id)!.revisions.at(-1)!.id,component,count:1,autoComplete:true,delayMs:500}));
   const order=props.configuration.appliedDevices?.map(row=>row.component)||[];
   if(order.length===devices.length&&devices.every(row=>order.includes(row.component)))devices.sort((a,b)=>order.indexOf(a.component)-order.indexOf(b.component));
-  draft.value={...draft.value,entry:'emission_task_lifecycle',processes:[],devices,autoComplete:true};
-  bindingsText.value=JSON.stringify({sourceTargets:['seed_01']},null,2);variablesText.value=JSON.stringify({commandTimeout:'PT15M',workflowTimeout:'PT45M'},null,2);conditionsText.value='{}';
-  localError.value='';exampleNotice.value='已填入 GXLF 四组件示例方案。请检查设备就绪状态后开始调试。';
+  draft.value={...draft.value,entry:'gxlf_initialization_parameter_dispatch',processes:[],devices,autoComplete:true};
+  bindingsText.value='{}';variablesText.value=JSON.stringify({commandTimeout:'PT30S',workflowTimeout:'PT180S'},null,2);conditionsText.value='{}';
+  localError.value='';exampleNotice.value='已填入 GXLF 十四类设备技术验证方案。请检查设备就绪状态后开始调试。';
 }
 function submit(operation:'save'|'apply'|'start'){
   localError.value='';

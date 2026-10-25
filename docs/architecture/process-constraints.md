@@ -16,11 +16,11 @@
 
 ## 声明格式
 
-`examples/gxlf/system/gxlf-initialization.system.xml` 定义四组件初始化示例：
+`examples/gxlf/system/gxlf-experiment.system.xml` 定义当前 GXLF 实验系统状态模型：
 
 ```xml
 <system-state-model xmlns="https://cdi8.cn/system-state/v1"
-                    id="gxlf-initialization"
+                    id="gxlf-experiment"
                     initial="uninitialized"
                     evidenceMaxAgeMs="2000">
   <state id="uninitialized" label="未初始化" />
@@ -60,7 +60,7 @@ BPMN 在 process 级引用声明，并在操作节点报告转换或要求当前
 
 ```xml
 <bpmn:extensionElements>
-  <sys:systemModel ref="gxlf-initialization" />
+  <sys:systemModel ref="gxlf-experiment" />
 </bpmn:extensionElements>
 <bpmn:serviceTask id="report_powered"
   flowable:expression="${systemStates.report(execution, 'powerChecksVerified')}" />
@@ -92,6 +92,4 @@ BPMN 在 process 级引用声明，并在操作节点报告转换或要求当前
 
 ## 验证
 
-`WorkflowIntegrationTest` 覆盖系统状态正常转换、参与设备条件不满足、事件中的瞬态失效、断连未知、失效锁存及阻止后续操作。`SystemStateRuntimeTest` 补充进入/持续条件边界、同设备多个谓词、证据游标持久化及事件完整性。`SystemStateModelTest` 核对十四份设备状态引用、初始化汇合和未决转换可达性。
-
-`JavaWorkbenchE2eIT` 通过 Java Workbench、Java Tango bridge 与 JTango 设备验证设备状态事件驱动系统失效、四组件初始化和十四类初始化；十四类路径验证缺设备拒绝、全体上电屏障、功能失败及 28 条命令成功。设备侧 `ComponentRuntimeTest` 验证动作准入、忙闲互斥和幂等反馈，`GxlfComponentsTest` 验证十四模型及泵浦、吹扫、真空和联锁异常边界。详见 [GXLF 系统状态模型设计](../domain/gxlf/process-control/系统状态模型设计.md)。
+当前暂不保留自动化测试用例；后续重新建立测试时，应覆盖系统状态证据、设备动作准入和 Java/Tango 联动。
