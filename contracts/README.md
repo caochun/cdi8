@@ -1,5 +1,7 @@
 # 模拟设备接口契约
 
+除设备接口外，[`shot-run.schema.json`](shot-run.schema.json) 定义一次实验发次的运行记录：发次身份、配方引用、资源选择、预约租约、阶段、设施事实/设备命令证据和结果。它不描述设施拓扑、设备状态机或 BPMN 操作顺序。
+
 此目录描述 Java 工作台、Java bridge 与 Tango 模拟设备之间的项目协议。JSON Schema 是可审查的格式说明；运行时在 Java 中执行相应检查，没有通过通用 JSON Schema 引擎校验请求。
 
 | Schema | 对应接口 / 数据 |
