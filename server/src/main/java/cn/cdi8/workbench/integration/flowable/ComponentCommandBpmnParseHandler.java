@@ -2,6 +2,8 @@ package cn.cdi8.workbench.integration.flowable;
 
 import cn.cdi8.workbench.run.ComponentCommandTasks;
 import cn.cdi8.workbench.run.ActionContractModel;
+import cn.cdi8.workbench.facility.FacilityActionRuntime;
+import cn.cdi8.workbench.facility.FacilityBpmnModel;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
@@ -20,10 +22,12 @@ public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHand
 
     private final ComponentCommandTasks tasks;
     private final ObjectMapper json;
+    private final FacilityActionRuntime facilityActions;
 
-    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, ObjectMapper json) {
+    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, ObjectMapper json, FacilityActionRuntime facilityActions) {
         this.tasks = tasks;
         this.json = json;
+        this.facilityActions = facilityActions;
     }
 
     @Override
@@ -34,6 +38,14 @@ public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHand
     @Override
     protected void executeParse(BpmnParse parse, ServiceTask task) {
         ActionContractModel.validateElement(task);
+        boolean hasFacilityActions=task.getExtensionElements().getOrDefault("action",java.util.List.of()).stream()
+            .anyMatch(item->FacilityBpmnModel.FACILITY_NS.equals(item.getNamespace()));
+        if(hasFacilityActions) {
+            FacilityBpmnModel.validateProcess(parse.getBpmnModel());
+            task.setTriggerable(true);
+            task.setBehavior(new ComponentCommandActivityBehavior(tasks,json,"","",facilityActions));
+            return;
+        }
         Map<String, String> fields = new LinkedHashMap<>();
         for (FieldExtension field : task.getFieldExtensions()) {
             String value = field.getStringValue();

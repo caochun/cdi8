@@ -2,6 +2,7 @@ package cn.cdi8.workbench.integration.flowable;
 
 import cn.cdi8.workbench.run.ComponentCommandTasks;
 import cn.cdi8.workbench.run.WorkflowService;
+import cn.cdi8.workbench.facility.FacilityActionRuntime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
@@ -22,16 +23,22 @@ public final class ComponentCommandActivityBehavior extends AbstractBpmnActivity
     private final ObjectMapper json;
     private final String actionDefinition;
     private final String expectedStateDefinition;
+    private final FacilityActionRuntime facilityActions;
 
     public ComponentCommandActivityBehavior(ComponentCommandTasks tasks, ObjectMapper json, String action, String expectedState) {
+        this(tasks,json,action,expectedState,null);
+    }
+    public ComponentCommandActivityBehavior(ComponentCommandTasks tasks, ObjectMapper json, String action, String expectedState, FacilityActionRuntime facilityActions) {
         this.tasks = tasks;
         this.json = json;
         this.actionDefinition = action;
         this.expectedStateDefinition = expectedState;
+        this.facilityActions = facilityActions;
     }
 
     @Override
     public void execute(DelegateExecution execution) {
+        if(facilityActions!=null){facilityActions.start(execution);return;}
         @SuppressWarnings("unchecked") Map<String, String> target = (Map<String, String>) execution.getVariable("target");
         String component = target == null ? "" : target.get("component");
         tasks.enqueue(execution, value(actionDefinition, component), value(expectedStateDefinition, component));
@@ -40,6 +47,7 @@ public final class ComponentCommandActivityBehavior extends AbstractBpmnActivity
     @Override
     public void trigger(DelegateExecution execution, String signalName, Object signalData) {
         tasks.verify(execution);
+        if(facilityActions!=null&&facilityActions.advance(execution))return;
         leave(execution);
     }
 
