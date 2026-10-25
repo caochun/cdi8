@@ -47,6 +47,13 @@ public final class FacilityStateRuntime {
 
     public synchronized ObjectNode current() { return current.deepCopy(); }
 
+    /** BPMN gate: only a current, valid facility guard can release a task. */
+    public synchronized void requireGuard(String guard) {
+        JsonNode value=current.path("guards").path(guard);
+        if(!"valid".equals(value.path("status").asText()))
+            throw new IllegalStateException("设施放行条件不满足："+guard+" / "+value.path("reason").asText("未知"));
+    }
+
     @EventListener
     public synchronized void observe(TangoGateway.Notice notice) {
         JsonNode event=notice.payload();
