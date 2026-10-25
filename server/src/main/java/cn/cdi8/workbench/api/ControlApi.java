@@ -3,6 +3,7 @@ package cn.cdi8.workbench.api;
 import cn.cdi8.workbench.integration.tango.TangoGateway;
 import cn.cdi8.workbench.model.ModelStore;
 import cn.cdi8.workbench.run.WorkflowService;
+import cn.cdi8.workbench.facility.FacilityStateRuntime;
 
 import java.util.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,12 +16,14 @@ public class ControlApi {
     private final WorkflowService workflows;
     private final TangoGateway tango;
     private final ModelStore models;
-    public ControlApi(WorkflowService workflows, TangoGateway tango, ModelStore models) { this.workflows = workflows; this.tango = tango; this.models=models; }
+    private final FacilityStateRuntime facilityStates;
+    public ControlApi(WorkflowService workflows, TangoGateway tango, ModelStore models, FacilityStateRuntime facilityStates) { this.workflows = workflows; this.tango = tango; this.models=models; this.facilityStates=facilityStates; }
     public record Start(String processKey, List<String> sources) {}
     @GetMapping("/processes") public Object processes() { return workflows.definitions(); }
     @GetMapping(value="/processes/{key}/xml", produces="application/xml")
     public String xml(@PathVariable String key) { return workflows.xml(key); }
     @GetMapping("/connection") public Object connection() { return tango.status(); }
+    @GetMapping("/facility/state") public Object facilityState() { return facilityStates.current(); }
     @GetMapping("/devices") public Object devices() { return tango.catalog(); }
     @GetMapping("/models") public Map<String, String> models() throws java.io.IOException {
         var resources = new org.springframework.core.io.support.PathMatchingResourcePatternResolver()
