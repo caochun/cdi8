@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GXLF 设施系统定义。
+
+  这里描述设施的组成、能力、接口、拓扑和不变量，不描述设备当前状态，
+  也不描述某一次发射的阶段、参数或结果。设备的动态行为由 components/ 下
+  的 SCXML 定义；发次语义由后续独立的运行模型定义。
+-->
+<system-definition
+    xmlns="https://cdi8.cn/system-definition/v1"
+    id="gxlf-facility"
+    name="GXLF 激光发射实验设施"
+    version="1">
+
+  <scope id="laser-emission-facility" label="激光发射设施控制范围">
+    <description>由集中管控系统管理的 60 束线激光发射设施及其安全、同步、诊断和基础设施接口。</description>
+    <excludes>发次编号、实验配方、本发阶段、本发采集历史、正式发射结果和后处理结果。</excludes>
+  </scope>
+
+  <resources>
+    <resource id="beamline" label="激光束线" quantity="60" unit="条" />
+    <resource id="preamp-group" label="预放服务组" quantity="10" unit="组" />
+    <resource id="shot-reservation" label="实验资源预约" quantity="1" unit="项" />
+  </resources>
+
+  <interfaces>
+    <interface id="tango-control" label="Tango 控制接口" protocol="TANGO" direction="bidirectional" />
+    <interface id="environment-http" label="控制环境 HTTP 接口" protocol="HTTP" direction="bidirectional" />
+    <interface id="building-safety" label="建安工程安防接口" protocol="UNRESOLVED" direction="bidirectional" status="unresolved" />
+    <interface id="interlock-bus" label="安全联锁观测接口" protocol="EVENT" direction="inbound" />
+    <interface id="timing-bus" label="同步时序接口" protocol="EVENT" direction="bidirectional" />
+    <interface id="optical-link" label="束线光路连接" protocol="PHYSICAL" direction="bidirectional" />
+    <interface id="sample-link" label="测量取样连接" protocol="PHYSICAL" direction="bidirectional" />
+    <interface id="control-command-bus" label="集中控制命令总线" protocol="INTERNAL" direction="bidirectional" />
+    <interface id="parameter-store" label="发次参数服务" protocol="DATABASE/EVENT" direction="bidirectional" status="contract-unresolved" />
+    <interface id="experiment-data-store" label="实验数据存储服务" protocol="DATABASE/EVENT" direction="outbound" status="contract-unresolved" />
+    <interface id="reservation-service" label="分系统服务预约接口" protocol="INTERNAL" direction="bidirectional" />
+    <interface id="health-events" label="服务健康与心跳事件" protocol="EVENT" direction="inbound" />
+  </interfaces>
+
+  <controlNodes>
+    <controlNode id="central-control" label="集中管控系统" role="orchestrator">
+      <port id="command-out" direction="out" interfaceRef="control-command-bus" />
+      <port id="state-in" direction="in" interfaceRef="health-events" />
+      <port id="parameter-in" direction="in" interfaceRef="parameter-store" />
+      <port id="data-in" direction="in" interfaceRef="experiment-data-store" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <port id="reservation" direction="bidirectional" interfaceRef="reservation-service" />
+      <capability id="reserve-services" label="预约分系统服务" kind="coordination" />
+      <capability id="dispatch-commands" label="下发控制命令" kind="coordination" />
+      <capability id="monitor-health" label="监控服务健康和心跳" kind="observe" />
+      <capability id="coordinate-interlock" label="协调安全联锁处置" kind="safety" />
+    </controlNode>
+  </controlNodes>
+
+  <componentTypes>
+    <componentType id="seed" label="光纤种子源组件" role="source" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/seed-source-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-out" direction="out" interfaceRef="optical-link" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="emit" label="种子源出光" kind="control" actionRef="seed_source_emit" />
+      <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="laser_parameter_collect" />
+      <capability id="standby" label="待机" kind="control" actionRef="standby_reset" />
+    </componentType>
+
+    <componentType id="shg" label="二倍频宽带激光注入组件" role="source" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/shg-injection-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-out" direction="out" interfaceRef="optical-link" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="emit" label="二倍频出光" kind="control" actionRef="frequency_doubled_emit" />
+      <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="laser_parameter_collect" />
+      <capability id="standby-reset" label="待机复位" kind="control" actionRef="standby_reset" />
+    </componentType>
+
+    <componentType id="preamp" label="再生与双程放大组件" role="amplifier" quantity="10"
+                   interfaceRef="tango-control" stateModelRef="components/preamp-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-in" direction="in" interfaceRef="optical-link" />
+      <port id="optical-out" direction="out" interfaceRef="optical-link" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="wakeup" label="预放唤醒" kind="control" actionRef="preamp_wakeup" />
+      <capability id="coarse-loop" label="能量粗闭环" kind="control" actionRef="coarse_loop" />
+      <capability id="fine-loop" label="能量精闭环" kind="control" actionRef="fine_loop" />
+      <capability id="single-recipe" implementationStatus="declared-not-yet-modeled" label="预放单次配方" kind="control" />
+      <capability id="clear-energy-meter" label="能量计清零" kind="control" actionRef="energy_meter_clear" />
+      <capability id="collect-energy-data" label="能量数据采集" kind="observe" actionRef="energy_collect" />
+      <capability id="standby" label="预放待机" kind="control" actionRef="standby_reset" />
+    </componentType>
+
+    <componentType id="multipass" label="多程放大系统" role="amplifier" quantity="60"
+                   interfaceRef="tango-control" stateModelRef="components/multipass-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-in" direction="in" interfaceRef="optical-link" />
+      <port id="optical-out" direction="out" interfaceRef="optical-link" />
+      <port id="sample-out" direction="out" interfaceRef="sample-link" />
+      <port id="safety-out" direction="out" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="collimation" label="光路准直" kind="control" actionRef="collimation" />
+      <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot" />
+    </componentType>
+
+    <componentType id="pump" label="泵浦分系统" role="pump" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/pump-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="trigger-in" direction="in" interfaceRef="timing-bus" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <port id="safety-in" direction="in" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="emission-prepare" label="泵浦发射准备" kind="control" actionRef="emission_prepare" />
+      <capability id="charge-prepare" label="发射充电准备" kind="control" actionRef="charge_prepare" />
+      <capability id="charge" label="发射充电" kind="control" actionRef="charge" />
+      <capability id="trigger-prepare" label="泵浦触发准备" kind="control" actionRef="trigger_prepare" />
+      <capability id="collect-data" label="泵浦数据采集" kind="observe" actionRef="collect" />
+      <capability id="standby" label="泵浦待机" kind="control" actionRef="standby_reset" />
+      <capability id="preionization" implementationStatus="declared-not-yet-modeled" label="预电离发射链路" kind="control" />
+      <capability id="emergency-vent" implementationStatus="declared-not-yet-modeled" label="紧急泄放" kind="safety" />
+      <capability id="emergency-stop-charge" implementationStatus="declared-not-yet-modeled" label="紧急停充" kind="safety" />
+    </componentType>
+
+    <componentType id="measurement" label="测量取样组件" role="measurement" quantity="60"
+                   interfaceRef="tango-control" stateModelRef="components/measurement-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="sample-in" direction="in" interfaceRef="sample-link" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="aim-prepare" label="测量靶瞄准备" kind="control" actionRef="aim_prepare" />
+      <capability id="motion-prepare" label="测量打靶运动准备" kind="control" actionRef="motion_prepare" />
+      <capability id="measurement-prepare" label="打靶测量准备" kind="control" actionRef="measurement_prepare" />
+      <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="collect" />
+    </componentType>
+
+    <componentType id="frequency-conversion" label="频率转换分系统" role="conversion" quantity="60"
+                   interfaceRef="tango-control" stateModelRef="components/frequency-conversion-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-in" direction="in" interfaceRef="optical-link" />
+      <port id="optical-out" direction="out" interfaceRef="optical-link" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="pose-set" label="晶体位姿设置" kind="control" actionRef="set_pose" />
+    </componentType>
+
+    <componentType id="target-alignment" label="靶瞄准定位系统" role="target" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/target-alignment-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="optical-in" direction="in" interfaceRef="optical-link" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <port id="safety-in" direction="in" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="target-preposition" label="实验靶预定位" kind="control" actionRef="target_preposition" />
+      <capability id="simulation-position" label="模拟靶定位" kind="control" actionRef="simulation_position" />
+      <capability id="beam-guide" label="光束引导" kind="control" actionRef="beam_guide" />
+      <capability id="target-reset" label="实验靶复位" kind="control" actionRef="target_reset" />
+      <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot" />
+      <capability id="analysis" label="靶瞄数据分析" kind="observe" actionRef="analyze" />
+      <capability id="retract" label="靶瞄收靶" kind="control" actionRef="retract" />
+    </componentType>
+
+    <componentType id="vacuum" label="真空靶室分系统" role="vacuum" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/vacuum-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="safety-out" direction="out" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="observe-vacuum" implementationStatus="declared-not-yet-modeled" label="真空度观测" kind="observe" />
+      <capability id="maintain-vacuum" implementationStatus="declared-not-yet-modeled" label="真空保持" kind="observe" />
+      <capability id="observe-pressure-restoration" implementationStatus="declared-not-yet-modeled" label="复压观测" kind="observe" />
+    </componentType>
+
+    <componentType id="diagnostics" label="物理实验诊断分系统" role="diagnostics" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/diagnostics-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="data-in" direction="in" interfaceRef="experiment-data-store" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="emission-prepare" label="诊断设备发射准备" kind="control" actionRef="device_confirm" />
+      <capability id="acquisition-setup" label="诊断设备采集设置" kind="control" actionRef="acquisition_setup" />
+      <capability id="postprocess" label="物理诊断后处理" kind="observe" actionRef="postprocess" />
+    </componentType>
+
+    <componentType id="synchronization" label="集中同步分系统" role="timing" quantity="60"
+                   interfaceRef="tango-control" stateModelRef="components/synchronization-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="timing-out" direction="out" interfaceRef="timing-bus" />
+      <port id="safety-in" direction="in" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="preamp-repeat-recipe" label="同步预放重频配方" kind="control" actionRef="repeat_mode" />
+      <capability id="measurement-repeat-recipe" label="同步测量重频配方" kind="control" actionRef="repeat_mode" />
+      <capability id="single-recipe" label="单次配方" kind="control" actionRef="single_mode" />
+      <capability id="synchronous-trigger" label="同步触发" kind="control" actionRef="trigger" />
+      <capability id="count-verification" label="计数核验" kind="observe" actionRef="post_collect" />
+      <capability id="emergency-trigger" implementationStatus="declared-not-yet-modeled" label="紧急触发" kind="safety" />
+    </componentType>
+
+    <componentType id="switch-driver" label="开关驱动源组件" role="switch" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/switch-driver-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="trigger-in" direction="in" interfaceRef="timing-bus" />
+      <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
+      <port id="safety-in" direction="in" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="charge" label="开关充电" kind="control" actionRef="charge" />
+      <capability id="trigger-prepare" label="开关触发准备" kind="control" actionRef="trigger_prepare" />
+      <capability id="collect-waveform" label="放电波形采集" kind="observe" actionRef="collect_waveform" />
+      <capability id="standby" label="开关待机" kind="control" actionRef="standby_reset" />
+    </componentType>
+
+    <componentType id="cooling" label="冷却分系统" role="cooling" quantity="1"
+                   interfaceRef="tango-control" stateModelRef="components/cooling-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="tango-control" />
+      <port id="state-out" direction="out" interfaceRef="tango-control" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="safety-in" direction="in" interfaceRef="interlock-bus" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
+      <capability id="purge" label="片放吹扫" kind="safety" actionRef="purge_start" />
+    </componentType>
+
+    <componentType id="control-environment" label="控制环境组件" role="safety" quantity="1"
+                   interfaceRef="environment-http" stateModelRef="components/control-environment-state-machine.scxml">
+      <port id="command-in" direction="in" interfaceRef="environment-http" />
+      <port id="state-out" direction="out" interfaceRef="environment-http" />
+      <port id="health-out" direction="out" interfaceRef="health-events" />
+      <port id="safety-out" direction="out" interfaceRef="interlock-bus" />
+      <port id="warning-out" direction="out" interfaceRef="building-safety" />
+      <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
+      <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
+      <capability id="clearance" label="清场语音定时喊话" kind="safety" actionRef="clear_area" />
+      <capability id="warning-light-on" implementationStatus="declared-not-yet-modeled" label="警灯开启" kind="safety" />
+      <capability id="warning-sound-on" implementationStatus="declared-not-yet-modeled" label="警示音乐开启" kind="safety" />
+      <capability id="warning-sound-off" implementationStatus="declared-not-yet-modeled" label="警示音乐关闭" kind="safety" />
+      <capability id="warning-light-off" implementationStatus="declared-not-yet-modeled" label="警灯关闭" kind="safety" />
+      <capability id="interlock" implementationStatus="declared-not-yet-modeled" label="环境联锁观测" kind="observe" />
+    </componentType>
+  </componentTypes>
+
+  <instanceSets>
+    <instanceSet id="seed" type="seed" pattern="seed-01" quantity="1" />
+    <instanceSet id="shg" type="shg" pattern="shg-01" quantity="1" />
+    <instanceSet id="preamp" type="preamp" pattern="preamp-{01..10}" quantity="10" />
+    <instanceSet id="multipass" type="multipass" pattern="multipass-{01..60}" quantity="60" />
+    <instanceSet id="pump" type="pump" pattern="pump-01" quantity="1" />
+    <instanceSet id="measurement" type="measurement" pattern="measurement-{01..60}" quantity="60" />
+    <instanceSet id="frequency-conversion" type="frequency-conversion" pattern="frequency-conversion-{01..60}" quantity="60" />
+    <instanceSet id="target-alignment" type="target-alignment" pattern="target-alignment-01" quantity="1" />
+    <instanceSet id="vacuum" type="vacuum" pattern="vacuum-01" quantity="1" />
+    <instanceSet id="diagnostics" type="diagnostics" pattern="diagnostics-01" quantity="1" />
+    <instanceSet id="synchronization" type="synchronization" pattern="synchronization-{01..60}" quantity="60" />
+    <instanceSet id="switch-driver" type="switch-driver" pattern="switch-driver-01" quantity="1" />
+    <instanceSet id="cooling" type="cooling" pattern="cooling-01" quantity="1" />
+    <instanceSet id="control-environment" type="control-environment" pattern="control-environment-01" quantity="1" />
+  </instanceSets>
+
+  <externalInterfaces>
+    <externalInterface id="shield-door" label="靶场中子屏蔽门控制接口" interfaceRef="building-safety" status="protocol-unresolved" />
+    <externalInterface id="personnel-counter" label="人员进出计数接口" interfaceRef="building-safety" status="protocol-unresolved" />
+    <externalInterface id="wind-shower-door" label="风淋门状态接口" interfaceRef="building-safety" status="scope-unresolved" />
+    <externalInterface id="parameter-service" label="发次参数服务端点" interfaceRef="parameter-store" status="contract-unresolved" />
+    <externalInterface id="data-service" label="实验数据存储端点" interfaceRef="experiment-data-store" status="contract-unresolved" />
+    <externalInterface id="reservation-service" label="服务预约端点" interfaceRef="reservation-service" />
+    <externalInterface id="interlock-controller" label="安全联锁控制器" interfaceRef="interlock-bus" status="controller-unresolved" />
+  </externalInterfaces>
+
+  <topology>
+    <path id="optical-path" label="束线光路" resourceRef="beamline">
+      <endpoint ref="seed" role="source" selection="all" />
+      <endpoint ref="shg" role="alternate-source" selection="beamline-01..beamline-08" />
+      <endpoint ref="preamp" role="amplifier" mapping="preamp-group" />
+      <endpoint ref="multipass" role="amplifier" mapping="one-per-beamline" />
+      <endpoint ref="frequency-conversion" role="conversion" mapping="one-per-beamline" />
+      <endpoint ref="target-alignment" role="target" />
+      <connection id="seed-to-preamp" source="seed.optical-out" target="preamp.optical-in" relation="optical-feed" allocation="beamline" />
+      <connection id="shg-to-preamp" source="shg.optical-out" target="preamp.optical-in" relation="alternate-optical-feed" allocation="beamline-01..beamline-08" />
+      <connection id="preamp-to-multipass" source="preamp.optical-out" target="multipass.optical-in" relation="optical-feed" allocation="preamp-group" />
+      <connection id="multipass-to-frequency-conversion" source="multipass.optical-out" target="frequency-conversion.optical-in" relation="optical-feed" allocation="one-per-beamline" />
+      <connection id="frequency-conversion-to-target" source="frequency-conversion.optical-out" target="target-alignment.optical-in" relation="optical-feed" allocation="beamline" />
+    </path>
+    <path id="measurement-path" label="测量取样路径" resourceRef="beamline">
+      <endpoint ref="multipass" role="sample-source" mapping="one-per-beamline" />
+      <endpoint ref="measurement" role="sample" mapping="one-per-beamline" />
+      <endpoint ref="diagnostics" role="diagnostics" />
+      <connection id="multipass-to-measurement" source="multipass.sample-out" target="measurement.sample-in" relation="sample-feed" allocation="one-per-beamline" />
+      <connection id="measurement-to-data-service" source="measurement.data-out" target="data-service.ingest" relation="measurement-data" />
+      <connection id="diagnostics-to-data-service" source="diagnostics.data-out" target="data-service.ingest" relation="diagnostic-data" />
+    </path>
+    <path id="trigger-path" label="同步触发路径" resourceRef="beamline">
+      <endpoint ref="synchronization" role="clock" mapping="one-per-beamline" />
+      <endpoint ref="pump" role="pump-trigger" />
+      <endpoint ref="switch-driver" role="switch-trigger" />
+      <connection id="synchronization-to-pump" source="synchronization.timing-out" target="pump.trigger-in" relation="trigger" allocation="one-per-beamline" />
+      <connection id="synchronization-to-switch" source="synchronization.timing-out" target="switch-driver.trigger-in" relation="trigger" allocation="one-per-beamline" />
+      <connection id="synchronization-to-preamp" source="synchronization.timing-out" target="preamp.command-in" relation="recipe-control" allocation="preamp-group" />
+      <connection id="synchronization-to-measurement" source="synchronization.timing-out" target="measurement.command-in" relation="recipe-control" allocation="one-per-beamline" />
+    </path>
+    <path id="interlock-path" label="安全联锁路径">
+      <endpoint ref="control-environment" role="environment-observer" />
+      <endpoint ref="vacuum" role="vacuum-observer" />
+      <endpoint ref="multipass" role="titanium-pump-vacuum-observer" />
+      <endpoint ref="shield-door" role="door-observer" />
+      <endpoint ref="personnel-counter" role="personnel-observer" />
+      <endpoint ref="wind-shower-door" role="unresolved-door-observer" />
+      <endpoint ref="interlock-controller" role="interlock-controller" />
+      <connection id="control-environment-to-interlock" source="control-environment.safety-out" target="interlock-controller.environment-in" relation="safety-observation" />
+      <connection id="vacuum-to-interlock" source="vacuum.safety-out" target="interlock-controller.target-chamber-vacuum-in" relation="safety-observation" />
+      <connection id="multipass-titanium-pump-to-interlock" source="multipass.safety-out" target="interlock-controller.titanium-pump-vacuum-in" relation="safety-observation" />
+      <connection id="shield-door-to-interlock" source="shield-door.status-out" target="interlock-controller.door-in" relation="safety-observation" />
+      <connection id="personnel-to-interlock" source="personnel-counter.count-out" target="interlock-controller.personnel-in" relation="safety-observation" />
+      <connection id="interlock-to-central-control" source="interlock-controller.event-out" target="central-control.state-in" relation="interlock-event" />
+      <connection id="interlock-broadcast-termination" source="interlock-controller.stop-out" target="all-components.command-in" relation="emergency-termination" cardinality="broadcast" />
+    </path>
+    <path id="control-path" label="集中控制与服务连接">
+      <endpoint ref="central-control" role="orchestrator" />
+      <endpoint ref="parameter-service" role="parameter-provider" />
+      <endpoint ref="reservation-service" role="reservation-provider" />
+      <endpoint ref="data-service" role="data-provider" />
+      <connection id="parameter-service-to-central-control" source="parameter-service.parameter-out" target="central-control.parameter-in" relation="parameter-read" />
+      <connection id="central-control-to-components" source="central-control.command-out" target="all-components.command-in" relation="command" cardinality="fan-out" />
+      <connection id="components-to-health-events" source="all-components.health-out" target="central-control.state-in" relation="health-and-heartbeat" cardinality="fan-in" />
+      <connection id="central-control-to-reservation" source="central-control.reservation" target="reservation-service.lease" relation="resource-reservation" />
+      <connection id="components-to-data-service" source="all-components.data-out" target="data-service.ingest" relation="experiment-data" cardinality="fan-in" />
+    </path>
+  </topology>
+
+  <mappings>
+    <mapping id="preamp-to-beamline" source="preamp" target="beamline" sourceQuantity="10" targetQuantity="60" membersPerSource="6" />
+    <mapping id="source-selection" source="seed shg" target="beamline" alternateCount="8" defaultSource="seed" />
+    <mapping id="beamline-components" source="multipass measurement frequency-conversion synchronization" target="beamline" cardinality="one-to-one" />
+  </mappings>
+
+  <invariants>
+    <invariant id="single-pump" severity="error" label="设施只有一套泵浦分系统">
+      <require type="pump" quantity="1" />
+    </invariant>
+    <invariant id="beamline-source-selection" severity="error" label="束线光源选择受固定拓扑约束">
+      <require resource="beamline-01..beamline-08" sources="seed shg" />
+      <require resource="beamline-09..beamline-60" sources="seed" />
+    </invariant>
+    <invariant id="preamp-coverage" severity="error" label="十套预放覆盖六十条束线">
+      <require mapping="preamp-to-beamline" />
+    </invariant>
+    <invariant id="one-to-one-beamline-services" severity="error" label="束线级设备按束线一一绑定">
+      <require mapping="beamline-components" />
+    </invariant>
+    <invariant id="safety-interlock-inputs" severity="error" label="安全联锁必须具备环境、人员和真空输入">
+      <require ref="shield-door" state="locked" />
+      <require ref="personnel-counter" fact="zero" />
+      <require ref="vacuum" fact="vacuumStable" />
+    </invariant>
+    <invariant id="synchronous-trigger-window" severity="error" label="同步触发具有固定时间窗口">
+      <event connection="synchronization-to-pump" name="triggerAccepted" time="T0" />
+      <event connection="synchronization-to-pump synchronization-to-switch" name="triggerReady" deadline="T+3s" />
+      <event connection="synchronization-to-pump" name="formalTrigger" deadline="T+5s" />
+    </invariant>
+    <invariant id="exclusive-shot-reservation" severity="error" label="同一实验资源不能被多个发次同时占用">
+      <require resource="shot-reservation" cardinality="exclusive" />
+    </invariant>
+  </invariants>
+
+  <openIssues>
+    <issue id="wind-shower-scope" status="open" impact="safety" summary="风淋门是否属于安全联锁和光路准直前置条件尚未确认" />
+    <issue id="building-interface-contract" status="open" impact="interface" summary="屏蔽门和人员计数接口的协议、响应状态和执行时长尚未确认" />
+    <issue id="emission-success-criterion" status="open" impact="operation" summary="正式发射完成以同步总体结果还是泵浦触发结果为硬判据尚未确认" />
+    <issue id="postprocess-release-gate" status="open" impact="safety" summary="屏蔽门打开是否等待全部后处理或仅等待最终泵浦待机尚未确认" />
+    <issue id="preionization-pump-count" status="assumed" impact="topology" summary="预电离链路按一套泵浦分系统建模，图纸中的第二套标注待修正" />
+    <issue id="beamline-readiness-split" status="assumed" impact="operation" summary="测量打靶运动准备和打靶运动准备保留为两个独立就绪事实" />
+  </openIssues>
+</system-definition>

@@ -21,9 +21,13 @@ public class ModelStore {
     @PostConstruct public synchronized void initialize() throws Exception {
         Files.createDirectories(directory.resolve("models"));
         var resolver=new PathMatchingResourcePatternResolver();
-        for(String pattern:List.of("classpath*:processes/*.bpmn20.xml","classpath*:component-models/*.scxml","classpath*:system-models/*.system.xml"))
+        for(String pattern:List.of("classpath*:processes/*.bpmn20.xml","classpath*:component-models/*.scxml",
+                "classpath*:system-models/*.system-definition.xml","classpath*:system-models/*-binding.xml",
+                "classpath*:system-models/*-state-projection.xml"))
             for(var resource:resolver.getResources(pattern)) {
-                String name=resource.getFilename(), id=name.replace(".bpmn20.xml", "").replace(".scxml", "").replace(".system.xml", "");
+                String name=resource.getFilename(), id=name.endsWith(".system-definition.xml")
+                    ? name.replace(".system-definition.xml", "")
+                    : name.replace(".bpmn20.xml", "").replace(".scxml", "").replace(".xml", "");
                 try(var input=resource.getInputStream()) {
                     String xml=new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
                     if(Files.exists(path(id))) {
@@ -33,7 +37,7 @@ public class ModelStore {
                         // Refresh untouched built-in examples without overwriting user drafts or versions.
                         if(!last.path("validation").path("builtin").asBoolean() || !previous.path("draft").asText().equals(last.path("xml").asText()) || xml.equals(last.path("xml").asText()))continue;
                     }
-                    save(id,name,name.endsWith("scxml")?"scxml":name.endsWith(".system.xml")?"system":"bpmn",xml);
+                    save(id,name,name.endsWith("scxml")?"scxml":(name.endsWith(".system-definition.xml")||name.endsWith("-binding.xml")||name.endsWith("-state-projection.xml"))?"system":"bpmn",xml);
                     addRevision(id,json.createObjectNode().put("valid",true).put("builtin",true));
                 }
             }

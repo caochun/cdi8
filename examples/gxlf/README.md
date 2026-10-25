@@ -27,13 +27,17 @@
 
 完整实验的[主干设计 BPMN](design/gxlf_experiment_backbone.bpmn20.xml)与系统状态的对应关系已整理在[实验主干与系统状态对应表](../../docs/domain/gxlf/process-control/实验主干与系统状态对应表.md)。主干按业务说明保留并行、屏障、证据等待和异常路径，明确标为非执行设计；不改变下面的实际执行范围。
 
-新增的 `gxlf_initialization_parameter_dispatch` 是第一段可执行技术验证切片：同一份系统状态记录从 `uninitialized` 经过 `powered`、`initialized`、`configuring` 到 `configured`，并对十二类可参数化设备执行参数下发，再执行技术验证版发射准备动作链。它暂时使用当前状态和命令终态作为参数生效判据，并使用模拟控制环境联锁和真空状态假设；生产发次/版本关联、完整安全联锁和双通道证据仍需替换为正式证据协议。
+`gxlf_initialization_parameter_dispatch` 曾是第一段可执行技术验证切片，但它依赖已经删除的综合系统状态模型。当前保留该 BPMN 作为业务草稿，待设施状态投影和发次运行模型建立后重新接入；不能把它当作当前可运行入口。
 
 初始化要求组件处于未就绪；上电检查只确认设备均已上电，功能检查通过后才取得业务就绪资格。参数下发后，前期准备流程可以选择种子源、二倍频或两者参与供光。
 
-十四类设备初始化已接入独立 BPMN。工作台选择入口“GXLF 十四类设备初始化”，配置十四类设备实例、应用环境后即可调试。Java 端到端测试每类使用一个实例，验证 28 条命令；不代表业务名义的 259 台规模已经验收。
+十四类设备初始化 BPMN 同样处于待迁移状态。新的系统定义按业务名义声明设备数量，但不代表当前工作台已经按 259 台规模完成联调。
 
-[`gxlf-experiment.system.xml`](system/gxlf-experiment.system.xml) 声明从初始化到现场释放的 17 个系统状态。命名设备事实、进入条件、持续条件和转换阻断统一表达；完整联锁、双通道同步、本发时序及后处理历史证据不足的转换明确阻断。完整实验主干已经有非执行 BPMN 业务设计；十四类设备的后续全生命周期操作尚未接入可执行 BPMN。六步建模过程见 [GXLF 系统状态模型设计](../../docs/domain/gxlf/process-control/系统状态模型设计.md)。
+[`gxlf-facility.system-definition.xml`](system/gxlf-facility.system-definition.xml) 是当前唯一的设施系统定义源文件。它声明 14 类分系统、60 条束线资源、设备能力、端口、Tango/HTTP/建安接口、光路/同步/控制/联锁拓扑及显式连接，以及数量、覆盖和安全不变量。它不声明设备当前状态，也不包含发次阶段、参数、采集历史或正式发射结果。
+
+[`gxlf-facility-binding.xml`](system/gxlf-facility-binding.xml) 声明逻辑实例、束线映射和外部接口如何由运行环境解析；[`gxlf-facility-state-projection.xml`](system/gxlf-facility-state-projection.xml) 声明设备观测如何组合为设施事实和可复用放行谓词。两者都不保存某一次发射的阶段或结果。
+
+设备的动态状态仍由 `components/` 下的 SCXML 描述；发次运行模型和 BPMN 主干将分别在后续建模。旧的综合状态模型和设施状态投影已经删除，避免继续把设施结构和发次运行语义混在一起。
 
 正式发射完成表示触发链路完成，完整任务仍需等待发射后处理结束。真实分系统、配方参数、束线 / 能量拓扑、发次证据和物理停止策略仍需接入。
 
@@ -41,7 +45,7 @@
 
 ## 验证与业务资料
 
-启动方式见[项目说明](../../README.md)。全 Java 联调测试由 [JavaWorkbenchE2eIT](../../server/src/test/java/cn/cdi8/workbench/JavaWorkbenchE2eIT.java) 覆盖，包含十四类初始化正常/失败路径，以及原四组件 GXLF 演示生命周期。
+启动方式见[项目说明](../../README.md)。当前不保留自动化测试源码，验证通过启动 Java Workbench、创建十四类设备环境并手工运行流程完成。
 
 - [状态定义](../../docs/domain/gxlf/component-states/README.md)
 - [前期准备](../../docs/domain/gxlf/process-control/种子源至多程放大前期准备流程.md)
@@ -58,4 +62,4 @@
 make java-workbench-smoke
 ```
 
-使用 Java 17。测试创建隔离 Java 多设备环境，验证全体上电屏障、缺设备拒绝、单设备功能失败和系统状态证据，同时回归原双光源演示；不修改日常工作台的数据。设备测试另覆盖实际充电完成、保护吹扫、真空失效和联锁异常锁存。
+使用 Java 17。手工联调应重点检查全体上电屏障、缺设备拒绝、单设备功能失败和系统状态证据；不代表完整发射流程或现场规模已经验收。

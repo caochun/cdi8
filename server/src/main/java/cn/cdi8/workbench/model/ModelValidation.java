@@ -10,6 +10,9 @@ import org.flowable.bpmn.converter.BpmnXMLConverter;
 import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.validation.ProcessValidatorFactory;
 import org.springframework.stereotype.Service;
+import cn.cdi8.workbench.systemdefinition.SystemDefinitionModel;
+import cn.cdi8.workbench.facility.FacilityBindingModel;
+import cn.cdi8.workbench.facility.FacilityStateProjectionModel;
 
 @Service
 public class ModelValidation {
@@ -29,8 +32,34 @@ public class ModelValidation {
         ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
         try {
             if("system".equals(kind)) {
-                var model=cn.cdi8.workbench.systemstate.SystemStateModel.parse(xml);
-                value.put("systemModel",model.id());value.put("valid",true);return value;
+                switch (rootName(xml)) {
+                    case "system-definition" -> {
+                        var model=SystemDefinitionModel.parse(xml);
+                        value.put("systemDefinition",model.id());
+                        value.put("componentTypes",model.componentTypeCount());
+                        value.put("instanceSets",model.instanceSetCount());
+                        value.put("invariants",model.invariantCount());
+                        value.put("connections",model.connectionCount());
+                        value.put("openIssues",model.openIssueCount());
+                    }
+                    case "facility-binding" -> {
+                        var model=FacilityBindingModel.parse(xml);
+                        value.put("facilityBinding",model.id());
+                        value.put("instanceBindings",model.instanceBindingCount());
+                        value.put("beamlineBindings",model.beamlineBindingCount());
+                        value.put("externalBindings",model.externalBindingCount());
+                    }
+                    case "facility-state-projection" -> {
+                        var model=FacilityStateProjectionModel.parse(xml);
+                        value.put("facilityStateProjection",model.id());
+                        value.put("observations",model.observationCount());
+                        value.put("facts",model.factCount());
+                        value.put("guards",model.guardCount());
+                        value.put("invalidators",model.invalidatorCount());
+                    }
+                    default -> throw new IllegalArgumentException("不支持的系统模型根元素："+rootName(xml));
+                }
+                value.put("valid",true);return value;
             }
             var model=parse(xml);
             cn.cdi8.workbench.systemstate.SystemStateModel.validateProcess(model);
@@ -49,6 +78,13 @@ public class ModelValidation {
                 item.put("line",error.getLocation().getLineNumber()).put("column",error.getLocation().getColumnNumber());
         }
         value.put("valid",diagnostics.isEmpty());return value;
+    }
+    private static String rootName(String xml) throws Exception {
+        var factory=javax.xml.parsers.DocumentBuilderFactory.newInstance();factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities",false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities",false);
+        return factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new StringReader(xml))).getDocumentElement().getLocalName();
     }
     private java.util.List<org.flowable.bpmn.model.FlowElement> allElements(org.flowable.bpmn.model.FlowElementsContainer container) {
         var result=new java.util.ArrayList<org.flowable.bpmn.model.FlowElement>();
