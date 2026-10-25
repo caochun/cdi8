@@ -18,10 +18,12 @@ public final class SystemDefinitionModel {
     private final int connectionCount;
     private final int openIssueCount;
     private final Map<String, Set<String>> capabilities;
+    private final Map<String, Map<String, String>> actionRefs;
 
     private SystemDefinitionModel(String id, String name, String version,
                                   int componentTypeCount, int instanceSetCount, int invariantCount,
-                                  int connectionCount, int openIssueCount, Map<String, Set<String>> capabilities) {
+                                  int connectionCount, int openIssueCount, Map<String, Set<String>> capabilities,
+                                  Map<String, Map<String, String>> actionRefs) {
         this.id = id;
         this.name = name;
         this.version = version;
@@ -31,6 +33,9 @@ public final class SystemDefinitionModel {
         this.connectionCount = connectionCount;
         this.openIssueCount = openIssueCount;
         this.capabilities = Collections.unmodifiableMap(new LinkedHashMap<>(capabilities));
+        var actions = new LinkedHashMap<String, Map<String, String>>();
+        actionRefs.forEach((component, values) -> actions.put(component, Map.copyOf(values)));
+        this.actionRefs = Collections.unmodifiableMap(actions);
     }
 
     public String id() { return id; }
@@ -43,6 +48,9 @@ public final class SystemDefinitionModel {
     public int openIssueCount() { return openIssueCount; }
     public boolean hasCapability(String component, String capability) {
         return capabilities.getOrDefault(component, Set.of()).contains(capability);
+    }
+    public String actionRef(String component, String capability) {
+        return actionRefs.getOrDefault(component, Map.of()).getOrDefault(capability, "");
     }
 
     public static SystemDefinitionModel parse(String xml) {
@@ -83,6 +91,7 @@ public final class SystemDefinitionModel {
             var externalIds = ids(section(root, "externalInterfaces"), "externalInterface");
             var controlNodeIds = ids(controlNodes, "controlNode");
             Map<String, Set<String>> capabilitiesByType = new LinkedHashMap<>();
+            Map<String, Map<String, String>> actionRefsByType = new LinkedHashMap<>();
             for (var type : children(componentTypes)) {
                 requireElement(type, "componentType");
                 required(type, "id"); required(type, "label"); positive(type, "quantity");
@@ -101,12 +110,19 @@ public final class SystemDefinitionModel {
                     throw new IllegalArgumentException("设备类型包含不支持的子元素：" + child.getLocalName());
                 validateScopedIds(type, "capability");
                 var typeCapabilities = new LinkedHashSet<String>();
+                var typeActions = new LinkedHashMap<String, String>();
                 for (var capability : capabilities) {
                     requireElement(capability, "capability");
                     required(capability, "id"); required(capability, "label"); required(capability, "kind");
                     typeCapabilities.add(capability.getAttribute("id"));
+                    if (capability.hasAttribute("actionRef")) {
+                        String actionRef = capability.getAttribute("actionRef").trim();
+                        if (actionRef.isBlank()) throw new IllegalArgumentException("能力 actionRef 不能为空：" + type.getAttribute("id"));
+                        typeActions.put(capability.getAttribute("id"), actionRef);
+                    }
                 }
                 capabilitiesByType.put(type.getAttribute("id"), Set.copyOf(typeCapabilities));
+                actionRefsByType.put(type.getAttribute("id"), typeActions);
             }
             if (controlNodes != null) for (var node : children(controlNodes)) {
                 requireElement(node, "controlNode"); required(node, "id"); required(node, "label"); required(node, "role");
@@ -117,6 +133,7 @@ public final class SystemDefinitionModel {
                     controlCapabilities.add(capability.getAttribute("id"));
                 }
                 capabilitiesByType.put(node.getAttribute("id"), Set.copyOf(controlCapabilities));
+                actionRefsByType.putIfAbsent(node.getAttribute("id"), Map.of());
                 for (var port : children(node).stream().filter(child -> "port".equals(child.getLocalName())).toList()) {
                     required(port, "id"); required(port, "direction");
                     if (!interfaceIds.contains(required(port, "interfaceRef")))
@@ -168,7 +185,7 @@ public final class SystemDefinitionModel {
                 openIssueCount++;
             }
             return new SystemDefinitionModel(id, name, version, children(componentTypes).size(), children(instanceSets).size(),
-                invariants == null ? 0 : children(invariants).size(), connectionCount, openIssueCount, capabilitiesByType);
+                invariants == null ? 0 : children(invariants).size(), connectionCount, openIssueCount, capabilitiesByType, actionRefsByType);
         } catch (IllegalArgumentException ex) {
             throw ex;
         } catch (Exception ex) {

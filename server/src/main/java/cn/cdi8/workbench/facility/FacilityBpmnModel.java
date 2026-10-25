@@ -29,6 +29,15 @@ public final class FacilityBpmnModel {
                     if(dot<1||dot==ref.length()-1||!definition.hasCapability(ref.substring(0,dot),ref.substring(dot+1)))
                         throw new IllegalArgumentException("fac:capability 引用了未定义能力："+ref+" / "+element.getId());
                 }
+                for(var extension:extensions(element,"action",FACILITY_NS)) {
+                    String component=attr(extension,"component"), capability=attr(extension,"capability"), collection=attr(extension,"collection");
+                    if(component.isBlank()||capability.isBlank()||collection.isBlank())
+                        throw new IllegalArgumentException("fac:action 必须声明 component、capability、collection："+element.getId());
+                    if(!definition.hasCapability(component,capability))
+                        throw new IllegalArgumentException("fac:action 引用了未定义能力："+component+"."+capability+" / "+element.getId());
+                    if(definition.actionRef(component,capability).isBlank())
+                        throw new IllegalArgumentException("fac:action 能力尚未绑定 SCXML 动作："+component+"."+capability+" / "+element.getId());
+                }
                 for(var extension:extensions(element,"stage",RUN_NS)) {
                     String stage=attr(extension,"value");if(!STAGES.contains(stage))throw new IllegalArgumentException("run:stage 未知阶段："+stage+" / "+element.getId());
                 }
