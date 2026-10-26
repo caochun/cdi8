@@ -681,76 +681,78 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "169": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "170": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "171": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "172": {
-        "states": [
-          "purgeActive"
-        ]
-      },
-      "173": {
-        "states": [
-          "purgeComplete"
-        ]
-      },
-      "174": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "175": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "176": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "177": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "178": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "179": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "169": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "170": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "171": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "172": {
+          "states": [
+            "purgeActive"
+          ]
+        },
+        "173": {
+          "states": [
+            "purgeComplete"
+          ]
+        },
+        "174": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "175": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "176": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "177": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "178": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "179": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "吹扫启动成功与实际完成严格分开。purgeActive 不提供待机、异常中止复位或关机动作，不因本发终止或资格撤销直接退出；保护吹扫继续到内部完成反馈。",
-    "通信或设备故障仍进入异常，异常恢复事件仅允许在全部保护任务已完成且设备物理安全后发出。下一发光路准直等待吹扫停止由流程层控制。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "吹扫启动成功与实际完成严格分开。purgeActive 不提供待机、异常中止复位或关机动作，不因本发终止或资格撤销直接退出；保护吹扫继续到内部完成反馈。",
+      "通信或设备故障仍进入异常，异常恢复事件仅允许在全部保护任务已完成且设备物理安全后发出。下一发光路准直等待吹扫停止由流程层控制。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

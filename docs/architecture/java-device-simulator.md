@@ -5,8 +5,8 @@
 ## 组成
 
 - `engine/ScxmlEngine`：Apache Commons SCXML 2.0 固定时间戳快照 `2.0-20260701.010636-103`，处理状态迁移、层级进入/退出、事件匹配、守卫和赋值。
-- `runtime/ComponentModel`：读取项目 `componentMetadata`，并通过同一 Apache 引擎检查可执行性；组件协议要求单一活动叶子状态，不支持 `parallel`。
-- `runtime/ComponentRuntime`：命令幂等、反馈关联、SQLite、组件上下文和快照；快照包括实际工作台版本 `model_revision`。
+- `runtime/ComponentModel`：使用共享 `model-contract/ComponentContract` 严格校验项目 `componentMetadata` 及状态/事件引用，并通过同一 Apache 引擎检查可执行性；组件协议要求单一活动叶子状态，不支持 `parallel`。
+- `runtime/ComponentRuntime`：命令幂等、反馈关联、SQLite、组件上下文和快照；快照包括实际工作台发布快照标识 `model_revision` 及 XML 摘要 `model_digest`（运行时不选择版本分支）。
 - `tango/ComponentDevice`：JTango 的 `Snapshot` 属性及 `Execute`、`Complete`、`Simulate`、`ReportEvent`、`GetResult`、`History` 命令；同一设备类承载 context 条件设备及 `SetConditions`。
 - `SimulatorApplication`：一个 JVM 承载多个逻辑设备，使用 `-nodb`、独立 DServer 身份及端口。
 - `bridge/JavaControlBridgeApplication`：HTTP/NDJSON → JTango DeviceProxy；每代环境独占绑定、订阅、快照及事件流。
@@ -25,7 +25,7 @@ make workbench-stop
 make workbench-restart
 ```
 
-根 `mvn package` 默认构建 `device-simulator`、`server` 及前端。`java-simulator` profile 保留为空的兼容入口，原有 `-Pjava-simulator -pl device-simulator` 命令仍可使用。
+根 `mvn package` 默认构建共享 `model-contract`、`device-simulator`、`server` 及前端。单独构建设备模块使用 `mvn -pl device-simulator -am package`。
 
 也可分别启动：
 
@@ -82,14 +82,12 @@ HTTP 路径保持既有契约：`/devices`、`/devices/{id}`、设备 `commands`
 ## 验证
 
 ```bash
-# 默认 Java 单元与集成测试
+# 默认 Java 模块及前端构建
 mvn package
 # 构建并启动隔离 Java 服务
 make java-workbench-smoke
 # 已打包时单独运行端到端测试
-mvn -pl server -Dexec.skip=true package
+mvn -Pnew-chain-e2e -Dexec.skip=true verify
 ```
 
-端到端测试覆盖：校验与独立试验、失败/成功反馈、双设备实例及隔离、固定模型版本、重复反馈、条件等待、自动完成、Flowable 历史和设备追踪、版本变更后重建、非法配置保留旧环境、设备崩溃恢复、bridge 重启，以及四组件与条件设备参与的 GXLF 双光源完整生命周期。
-
-端到端验证只使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable。
+`NewChainIT` 使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable，覆盖十四类设备初始化、参数接收、多实例证据、命令失败、目标状态不符、取消、超时、设备崩溃、guard 拦截及循环重入。独立试验、完整发射、资源租约和外部安全事实仍需继续补充测试。

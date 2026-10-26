@@ -2,7 +2,7 @@
 
 项目定位为实验流程模型及流程涉及的组件状态机的开发、运行和调试工作台，支持 **BPMN / SCXML 模型编辑、校验、版本管理、模拟环境配置和流程联调**。浏览器通过 Vue / Monaco 编辑模型，Java / Flowable 执行 BPMN，独立的设备模拟服务通过真实 Tango 命令和属性事件提供组件行为。
 
-GXLF 四类组件和发射任务作为内置业务示例。示例源文件、执行实现和用户运行数据分别维护。
+GXLF 十四类设备模型、设施定义/绑定/状态投影与可执行的初始化及参数接收流程作为内置业务示例。示例源文件、执行实现和用户运行数据分别维护。
 
 ```text
 浏览器工作台
@@ -19,9 +19,10 @@ Java Device Server：多个 SCXML 组件实例及条件设备 + 独立 SQLite
 | 目录 | 职责 |
 |---|---|
 | [frontend/](frontend/) | Vue / TypeScript 工作台、编辑器、图形预览及公共浏览器资源 |
+| [model-contract/](model-contract/) | 服务端与设备共用的 SCXML 元数据结构和静态引用校验 |
 | [server/](server/) | Spring Boot 后端和 Flowable；按模型、运行、集成和追踪分包 |
 | [examples/minimal/](examples/minimal/) | 新建模型使用的最小 BPMN / SCXML，前端直接导入这些 XML |
-| [examples/gxlf/](examples/gxlf/) | GXLF 的六个 BPMN 和四个 SCXML 示例模型 |
+| [examples/gxlf/](examples/gxlf/) | GXLF 十四类 SCXML、设施模型、可执行初始化切片和完整发次设计 |
 | [contracts/](contracts/) | 命令、结果、设备事件的接口约定和 JSON Schema |
 | [device-simulator/](device-simulator/) | Java 17 + Apache Commons SCXML + JTango 的通用组件模拟器 |
 | `server/`、`device-simulator/` | Java Workbench、Java Tango bridge 和设备服务生产代码 |
@@ -46,7 +47,7 @@ make workbench-stop
 make workbench-restart
 ```
 
-访问 **http://127.0.0.1:8080/**。首次启动 bridge 没有设备，在“运行准备”选择模型版本后点击“创建模拟设备”；也可先“使用示例方案”预填四组件配置。Java bridge 创建一个设备子 JVM，承载全部组件实例和同步条件设备。
+访问 **http://127.0.0.1:8080/**。首次启动 bridge 没有设备，在“运行准备”选择模型版本后点击“创建模拟设备”；“使用示例方案”会选择 `gxlf_shot_run_smoke`，预填十四类组件与本发参数。Java bridge 创建一个设备子 JVM，承载全部组件实例和同步条件设备。
 
 JAR 运行副本、PID 和日志保存在 `data/runtime/`，构建目录可以安全重新打包。已有工作台模型、版本、配置及 Flowable 数据继续使用 `data/`；历史运行仍可查看。
 
@@ -77,7 +78,8 @@ mvn clean package
 # 已有前端构建时只打包 Java 模块
 mvn -Dexec.skip=true package
 
-# 当前暂不维护自动化测试用例；开发验证通过启动 Workbench 和手工运行流程完成。
+# 新链路端到端测试：随机端口、临时数据库、真实 Java Tango 设备
+mvn -Pnew-chain-e2e verify
 
 # 启动 Java 后端，工作目录保持为仓库根目录
 make operator
@@ -86,13 +88,13 @@ make operator
 npm run dev --prefix frontend
 ```
 
-全 Java 验证会启动隔离的 Java bridge、Java 多设备进程和 Java Workbench：
+也可以用下面的目标构建并执行 Java 新链路端到端测试：
 
 ```bash
 make java-workbench-smoke
 ```
 
-覆盖模型校验、独立试验、双设备实例、版本固定、反馈幂等、自动完成、条件等待、完整 GXLF 双光源流程、运行记录、环境重建、设备进程崩溃与 bridge 重启。它使用临时模型库和数据库，不修改日常工作台环境。
+`NewChainIT` 通过工作台 HTTP API 创建模拟环境，验证十四类设备初始化、参数接收、多实例动作证据，以及失败、目标状态不符、取消、超时、失联、guard 拦截和循环重入。完整正式发射、安全联锁及资源服务接入仍见 [todo.md](todo.md)。
 
 ## 运行数据和当前范围
 
@@ -101,6 +103,9 @@ make java-workbench-smoke
 - 模型编辑不覆盖 `examples/`；导出 XML 后可经代码审查更新示例源文件。
 - SCXML 校验、独立试验及模拟设备统一使用 Java / Apache Commons SCXML；组件协议要求单一活动叶子状态，不支持 `parallel`。
 - 一个 Java 设备 JVM 按选定的 SCXML 元数据承载多个逻辑设备，Java bridge 通过真实 JTango 命令、属性和事件访问它们；事件不可用时补读快照。
-- GXLF 的启动、完成和持续资格规则集中在后端 `scenarios/gxlf/`；通用执行通过规则接口调用。运行调试已原生集成 Vue。
+- 唯一执行链路是 `system-definition + facility-binding + facility-state-projection + shot-run + BPMN fac:action + Java SCXML/Tango`。旧综合系统状态运行时、GXLF 硬编码策略和旧 `POST /api/runs` 启动入口已删除；启动统一使用 `POST /api/workbench/runs`。
+- `gxlf_shot_run_smoke` 完成仅代表初始化与本发参数接收切片完成，不表示正式发射。外部安全和真实服务心跳仍为 unknown；示例使用明确命名的模拟初始化 guard。
 
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。
+
+BPMN 自定义扩展、SCXML 元数据及跨模型引用约定见[自定义模型契约](docs/architecture/custom-model-contracts.md)。

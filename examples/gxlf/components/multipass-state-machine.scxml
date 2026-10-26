@@ -716,76 +716,78 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "39": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "40": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "41": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "42": {
-        "states": [
-          "collimationReady"
-        ]
-      },
-      "43": {
-        "states": [
-          "shotReady"
-        ]
-      },
-      "44": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "45": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "46": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "47": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "48": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "49": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "39": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "40": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "41": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "42": {
+          "states": [
+            "collimationReady"
+          ]
+        },
+        "43": {
+          "states": [
+            "shotReady"
+          ]
+        },
+        "44": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "45": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "46": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "47": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "48": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "49": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "第42行父状态为准直完成，第43行为具备打靶状态；shotReady 从旧模型的 ready 移出。第42行描述仍有“准直过程”字样，采用已完成的 D/E 列及完成反馈判据。",
-    "正常完成无需强制将光学元件复位；保留按需待机/复位闭环。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "第42行父状态为准直完成，第43行为具备打靶状态；shotReady 从旧模型的 ready 移出。第42行描述仍有“准直过程”字样，采用已完成的 D/E 列及完成反馈判据。",
+      "正常完成无需强制将光学元件复位；保留按需待机/复位闭环。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

@@ -5,11 +5,12 @@
 ## 当前模块
 
 - `frontend/`：所有浏览器代码和第三方绘图资源。Vue 构建产物进入根目录 `target/workbench-static/`；vendor 与状态图布局资源位于 `frontend/public/`，由 server 一并打包到静态资源根路径。`/` 直接提供工作台 HTML，无客户端或 HTTP 跳转。
-- `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；`mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
+- `server/`：Java Maven 模块，产物为 `server/target/workbench-server-0.1.0.jar`。根 POM 聚合模块并统一 Java / Flowable 版本；先执行 `mvn -pl model-contract -am install` 安装共享模型契约，再使用 `mvn -pl server spring-boot:run` 从仓库根目录启动进程，继续使用原有 `data/`。
+- `model-contract/`：服务端与设备共用的 SCXML 元数据及静态引用校验。
 - `device-simulator/`：默认 Java bridge、模拟环境管理、独立试验及 Apache SCXML / JTango 多设备进程。
-- `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/bpmn/`、`gxlf/components/` 和 `gxlf/system/` 分别提供 Java 内置流程、十四类设备模型和 GXLF 设施系统定义。
+- `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/design/` 保存不可执行的发次主干设计，`gxlf/components/` 和 `gxlf/system/` 分别提供十四类设备模型与 GXLF 设施模型。
 - `contracts/`：跨运行时的命令、结果与事件格式。
-- 当前仓库暂不保留自动化测试源码；开发验证通过构建、启动 Workbench 和手工运行流程完成。
+- `server/src/test/java/cn/cdi8/workbench/NewChainIT.java` 从 HTTP API 执行 Flowable、真实 JTango 和 Java SCXML 联调；`make java-workbench-smoke` 构建并执行隔离测试。
 
 后端目前按职责分包：
 
@@ -19,8 +20,8 @@
 | `model` | 模型存储、校验、草稿编辑和版本发布 |
 | `application` | 对 API 保持稳定的工作台门面 |
 | `environment` | 运行方案存取、环境替换及空闲约束 |
-| `run` | 固定版本的运行部署、Flowable 等待、通用命令推进和场景规则接口 |
-| `scenarios.gxlf` | GXLF 示例的流程入口选择、参与设备集合和场景特定检查 |
+| `run` | 运行部署、发次记录、设备命令推进、超时和终态 |
+| `facility` | 系统定义/绑定/状态投影解析、设施 guard 和动作队列 |
 | `integration.flowable` | 自定义组件命令活动和 BPMN 解析适配 |
 | `integration.tango` | 设备服务 HTTP 客户端及事件连接 |
 | `trace` | 按运行保存设备事件 |
@@ -35,15 +36,19 @@
 
 运行视图的 controller 在组件内部创建 BPMN viewer，限定 DOM 查询与样式作用域；离开运行调试时取消请求、轮询、布局任务及图形实例。切换记录时保留所选运行的部署 XML 和设备快照语义，历史运行只读。SCXML 继续使用隐藏的状态图布局渲染器隔离 SCHVIZ；该渲染器只计算布局，不承载运行调试页面或执行状态机。
 
-## 操作流程与实验系统状态
+## 操作流程与实验设施状态
 
-操作模型和整体状态声明是两个独立模型。BPMN 描述设备操作、参与集合、等待/汇合、超时和失败响应；`.system.xml` 声明整个实验系统的高层状态、合法转换和跨设备谓词。流程在经验证的操作里报告转换，运行时验证目标状态的设备证据后更新系统状态。`sys:requires` 可要求后续操作开始前系统仍处于指定状态。
+当前模型分成四个职责面：`system-definition` 描述设施结构、能力、输入依赖、输出成立条件和结构约束，`facility-binding` 描述逻辑实例到运行设备的绑定，`facility-state-projection` 从观测计算实时事实和 guard，BPMN 与 `shot-run` 描述一次发次的操作和证据。设备 SCXML 仍负责单设备状态、动作准入和本地故障。详细边界见 [操作模型与系统模型](operational-and-declarative-models.md) 和 [实验过程约束](process-constraints.md)。
 
-设备动作准入仍由 SCXML 请求迁移、`cond` 守卫和设备忙闲互斥执行。BPMN 的 `act:actionContract` 引用设备原生就绪结果；`act:entryCondition` 只能附加更严格的当前任务条件。系统状态谓词表达跨设备实验事实，不会替代设备本地联锁。详细格式与失效语义见 [实验过程约束](process-constraints.md)。
+可执行 BPMN 使用 `fac:requires`、`fac:action` 和 `run:stage`。guard 在 serviceTask 进入时检查，包括普通表达式任务；动作按绑定集合串行执行，成功必须同时满足命令终态和目标状态。动作任务统一声明 `flowable:delegateExpression="${facilityActions}"`，不能同时使用记录表达式。每设备结果自动写入 shot-run；`run:records` 仍仅用于不可执行设计。
 
-运行变量 `experimentSystemState` 保存当前系统状态、转换历史、完整性和设备证据。Tango 事件、快照刷新、状态转换与命令下发由 `systemstate.SystemStateRuntime` 协调；已观察的违例或证据未知会锁存并停止流程。系统声明随 BPMN deployment resource 固定，服务重启后按运行所用部署恢复。
+活动还可声明 `fac:completion`，在命令队列全部成功后等待设施事实或 guard。`FacilityCompletionRuntime` 管理持久化等待，投影变化通知和定时补查由 `WorkflowService` 协调，满足条件后触发 Flowable；超时/取消保留等待诊断。详见[活动完成条件](activity-completion.md)。
 
-旧 `https://cdi8.cn/control/qualification/v1` BPMN 扩展已移除，不做兼容解释；模型验证会提示迁移。动作契约独立使用 `https://cdi8.cn/control/action-contract/v1`。
+`FacilityDependencyRuntime` 从系统定义展开当前能力的输入依赖，按束线映射、预放分组与本发选源解析上游实例。投影提供逐设备事实；事件触发失效锁存，协调器在下发前、执行期间与验收时核验，失败时保留依赖证据与未决设备动作。模型预览展示依赖声明，节点详情展示当前检查结果。详见[设施能力的输入依赖](capability-dependencies.md)。
+
+`examples/gxlf/processes/gxlf_shot_run_smoke.bpmn20.xml` 是默认初始化和参数接收切片；完整主干仍在 design/ 中设计。设施模型在部署前读取已保存的当前版本，运行时与部署归档使用同一 XML；后端恢复在途运行时从该部署恢复设施模型。
+
+旧综合系统状态运行时、旧动作契约、GXLF 场景策略与旧 `POST /api/runs` 启动入口已删除。旧扩展校验失败，不再保留兼容执行。前端读取 `facilityState` 和 `shotRun`，历史运行显示结束时的设施快照。
 
 ## 模型源文件与运行数据
 
@@ -57,7 +62,7 @@ examples/ 中受 Git 管理的模型
 命令、设备事件及运行历史
 ```
 
-GXLF 模型在 Java classpath 中继续使用 `processes/`、`component-models/` 路径，保持 Flowable 自动部署及现有 API 行为。该 classpath 布局是构建产物，不是模型的源码存放位置。
+GXLF 模型在 Java classpath 中继续使用 `processes/`、`component-models/` 路径，由 ModelStore 导入模型库；关闭 Flowable 启动时的自动部署，只有选择模型并启动发次时才部署。该 classpath 布局是构建产物，不是模型的源码存放位置。
 
 Java 设备模块将 `examples/gxlf/components/` 打包到 `models/`；服务端将同一目录打包到 `component-models/`，系统声明打包到 `system-models/`。这些副本由构建生成，不作为第二份模型源码维护。浏览器绘图资源由 `frontend/public/vendor/schviz/` 维护和分发。
 
@@ -77,6 +82,8 @@ SCXML 校验、独立试验和真实设备使用同一 `ComponentModel` / Apache
 
 外部设备模式仍使用 `--devices bindings.json`，只绑定已运行的 Tango 设备，禁止通过创建接口伪造模型版本或“已应用”状态。
 
-`make java-workbench-smoke` 从隔离临时目录启动 Java Workbench、Java bridge 和 Java Tango 设备进程，验证通用模型双实例、系统状态失效阻断、四组件初始化、十四类设备两阶段初始化，以及原四组件 GXLF 双光源演示流程。十四类全生命周期尚未全部接入操作 BPMN，缺证据的系统转换明确阻断。Flowable 阶段推进依赖实际 JTango 命令、快照属性和状态事件；直接调用对象的单元测试不替代该测试。
+`make java-workbench-smoke` 执行隔离端到端验证。测试包含十四类设备、两个预放实例（合计 43 个动作）、正常终态、失败证据、目标状态不符、取消/超时/断连的未决动作、guard 拦截和循环重入。正式发射及外部预约、服务心跳和安全接口尚未接入，缺少观测的安全 guard 保持 unknown。
 
 构建与设备接口详见 [Java SCXML / Tango 模拟设备](java-device-simulator.md)。
+
+设施模型的集合层次、引用命名、统一映射、条件组合及 XSD/语义校验见[设施 XML 模型约定](facility-xml-models.md)。安全和时序设计说明不等于运行时已执行规则。

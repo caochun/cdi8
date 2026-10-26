@@ -1,247 +1,195 @@
 package cn.cdi8.workbench.systemdefinition;
 
-import java.io.StringReader;
 import java.util.*;
-import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Element;
-import org.xml.sax.InputSource;
+import static cn.cdi8.workbench.xml.ModelXml.*;
 
-/** Static definition of a facility: composition, capabilities, topology and invariants. */
+/** Static composition and executable structural contracts, independent of live device state. */
 public final class SystemDefinitionModel {
     public static final String NS = "https://cdi8.cn/system-definition/v1";
-    private final String id;
-    private final String name;
-    private final String version;
-    private final int componentTypeCount;
-    private final int instanceSetCount;
-    private final int invariantCount;
-    private final int connectionCount;
-    private final int openIssueCount;
-    private final Map<String, Set<String>> capabilities;
-    private final Map<String, Map<String, String>> actionRefs;
-
-    private SystemDefinitionModel(String id, String name, String version,
-                                  int componentTypeCount, int instanceSetCount, int invariantCount,
-                                  int connectionCount, int openIssueCount, Map<String, Set<String>> capabilities,
-                                  Map<String, Map<String, String>> actionRefs) {
-        this.id = id;
-        this.name = name;
-        this.version = version;
-        this.componentTypeCount = componentTypeCount;
-        this.instanceSetCount = instanceSetCount;
-        this.invariantCount = invariantCount;
-        this.connectionCount = connectionCount;
-        this.openIssueCount = openIssueCount;
-        this.capabilities = Collections.unmodifiableMap(new LinkedHashMap<>(capabilities));
-        var actions = new LinkedHashMap<String, Map<String, String>>();
-        actionRefs.forEach((component, values) -> actions.put(component, Map.copyOf(values)));
-        this.actionRefs = Collections.unmodifiableMap(actions);
-    }
-
-    public String id() { return id; }
-    public String name() { return name; }
-    public String version() { return version; }
-    public int componentTypeCount() { return componentTypeCount; }
-    public int instanceSetCount() { return instanceSetCount; }
-    public int invariantCount() { return invariantCount; }
-    public int connectionCount() { return connectionCount; }
-    public int openIssueCount() { return openIssueCount; }
-    public boolean hasCapability(String component, String capability) {
-        return capabilities.getOrDefault(component, Set.of()).contains(capability);
-    }
-    public String actionRef(String component, String capability) {
-        return actionRefs.getOrDefault(component, Map.of()).getOrDefault(capability, "");
-    }
-
-    public static SystemDefinitionModel parse(String xml) {
-        try {
-            if (xml == null || xml.isBlank()) throw new IllegalArgumentException("系统定义 XML 为空");
-            var factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            var root = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();
-            if (!"system-definition".equals(root.getLocalName()) || !NS.equals(root.getNamespaceURI()))
-                throw new IllegalArgumentException("系统定义根元素或命名空间错误");
-            String id = required(root, "id"), name = required(root, "name"), version = required(root, "version");
-            var sections = children(root);
-            Set<String> allowed = Set.of("scope", "resources", "interfaces", "controlNodes", "componentTypes", "instanceSets",
-                "externalInterfaces", "topology", "mappings", "invariants", "openIssues");
-            for (var section : sections) if (!allowed.contains(section.getLocalName()))
-                throw new IllegalArgumentException("不支持的系统定义章节：" + section.getLocalName());
-            var componentTypes = section(root, "componentTypes");
-            var instanceSets = section(root, "instanceSets");
-            var invariants = section(root, "invariants");
-            var controlNodes = section(root, "controlNodes");
-            var openIssues = section(root, "openIssues");
-            if (componentTypes == null || children(componentTypes).isEmpty())
-                throw new IllegalArgumentException("系统定义至少需要一个 componentType");
-            if (instanceSets == null || children(instanceSets).isEmpty())
-                throw new IllegalArgumentException("系统定义至少需要一个 instanceSet");
-            validateScopedIds(componentTypes, "componentType");
-            validateScopedIds(instanceSets, "instanceSet");
-            validateScopedIds(controlNodes, "controlNode");
-            validateScopedIds(section(root, "resources"), "resource");
-            validateScopedIds(section(root, "interfaces"), "interface");
-            validateScopedIds(section(root, "externalInterfaces"), "externalInterface");
-            validateScopedIds(invariants, "invariant");
-            var typeIds = ids(componentTypes, "componentType");
-            var interfaceIds = ids(section(root, "interfaces"), "interface");
-            var externalIds = ids(section(root, "externalInterfaces"), "externalInterface");
-            var controlNodeIds = ids(controlNodes, "controlNode");
-            Map<String, Set<String>> capabilitiesByType = new LinkedHashMap<>();
-            Map<String, Map<String, String>> actionRefsByType = new LinkedHashMap<>();
-            for (var type : children(componentTypes)) {
-                requireElement(type, "componentType");
-                required(type, "id"); required(type, "label"); positive(type, "quantity");
-                if (!interfaceIds.contains(required(type, "interfaceRef")))
-                    throw new IllegalArgumentException("设备类型引用未定义接口：" + type.getAttribute("id"));
-                required(type, "stateModelRef");
-                var capabilities = children(type).stream().filter(child -> "capability".equals(child.getLocalName())).toList();
-                if (capabilities.isEmpty()) throw new IllegalArgumentException("设备类型没有能力：" + type.getAttribute("id"));
-                for (var port : children(type).stream().filter(child -> "port".equals(child.getLocalName())).toList()) {
-                    required(port, "id"); required(port, "direction");
-                    if (!interfaceIds.contains(required(port, "interfaceRef")))
-                        throw new IllegalArgumentException("设备端口引用未定义接口：" + type.getAttribute("id") + "/" + port.getAttribute("id"));
-                }
-                validateScopedIds(type, "port");
-                for (var child : children(type)) if (!Set.of("port", "capability").contains(child.getLocalName()))
-                    throw new IllegalArgumentException("设备类型包含不支持的子元素：" + child.getLocalName());
-                validateScopedIds(type, "capability");
-                var typeCapabilities = new LinkedHashSet<String>();
-                var typeActions = new LinkedHashMap<String, String>();
-                for (var capability : capabilities) {
-                    requireElement(capability, "capability");
-                    required(capability, "id"); required(capability, "label"); required(capability, "kind");
-                    typeCapabilities.add(capability.getAttribute("id"));
-                    if (capability.hasAttribute("actionRef")) {
-                        String actionRef = capability.getAttribute("actionRef").trim();
-                        if (actionRef.isBlank()) throw new IllegalArgumentException("能力 actionRef 不能为空：" + type.getAttribute("id"));
-                        typeActions.put(capability.getAttribute("id"), actionRef);
-                    }
-                }
-                capabilitiesByType.put(type.getAttribute("id"), Set.copyOf(typeCapabilities));
-                actionRefsByType.put(type.getAttribute("id"), typeActions);
-            }
-            if (controlNodes != null) for (var node : children(controlNodes)) {
-                requireElement(node, "controlNode"); required(node, "id"); required(node, "label"); required(node, "role");
-                validateScopedIds(node, "port"); validateScopedIds(node, "capability");
-                var controlCapabilities = new LinkedHashSet<String>();
-                for (var capability : children(node).stream().filter(child -> "capability".equals(child.getLocalName())).toList()) {
-                    required(capability, "id"); required(capability, "label"); required(capability, "kind");
-                    controlCapabilities.add(capability.getAttribute("id"));
-                }
-                capabilitiesByType.put(node.getAttribute("id"), Set.copyOf(controlCapabilities));
-                actionRefsByType.putIfAbsent(node.getAttribute("id"), Map.of());
-                for (var port : children(node).stream().filter(child -> "port".equals(child.getLocalName())).toList()) {
-                    required(port, "id"); required(port, "direction");
-                    if (!interfaceIds.contains(required(port, "interfaceRef")))
-                        throw new IllegalArgumentException("控制节点端口引用未定义接口：" + node.getAttribute("id") + "/" + port.getAttribute("id"));
-                }
-            }
-            for (var set : children(instanceSets)) {
-                requireElement(set, "instanceSet");
-                required(set, "id");
-                if (!typeIds.contains(required(set, "type")))
-                    throw new IllegalArgumentException("实例集合引用未定义设备类型：" + set.getAttribute("id"));
-                required(set, "pattern"); positive(set, "quantity");
-            }
-            var externalInterfaces = section(root, "externalInterfaces");
-            if (externalInterfaces != null) for (var external : children(externalInterfaces)) {
-                requireElement(external, "externalInterface");
-                String ref = required(external, "interfaceRef");
-                if (!interfaceIds.contains(ref)) throw new IllegalArgumentException("外部接口引用未定义接口：" + external.getAttribute("id"));
-            }
-            var topology = section(root, "topology");
-            int connectionCount = 0;
-            if (topology != null) for (var path : children(topology)) {
-                requireElement(path, "path"); required(path, "id"); required(path, "label");
-                validateScopedIds(path, "connection");
-                for (var endpoint : children(path)) {
-                    if ("endpoint".equals(endpoint.getLocalName())) {
-                        String ref = required(endpoint, "ref"); required(endpoint, "role");
-                        for (String candidate : ref.split("\\s+"))
-                            if (!typeIds.contains(candidate) && !externalIds.contains(candidate)
-                                    && !controlNodeIds.contains(candidate) && !"all-components".equals(candidate))
-                                throw new IllegalArgumentException("拓扑端点引用未定义对象：" + candidate);
-                    } else if ("connection".equals(endpoint.getLocalName())) {
-                        required(endpoint, "id"); required(endpoint, "source"); required(endpoint, "target"); required(endpoint, "relation");
-                        connectionCount++;
-                    } else throw new IllegalArgumentException("拓扑路径包含不支持的子元素：" + endpoint.getLocalName());
-                }
-            }
-            var mappings = section(root, "mappings");
-            if (mappings != null) for (var mapping : children(mappings)) {
-                requireElement(mapping, "mapping"); required(mapping, "id"); required(mapping, "source"); required(mapping, "target");
-            }
-            if (invariants != null) for (var invariant : children(invariants)) {
-                requireElement(invariant, "invariant"); required(invariant, "id"); required(invariant, "severity");
-                if (children(invariant).isEmpty()) throw new IllegalArgumentException("系统不变量不能为空：" + invariant.getAttribute("id"));
-            }
-            int openIssueCount = 0;
-            if (openIssues != null) for (var issue : children(openIssues)) {
-                requireElement(issue, "issue"); required(issue, "id"); required(issue, "status"); required(issue, "impact"); required(issue, "summary");
-                openIssueCount++;
-            }
-            return new SystemDefinitionModel(id, name, version, children(componentTypes).size(), children(instanceSets).size(),
-                invariants == null ? 0 : children(invariants).size(), connectionCount, openIssueCount, capabilitiesByType, actionRefsByType);
-        } catch (IllegalArgumentException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new IllegalArgumentException("系统定义 XML 无效：" + ex.getMessage(), ex);
+    public record InstanceSet(String id, String type, int quantity, String pattern) {
+        public String logical(int index) {
+            if (index < 1 || index > quantity) throw invalid("实例索引越界：" + id + "/" + index);
+            return pattern.replace("{index}", String.format(Locale.ROOT, "%02d", index));
         }
     }
-
-    private static Element section(Element root, String name) {
-        for (var child : children(root)) if (name.equals(child.getLocalName())) return child;
-        return null;
+    public record Member(String instanceSet, int first, int last, boolean defaultSource) {
+        public boolean includes(int index) { return index >= first && index <= last; }
     }
+    public record Mapping(String id, String kind, String resource, int groupSize, List<Member> members) {}
+    public record Endpoint(String kind, String ref, String port) {}
+    private final Element root;
+    private final Map<String,Element> types, controls, externals, interfaces, signals, paths;
+    private final Map<String,Integer> resources = new LinkedHashMap<>();
+    private final Map<String,InstanceSet> instanceSets = new LinkedHashMap<>();
+    private final Map<String,List<String>> groups = new LinkedHashMap<>();
+    private final Map<String,Mapping> mappings = new LinkedHashMap<>();
+    private final CapabilityDependencies dependencies;
+    private int connections;
 
-    private static void validateScopedIds(Element parent, String name) {
-        if (parent == null) return;
-        var seen = new HashSet<String>();
-        for (var child : children(parent)) if (name.equals(child.getLocalName())) {
-            String id = required(child, "id");
-            if (!seen.add(id)) throw new IllegalArgumentException(name + " 编号重复：" + id);
+    private SystemDefinitionModel(Element root) {
+        this.root = root;
+        types = index(entries(root,"componentTypes")); controls = index(entries(root,"controlNodes"));
+        externals = index(entries(root,"externalEndpoints")); interfaces = index(entries(root,"interfaces"));
+        signals = index(entries(root,"signals")); paths = index(entries(child(root,"topology"),"paths"));
+        for (var e : entries(root,"resources")) resources.put(e.getAttribute("id"), Integer.parseInt(e.getAttribute("quantity")));
+        for (var signal : signals.values()) requireRef(interfaces, signal.getAttribute("interfaceRef"), "信号接口");
+        for (var owner : concat(types.values(),controls.values(),externals.values())) {
+            if (owner.hasAttribute("interfaceRef")) requireRef(interfaces, owner.getAttribute("interfaceRef"), "对象接口");
+            if (owner.hasAttribute("stateModelHref")) required(owner,"stateModelHref");
+            for (var port : entries(owner,"ports")) {
+                requireRef(interfaces, port.getAttribute("interfaceRef"), "端口接口");
+                if (!"componentType".equals(owner.getLocalName()) && child(port,"outputs") != null)
+                    throw invalid("当前只支持组件端口声明运行输出：" + owner.getAttribute("id"));
+            }
+            for (var cap : entries(owner,"capabilities"))
+                if (!"componentType".equals(owner.getLocalName()) && child(cap,"requirements") != null)
+                    throw invalid("当前只支持组件能力声明运行依赖：" + owner.getAttribute("id"));
         }
-    }
-
-    private static Set<String> ids(Element parent, String name) {
-        if (parent == null) return Set.of();
-        var result = new LinkedHashSet<String>();
-        for (var child : children(parent)) if (name.equals(child.getLocalName())) result.add(required(child, "id"));
-        return result;
-    }
-
-    private static void requireElement(Element element, String name) {
-        if (!name.equals(element.getLocalName())) throw new IllegalArgumentException("此处需要 " + name + "，实际为 " + element.getLocalName());
-    }
-
-    private static int positive(Element element, String attribute) {
-        String value = required(element, attribute);
-        try {
-            int result = Integer.parseInt(value);
-            if (result < 1) throw new IllegalArgumentException(attribute + " 必须为正整数：" + value);
-            return result;
-        } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(attribute + " 必须为正整数：" + value);
+        var logicalIds = new HashSet<String>();
+        for (var e : entries(root,"instanceSets")) {
+            var set = new InstanceSet(e.getAttribute("id"), e.getAttribute("typeRef"), Integer.parseInt(e.getAttribute("quantity")), e.getAttribute("pattern"));
+            requireRef(types,set.type,"实例类型");
+            if (!set.pattern.matches("[^{}]+\\{index}")) throw invalid("实例模板必须是前缀加 {index}：" + set.id);
+            instanceSets.put(set.id,set);
+            for (int i=1;i<=set.quantity;i++) if (!logicalIds.add(set.logical(i))) throw invalid("逻辑实例名重复："+set.logical(i));
         }
-    }
-
-    private static String required(Element element, String attribute) {
-        String value = element.getAttribute(attribute).trim();
-        if (value.isEmpty()) throw new IllegalArgumentException("缺少属性 " + attribute + "（" + element.getLocalName() + "）");
-        return value;
-    }
-
-    private static List<Element> children(Element parent) {
-        if (parent == null) return List.of();
-        var result = new ArrayList<Element>();
-        for (var node = parent.getFirstChild(); node != null; node = node.getNextSibling()) if (node instanceof Element child) {
-            if (!NS.equals(child.getNamespaceURI())) throw new IllegalArgumentException("系统定义子元素命名空间错误：" + child.getNodeName());
-            result.add(child);
+        for (var e : entries(root,"instanceGroups")) {
+            var members = new LinkedHashSet<String>();
+            for (var member : entries(e,"members")) {
+                String ref = member.getAttribute("instanceSetRef"); instanceSet(ref);
+                if (!members.add(ref)) throw invalid("实例组成员重复："+ref);
+            }
+            groups.put(e.getAttribute("id"),List.copyOf(members));
         }
-        return result;
+        for (var e : entries(root,"mappings")) parseMapping(e);
+        for (var path : paths.values()) {
+            if (path.hasAttribute("resourceRef")) resourceQuantity(path.getAttribute("resourceRef"));
+            var endpointIds = new HashSet<String>();
+            for (var ep : entries(path,"endpoints")) {
+                var endpoint = endpoint(ep,false);
+                if (!endpointIds.add(endpoint.kind+"/"+endpoint.ref)) throw invalid("路径端点重复："+endpoint.ref);
+            }
+            for (var edge : entries(path,"connections")) {
+                var source = endpoint(child(edge,"source"),true); var target = endpoint(child(edge,"target"),true);
+                for (var port : ports(source)) if (!Set.of("out","inout").contains(port.getAttribute("direction"))) throw invalid("连接源不是输出端口："+source);
+                for (var port : ports(target)) if (!Set.of("in","inout").contains(port.getAttribute("direction"))) throw invalid("连接目标不是输入端口："+target);
+                for (var a : ports(source)) for (var b : ports(target)) {
+                    String ai=a.getAttribute("interfaceRef"), bi=b.getAttribute("interfaceRef");
+                    if (("physical".equals(interfaces.get(ai).getAttribute("category")) || "physical".equals(interfaces.get(bi).getAttribute("category"))) && !ai.equals(bi))
+                        throw invalid("物理连接接口不匹配："+edge.getAttribute("id"));
+                }
+                if (edge.hasAttribute("mappingRef")) {
+                    var mapping = mapping(edge.getAttribute("mappingRef"));
+                    if (!mapping.resource.equals(path.getAttribute("resourceRef"))) throw invalid("连接映射与路径资源不一致："+edge.getAttribute("id"));
+                    if (mapping.members.stream().noneMatch(m -> m.instanceSet.equals(source.ref)||m.instanceSet.equals(target.ref)))
+                        throw invalid("连接映射未包含任一连接端点："+edge.getAttribute("id"));
+                }
+                connections++;
+            }
+        }
+        for (var e : entries(root,"structuralConstraints")) {
+            if ("instanceCount".equals(e.getLocalName()) && instanceSet(e.getAttribute("instanceSetRef")).quantity != Integer.parseInt(e.getAttribute("quantity")))
+                throw invalid("实例数量约束不满足："+e.getAttribute("id"));
+            if ("mappingCoverage".equals(e.getLocalName())) mapping(e.getAttribute("mappingRef"));
+        }
+        dependencies = CapabilityDependencies.parse(root,this);
     }
+    private void parseMapping(Element e) {
+        String id=e.getAttribute("id"), kind=e.getAttribute("kind"), resource=e.getAttribute("resourceRef");
+        int quantity=resourceQuantity(resource), size=e.hasAttribute("groupSize")?Integer.parseInt(e.getAttribute("groupSize")):1;
+        if ("grouped".equals(kind) != e.hasAttribute("groupSize")) throw invalid("仅 grouped 映射必须声明 groupSize："+id);
+        var members = new ArrayList<Member>(); var ids = new HashSet<String>();
+        for (var m : entries(e,"members")) {
+            var set=instanceSet(m.getAttribute("instanceSetRef"));
+            if (!ids.add(set.id)) throw invalid("映射成员重复："+set.id);
+            if (!"selection".equals(kind) && (m.hasAttribute("first")||m.hasAttribute("last")||m.hasAttribute("default"))) throw invalid("仅 selection 映射支持选源范围："+id);
+            int first=m.hasAttribute("first")?Integer.parseInt(m.getAttribute("first")):1;
+            int last=m.hasAttribute("last")?Integer.parseInt(m.getAttribute("last")):quantity;
+            boolean defaultSource=Set.of("true","1").contains(m.getAttribute("default"));
+            if (first>last||last>quantity) throw invalid("映射范围越界："+id);
+            if ("selection".equals(kind) && (set.quantity!=1 || (defaultSource&&(first!=1||last!=quantity)))) throw invalid("选源必须为单实例，默认光源须覆盖整个资源："+id);
+            if (!"selection".equals(kind) && (long)set.quantity*size!=quantity) throw invalid("映射不能完整覆盖资源："+id+" / "+set.id);
+            members.add(new Member(set.id,first,last,defaultSource));
+        }
+        if ("selection".equals(kind) && members.stream().filter(Member::defaultSource).count()!=1) throw invalid("选源映射必须有且只有一个默认光源："+id);
+        for (var prior : mappings.values()) if (prior.resource.equals(resource)) for (var member : members)
+            if (prior.members.stream().anyMatch(p->p.instanceSet.equals(member.instanceSet))) throw invalid("资源中的实例集合映射重复："+member.instanceSet);
+        mappings.put(id,new Mapping(id,kind,resource,size,List.copyOf(members)));
+    }
+    public Endpoint endpoint(Element e, boolean withPort) {
+        String kind=null, ref=null;
+        for (String candidate : List.of("instanceSetRef","instanceGroupRef","controlNodeRef","externalEndpointRef")) if(e.hasAttribute(candidate)) {
+            if(kind!=null)throw invalid("端点只能声明一种对象引用"); kind=candidate;ref=e.getAttribute(candidate);
+        }
+        if(kind==null)throw invalid("端点缺少对象引用");
+        switch(kind) {
+            case "instanceSetRef" -> instanceSet(ref);
+            case "instanceGroupRef" -> requireRef(groups,ref,"实例组");
+            case "controlNodeRef" -> requireRef(controls,ref,"控制节点");
+            case "externalEndpointRef" -> requireRef(externals,ref,"外部端点");
+        }
+        var endpoint=new Endpoint(kind,ref,withPort?required(e,"portRef"):"");
+        if(withPort)ports(endpoint);
+        return endpoint;
+    }
+    private List<Element> ports(Endpoint e) {
+        List<Element> owners=switch(e.kind) {
+            case "instanceSetRef" -> List.of(types.get(instanceSet(e.ref).type));
+            case "instanceGroupRef" -> groups.get(e.ref).stream().map(ref->types.get(instanceSet(ref).type)).toList();
+            case "controlNodeRef" -> List.of(controls.get(e.ref));
+            case "externalEndpointRef" -> List.of(externals.get(e.ref));
+            default -> throw invalid("端点种类无效");
+        };
+        return owners.stream().map(owner->entries(owner,"ports").stream().filter(p->p.getAttribute("id").equals(e.port)).findFirst()
+            .orElseThrow(()->invalid("端点引用未定义端口："+e.ref+"/"+e.port+"（"+owner.getAttribute("id")+"）"))).toList();
+    }
+    public Endpoint observationSource(Element source) {
+        var endpoint=endpoint(source,true);
+        for(var port:ports(endpoint))if(!Set.of("out","inout").contains(port.getAttribute("direction")))
+            throw invalid("观测来源不是输出端口："+endpoint.ref+"/"+endpoint.port);
+        return endpoint;
+    }
+    public List<String> endpointInstanceSets(Endpoint e) { return switch(e.kind) {
+        case "instanceSetRef" -> List.of(e.ref);
+        case "instanceGroupRef" -> groups.get(e.ref);
+        default -> List.of();
+    }; }
+    public String id(){return root.getAttribute("id");}
+    public String label(){return root.getAttribute("label");}
+    public int componentTypeCount(){return types.size();}
+    public int instanceSetCount(){return instanceSets.size();}
+    public int structuralConstraintCount(){return entries(root,"structuralConstraints").size();}
+    public int connectionCount(){return connections;}
+    public int openIssueCount(){return entries(child(root,"annotations"),"issues").size();}
+    public CapabilityDependencies dependencies(){return dependencies;}
+    public Collection<InstanceSet> instanceSets(){return Collections.unmodifiableCollection(instanceSets.values());}
+    public Collection<Mapping> mappings(){return Collections.unmodifiableCollection(mappings.values());}
+    public InstanceSet instanceSet(String id){return requireRef(instanceSets,id,"实例集合");}
+    public Mapping mapping(String id){return requireRef(mappings,id,"映射");}
+    public int resourceQuantity(String id){return requireRef(resources,id,"资源");}
+    public boolean hasType(String id){return types.containsKey(id);}
+    public Set<String> componentTypes(){return Collections.unmodifiableSet(types.keySet());}
+    public String stateModelHref(String type){return requireRef(types,type,"组件类型").getAttribute("stateModelHref");}
+    public Map<String,String> actionRefs(String type){
+        Map<String,String> result=new LinkedHashMap<>();
+        for(var capability:entries(requireRef(types,type,"组件类型"),"capabilities"))
+            if(capability.hasAttribute("actionRef"))result.put(capability.getAttribute("id"),required(capability,"actionRef"));
+        return Collections.unmodifiableMap(result);
+    }
+    public boolean hasExternal(String id){return externals.containsKey(id);}
+    public boolean hasSignal(String id){return signals.containsKey(id);}
+    public String signalInterface(String id){return requireRef(signals,id,"信号").getAttribute("interfaceRef");}
+    public String actionRef(String component,String capability) {
+        Element owner=types.getOrDefault(component,controls.get(component));
+        return entries(owner,"capabilities").stream().filter(c->capability.equals(c.getAttribute("id"))).map(c->c.getAttribute("actionRef")).findFirst().orElse("");
+    }
+    public boolean hasCapability(String component,String capability) {
+        return entries(types.getOrDefault(component,controls.get(component)),"capabilities").stream().anyMatch(c->capability.equals(c.getAttribute("id")));
+    }
+    public static SystemDefinitionModel parse(String xml){return new SystemDefinitionModel(cn.cdi8.workbench.xml.ModelXml.parse(xml,"system-definition"));}
+    private static Map<String,Element> index(List<Element> elements){var map=new LinkedHashMap<String,Element>();elements.forEach(e->map.put(e.getAttribute("id"),e));return map;}
+    @SafeVarargs private static List<Element> concat(Collection<Element>... collections){var list=new ArrayList<Element>();for(var c:collections)list.addAll(c);return list;}
+    private static <T> T requireRef(Map<String,T> map,String ref,String kind){T result=map.get(ref);if(result==null)throw invalid(kind+"引用未定义："+ref);return result;}
+    private static IllegalArgumentException invalid(String message){return new IllegalArgumentException(message);}
 }

@@ -197,12 +197,6 @@
       "version": null
     }
   },
-  "context_policy": {
-    "fault_origin": "进入异常前的有效运行状态，由反馈适配层记录",
-    "faults": "所有已确认故障原因的集合；当前显示类别由 fault 下的叶子状态决定",
-    "power_status": "unknown、on 或 off；上电检查成功后为 on，关机确认后为 off",
-    "configuration": "参数资格的上下文记录，不替代当前状态"
-  },
   "actions": {
     "power_on_check": {
       "label": "上电检查",
@@ -451,8 +445,16 @@
       "machine_event": "recovery.completed",
       "observation": "未就绪"
     }
+  },
+  "annotations": {
+    "context_policy": {
+      "fault_origin": "进入异常前的有效运行状态，由反馈适配层记录",
+      "faults": "所有已确认故障原因的集合；当前显示类别由 fault 下的叶子状态决定",
+      "power_status": "unknown、on 或 off；上电检查成功后为 on，关机确认后为 off",
+      "configuration": "参数资格的上下文记录，不替代当前状态"
+    }
   }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

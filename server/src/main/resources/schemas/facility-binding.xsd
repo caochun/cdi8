@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="https://cdi8.cn/facility-binding/v1" targetNamespace="https://cdi8.cn/facility-binding/v1" elementFormDefault="qualified">
+  <xs:simpleType name="text">
+    <xs:restriction base="xs:token">
+      <xs:minLength value="1" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="count">
+    <xs:restriction base="xs:positiveInteger">
+      <xs:maxInclusive value="10000" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="annotations">
+    <xs:sequence>
+      <xs:element name="notes" type="m:notes" minOccurs="0" maxOccurs="1" />
+      <xs:element name="issues" type="m:issues" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="note">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="kind" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="issue">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="status" type="m:text" use="required" />
+    <xs:attribute name="impact" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="notes">
+    <xs:sequence>
+      <xs:element name="note" type="m:note" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="issues">
+    <xs:sequence>
+      <xs:element name="issue" type="m:issue" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="instanceBinding">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+    <xs:attribute name="runtimeKey" type="m:text" use="required" />
+    <xs:attribute name="runtimePattern" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="mappingBinding">
+    <xs:attribute name="mappingRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="mappingBindings">
+    <xs:sequence>
+      <xs:element name="mappingBinding" type="m:mappingBinding" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="beamlineBinding">
+    <xs:sequence>
+      <xs:element name="mappingBindings" type="m:mappingBindings" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="resourceRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="externalBinding">
+    <xs:attribute name="externalEndpointRef" type="xs:NCName" use="required" />
+    <xs:attribute name="runtimeKey" type="m:text" use="required" />
+    <xs:attribute name="status" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="instanceBindings">
+    <xs:sequence>
+      <xs:element name="instanceBinding" type="m:instanceBinding" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="resolution" type="m:text" use="optional" fixed="runtime-configuration" />
+  </xs:complexType>
+  <xs:complexType name="beamlineBindings">
+    <xs:sequence>
+      <xs:element name="beamlineBinding" type="m:beamlineBinding" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="resolution" type="m:text" use="optional" fixed="runtime-configuration" />
+  </xs:complexType>
+  <xs:complexType name="externalBindings">
+    <xs:sequence>
+      <xs:element name="externalBinding" type="m:externalBinding" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+    <xs:attribute name="resolution" type="m:text" use="optional" fixed="runtime-configuration" />
+  </xs:complexType>
+  <xs:element name="facility-binding">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="instanceBindings" type="m:instanceBindings" minOccurs="1" />
+        <xs:element name="beamlineBindings" type="m:beamlineBindings" minOccurs="1" />
+        <xs:element name="externalBindings" type="m:externalBindings" minOccurs="0" />
+        <xs:element name="annotations" type="m:annotations" minOccurs="0" />
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:NCName" use="required" />
+      <xs:attribute name="definitionRef" type="xs:NCName" use="required" />
+      <xs:attribute name="version" type="m:text" use="optional" />
+    </xs:complexType>
+    <xs:key name="instanceBindingsKey">
+      <xs:selector xpath="m:instanceBindings/m:instanceBinding" />
+      <xs:field xpath="@instanceSetRef" />
+    </xs:key>
+    <xs:key name="beamlineBindingsKey">
+      <xs:selector xpath="m:beamlineBindings/m:beamlineBinding" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="externalBindingsKey">
+      <xs:selector xpath="m:externalBindings/m:externalBinding" />
+      <xs:field xpath="@externalEndpointRef" />
+    </xs:key>
+  </xs:element>
+</xs:schema>

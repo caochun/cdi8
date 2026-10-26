@@ -801,86 +801,88 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "78": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "79": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "80": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "81": {
-        "states": [
-          "repeatConfigured"
-        ]
-      },
-      "82": {
-        "states": [
-          "singleConfigured"
-        ]
-      },
-      "83": {
-        "states": [
-          "triggerSent"
-        ]
-      },
-      "84": {
-        "states": [
-          "countVerified"
-        ]
-      },
-      "85": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "86": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "87": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "88": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "89": {
-        "states": [
-          "timeoutFault"
-        ]
-      },
-      "90": {
-        "states": [
-          "faultLock"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "78": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "79": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "80": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "81": {
+          "states": [
+            "repeatConfigured"
+          ]
+        },
+        "82": {
+          "states": [
+            "singleConfigured"
+          ]
+        },
+        "83": {
+          "states": [
+            "triggerSent"
+          ]
+        },
+        "84": {
+          "states": [
+            "countVerified"
+          ]
+        },
+        "85": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "86": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "87": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "88": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "89": {
+          "states": [
+            "timeoutFault"
+          ]
+        },
+        "90": {
+          "states": [
+            "faultLock"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "同步触发任务可包含倒计时，但只有同步分系统实际输出触发并回调后才进入 triggerSent；T+3s 准备完成不冒充 T+5s 触发完成。",
-    "第84行计数/信号核验单独进入 countVerified，不能以触发已发出代替后采集核验；预电离与主发射由任务标识区分，内部状态机复用。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "同步触发任务可包含倒计时，但只有同步分系统实际输出触发并回调后才进入 triggerSent；T+3s 准备完成不冒充 T+5s 触发完成。",
+      "第84行计数/信号核验单独进入 countVerified，不能以触发已发出代替后采集核验；预电离与主发射由任务标识区分，内部状态机复用。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

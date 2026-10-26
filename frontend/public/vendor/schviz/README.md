@@ -7,4 +7,4 @@ These browser assets are the canonical resources for the web workbench's SCXML d
 
 The matching license texts are included beside these files. The server packages
 these files directly from frontend/public, so web rendering works without
-network access. They are not part of the Python simulator distribution.
+network access. They are browser assets for the Java Workbench and are not a separate simulator distribution.

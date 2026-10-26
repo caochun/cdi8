@@ -868,84 +868,86 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "91": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "92": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "93": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "94": {
-        "states": [
-          "aimPrepared"
-        ]
-      },
-      "95": {
-        "states": [
-          "motionPrepared"
-        ]
-      },
-      "96": {
-        "states": [
-          "measurementPrepared"
-        ]
-      },
-      "97": {
-        "states": [
-          "parametersCollected"
-        ]
-      },
-      "98": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "99": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "100": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "101": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "102": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "103": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "91": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "92": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "93": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "94": {
+          "states": [
+            "aimPrepared"
+          ]
+        },
+        "95": {
+          "states": [
+            "motionPrepared"
+          ]
+        },
+        "96": {
+          "states": [
+            "measurementPrepared"
+          ]
+        },
+        "97": {
+          "states": [
+            "parametersCollected"
+          ]
+        },
+        "98": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "99": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "100": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "101": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "102": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "103": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

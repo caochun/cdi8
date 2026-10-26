@@ -70,6 +70,7 @@ final class EnvironmentManager {
                     .put("revision",row.path("revision").asText()).put("db",deviceDir.resolve("state.sqlite3").toString())
                     .put("autoComplete",bool(row,"autoComplete",false)).put("delayMs",delay(row));
                 var device=devices.addObject().put("id",deviceId).put("component",component).put("revision",row.path("revision").asText());
+                device.put("modelDigest",models.get(deviceId).digest);
                 device.set("capabilities",TrialManager.capabilities(models.get(deviceId)));
             }
             String contextName="gxlf/context/context_01";names.put("context_01",contextName);

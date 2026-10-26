@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="https://cdi8.cn/system-definition/v1" targetNamespace="https://cdi8.cn/system-definition/v1" elementFormDefault="qualified">
+  <xs:simpleType name="text">
+    <xs:restriction base="xs:token">
+      <xs:minLength value="1" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="count">
+    <xs:restriction base="xs:positiveInteger">
+      <xs:maxInclusive value="10000" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="annotations">
+    <xs:sequence>
+      <xs:element name="notes" type="m:notes" minOccurs="0" maxOccurs="1" />
+      <xs:element name="issues" type="m:issues" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="note">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="kind" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="issue">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="status" type="m:text" use="required" />
+    <xs:attribute name="impact" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="notes">
+    <xs:sequence>
+      <xs:element name="note" type="m:note" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="issues">
+    <xs:sequence>
+      <xs:element name="issue" type="m:issue" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="direction">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="in" />
+      <xs:enumeration value="out" />
+      <xs:enumeration value="inout" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="category">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="physical" />
+      <xs:enumeration value="software" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="interaction">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="flow" />
+      <xs:enumeration value="event" />
+      <xs:enumeration value="request-response" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="kind">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="control" />
+      <xs:enumeration value="diagnostic" />
+      <xs:enumeration value="observe" />
+      <xs:enumeration value="safety" />
+      <xs:enumeration value="coordination" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="maintain">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="start" />
+      <xs:enumeration value="execution" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="mappingKind">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="grouped" />
+      <xs:enumeration value="one-to-one" />
+      <xs:enumeration value="selection" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="cardinality">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="one-to-one" />
+      <xs:enumeration value="fan-in" />
+      <xs:enumeration value="fan-out" />
+      <xs:enumeration value="broadcast" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="scope">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+      <xs:element name="exclusions" type="xs:string" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="resource">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="quantity" type="m:count" use="required" />
+    <xs:attribute name="unit" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="interface">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="category" type="m:category" use="required" />
+    <xs:attribute name="interaction" type="m:interaction" use="required" />
+    <xs:attribute name="protocol" type="m:text" use="optional" />
+    <xs:attribute name="status" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="signal">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="interfaceRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="inputRequirement">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="pathRef" type="xs:NCName" use="required" />
+    <xs:attribute name="inputPortRef" type="xs:NCName" use="required" />
+    <xs:attribute name="signalRef" type="xs:NCName" use="required" />
+    <xs:attribute name="maintain" type="m:maintain" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="requirements">
+    <xs:sequence>
+      <xs:element name="inputRequirement" type="m:inputRequirement" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="output">
+    <xs:sequence>
+      <xs:element name="requirements" type="m:requirements" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="signalRef" type="xs:NCName" use="required" />
+    <xs:attribute name="factRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="outputs">
+    <xs:sequence>
+      <xs:element name="output" type="m:output" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="port">
+    <xs:sequence>
+      <xs:element name="outputs" type="m:outputs" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="optional" />
+    <xs:attribute name="direction" type="m:direction" use="required" />
+    <xs:attribute name="interfaceRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="ports">
+    <xs:sequence>
+      <xs:element name="port" type="m:port" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="capability">
+    <xs:sequence>
+      <xs:element name="requirements" type="m:requirements" minOccurs="0" maxOccurs="1" />
+      <xs:element name="annotations" type="m:annotations" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="kind" type="m:kind" use="required" />
+    <xs:attribute name="actionRef" type="xs:NCName" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="capabilities">
+    <xs:sequence>
+      <xs:element name="capability" type="m:capability" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="componentType">
+    <xs:sequence>
+      <xs:element name="ports" type="m:ports" minOccurs="1" maxOccurs="1" />
+      <xs:element name="capabilities" type="m:capabilities" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="role" type="m:text" use="optional" />
+    <xs:attribute name="interfaceRef" type="xs:NCName" use="required" />
+    <xs:attribute name="stateModelHref" type="xs:anyURI" use="required" />
+  </xs:complexType>
+  <xs:complexType name="controlNode">
+    <xs:sequence>
+      <xs:element name="ports" type="m:ports" minOccurs="1" maxOccurs="1" />
+      <xs:element name="capabilities" type="m:capabilities" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="role" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="externalEndpoint">
+    <xs:sequence>
+      <xs:element name="ports" type="m:ports" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="interfaceRef" type="xs:NCName" use="required" />
+    <xs:attribute name="status" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="instanceSet">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="typeRef" type="xs:NCName" use="required" />
+    <xs:attribute name="quantity" type="m:count" use="required" />
+    <xs:attribute name="pattern" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="groupMember">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="groupMembers">
+    <xs:sequence>
+      <xs:element name="member" type="m:groupMember" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="instanceGroup">
+    <xs:sequence>
+      <xs:element name="members" type="m:groupMembers" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="endpoint">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="instanceGroupRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="controlNodeRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="externalEndpointRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="role" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="connectionEnd">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="instanceGroupRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="controlNodeRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="externalEndpointRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="portRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="connection">
+    <xs:sequence>
+      <xs:element name="source" type="m:connectionEnd" minOccurs="1" maxOccurs="1" />
+      <xs:element name="target" type="m:connectionEnd" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="relation" type="m:text" use="required" />
+    <xs:attribute name="mappingRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="cardinality" type="m:cardinality" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="endpoints">
+    <xs:sequence>
+      <xs:element name="endpoint" type="m:endpoint" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="connections">
+    <xs:sequence>
+      <xs:element name="connection" type="m:connection" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="path">
+    <xs:sequence>
+      <xs:element name="endpoints" type="m:endpoints" minOccurs="0" maxOccurs="1" />
+      <xs:element name="connections" type="m:connections" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="resourceRef" type="xs:NCName" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="paths">
+    <xs:sequence>
+      <xs:element name="path" type="m:path" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="topology">
+    <xs:sequence>
+      <xs:element name="paths" type="m:paths" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="mappingMember">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+    <xs:attribute name="first" type="m:count" use="optional" />
+    <xs:attribute name="last" type="m:count" use="optional" />
+    <xs:attribute name="default" type="xs:boolean" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="mappingMembers">
+    <xs:sequence>
+      <xs:element name="member" type="m:mappingMember" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="mapping">
+    <xs:sequence>
+      <xs:element name="members" type="m:mappingMembers" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="kind" type="m:mappingKind" use="required" />
+    <xs:attribute name="resourceRef" type="xs:NCName" use="required" />
+    <xs:attribute name="groupSize" type="m:count" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="instanceCount">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="optional" />
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+    <xs:attribute name="quantity" type="m:count" use="required" />
+  </xs:complexType>
+  <xs:complexType name="mappingCoverage">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="optional" />
+    <xs:attribute name="mappingRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="structuralConstraints">
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="instanceCount" type="m:instanceCount" />
+      <xs:element name="mappingCoverage" type="m:mappingCoverage" />
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="resources">
+    <xs:sequence>
+      <xs:element name="resource" type="m:resource" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="interfaces">
+    <xs:sequence>
+      <xs:element name="interface" type="m:interface" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="signals">
+    <xs:sequence>
+      <xs:element name="signal" type="m:signal" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="controlNodes">
+    <xs:sequence>
+      <xs:element name="controlNode" type="m:controlNode" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="componentTypes">
+    <xs:sequence>
+      <xs:element name="componentType" type="m:componentType" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="instanceSets">
+    <xs:sequence>
+      <xs:element name="instanceSet" type="m:instanceSet" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="instanceGroups">
+    <xs:sequence>
+      <xs:element name="instanceGroup" type="m:instanceGroup" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="externalEndpoints">
+    <xs:sequence>
+      <xs:element name="externalEndpoint" type="m:externalEndpoint" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="mappings">
+    <xs:sequence>
+      <xs:element name="mapping" type="m:mapping" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="system-definition">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="scope" type="m:scope" minOccurs="0" />
+        <xs:element name="resources" type="m:resources" minOccurs="0" />
+        <xs:element name="interfaces" type="m:interfaces" minOccurs="1" />
+        <xs:element name="signals" type="m:signals" minOccurs="0" />
+        <xs:element name="controlNodes" type="m:controlNodes" minOccurs="0" />
+        <xs:element name="componentTypes" type="m:componentTypes" minOccurs="1" />
+        <xs:element name="instanceSets" type="m:instanceSets" minOccurs="1" />
+        <xs:element name="instanceGroups" type="m:instanceGroups" minOccurs="0" />
+        <xs:element name="externalEndpoints" type="m:externalEndpoints" minOccurs="0" />
+        <xs:element name="topology" type="m:topology" minOccurs="0" />
+        <xs:element name="mappings" type="m:mappings" minOccurs="0" />
+        <xs:element name="structuralConstraints" type="m:structuralConstraints" minOccurs="0" />
+        <xs:element name="annotations" type="m:annotations" minOccurs="0" />
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:NCName" use="required" />
+      <xs:attribute name="label" type="m:text" use="required" />
+      <xs:attribute name="version" type="m:text" use="optional" />
+    </xs:complexType>
+    <xs:key name="resourcesKey">
+      <xs:selector xpath="m:resources/m:resource" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="interfacesKey">
+      <xs:selector xpath="m:interfaces/m:interface" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="signalsKey">
+      <xs:selector xpath="m:signals/m:signal" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="controlNodesKey">
+      <xs:selector xpath="m:controlNodes/m:controlNode" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="componentTypesKey">
+      <xs:selector xpath="m:componentTypes/m:componentType" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="instanceSetsKey">
+      <xs:selector xpath="m:instanceSets/m:instanceSet" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="instanceGroupsKey">
+      <xs:selector xpath="m:instanceGroups/m:instanceGroup" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="externalEndpointsKey">
+      <xs:selector xpath="m:externalEndpoints/m:externalEndpoint" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="mappingsKey">
+      <xs:selector xpath="m:mappings/m:mapping" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:keyref name="instanceType" refer="m:componentTypesKey">
+      <xs:selector xpath="m:instanceSets/m:instanceSet" />
+      <xs:field xpath="@typeRef" />
+    </xs:keyref>
+    <xs:keyref name="signalInterface" refer="m:interfacesKey">
+      <xs:selector xpath="m:signals/m:signal" />
+      <xs:field xpath="@interfaceRef" />
+    </xs:keyref>
+  </xs:element>
+</xs:schema>

@@ -44,13 +44,13 @@ async function refreshTrace(ticket=revision){
 }
 function renderWaits(){
   const waits=flattenRuns().flatMap(r=>(r.waits||[]).map(w=>({...w,owner:r})));
-  const pending=allCommands().filter(c=>!['succeeded','failed','interrupted','rejected','cancelled'].includes(commandStatus(c)));
+  const pending=allCommands().filter(c=>!['succeeded','failed','blocked','interrupted','rejected','cancelled'].includes(commandStatus(c)));
   const count=waits.length+pending.length;
   $('wait-count').textContent=count+' 项';
   $('wait-empty').hidden=Boolean(count);
   $('wait-empty').textContent=run?.ended?'结束时没有未完成的等待事项':run?'当前没有等待事项，流程可继续推进。':'开始运行后，在此查看等待与反馈。';
   $('wait-diagnostics').hidden=!count;
-  let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>'+escape(w.collection+' → '+(conditionLabel[w.condition]||w.condition))+' · '+(w.met?'已满足，等待推进':'未满足')+(w.started?' · 已等待 '+duration(Date.now()-new Date(w.started)):'')+'</small></div><div>'+w.devices.map(d=>'<button data-condition="'+escape(w.condition)+'" data-device="'+escape(d.id)+'">模拟确认 · '+escape(d.id)+'</button>').join('')+'</div></div>').join('');
+  let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>完成条件：'+escape(w.label||w.condition)+' · '+escape(({valid:'已满足，等待推进',violated:'尚未满足',unknown:'观测未知'})[w.status]||w.status)+(w.started?' · 已等待 '+duration((w.ended||Date.now())-w.started):'')+'</small>'+(w.reason?'<small>'+escape(w.reason)+'</small>':'')+'<small>'+escape(w.endReason||(w.deadline?'剩余 '+duration(w.deadline-Date.now()):''))+'</small></div></div>').join('');
   html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+StateCharts.action(modelKey(deviceCache.find(d=>d.id===c.commandDevice)?.snapshot||{}),c.commandAction))+'</b><small>'+(c.sent?'设备已受理，等待动作结果':c.dispatchAttempted?'已尝试下发，受理情况待确认；仅查询原命令':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
   const due=flattenRuns().flatMap(r=>r.timers||[]).map(t=>new Date(t.due)).sort((a,b)=>a-b)[0];
   if(due)html+='<p class="muted">最近超时期限：'+escape(due.toLocaleString())+' · 剩余 '+duration(due-Date.now())+'</p>';
@@ -59,12 +59,11 @@ function renderWaits(){
 }
 $('wait-list').addEventListener('click',async event=>{
  const button=event.target.closest('button');if(!button||run?.ended||changing||disposed||!loaded)return;button.disabled=true;
- try{if(button.dataset.condition)await api('/devices/'+encodeURIComponent(button.dataset.device)+'/conditions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[button.dataset.condition]:true})});
- else await api('/workbench/devices/'+encodeURIComponent(button.dataset.device)+'/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command_id:button.dataset.command,outcome:button.dataset.outcome})});showError(null);await tick();}catch(error){showError(error);}finally{button.disabled=false;}
+ try{await api('/workbench/devices/'+encodeURIComponent(button.dataset.device)+'/simulate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command_id:button.dataset.command,outcome:button.dataset.outcome})});showError(null);await tick();}catch(error){showError(error);}finally{button.disabled=false;}
 });
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const outcomeLabel = {RUNNING:'执行中', SUCCEEDED:'已完成', FAILED:'已停止'};
-const taskLabel = {accepted:'已接受', succeeded:'已完成', failed:'失败', interrupted:'已中断', rejected:'已拒绝', cancelled:'已取消', unconfirmed:'受理待确认'};
+const outcomeLabel = {RUNNING:'执行中', SUCCEEDED:'已完成', FAILED:'失败', CANCELLED:'已取消'};
+const taskLabel = {accepted:'已接受', succeeded:'已完成', failed:'失败', blocked:'依赖不满足，未下发', interrupted:'已中断', rejected:'已拒绝', cancelled:'已取消', unconfirmed:'受理待确认'};
 const conditionLabel = {
   safety_permit: '安全许可',
   preamp_repeat_ready: '预放重频模式',
@@ -116,7 +115,7 @@ function showError(error){if(disposed||error?.name==='AbortError')return;$('erro
 function parseResult(command){if(!command?.commandResult)return null;if(typeof command.commandResult==='object')return command.commandResult;try{return JSON.parse(command.commandResult);}catch(_){return null;}}
 function flattenRuns(current=run){return current?[current,...(current.children||[]).flatMap(c=>flattenRuns(c))]:[];}
 function allCommands(){return flattenRuns().flatMap(r=>(r.commands||[]).map(c=>({...c,owner:r})));}
-function commandStatus(c){return parseResult(c)?.status||(c.sent?'accepted':c.dispatchAttempted?'unconfirmed':'queued');}
+function commandStatus(c){return (['failed','blocked'].includes(c.verificationStatus)?c.verificationStatus:c.commandOutcomeUnknown?'unconfirmed':parseResult(c)?.status)||(c.sent?'accepted':c.dispatchAttempted?'unconfirmed':'queued');}
 function fit(target){
   if(!target.getDefinitions())return;
   const canvas=target.get('canvas'),rect=canvas.getContainer().getBoundingClientRect();
@@ -212,7 +211,15 @@ function showDetails(){
   $('detail-count').textContent=activities.length?activities.length+' 次进入':'';
   for(const command of commands){const result=parseResult(command),status=commandStatus(command);
     html+='<div class="command"><b>'+escape(command.commandDevice)+'</b><span class="command-status '+escape(status)+'">'+escape(taskLabel[status]||status)+'</span><br>动作：'+escape(command.commandAction)+'<br>命令：'+escape(command.commandId)+(result?.reason?'<br>'+escape(result.reason):'')+'</div>';
+    const dependency=(owner?.dependencies||[]).find(d=>d.id===command.commandId);
+    if(dependency){
+      html+='<div class="command"><b>能力输入依赖 · '+escape(({valid:'满足',violated:'失效',unknown:'未知'})[dependency.status]||dependency.status)+'</b>'+(dependency.reason?'<p>'+escape(dependency.reason)+'</p>':'');
+      for(const req of dependency.requirements||[])html+='<small style="display:block">束线 '+escape(req.beamline)+' · '+escape(req.logical)+' · '+escape(req.observation?.label||req.fact)+' · '+escape(({valid:'满足',violated:'失效',unknown:'未知',released:'保持要求已结束'})[req.status]||'待核验')+' · '+(req.maintain==='execution'?'动作期间保持':'开始时检查')+'</small>';
+      html+='</div>';
+    }
   }
+  for(const wait of (owner?.waits||[]).filter(w=>w.activity===picked))
+    html+='<div class="command"><b>等待完成条件：'+escape(wait.label||wait.condition)+'</b><br>'+escape(wait.reason||'条件核验中')+(wait.endReason?'<br>'+escape(wait.endReason):'')+'</div>';
   if(!commands.length)html+='<p class="muted">'+(activities.length?'该节点为流程活动或条件等待。':'尚未产生执行记录。')+'</p>';
   $('details').innerHTML=html;
 }
@@ -232,25 +239,22 @@ function renderRun(){
   const names=(current?.activities||[]).filter(a=>(current.activeActivities||[]).includes(a.id)&&/Task$|Activity$/.test(a.type)).map(a=>a.name||a.id);
   $('run-stage').textContent=[...new Set(names)].join('、')||(run?.ended?'已结束':'—');
   $('run-stage').title=$('run-stage').textContent;
-  const commands=allCommands(), finished=commands.filter(c=>['succeeded','failed','interrupted','rejected','cancelled'].includes(commandStatus(c))).length;
-  $('command-summary').textContent=commands.length?`${finished} / ${commands.length} 已返回结果`:'暂无命令';
+  const commands=allCommands(), finished=commands.filter(c=>['succeeded','failed','blocked','interrupted','rejected','cancelled'].includes(commandStatus(c))).length;
+  $('command-summary').textContent=commands.length?`${finished} / ${commands.length} 已结束`:'暂无命令';
   $('elapsed').textContent=run?duration(new Date(run.ended||Date.now())-new Date(run.started)):'—';
   if(run?.ended)$('details').querySelector('.device-debug-controls')?.remove();
   $('process').disabled=Boolean(run);onRunChange(run);paint();renderDevices();
 }
 function renderSystemIncidents(){
-  const host=$('system-incidents');
-  let state=run?.experimentSystemState;
-  if(typeof state==='string'){try{state=JSON.parse(state);}catch(_){state=null;}}
-  const incidents=Array.isArray(state?.incidents)?state.incidents:[];
-  host.hidden=incidents.length===0;
-  $('incident-count').textContent=incidents.length?`${incidents.length} 项 · ${state?.integrity==='unknown'?'状态未知':state?.integrity==='violated'?'已阻断':'需关注'}`:'';
-  $('incident-list').innerHTML=incidents.map(item=>{
-    const target=item.device?`${item.device} · ${componentLabel[item.component]||item.component||'设备'}`:'系统';
-    const facts=[item.stage?'发生阶段：'+item.stage:'',item.stateId?'设备状态：'+item.stateId:'',item.faultOrigin?'故障来源：'+item.faultOrigin:'',Array.isArray(item.faults)&&item.faults.length?'故障代码：'+item.faults.join('、'):'',item.reason||''].filter(Boolean);
-    const time=item.detectedAt?new Date(item.detectedAt).toLocaleString():'';
-    return '<article class="incident-row '+escape(item.category||'')+'"><div><strong>'+escape(item.label||item.type||'系统异常')+'</strong><span>'+escape(target)+'</span><time>'+escape(time)+'</time></div><p>'+facts.map(escape).join(' · ')+'</p></article>';
-  }).join('');
+  const host=$('system-incidents'),state=run?.facilityState,shot=run?.shotRun;
+  host.hidden=!run;
+  const labels={valid:'成立',unknown:'未知',violated:'不满足',succeeded:'成功',failed:'失败',completed:'完成',cancelled:'已取消',invalidated:'已失效'};
+  $('incident-count').textContent=shot?`本发 ${shot.shot_id} · ${labels[shot.stage]||shot.stage} · ${(shot.evidence||[]).length} 条证据`:'';
+  const rows=(values,kind)=>Object.entries(values||{}).map(([id,item]:[string,any])=>
+    '<article class="incident-row '+escape(item.status)+'"><div><strong>'+escape(item.label||id)+'</strong><span>'+escape(kind+' · '+(labels[item.status]||item.status))+'</span></div>'+(item.reason?'<p>'+escape(item.reason)+'</p>':'')+'</article>').join('');
+  const evidence=(shot?.evidence||[]).map(item=>'<article class="incident-row"><div><strong>'+escape(item.device_id||item.details?.device||item.details?.label||item.details?.condition||item.id)+'</strong><span>'+escape((item.operation||(item.kind==='capability-dependency'?'能力输入依赖':item.details?.purpose==='activity-completion'?'完成条件核验':item.kind))+' · '+(labels[item.status]||item.status))+'</span><time>'+escape(new Date(item.observed_at).toLocaleString())+'</time></div>'+((item.details?.decisionReason||item.details?.reason)?'<p>'+escape(item.details.decisionReason||item.details.reason)+'</p>':'')+'</article>').join('');
+  $('incident-list').innerHTML=(state?'<details><summary>设施事实与放行条件'+(run.ended?'（结束时快照）':'（当前）')+'</summary>'+rows(state.guards,'放行条件')+rows(state.facts,'设施事实')+'</details>':'')+
+    '<details><summary>本发执行证据 · '+(shot?.evidence?.length||0)+'</summary>'+evidence+'</details>';
 }
 function duration(ms){if(!Number.isFinite(ms))return '—';const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)} 分 ${seconds%60} 秒`;}
 for(const target of [viewer,childViewer]){

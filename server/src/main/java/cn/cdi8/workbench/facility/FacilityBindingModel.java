@@ -1,99 +1,52 @@
 package cn.cdi8.workbench.facility;
 
-import java.io.StringReader;
+import cn.cdi8.workbench.systemdefinition.SystemDefinitionModel;
 import java.util.*;
-import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Element;
-import org.xml.sax.InputSource;
+import static cn.cdi8.workbench.xml.ModelXml.*;
 
-/** Runtime binding template for logical facility instances and beamline rules. */
+/** Deployment addresses reference composition and mapping rules; they never redefine them. */
 public final class FacilityBindingModel {
-    public static final String NS = "https://cdi8.cn/facility-binding/v1";
-    private final String id;
-    private final String definitionRef;
-    private final int instanceBindingCount;
-    private final int beamlineBindingCount;
-    private final int externalBindingCount;
-
-    private FacilityBindingModel(String id, String definitionRef, int instanceBindingCount,
-                                 int beamlineBindingCount, int externalBindingCount) {
-        this.id = id;
-        this.definitionRef = definitionRef;
-        this.instanceBindingCount = instanceBindingCount;
-        this.beamlineBindingCount = beamlineBindingCount;
-        this.externalBindingCount = externalBindingCount;
-    }
-
-    public String id() { return id; }
-    public String definitionRef() { return definitionRef; }
-    public int instanceBindingCount() { return instanceBindingCount; }
-    public int beamlineBindingCount() { return beamlineBindingCount; }
-    public int externalBindingCount() { return externalBindingCount; }
-
-    public static FacilityBindingModel parse(String xml) {
-        try {
-            var root = root(xml);
-            if (!"facility-binding".equals(root.getLocalName()) || !NS.equals(root.getNamespaceURI()))
-                throw new IllegalArgumentException("设施绑定根元素或命名空间错误");
-            String id = required(root, "id"), definitionRef = required(root, "definitionRef");
-            var instanceSection = section(root, "instanceBindings");
-            var beamlineSection = section(root, "beamlineBindings");
-            var externalSection = section(root, "externalBindings");
-            if (instanceSection == null || children(instanceSection).isEmpty())
-                throw new IllegalArgumentException("设施绑定缺少 instanceBindings");
-            if (beamlineSection == null || children(beamlineSection).isEmpty())
-                throw new IllegalArgumentException("设施绑定缺少 beamlineBindings");
-            uniqueIds(instanceSection, "binding", "instanceSet");
-            for (var binding : children(instanceSection)) {
-                requireElement(binding, "binding");
-                required(binding, "instanceSet"); required(binding, "logicalPattern"); required(binding, "runtimeKey");
-            }
-            for (var beamline : children(beamlineSection)) {
-                requireElement(beamline, "beamlineBinding");
-                required(beamline, "id"); required(beamline, "resourceRef");
-                if (children(beamline).isEmpty()) throw new IllegalArgumentException("束线绑定规则不能为空：" + beamline.getAttribute("id"));
-                for (var bind : children(beamline)) {
-                    requireElement(bind, "bind"); required(bind, "role");
-                    if (!bind.hasAttribute("instancePattern") && !bind.hasAttribute("allowedInstances"))
-                        throw new IllegalArgumentException("束线绑定缺少实例规则：" + beamline.getAttribute("id") + "/" + bind.getAttribute("role"));
-                }
-            }
-            int externalCount = 0;
-            if (externalSection != null) for (var binding : children(externalSection)) {
-                requireElement(binding, "bind"); required(binding, "ref"); required(binding, "runtimeKey");
-                externalCount++;
-            }
-            var assumptions = section(root, "assumptions");
-            if (assumptions != null) for (var assumption : children(assumptions)) {
-                requireElement(assumption, "assumption"); required(assumption, "id"); required(assumption, "value"); required(assumption, "reason");
-            }
-            return new FacilityBindingModel(id, definitionRef, children(instanceSection).size(), children(beamlineSection).size(), externalCount);
-        } catch (IllegalArgumentException ex) { throw ex; }
-        catch (Exception ex) { throw new IllegalArgumentException("设施绑定 XML 无效：" + ex.getMessage(), ex); }
-    }
-
-    private static Element root(String xml) throws Exception {
-        if (xml == null || xml.isBlank()) throw new IllegalArgumentException("设施绑定 XML 为空");
-        var factory = DocumentBuilderFactory.newInstance(); factory.setNamespaceAware(true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        return factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();
-    }
-    private static Element section(Element root, String name) { for (var child : children(root)) if (name.equals(child.getLocalName())) return child; return null; }
-    private static void uniqueIds(Element parent, String elementName, String uniqueAttribute) {
-        var values = new HashSet<String>();
-        for (var child : children(parent)) if (elementName.equals(child.getLocalName())) {
-            String value = required(child, uniqueAttribute); if (!values.add(value)) throw new IllegalArgumentException("绑定重复：" + value);
+    public static final String NS="https://cdi8.cn/facility-binding/v1";
+    private final Element root;
+    private final Map<String,String> componentByRuntimeKey=new LinkedHashMap<>();
+    private final Map<String,String> instanceSetByRuntimeKey=new LinkedHashMap<>();
+    private final FacilityInstanceTopology topology;
+    private FacilityBindingModel(Element root,SystemDefinitionModel definition) {
+        this.root=root;
+        var keys=new HashSet<String>();
+        for(var b:entries(root,"instanceBindings")) {
+            String key=b.getAttribute("runtimeKey"),set=b.getAttribute("instanceSetRef");
+            if(!keys.add(key))throw new IllegalArgumentException("设施运行组件键重复："+key);
+            if(!b.getAttribute("runtimePattern").matches("[^{}]+\\{index}"))throw new IllegalArgumentException("运行设备模板必须是前缀加 {index}");
+            instanceSetByRuntimeKey.put(key,set);
+            if(definition!=null)componentByRuntimeKey.put(key,definition.instanceSet(set).type());
         }
-    }
-    private static void requireElement(Element element, String name) { if (!name.equals(element.getLocalName())) throw new IllegalArgumentException("此处需要 " + name + "，实际为 " + element.getLocalName()); }
-    private static String required(Element element, String attribute) { String value = element.getAttribute(attribute).trim(); if (value.isEmpty()) throw new IllegalArgumentException("缺少属性 " + attribute + "（" + element.getLocalName() + "）"); return value; }
-    private static List<Element> children(Element parent) {
-        if (parent == null) return List.of(); var result = new ArrayList<Element>();
-        for (var node=parent.getFirstChild(); node!=null; node=node.getNextSibling()) if (node instanceof Element child) {
-            if (!NS.equals(child.getNamespaceURI())) throw new IllegalArgumentException("设施绑定子元素命名空间错误：" + child.getNodeName()); result.add(child);
+        for(var beam:entries(root,"beamlineBindings")) {
+            var refs=new HashSet<String>();
+            for(var mapping:entries(beam,"mappingBindings"))if(!refs.add(mapping.getAttribute("mappingRef")))throw new IllegalArgumentException("束线映射引用重复");
         }
-        return result;
+        if(definition!=null) {
+            if(!definition.id().equals(definitionRef()))throw new IllegalArgumentException("设施绑定 definitionRef 不一致");
+            if(!Set.copyOf(instanceSetByRuntimeKey.values()).equals(definition.instanceSets().stream().map(SystemDefinitionModel.InstanceSet::id).collect(java.util.stream.Collectors.toSet())))
+                throw new IllegalArgumentException("实例绑定必须完整覆盖系统定义的实例集合");
+            var externalKeys=new HashSet<String>();
+            for(var b:entries(root,"externalBindings")) {
+                if(!definition.hasExternal(b.getAttribute("externalEndpointRef")))throw new IllegalArgumentException("外部绑定引用未定义端点："+b.getAttribute("externalEndpointRef"));
+                if(!externalKeys.add(b.getAttribute("runtimeKey")))throw new IllegalArgumentException("外部运行键重复");
+            }
+            topology=FacilityInstanceTopology.parse(root,definition);
+        }else topology=null;
     }
+    public String id(){return root.getAttribute("id");}
+    public String definitionRef(){return root.getAttribute("definitionRef");}
+    public int instanceBindingCount(){return entries(root,"instanceBindings").size();}
+    public int beamlineBindingCount(){return entries(root,"beamlineBindings").size();}
+    public int externalBindingCount(){return entries(root,"externalBindings").size();}
+    public FacilityInstanceTopology topology(){if(topology==null)throw new IllegalStateException("绑定尚未与系统定义进行联合校验");return topology;}
+    public String componentForRuntimeKey(String key){return componentByRuntimeKey.getOrDefault(key,"");}
+    public String instanceSetForRuntimeKey(String key){return instanceSetByRuntimeKey.getOrDefault(key,"");}
+    public boolean knowsRuntimeKey(String key){return instanceSetByRuntimeKey.containsKey(key);}
+    public static FacilityBindingModel parse(String xml){return parse(xml,null);}
+    public static FacilityBindingModel parse(String xml,SystemDefinitionModel definition){return new FacilityBindingModel(cn.cdi8.workbench.xml.ModelXml.parse(xml,"facility-binding"),definition);}
 }

@@ -18,6 +18,7 @@
     </repository>
   </repositories>
   <dependencies>
+    <dependency><groupId>cn.cdi8</groupId><artifactId>model-contract</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.apache.commons</groupId><artifactId>commons-scxml2</artifactId><version>${commons-scxml.version}</version></dependency>
     <dependency><groupId>org.apache.commons</groupId><artifactId>commons-jexl3</artifactId><version>3.6.4</version></dependency>
     <dependency><groupId>org.tango-controls</groupId><artifactId>JTangoServer</artifactId><version>${jtango.version}</version></dependency>

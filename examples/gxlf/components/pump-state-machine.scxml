@@ -1028,97 +1028,99 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "50": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "51": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "52": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "53": {
-        "states": [
-          "emissionPrepared"
-        ]
-      },
-      "54": {
-        "states": [
-          "chargePrepared"
-        ]
-      },
-      "55": {
-        "states": [
-          "chargingActive"
-        ]
-      },
-      "56": {
-        "states": [
-          "chargeComplete"
-        ]
-      },
-      "57": {
-        "states": [
-          "triggerReady"
-        ]
-      },
-      "58": {
-        "states": [
-          "dataCollected"
-        ]
-      },
-      "59": {
-        "states": [
-          "standbyReady"
-        ]
-      },
-      "60": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "61": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "62": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "63": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "64": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "50": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "51": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "52": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "53": {
+          "states": [
+            "emissionPrepared"
+          ]
+        },
+        "54": {
+          "states": [
+            "chargePrepared"
+          ]
+        },
+        "55": {
+          "states": [
+            "chargingActive"
+          ]
+        },
+        "56": {
+          "states": [
+            "chargeComplete"
+          ]
+        },
+        "57": {
+          "states": [
+            "triggerReady"
+          ]
+        },
+        "58": {
+          "states": [
+            "dataCollected"
+          ]
+        },
+        "59": {
+          "states": [
+            "standbyReady"
+          ]
+        },
+        "60": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "61": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "62": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "63": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "64": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "第56行 D 列混写“中/达标/完成”，依据 E 列泵浦充电完成及实际完成回调，只映射 chargeComplete；不把充电开始当作完成。",
-    "充电故障时先异常锁存；设备自主停充泄放完成的 pump.protection.completed 才回到基础就绪。高能态的配置或资格失效进入异常，避免误报安全就绪。",
-    "数据采集只使用泵浦自身完成反馈；不额外等待同步或开关结果确认。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "第56行 D 列混写“中/达标/完成”，依据 E 列泵浦充电完成及实际完成回调，只映射 chargeComplete；不把充电开始当作完成。",
+      "充电故障时先异常锁存；设备自主停充泄放完成的 pump.protection.completed 才回到基础就绪。高能态的配置或资格失效进入异常，避免误报安全就绪。",
+      "数据采集只使用泵浦自身完成反馈；不额外等待同步或开关结果确认。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

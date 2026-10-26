@@ -95,7 +95,11 @@ public class TangoGateway {
                                 if (previous != null && !next.path("source_id").asText().isBlank()
                                         && previous.path("source_id").asText().equals(next.path("source_id").asText())
                                         && previous.path("state_revision").isIntegralNumber() && next.path("state_revision").isIntegralNumber()
-                                        && next.path("state_revision").asLong() < previous.path("state_revision").asLong()) continue;
+                                        && next.path("state_revision").asLong() < previous.path("state_revision").asLong()) {
+                                    events.publishEvent(new Notice(json.createObjectNode().put("type","state_revision_rollback")
+                                        .put("device_id",id).put("connected",false).put("reason",id+" 状态修订号倒退")));
+                                    continue;
+                                }
                                 snapshots.put(id, next);
                             }
                             else snapshots.remove(id);

@@ -80,13 +80,21 @@ function useExample(){
     ['synchronization-state-machine','synchronization'],['switch-driver-state-machine','switch-driver'],['cooling-state-machine','cooling'],
     ['control-environment-state-machine','control-environment']
   ] as const;
-  if(!modelFor('gxlf_initialization_parameter_dispatch')?.revisions.length||components.some(([id])=>!modelFor(id)?.revisions.length)){localError.value='GXLF 十四类示例模型不完整，请先导入并保存示例模型版本';return;}
+  const entry=flows.value.find(model=>model.id==='gxlf_shot_run_smoke');
+  if(!entry||!entry.revisions.some(revision=>isExecutable(revision.xml))){localError.value='缺少 GXLF 初始化与本发参数接收示例，请重新构建服务以导入内置模型';return;}
+  if(components.some(([id])=>!modelFor(id)?.revisions.length)){localError.value='GXLF 十四类示例模型不完整，请先导入并保存示例模型版本';return;}
   const devices=components.map(([id,component])=>({model:id,revision:modelFor(id)!.revisions.at(-1)!.id,component,count:1,autoComplete:true,delayMs:500}));
   const order=props.configuration.appliedDevices?.map(row=>row.component)||[];
   if(order.length===devices.length&&devices.every(row=>order.includes(row.component)))devices.sort((a,b)=>order.indexOf(a.component)-order.indexOf(b.component));
-  draft.value={...draft.value,entry:'gxlf_initialization_parameter_dispatch',processes:[],devices,autoComplete:true};
-  bindingsText.value='{}';variablesText.value=JSON.stringify({commandTimeout:'PT30S',workflowTimeout:'PT180S'},null,2);conditionsText.value='{}';
-  localError.value='';exampleNotice.value='已填入 GXLF 十四类设备技术验证方案。请检查设备就绪状态后开始调试。';
+  const revision=entry.revisions.slice().reverse().find(item=>isExecutable(item.xml));
+  draft.value={...draft.value,entry:entry.id,processes:revision?[{model:entry.id,revision:revision.id}]:[],devices,autoComplete:true};
+  bindingsText.value='{}';variablesText.value=JSON.stringify({shotId:'shot-'+Date.now(),recipeRef:'simulation',recipeVersion:'1',beamlines:[1],defaultSource:'seed',commandTimeout:'PT30S',workflowTimeout:'PT180S'},null,2);conditionsText.value='{}';
+  localError.value='';exampleNotice.value='已填入十四类设备初始化与本发参数接收方案，完成后可查看逐设备证据；此示例不包含正式发射。';
+}
+function isExecutable(xml:string){
+  const doc=new DOMParser().parseFromString(xml,'application/xml');
+  const process=doc.documentElement.querySelector('process');
+  return process?.getAttribute('isExecutable')==='true';
 }
 function submit(operation:'save'|'apply'|'start'){
   localError.value='';
@@ -115,13 +123,13 @@ defineExpose({selectEntry});
     <p v-else-if="draft.entry&&!plan.issues.length" class="preparation-hint">该流程没有需要另选版本的子流程。</p><p class="preparation-hint">启动后固定本次使用的版本，后续编辑模型不影响在途运行。</p>
    </section>
    <section class="preparation-card"><div class="preparation-card-heading"><span class="step-number">02</span><div><h2>需要哪些组件？</h2><p>每组组件使用一个状态机版本，可创建多个独立实例。</p></div><button :disabled="busy||!stateMachines.some(m=>m.revisions.length)" @click="addDevice">＋ 添加组件</button></div>
-    <div v-if="!draft.devices.length" class="preparation-empty">尚未添加组件。可添加状态机实例，或使用四组件示例方案。<small>仅依赖外部条件的流程可以只使用自动创建的同步条件设备。</small></div>
+    <div v-if="!draft.devices.length" class="preparation-empty">尚未添加组件。可添加状态机实例，或使用 GXLF 十四类设备示例方案。<small>仅依赖外部条件的流程可以只使用自动创建的同步条件设备。</small></div>
     <article v-for="(row,i) in draft.devices" :key="i" class="preparation-device"><div class="preparation-device-heading"><b>组件 {{i+1}}</b><button class="quiet-danger" :disabled="busy" :aria-label="'移除组件 '+(i+1)" @click="draft.devices.splice(i,1)">移除</button></div><div class="preparation-device-fields"><label>状态机模型<select v-model="row.model" :aria-label="'组件 '+(i+1)+' 状态机模型'" :disabled="busy" @change="setDeviceModel(row)"><option v-for="m in stateMachines" :key="m.id" :value="m.id" :disabled="!m.revisions.length">{{modelLabel(m.id)}}</option></select></label><label>状态机版本<select v-model="row.revision" :aria-label="'组件 '+(i+1)+' 状态机版本'" :disabled="busy"><option v-for="r in modelFor(row.model)?.revisions.slice().reverse()" :key="r.id" :value="r.id">{{r.id.slice(0,8)}} · {{new Date(r.created).toLocaleString()}}</option></select></label><label>组件类型（实例前缀）<input v-model="row.component" :aria-label="'组件 '+(i+1)+' 类型'" :disabled="busy" placeholder="例如 seed 或 demo"></label><label>实例数量<input v-model.number="row.count" type="number" min="1" max="200" :aria-label="'组件 '+(i+1)+' 实例数量'" :disabled="busy"></label><label>动作反馈<select v-model="row.autoComplete" :aria-label="'组件 '+(i+1)+' 动作反馈'" :disabled="busy"><option :value="true">自动成功反馈</option><option :value="false">手动反馈成功／失败</option></select></label><label v-if="row.autoComplete">自动反馈延迟（毫秒）<input v-model.number="row.delayMs" type="number" min="0" max="3600000" :aria-label="'组件 '+(i+1)+' 反馈延迟'" :disabled="busy"></label></div><div class="instance-preview"><span>将创建</span><code>{{row.component||'组件类型'}}_01{{row.count>1?' … '+row.component+'_'+String(row.count).padStart(2,'0'):''}}</code></div></article>
     <p class="preparation-hint">自动反馈用于模拟动作完成。安全许可等外部条件仍需明确确认，可在高级配置中设定初始值。</p>
    </section>
    <details class="preparation-card preparation-advanced"><summary><div><h2>高级配置</h2><p>设备集合绑定、运行参数和外部条件；常规示例可以沿用默认值。</p></div><span>展开配置</span></summary><div class="advanced-content">
     <section><h3>设备集合绑定</h3><p>流程按集合选择设备，例如 <code>sourceTargets</code> 对应 <code>seed_01</code>。以下是本次配置使用的集合。</p><dl class="binding-preview"><div v-for="(ids,name) in bindingPreview" :key="name"><dt>{{name}}</dt><dd>{{ids.join('、')||'空集合'}}</dd></div></dl><label>覆盖集合（JSON）<textarea v-model="bindingsText" aria-label="设备集合绑定 JSON" :disabled="busy" spellcheck="false"></textarea></label></section>
-    <section><h3>运行参数</h3><p>例如动作超时、流程超时和光源选择。修改这些参数可复用设备当前状态。</p><label>运行参数（JSON）<textarea v-model="variablesText" aria-label="流程初始变量 JSON" :disabled="busy" spellcheck="false"></textarea></label></section>
+    <section><h3>运行参数</h3><p>可配置 shotId、recipeRef、recipeVersion、beamlines、defaultSource，以及动作和流程超时。束线必须为 1–60 的不重复整数；默认光源为 seed。</p><label>运行参数（JSON）<textarea v-model="variablesText" aria-label="流程初始变量 JSON" :disabled="busy" spellcheck="false"></textarea></label></section>
     <section><h3>外部条件初始值</h3><p>布尔条件使用 true 或 false。修改初始值需要重新创建设备；运行中的确认在“运行调试”中操作。</p><label>条件初始值（JSON）<textarea v-model="conditionsText" aria-label="外部条件定义 JSON" :disabled="busy" spellcheck="false"></textarea></label><label class="checkbox"><input v-model="draft.autoComplete" type="checkbox" :disabled="busy">同步条件设备的动作自动成功反馈</label><p>这一选项只完成命令，外部许可不会因此自动满足。</p></section>
    </div></details>
   </div><aside class="preparation-aside"><section class="preparation-card readiness-card"><div class="readiness-title"><h2>运行检查</h2><button :disabled="busy" @click="emit('refresh')">检查状态</button></div><div class="readiness-state" :class="readiness.kind" role="status"><span class="readiness-dot"></span><strong>{{readiness.title}}</strong></div><p class="readiness-description">{{readiness.detail}}</p><dl class="preparation-facts"><div><dt>入口流程</dt><dd>{{entryModel?modelLabel(entryModel.id):'尚未选择'}}</dd></div><div><dt>流程依赖</dt><dd>{{dependencies.length}} 个子流程</dd></div><div><dt>模拟实例</dt><dd>{{instanceCount}} 个组件 + 1 个条件设备</dd></div></dl>

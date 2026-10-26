@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:m="https://cdi8.cn/facility-state/v1" targetNamespace="https://cdi8.cn/facility-state/v1" elementFormDefault="qualified">
+  <xs:simpleType name="text">
+    <xs:restriction base="xs:token">
+      <xs:minLength value="1" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="count">
+    <xs:restriction base="xs:positiveInteger">
+      <xs:maxInclusive value="10000" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="annotations">
+    <xs:sequence>
+      <xs:element name="notes" type="m:notes" minOccurs="0" maxOccurs="1" />
+      <xs:element name="issues" type="m:issues" minOccurs="0" maxOccurs="1" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="note">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="kind" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="issue">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="status" type="m:text" use="required" />
+    <xs:attribute name="impact" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="notes">
+    <xs:sequence>
+      <xs:element name="note" type="m:note" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="issues">
+    <xs:sequence>
+      <xs:element name="issue" type="m:issue" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="adapter">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="device-connectivity" />
+      <xs:enumeration value="device-state" />
+      <xs:enumeration value="external" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="source">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="instanceGroupRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="controlNodeRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="externalEndpointRef" type="xs:NCName" use="optional" />
+    <xs:attribute name="portRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="observation">
+    <xs:sequence>
+      <xs:element name="source" type="m:source" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="optional" />
+    <xs:attribute name="adapter" type="m:adapter" use="required" />
+  </xs:complexType>
+  <xs:complexType name="deviceFact">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="typeRef" type="xs:NCName" use="required" />
+    <xs:attribute name="states" type="m:text" use="optional" />
+    <xs:attribute name="outerStates" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="devicePredicate">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+    <xs:attribute name="states" type="m:text" use="optional" />
+    <xs:attribute name="outerStates" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="factPredicate">
+    <xs:attribute name="factRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="observationPredicate">
+    <xs:attribute name="observationRef" type="xs:NCName" use="required" />
+    <xs:attribute name="expected" type="m:text" use="optional" />
+  </xs:complexType>
+  <xs:complexType name="condition">
+    <xs:choice minOccurs="1" maxOccurs="1">
+      <xs:element name="all" type="m:junction" />
+      <xs:element name="any" type="m:junction" />
+      <xs:element name="devicePredicate" type="m:devicePredicate" />
+      <xs:element name="factPredicate" type="m:factPredicate" />
+      <xs:element name="observationPredicate" type="m:observationPredicate" />
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="junction">
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="all" type="m:junction" />
+      <xs:element name="any" type="m:junction" />
+      <xs:element name="devicePredicate" type="m:devicePredicate" />
+      <xs:element name="factPredicate" type="m:factPredicate" />
+      <xs:element name="observationPredicate" type="m:observationPredicate" />
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="predicate">
+    <xs:sequence>
+      <xs:element name="condition" type="m:condition" minOccurs="1" maxOccurs="1" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="observations">
+    <xs:sequence>
+      <xs:element name="observation" type="m:observation" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="deviceFacts">
+    <xs:sequence>
+      <xs:element name="deviceFact" type="m:deviceFact" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="facts">
+    <xs:sequence>
+      <xs:element name="fact" type="m:predicate" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="guards">
+    <xs:sequence>
+      <xs:element name="guard" type="m:predicate" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="facility-state-projection">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="observations" type="m:observations" minOccurs="1" />
+        <xs:element name="deviceFacts" type="m:deviceFacts" minOccurs="0" />
+        <xs:element name="facts" type="m:facts" minOccurs="1" />
+        <xs:element name="guards" type="m:guards" minOccurs="0" />
+        <xs:element name="annotations" type="m:annotations" minOccurs="0" />
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:NCName" use="required" />
+      <xs:attribute name="definitionRef" type="xs:NCName" use="required" />
+      <xs:attribute name="bindingRef" type="xs:NCName" use="required" />
+      <xs:attribute name="version" type="m:text" use="optional" />
+      <xs:attribute name="evidenceMaxAgeMs" type="xs:positiveInteger" use="required" />
+    </xs:complexType>
+    <xs:key name="observationsKey">
+      <xs:selector xpath="m:observations/m:observation" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="deviceFactsKey">
+      <xs:selector xpath="m:deviceFacts/m:deviceFact" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="factsKey">
+      <xs:selector xpath="m:facts/m:fact" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="guardsKey">
+      <xs:selector xpath="m:guards/m:guard" />
+      <xs:field xpath="@id" />
+    </xs:key>
+  </xs:element>
+</xs:schema>

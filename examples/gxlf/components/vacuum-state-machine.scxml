@@ -714,87 +714,89 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "146": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "147": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "148": {
-        "states": [
-          "pumpingActive"
-        ]
-      },
-      "149": {
-        "states": [
-          "vacuumStable"
-        ]
-      },
-      "150": {
-        "states": [
-          "pressureRestoring"
-        ]
-      },
-      "151": {
-        "states": [
-          "vacuumStable"
-        ]
-      },
-      "152": {
-        "states": [
-          "pressureRestored"
-        ]
-      },
-      "153": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "154": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "155": {
-        "states": [
-          "vacuumHoldFault"
-        ]
-      },
-      "156": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "157": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "158": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "146": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "147": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "148": {
+          "states": [
+            "pumpingActive"
+          ]
+        },
+        "149": {
+          "states": [
+            "vacuumStable"
+          ]
+        },
+        "150": {
+          "states": [
+            "pressureRestoring"
+          ]
+        },
+        "151": {
+          "states": [
+            "vacuumStable"
+          ]
+        },
+        "152": {
+          "states": [
+            "pressureRestored"
+          ]
+        },
+        "153": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "154": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "155": {
+          "states": [
+            "vacuumHoldFault"
+          ]
+        },
+        "156": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "157": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "158": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "第148至152行均标注非控制类节点，仅提供内部观测确认，不新增抽真空/复压控制动作。",
-    "保留 E 列原称“负压中/负压完成”，子状态仍为“复压中/复压完成”。第149、151行共同映射同一个真空度保持子状态。",
-    "复压一旦实际开始，真空资格即撤销，不从复压中跳回真空保持；需完成复压，再观测重新抽真空。抽真空中和复压中不提供直接关机/复位成功跳转。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "第148至152行均标注非控制类节点，仅提供内部观测确认，不新增抽真空/复压控制动作。",
+      "保留 E 列原称“负压中/负压完成”，子状态仍为“复压中/复压完成”。第149、151行共同映射同一个真空度保持子状态。",
+      "复压一旦实际开始，真空资格即撤销，不从复压中跳回真空保持；需完成复压，再观测重新抽真空。抽真空中和复压中不提供直接关机/复位成功跳转。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

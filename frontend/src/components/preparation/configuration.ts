@@ -39,8 +39,13 @@ export function resolveProcesses(models:Model[],entry:string,preferred:ProcessSe
       const expression=loop.getAttributeNS('http://flowable.org/bpmn','collection')||'';
       const match=/^\$\{([A-Za-z0-9_]+)\}$/.exec(expression);if(match)collections.add(match[1]);
     }
-    for(const wait of item.doc.getElementsByTagNameNS(BPMN,'receiveTask'))if(wait.getAttributeNS('https://cdi8.cn/workbench','condition'))collections.add(wait.getAttributeNS('https://cdi8.cn/workbench','collection')||'contextTargets');
+    for(const action of item.doc.getElementsByTagNameNS('https://cdi8.cn/facility/v1','action')){
+      const collection=action.getAttribute('collectionVar');if(collection)collections.add(collection);
+    }
+    for(const process of item.doc.getElementsByTagNameNS(BPMN,'process'))
+      if(process.getAttribute('isExecutable')!=='true')issues.push('设计流程不能执行：'+item.model.name);
     for(const call of item.doc.getElementsByTagNameNS(BPMN,'callActivity')){
+      issues.push('新链路暂不支持跨 callActivity，请使用同一流程内的任务或嵌入子过程');
       const key=call.getAttribute('calledElement')||'';
       const owners=catalogue.filter(c=>c.keys.includes(key));
       const preferredOwners=owners.filter(owner=>chosen.has(owner.model.id)),matches=preferredOwners.length?preferredOwners:owners;

@@ -873,87 +873,89 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "65": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "66": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "67": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "68": {
-        "states": [
-          "chargeComplete"
-        ]
-      },
-      "69": {
-        "states": [
-          "triggerReady"
-        ]
-      },
-      "70": {
-        "states": [
-          "waveformCollected"
-        ]
-      },
-      "71": {
-        "states": [
-          "standbyReady"
-        ]
-      },
-      "72": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "73": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "74": {
-        "states": [
-          "dischargeFault"
-        ]
-      },
-      "75": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "76": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "77": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "65": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "66": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "67": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "68": {
+          "states": [
+            "chargeComplete"
+          ]
+        },
+        "69": {
+          "states": [
+            "triggerReady"
+          ]
+        },
+        "70": {
+          "states": [
+            "waveformCollected"
+          ]
+        },
+        "71": {
+          "states": [
+            "standbyReady"
+          ]
+        },
+        "72": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "73": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "74": {
+          "states": [
+            "dischargeFault"
+          ]
+        },
+        "75": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "76": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "77": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "第68行开关充电完成单独作为父状态，第69行开关待触发单独作为父状态，第70行放电波形已采集属于就绪；没有“外部发射结果待确认”父/子状态。",
-    "实际放电及波形采集由开关组件自身确认，switch.waveform-collection.completed 只在内部确认实际放电并成功取得本次波形后发出。同步完成、泵浦准备等不进入本机条件。",
-    "开关放电异常保留专用异常子状态，不把采集成功等同于波形质量合格。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "第68行开关充电完成单独作为父状态，第69行开关待触发单独作为父状态，第70行放电波形已采集属于就绪；没有“外部发射结果待确认”父/子状态。",
+      "实际放电及波形采集由开关组件自身确认，switch.waveform-collection.completed 只在内部确认实际放电并成功取得本次波形后发出。同步完成、泵浦准备等不进入本机条件。",
+      "开关放电异常保留专用异常子状态，不把采集成功等同于波形质量合格。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

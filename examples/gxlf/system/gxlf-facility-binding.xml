@@ -1,58 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  GXLF 设施实例绑定模板。
-
-  system-definition 描述名义类型和拓扑；本文件描述这些名义对象如何在一次
-  部署中解析为实际设备和束线。由于现场 Tango 名称尚未确定，这里保留逻辑
-  编号和解析规则，不伪造现场设备名。
--->
-<facility-binding
-    xmlns="https://cdi8.cn/facility-binding/v1"
-    id="gxlf-facility-binding"
-    definitionRef="gxlf-facility"
-    version="1">
-
+<facility-binding id="gxlf-facility-binding" definitionRef="gxlf-facility" version="1" xmlns="https://cdi8.cn/facility-binding/v1">
   <instanceBindings resolution="runtime-configuration">
-    <binding instanceSet="seed" logicalPattern="seed-01" runtimeKey="seed" />
-    <binding instanceSet="shg" logicalPattern="shg-01" runtimeKey="shg" />
-    <binding instanceSet="preamp" logicalPattern="preamp-{01..10}" runtimeKey="preamp" />
-    <binding instanceSet="multipass" logicalPattern="multipass-{01..60}" runtimeKey="multipass" />
-    <binding instanceSet="pump" logicalPattern="pump-01" runtimeKey="pump" />
-    <binding instanceSet="measurement" logicalPattern="measurement-{01..60}" runtimeKey="measurement" />
-    <binding instanceSet="frequency-conversion" logicalPattern="frequency-conversion-{01..60}" runtimeKey="frequency-conversion" />
-    <binding instanceSet="target-alignment" logicalPattern="target-alignment-01" runtimeKey="target-alignment" />
-    <binding instanceSet="vacuum" logicalPattern="vacuum-01" runtimeKey="vacuum" />
-    <binding instanceSet="diagnostics" logicalPattern="diagnostics-01" runtimeKey="diagnostics" />
-    <binding instanceSet="synchronization" logicalPattern="synchronization-{01..60}" runtimeKey="synchronization" />
-    <binding instanceSet="switch-driver" logicalPattern="switch-driver-01" runtimeKey="switch-driver" />
-    <binding instanceSet="cooling" logicalPattern="cooling-01" runtimeKey="cooling" />
-    <binding instanceSet="control-environment" logicalPattern="control-environment-01" runtimeKey="control-environment" />
+    <instanceBinding runtimeKey="seed" runtimePattern="seed_{index}" instanceSetRef="seed" />
+    <instanceBinding runtimeKey="shg" runtimePattern="shg_{index}" instanceSetRef="shg" />
+    <instanceBinding runtimeKey="preamp" runtimePattern="preamp_{index}" instanceSetRef="preamp" />
+    <instanceBinding runtimeKey="multipass" runtimePattern="multipass_{index}" instanceSetRef="multipass" />
+    <instanceBinding runtimeKey="pump" runtimePattern="pump_{index}" instanceSetRef="pump" />
+    <instanceBinding runtimeKey="measurement" runtimePattern="measurement_{index}" instanceSetRef="measurement" />
+    <instanceBinding runtimeKey="frequency-conversion" runtimePattern="frequency-conversion_{index}" instanceSetRef="frequency-conversion" />
+    <instanceBinding runtimeKey="target-alignment" runtimePattern="target-alignment_{index}" instanceSetRef="target-alignment" />
+    <instanceBinding runtimeKey="vacuum" runtimePattern="vacuum_{index}" instanceSetRef="vacuum" />
+    <instanceBinding runtimeKey="diagnostics" runtimePattern="diagnostics_{index}" instanceSetRef="diagnostics" />
+    <instanceBinding runtimeKey="synchronization" runtimePattern="synchronization_{index}" instanceSetRef="synchronization" />
+    <instanceBinding runtimeKey="switch-driver" runtimePattern="switch-driver_{index}" instanceSetRef="switch-driver" />
+    <instanceBinding runtimeKey="cooling" runtimePattern="cooling_{index}" instanceSetRef="cooling" />
+    <instanceBinding runtimeKey="control-environment" runtimePattern="control-environment_{index}" instanceSetRef="control-environment" />
   </instanceBindings>
-
   <beamlineBindings resolution="runtime-configuration">
-    <beamlineBinding id="beamline-{01..60}" resourceRef="beamline">
-      <bind role="multipass" instancePattern="multipass-{beamline.index}" />
-      <bind role="measurement" instancePattern="measurement-{beamline.index}" />
-      <bind role="frequency-conversion" instancePattern="frequency-conversion-{beamline.index}" />
-      <bind role="synchronization" instancePattern="synchronization-{beamline.index}" />
-      <bind role="preamp" instancePattern="preamp-{group((beamline.index - 1) / 6 + 1)}" />
-      <bind role="source" allowedInstances="seed-01 shg-01" selection="run-specific" />
+    <beamlineBinding id="beamlines" resourceRef="beamline">
+      <mappingBindings>
+        <mappingBinding mappingRef="preamp-to-beamline" />
+        <mappingBinding mappingRef="beamline-components" />
+        <mappingBinding mappingRef="source-selection" />
+      </mappingBindings>
     </beamlineBinding>
   </beamlineBindings>
-
   <externalBindings resolution="runtime-configuration">
-    <bind ref="shield-door" runtimeKey="shield-door" status="endpoint-unresolved" />
-    <bind ref="personnel-counter" runtimeKey="personnel-counter" status="endpoint-unresolved" />
-    <bind ref="wind-shower-door" runtimeKey="wind-shower-door" status="scope-unresolved" />
-    <bind ref="parameter-service" runtimeKey="parameter-service" status="contract-unresolved" />
-    <bind ref="data-service" runtimeKey="data-service" status="contract-unresolved" />
-    <bind ref="reservation-service" runtimeKey="reservation-service" />
-    <bind ref="interlock-controller" runtimeKey="interlock-controller" status="controller-unresolved" />
+    <externalBinding runtimeKey="shield-door" status="endpoint-unresolved" externalEndpointRef="shield-door" />
+    <externalBinding runtimeKey="personnel-counter" status="endpoint-unresolved" externalEndpointRef="personnel-counter" />
+    <externalBinding runtimeKey="wind-shower-door" status="scope-unresolved" externalEndpointRef="wind-shower-door" />
+    <externalBinding runtimeKey="parameter-service" status="contract-unresolved" externalEndpointRef="parameter-service" />
+    <externalBinding runtimeKey="data-service" status="contract-unresolved" externalEndpointRef="data-service" />
+    <externalBinding runtimeKey="reservation-service" externalEndpointRef="reservation-service" />
+    <externalBinding runtimeKey="interlock-controller" status="controller-unresolved" externalEndpointRef="interlock-controller" />
   </externalBindings>
-
-  <assumptions>
-    <assumption id="preamp-group-size" value="6" reason="10 套预放覆盖 60 条束线" />
-    <assumption id="source-choice-count" value="8" reason="前 8 条束线允许二倍频选择" />
-    <assumption id="pump-count" value="1" reason="按业务说明已确认口径" />
-  </assumptions>
 </facility-binding>

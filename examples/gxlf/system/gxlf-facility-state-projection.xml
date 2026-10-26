@@ -1,93 +1,214 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  GXLF 设施状态投影模型。
-
-  这是由设备观测推导设施事实的声明，不是发次状态机。事实是正交的：电源、
-  功能、服务健康、真空、安全联锁和充电状态可以分别失效或恢复。发次阶段和
-  本发证据不写入这里。
--->
-<facility-state-projection
-    xmlns="https://cdi8.cn/facility-state/v1"
-    id="gxlf-facility-state"
-    definitionRef="gxlf-facility"
-    bindingRef="gxlf-facility-binding"
-    version="1"
-    evidenceMaxAgeMs="2000">
-
+<facility-state-projection id="gxlf-facility-state" definitionRef="gxlf-facility" bindingRef="gxlf-facility-binding" version="1" evidenceMaxAgeMs="2000" xmlns="https://cdi8.cn/facility-state/v1">
   <observations>
-    <observation id="deviceState" sourcePort="state-out" requiredFields="source_id state_revision state_id outer_state" unknownOnDisconnect="true" />
-    <observation id="serviceHealth" sourcePort="health-out" requiredFields="source_id state_revision health" unknownOnDisconnect="true" />
-    <observation id="shieldDoor" sourceRef="shield-door" requiredFields="state revision" unknownOnDisconnect="true" safety="true" />
-    <observation id="personnelCount" sourceRef="personnel-counter" requiredFields="count revision" unknownOnDisconnect="true" safety="true" />
-    <observation id="windShower" sourceRef="wind-shower-door" requiredFields="state revision" unknownOnDisconnect="true" status="unresolved" />
-    <observation id="targetChamberVacuum" sourceRef="vacuum.safety-out" requiredFields="vacuumStable revision" unknownOnDisconnect="true" safety="true" />
-    <observation id="titaniumPumpVacuum" sourceRef="multipass.safety-out" requiredFields="vacuumNormal revision" unknownOnDisconnect="true" safety="true" />
-    <observation id="interlockEvent" sourceRef="interlock-controller" requiredFields="event revision" unknownOnDisconnect="true" safety="true" />
+    <observation id="deviceConnectivity" label="模拟设备当前连接及快照" adapter="device-connectivity">
+      <source instanceGroupRef="all-components" portRef="state-out" />
+    </observation>
+    <observation id="deviceState" adapter="device-state">
+      <source instanceGroupRef="all-components" portRef="state-out" />
+    </observation>
+    <observation id="serviceHealth" adapter="external">
+      <source instanceGroupRef="all-components" portRef="health-out" />
+    </observation>
+    <observation id="shieldDoor" adapter="external">
+      <source externalEndpointRef="shield-door" portRef="status-out" />
+    </observation>
+    <observation id="personnelCount" adapter="external">
+      <source externalEndpointRef="personnel-counter" portRef="count-out" />
+    </observation>
+    <observation id="windShower" adapter="external">
+      <source externalEndpointRef="wind-shower-door" portRef="status-out" />
+    </observation>
+    <observation id="targetChamberVacuum" adapter="external">
+      <source instanceSetRef="vacuum" portRef="safety-out" />
+    </observation>
+    <observation id="titaniumPumpVacuum" adapter="external">
+      <source instanceSetRef="multipass" portRef="safety-out" />
+    </observation>
+    <observation id="interlockEvent" adapter="external">
+      <source externalEndpointRef="interlock-controller" portRef="event-out" />
+    </observation>
   </observations>
-
+  <deviceFacts>
+    <deviceFact id="seedEmitting" label="种子源保持出光" outerStates="emitting" typeRef="seed" />
+    <deviceFact id="shgEmitting" label="二倍频保持出光" outerStates="emitting" typeRef="shg" />
+    <deviceFact id="preampAwake" label="预放保持唤醒" outerStates="wakeup" typeRef="preamp" />
+    <deviceFact id="synchronizationRepeat" label="同步保持重频模式" outerStates="repeatMode" typeRef="synchronization" />
+  </deviceFacts>
   <facts>
-    <fact id="allPowerChecked" label="全部参与设备已通过上电检查" quantifier="all" invalidOn="unknown disconnect stale">
-      <require instanceSet="seed" states="powerOnChecked" outerStates="ready" />
-      <require instanceSet="shg preamp multipass pump measurement frequency-conversion target-alignment vacuum diagnostics synchronization switch-driver cooling control-environment" states="powerOnOk" outerStates="ready" />
+    <fact id="simulationDevicesObserved" label="模拟设备可读取当前快照">
+      <condition>
+        <observationPredicate observationRef="deviceConnectivity" />
+      </condition>
     </fact>
-
-    <fact id="allFunctionReady" label="全部参与设备功能就绪" quantifier="all" invalidOn="unknown disconnect stale">
-      <require instanceSet="seed" states="qualified" outerStates="ready" />
-      <require instanceSet="shg preamp multipass pump measurement frequency-conversion target-alignment vacuum diagnostics synchronization switch-driver cooling control-environment" states="functionReady" />
+    <fact id="allPowerChecked" label="全部参与设备已通过上电检查">
+      <condition>
+        <all>
+          <devicePredicate instanceSetRef="seed" states="powerOnChecked" outerStates="ready" />
+          <devicePredicate instanceSetRef="shg" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="preamp" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="multipass" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="pump" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="measurement" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="frequency-conversion" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="target-alignment" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="vacuum" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="diagnostics" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="synchronization" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="switch-driver" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="cooling" states="powerOnOk" outerStates="ready" />
+          <devicePredicate instanceSetRef="control-environment" states="powerOnOk" outerStates="ready" />
+        </all>
+      </condition>
     </fact>
-
-    <fact id="allServicesHealthy" label="全部参与服务健康且心跳连续" quantifier="all" observation="serviceHealth" invalidOn="unknown disconnect stale" />
-
-    <fact id="shieldDoorLocked" label="中子屏蔽门锁闭" observation="shieldDoor" value="locked" safety="true" />
-    <fact id="personnelCountZero" label="人员计数归零" observation="personnelCount" value="0" safety="true" />
-    <fact id="targetChamberVacuumStable" label="靶室真空稳定" observation="targetChamberVacuum" value="true" safety="true" />
-    <fact id="titaniumPumpVacuumNormal" label="多程放大系统钛泵真空正常" observation="titaniumPumpVacuum" value="true" safety="true" />
-
-    <fact id="interlockEstablished" label="安全联锁输入全部成立" safety="true">
-      <require fact="shieldDoorLocked" />
-      <require fact="personnelCountZero" />
-      <require fact="targetChamberVacuumStable" />
-      <require fact="titaniumPumpVacuumNormal" />
+    <fact id="allFunctionReady" label="全部参与设备功能就绪">
+      <condition>
+        <all>
+          <devicePredicate instanceSetRef="seed" states="qualified" outerStates="ready" />
+          <devicePredicate instanceSetRef="shg" states="functionReady" />
+          <devicePredicate instanceSetRef="preamp" states="functionReady" />
+          <devicePredicate instanceSetRef="multipass" states="functionReady" />
+          <devicePredicate instanceSetRef="pump" states="functionReady" />
+          <devicePredicate instanceSetRef="measurement" states="functionReady" />
+          <devicePredicate instanceSetRef="frequency-conversion" states="functionReady" />
+          <devicePredicate instanceSetRef="target-alignment" states="functionReady" />
+          <devicePredicate instanceSetRef="vacuum" states="functionReady" />
+          <devicePredicate instanceSetRef="diagnostics" states="functionReady" />
+          <devicePredicate instanceSetRef="synchronization" states="functionReady" />
+          <devicePredicate instanceSetRef="switch-driver" states="functionReady" />
+          <devicePredicate instanceSetRef="cooling" states="functionReady" />
+          <devicePredicate instanceSetRef="control-environment" states="functionReady" />
+        </all>
+      </condition>
     </fact>
-
-    <fact id="pumpChargeComplete" label="泵浦当前充电完成" quantifier="all">
-      <require instanceSet="pump" states="chargeComplete" />
+    <fact id="allParametersReceived" label="全部参数接收设备当前已配置">
+      <condition>
+        <all>
+          <devicePredicate instanceSetRef="seed" states="configured" />
+          <devicePredicate instanceSetRef="shg" states="parameterOk" />
+          <devicePredicate instanceSetRef="preamp" states="parameterOk" />
+          <devicePredicate instanceSetRef="multipass" states="parameterOk" />
+          <devicePredicate instanceSetRef="pump" states="parameterOk" />
+          <devicePredicate instanceSetRef="measurement" states="parameterOk" />
+          <devicePredicate instanceSetRef="frequency-conversion" states="parameterOk" />
+          <devicePredicate instanceSetRef="target-alignment" states="parameterOk" />
+          <devicePredicate instanceSetRef="diagnostics" states="parameterOk" />
+          <devicePredicate instanceSetRef="synchronization" states="parameterOk" />
+          <devicePredicate instanceSetRef="switch-driver" states="parameterOk" />
+          <devicePredicate instanceSetRef="cooling" states="parameterOk" />
+        </all>
+      </condition>
     </fact>
-    <fact id="switchChargeComplete" label="开关当前充电完成" quantifier="all">
-      <require instanceSet="switch-driver" states="chargeComplete" />
+    <fact id="allServicesHealthy" label="全部参与服务健康且心跳连续">
+      <condition>
+        <observationPredicate observationRef="serviceHealth" />
+      </condition>
     </fact>
-    <fact id="synchronizationReady" label="同步系统具备当前触发能力" quantifier="all">
-      <require instanceSet="synchronization" states="singleConfigured" />
+    <fact id="shieldDoorLocked" label="中子屏蔽门锁闭">
+      <condition>
+        <observationPredicate observationRef="shieldDoor" expected="locked" />
+      </condition>
+    </fact>
+    <fact id="personnelCountZero" label="人员计数归零">
+      <condition>
+        <observationPredicate observationRef="personnelCount" expected="0" />
+      </condition>
+    </fact>
+    <fact id="targetChamberVacuumStable" label="靶室真空稳定">
+      <condition>
+        <observationPredicate observationRef="targetChamberVacuum" expected="true" />
+      </condition>
+    </fact>
+    <fact id="titaniumPumpVacuumNormal" label="多程放大系统钛泵真空正常">
+      <condition>
+        <observationPredicate observationRef="titaniumPumpVacuum" expected="true" />
+      </condition>
+    </fact>
+    <fact id="interlockEstablished" label="安全联锁输入全部成立">
+      <condition>
+        <all>
+          <factPredicate factRef="shieldDoorLocked" />
+          <factPredicate factRef="personnelCountZero" />
+          <factPredicate factRef="targetChamberVacuumStable" />
+          <factPredicate factRef="titaniumPumpVacuumNormal" />
+        </all>
+      </condition>
+    </fact>
+    <fact id="pumpChargeComplete" label="泵浦当前充电完成">
+      <condition>
+        <devicePredicate instanceSetRef="pump" states="chargeComplete" />
+      </condition>
+    </fact>
+    <fact id="switchChargeComplete" label="开关当前充电完成">
+      <condition>
+        <devicePredicate instanceSetRef="switch-driver" states="chargeComplete" />
+      </condition>
+    </fact>
+    <fact id="synchronizationReady" label="同步系统具备当前触发能力">
+      <condition>
+        <devicePredicate instanceSetRef="synchronization" states="singleConfigured" />
+      </condition>
     </fact>
   </facts>
-
   <guards>
+    <guard id="simulationFunctionCheckAllowed" label="模拟初始化：允许功能检查">
+      <condition>
+        <all>
+          <factPredicate factRef="allPowerChecked" />
+          <factPredicate factRef="simulationDevicesObserved" />
+        </all>
+      </condition>
+    </guard>
+    <guard id="simulationParameterDispatchAllowed" label="模拟初始化：允许参数接收">
+      <condition>
+        <all>
+          <factPredicate factRef="allFunctionReady" />
+          <factPredicate factRef="simulationDevicesObserved" />
+        </all>
+      </condition>
+    </guard>
     <guard id="functionCheckAllowed" label="允许开始功能检查">
-      <require fact="allPowerChecked" />
-      <require fact="allServicesHealthy" />
+      <condition>
+        <all>
+          <factPredicate factRef="allPowerChecked" />
+          <factPredicate factRef="allServicesHealthy" />
+        </all>
+      </condition>
     </guard>
     <guard id="parameterDispatchAllowed" label="允许开始本发参数下发">
-      <require fact="allFunctionReady" />
-      <require fact="allServicesHealthy" />
+      <condition>
+        <all>
+          <factPredicate factRef="allFunctionReady" />
+          <factPredicate factRef="allServicesHealthy" />
+        </all>
+      </condition>
     </guard>
     <guard id="preparationAllowed" label="允许进入发射准备">
-      <require fact="allFunctionReady" />
-      <require fact="allServicesHealthy" />
-      <require fact="interlockEstablished" />
+      <condition>
+        <all>
+          <factPredicate factRef="allFunctionReady" />
+          <factPredicate factRef="allServicesHealthy" />
+          <factPredicate factRef="interlockEstablished" />
+        </all>
+      </condition>
     </guard>
     <guard id="triggerAllowed" label="允许进入同步触发窗口">
-      <require fact="interlockEstablished" />
-      <require fact="allServicesHealthy" />
-      <require fact="pumpChargeComplete" />
-      <require fact="switchChargeComplete" />
-      <require fact="synchronizationReady" />
+      <condition>
+        <all>
+          <factPredicate factRef="interlockEstablished" />
+          <factPredicate factRef="allServicesHealthy" />
+          <factPredicate factRef="pumpChargeComplete" />
+          <factPredicate factRef="switchChargeComplete" />
+          <factPredicate factRef="synchronizationReady" />
+        </all>
+      </condition>
     </guard>
   </guards>
-
-  <invalidators>
-    <invalidate event="connection_lost" result="unknown" reason="事件通道断开" />
-    <invalidate event="state_revision_rollback" result="unknown" reason="设备状态修订号倒退" />
-    <invalidate event="device_replaced" result="unknown" reason="设备来源发生变化" />
-    <invalidate event="safety_interlock_tripped" result="violated" reason="安全联锁输入失效" />
-  </invalidators>
+  <annotations>
+    <notes>
+      <note id="observation-integrity" kind="implementation">
+        <description>断线、过期、source_id 变化和 state_revision 回退由 Java 观测完整性规则处理。外部安全输入、服务心跳尚未接入，保持 unknown。</description>
+      </note>
+    </notes>
+  </annotations>
 </facility-state-projection>

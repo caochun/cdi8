@@ -1,75 +1,125 @@
 package cn.cdi8.workbench.facility;
 
-import java.io.StringReader;
+import cn.cdi8.workbench.systemdefinition.SystemDefinitionModel;
 import java.util.*;
-import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Element;
-import org.xml.sax.InputSource;
+import static cn.cdi8.workbench.xml.ModelXml.*;
 
-/** Orthogonal facility observations, derived facts and reusable guards. */
+/** Typed conditions with acyclic fact references and explicit three-valued junctions. */
 public final class FacilityStateProjectionModel {
-    public static final String NS = "https://cdi8.cn/facility-state/v1";
-    private final String id;
-    private final String definitionRef;
-    private final String bindingRef;
-    private final int observationCount;
-    private final int factCount;
-    private final int guardCount;
-    private final int invalidatorCount;
-    private final Set<String> guardIds;
+    public static final String NS="https://cdi8.cn/facility-state/v1";
+    public record DeviceFact(String id,String component,String label,String states,String outerStates) {}
+    public record Condition(String kind,String ref,String states,String outerStates,String expected,List<Condition> terms) {}
+    public record Predicate(String id,String label,Condition condition) {}
+    public record Observation(String id,String adapter,Element source) {}
+    private final Element root;
+    private final long evidenceMaxAgeMs;
+    private final Map<String,DeviceFact> deviceFacts=new LinkedHashMap<>();
+    private final Map<String,Observation> observations=new LinkedHashMap<>();
+    private final Map<String,Predicate> facts=new LinkedHashMap<>(),guards=new LinkedHashMap<>();
+    private final List<Predicate> evaluationOrder=new ArrayList<>();
 
-    private FacilityStateProjectionModel(String id, String definitionRef, String bindingRef,
-                                         int observationCount, int factCount, int guardCount, int invalidatorCount, Set<String> guardIds) {
-        this.id=id; this.definitionRef=definitionRef; this.bindingRef=bindingRef;
-        this.observationCount=observationCount; this.factCount=factCount; this.guardCount=guardCount; this.invalidatorCount=invalidatorCount;
-        this.guardIds=Set.copyOf(guardIds);
+    private FacilityStateProjectionModel(Element root) {
+        this.root=root;
+        try{evidenceMaxAgeMs=Long.parseLong(root.getAttribute("evidenceMaxAgeMs"));}
+        catch(NumberFormatException ex){throw invalid("evidenceMaxAgeMs 超出范围");}
+        for(var e:entries(root,"observations")) {
+            var source=child(e,"source");
+            if(List.of("instanceSetRef","instanceGroupRef","controlNodeRef","externalEndpointRef").stream().filter(source::hasAttribute).count()!=1)
+                throw invalid("观测来源必须恰好声明一种对象引用："+e.getAttribute("id"));
+            observations.put(e.getAttribute("id"),new Observation(e.getAttribute("id"),e.getAttribute("adapter"),source));
+        }
+        for(var e:entries(root,"deviceFacts")) {
+            statesRequired(e);
+            String id=e.getAttribute("id");deviceFacts.put(id,new DeviceFact(id,e.getAttribute("typeRef"),e.getAttribute("label"),e.getAttribute("states"),e.getAttribute("outerStates")));
+        }
+        for(var e:entries(root,"facts"))facts.put(e.getAttribute("id"),predicate(e));
+        for(var e:entries(root,"guards"))guards.put(e.getAttribute("id"),predicate(e));
+        for(var p:concat(facts.values(),guards.values())) validateLocal(p.condition);
+        var visited=new HashSet<String>();
+        for(String id:facts.keySet())visit(id,new HashSet<>(),visited);
     }
-    public String id() { return id; }
-    public String definitionRef() { return definitionRef; }
-    public String bindingRef() { return bindingRef; }
-    public int observationCount() { return observationCount; }
-    public int factCount() { return factCount; }
-    public int guardCount() { return guardCount; }
-    public int invalidatorCount() { return invalidatorCount; }
-    public boolean hasGuard(String id) { return guardIds.contains(id); }
+    public String id(){return root.getAttribute("id");}
+    public String definitionRef(){return root.getAttribute("definitionRef");}
+    public String bindingRef(){return root.getAttribute("bindingRef");}
+    public long evidenceMaxAgeMs(){return evidenceMaxAgeMs;}
+    public int observationCount(){return observations.size();}
+    public int factCount(){return facts.size();}
+    public int guardCount(){return guards.size();}
+    public boolean hasGuard(String id){return guards.containsKey(id);}
+    public boolean hasFact(String id){return facts.containsKey(id);}
+    public List<Predicate> evaluationOrder(){return List.copyOf(evaluationOrder);}
+    public Collection<Predicate> guards(){return Collections.unmodifiableCollection(guards.values());}
+    public Collection<DeviceFact> deviceFacts(){return Collections.unmodifiableCollection(deviceFacts.values());}
+    public Observation observation(String id){return observations.get(id);}
 
-    public static FacilityStateProjectionModel parse(String xml) {
-        try {
-            var root=root(xml);
-            if (!"facility-state-projection".equals(root.getLocalName()) || !NS.equals(root.getNamespaceURI()))
-                throw new IllegalArgumentException("设施状态投影根元素或命名空间错误");
-            String id=required(root,"id"), definitionRef=required(root,"definitionRef"), bindingRef=required(root,"bindingRef");
-            positive(root,"evidenceMaxAgeMs");
-            var observations=section(root,"observations");
-            var facts=section(root,"facts");
-            var guards=section(root,"guards");
-            var invalidators=section(root,"invalidators");
-            if(observations==null||children(observations).isEmpty())throw new IllegalArgumentException("设施状态投影缺少 observations");
-            if(facts==null||children(facts).isEmpty())throw new IllegalArgumentException("设施状态投影缺少 facts");
-            uniqueIds(observations,"observation");uniqueIds(facts,"fact");uniqueIds(guards,"guard");
-            for(var item:children(observations)){requireElement(item,"observation");required(item,"id");if(!item.hasAttribute("sourcePort")&&!item.hasAttribute("sourceRef"))throw new IllegalArgumentException("观测缺少来源："+item.getAttribute("id"));}
-            var factIds=ids(facts,"fact");var observationIds=ids(observations,"observation");
-            for(var fact:children(facts)){
-                requireElement(fact,"fact");required(fact,"id");required(fact,"label");
-                if(children(fact).isEmpty()&&!fact.hasAttribute("observation"))throw new IllegalArgumentException("事实没有来源："+fact.getAttribute("id"));
-                for(var req:children(fact)){
-                    requireElement(req,"require");
-                    if(req.hasAttribute("fact")&&!factIds.contains(req.getAttribute("fact")))throw new IllegalArgumentException("事实引用未定义："+req.getAttribute("fact"));
-                    if(req.hasAttribute("observation")&&!observationIds.contains(req.getAttribute("observation")))throw new IllegalArgumentException("观测引用未定义："+req.getAttribute("observation"));
-                    if(!req.hasAttribute("fact")&&!req.hasAttribute("observation")&&!req.hasAttribute("instanceSet"))throw new IllegalArgumentException("事实 require 缺少来源："+fact.getAttribute("id"));
+    /** Cross-document validation is mandatory before activating the three models together. */
+    public void validateDependencies(SystemDefinitionModel definition) {
+        if(!definition.id().equals(definitionRef()))throw invalid("设施投影 definitionRef 不一致");
+        for(var fact:deviceFacts.values())if(!definition.hasType(fact.component))throw invalid("设备事实引用未定义类型："+fact.component);
+        for(var observation:observations.values()) {
+            var endpoint=definition.observationSource(observation.source);
+            if(!"external".equals(observation.adapter)&&definition.endpointInstanceSets(endpoint).isEmpty())throw invalid("设备观测适配器必须引用实例集合或实例组："+observation.id);
+            if(!"external".equals(observation.adapter)&&!"state-out".equals(endpoint.port()))throw invalid("设备快照适配器必须引用 state-out："+observation.id);
+        }
+        for(var p:concat(facts.values(),guards.values()))validateCross(p.condition,definition);
+        for(var output:definition.dependencies().outputs()) {
+            var fact=deviceFacts.get(output.fact());
+            if(fact==null||!fact.component.equals(output.component()))throw invalid("输出信号引用未定义或类型不匹配的设备事实："+output.component()+" / "+output.fact());
+        }
+    }
+    private void validateCross(Condition condition,SystemDefinitionModel definition) {
+        if("devicePredicate".equals(condition.kind))definition.instanceSet(condition.ref);
+        condition.terms.forEach(c->validateCross(c,definition));
+    }
+    public void validateComponents(SystemDefinitionModel definition,FacilityComponentModels models) {
+        validateDependencies(definition);
+        for(var fact:deviceFacts.values())models.validateStates(fact.component,fact.states,fact.outerStates,"deviceFact "+fact.id);
+        for(var predicate:concat(facts.values(),guards.values()))validateStates(predicate.condition,definition,models);
+    }
+    private void validateStates(Condition c,SystemDefinitionModel definition,FacilityComponentModels models) {
+        if("devicePredicate".equals(c.kind))models.validateStates(definition.instanceSet(c.ref).type(),c.states,c.outerStates,"devicePredicate "+c.ref);
+        if("observationPredicate".equals(c.kind)) {
+            var observation=observations.get(c.ref);
+            if("device-state".equals(observation.adapter))
+                for(String set:definition.endpointInstanceSets(definition.endpoint(observation.source,true))) {
+                    var model=models.model(definition.instanceSet(set).type());
+                    for(String id:words(c.expected))if(!model.hasLeaf(id)&&!model.hasOuter(id))throw invalid("设备状态观测引用未知状态："+c.ref+" / "+id);
                 }
-            }
-            int guardCount=0;var guardIds=new LinkedHashSet<String>();if(guards!=null)for(var guard:children(guards)){requireElement(guard,"guard");String guardId=required(guard,"id");required(guard,"label");if(!guardIds.add(guardId))throw new IllegalArgumentException("guard 编号重复："+guardId);for(var req:children(guard)){requireElement(req,"require");String ref=required(req,"fact");if(!factIds.contains(ref))throw new IllegalArgumentException("guard 引用未定义事实："+ref);}guardCount++;}
-            int invalidatorCount=0;if(invalidators!=null)for(var item:children(invalidators)){requireElement(item,"invalidate");required(item,"event");required(item,"result");required(item,"reason");invalidatorCount++;}
-            return new FacilityStateProjectionModel(id,definitionRef,bindingRef,children(observations).size(),children(facts).size(),guardCount,invalidatorCount,guardIds);
-        }catch(IllegalArgumentException ex){throw ex;}catch(Exception ex){throw new IllegalArgumentException("设施状态投影 XML 无效："+ex.getMessage(),ex);}
+        }
+        c.terms.forEach(term->validateStates(term,definition,models));
     }
-    private static Element root(String xml)throws Exception{if(xml==null||xml.isBlank())throw new IllegalArgumentException("设施状态投影 XML 为空");var f=DocumentBuilderFactory.newInstance();f.setNamespaceAware(true);f.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);f.setFeature("http://xml.org/sax/features/external-general-entities",false);f.setFeature("http://xml.org/sax/features/external-parameter-entities",false);return f.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();}
-    private static Element section(Element root,String name){for(var child:children(root))if(name.equals(child.getLocalName()))return child;return null;}
-    private static Set<String> ids(Element parent,String name){if(parent==null)return Set.of();var result=new LinkedHashSet<String>();for(var child:children(parent))if(name.equals(child.getLocalName()))result.add(required(child,"id"));return result;}
-    private static void uniqueIds(Element parent,String name){if(parent==null)return;var seen=new HashSet<String>();for(var child:children(parent))if(name.equals(child.getLocalName())){String id=required(child,"id");if(!seen.add(id))throw new IllegalArgumentException(name+" 编号重复："+id);}}
-    private static void requireElement(Element element,String name){if(!name.equals(element.getLocalName()))throw new IllegalArgumentException("此处需要 "+name+"，实际为 "+element.getLocalName());}
-    private static String required(Element element,String attribute){String value=element.getAttribute(attribute).trim();if(value.isEmpty())throw new IllegalArgumentException("缺少属性 "+attribute+"（"+element.getLocalName()+"）");return value;}
-    private static void positive(Element element,String attribute){try{if(Long.parseLong(required(element,attribute))<1)throw new IllegalArgumentException(attribute+" 必须为正数");}catch(NumberFormatException ex){throw new IllegalArgumentException(attribute+" 必须为正数");}}
-    private static List<Element> children(Element parent){if(parent==null)return List.of();var result=new ArrayList<Element>();for(var node=parent.getFirstChild();node!=null;node=node.getNextSibling())if(node instanceof Element child){if(!NS.equals(child.getNamespaceURI()))throw new IllegalArgumentException("设施状态投影子元素命名空间错误："+child.getNodeName());result.add(child);}return result;}
+    private void validateLocal(Condition c) {
+        if("factPredicate".equals(c.kind)&&!facts.containsKey(c.ref))throw invalid("事实引用未定义："+c.ref);
+        if("observationPredicate".equals(c.kind)) {
+            var observation=observations.get(c.ref);
+            if(observation==null)throw invalid("观测引用未定义："+c.ref);
+            if("device-connectivity".equals(observation.adapter)&&!c.expected.isBlank())throw invalid("连接观测不接受 expected 值");
+            if("device-state".equals(observation.adapter)&&c.expected.isBlank())throw invalid("设备状态观测缺少 expected");
+        }
+        c.terms.forEach(this::validateLocal);
+    }
+    private void visit(String id,Set<String> visiting,Set<String> visited) {
+        if(visited.contains(id))return;
+        if(!visiting.add(id))throw invalid("事实依赖存在环："+id);
+        if(visiting.size()>128)throw invalid("事实依赖层数超过 128");
+        visitReferences(facts.get(id).condition,visiting,visited);
+        visiting.remove(id);visited.add(id);evaluationOrder.add(facts.get(id));
+    }
+    private void visitReferences(Condition c,Set<String> visiting,Set<String> visited) {
+        if("factPredicate".equals(c.kind))visit(c.ref,visiting,visited);
+        c.terms.forEach(term->visitReferences(term,visiting,visited));
+    }
+    private static Predicate predicate(Element e){return new Predicate(e.getAttribute("id"),e.getAttribute("label"),condition(children(child(e,"condition")).get(0),0));}
+    private static Condition condition(Element e,int depth) {
+        if(depth>64)throw invalid("条件嵌套超过 64 层");
+        String kind=e.getLocalName();
+        if("devicePredicate".equals(kind))statesRequired(e);
+        String ref=switch(kind){case "factPredicate"->e.getAttribute("factRef");case "observationPredicate"->e.getAttribute("observationRef");case "devicePredicate"->e.getAttribute("instanceSetRef");default->"";};
+        return new Condition(kind,ref,e.getAttribute("states"),e.getAttribute("outerStates"),e.getAttribute("expected"),children(e).stream().map(term->condition(term,depth+1)).toList());
+    }
+    private static void statesRequired(Element e){if(e.getAttribute("states").isBlank()&&e.getAttribute("outerStates").isBlank())throw invalid("设备判据缺少 states 或 outerStates："+e.getAttribute("id"));}
+    @SafeVarargs private static List<Predicate> concat(Collection<Predicate>... collections){var result=new ArrayList<Predicate>();for(var c:collections)result.addAll(c);return result;}
+    public static FacilityStateProjectionModel parse(String xml){return new FacilityStateProjectionModel(cn.cdi8.workbench.xml.ModelXml.parse(xml,"facility-state-projection"));}
+    private static IllegalArgumentException invalid(String message){return new IllegalArgumentException(message);}
 }

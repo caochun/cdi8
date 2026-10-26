@@ -18,7 +18,6 @@ public class ControlApi {
     private final ModelStore models;
     private final FacilityStateRuntime facilityStates;
     public ControlApi(WorkflowService workflows, TangoGateway tango, ModelStore models, FacilityStateRuntime facilityStates) { this.workflows = workflows; this.tango = tango; this.models=models; this.facilityStates=facilityStates; }
-    public record Start(String processKey, List<String> sources) {}
     @GetMapping("/processes") public Object processes() { return workflows.definitions(); }
     @GetMapping(value="/processes/{key}/xml", produces="application/xml")
     public String xml(@PathVariable String key) { return workflows.xml(key); }
@@ -52,11 +51,8 @@ public class ControlApi {
     }
     @GetMapping("/runs") public Object recent() { return workflows.recent(); }
     @GetMapping("/runs/{id}") public Object view(@PathVariable String id) { return workflows.view(id); }
-    @PostMapping("/runs") public Object start(@RequestBody Start request) {
-        return workflows.start(request.processKey(), request.sources());
-    }
     @PostMapping("/runs/{id}/stop") public Object stop(@PathVariable String id) {
-        workflows.stop(id, "操作员停止流程；设备状态请在组件端确认"); return workflows.view(id);
+        workflows.cancel(id, "操作员停止流程；设备状态请在组件端确认"); return workflows.view(id);
     }
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, TangoGateway.GatewayException.class})
     public ResponseEntity<?> error(RuntimeException ex) {

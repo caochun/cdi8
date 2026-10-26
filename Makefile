@@ -4,6 +4,7 @@ control-package:
 	mvn package
 
 operator:
+	mvn -pl model-contract -am install -DskipTests
 	mvn -pl server spring-boot:run
 
 # Managed Java bridge; devices are created from saved SCXML versions in the workbench.
@@ -27,14 +28,9 @@ workbench-restart:
 workbench-status:
 	java scripts/Workbench.java status
 
-# Builds both JARs, then starts isolated Java-only services for end-to-end verification.
+# Real HTTP / Flowable / JTango / Java SCXML integration tests in isolated ports and data directories.
 java-workbench-smoke:
-	mvn package
-	mvn -pl server -Dexec.skip=true package
-
-# Compatibility aliases for the Java-only end-to-end suite.
-.PHONY: workbench-smoke gxlf-smoke
-workbench-smoke gxlf-smoke: java-workbench-smoke
+	mvn -Pnew-chain-e2e verify
 
 java-device-package:
-	mvn -pl device-simulator package
+	mvn -pl device-simulator -am package

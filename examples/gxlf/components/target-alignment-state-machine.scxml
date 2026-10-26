@@ -1053,105 +1053,107 @@
       "observation": "异常"
     }
   },
-  "source_inventory": {
-    "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
-    "sheet": "分系统状态表",
-    "read_date": "2026-10-23",
-    "row_coverage": {
-      "116": {
-        "states": [
-          "unchecked"
-        ]
-      },
-      "117": {
-        "states": [
-          "functionReady"
-        ]
-      },
-      "118": {
-        "states": [
-          "parameterOk"
-        ]
-      },
-      "119": {
-        "states": [
-          "targetPrepositioned"
-        ]
-      },
-      "120": {
-        "states": [
-          "simulationPositioned"
-        ]
-      },
-      "121": {
-        "states": [
-          "beamGuideComplete"
-        ]
-      },
-      "122": {
-        "states": [
-          "targetReset"
-        ]
-      },
-      "123": {
-        "states": [
-          "shotReady"
-        ]
-      },
-      "124": {
-        "states": [
-          "targetRetracted"
-        ]
-      },
-      "125": {
-        "states": [
-          "analysisComplete"
-        ]
-      },
-      "126": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "127": {
-        "states": [
-          "resetReady"
-        ]
-      },
-      "128": {
-        "states": [
-          "shutdownNormal"
-        ]
-      },
-      "129": {
-        "states": [
-          "faultLock"
-        ]
-      },
-      "130": {
-        "states": [
-          "alignmentFault"
-        ]
-      },
-      "131": {
-        "states": [
-          "commFault"
-        ]
-      },
-      "132": {
-        "states": [
-          "timeoutFault"
-        ]
+  "annotations": {
+    "source_inventory": {
+      "file": "20261022集中管控系统与分系统状态梳理清单.xlsx",
+      "sheet": "分系统状态表",
+      "read_date": "2026-10-23",
+      "row_coverage": {
+        "116": {
+          "states": [
+            "unchecked"
+          ]
+        },
+        "117": {
+          "states": [
+            "functionReady"
+          ]
+        },
+        "118": {
+          "states": [
+            "parameterOk"
+          ]
+        },
+        "119": {
+          "states": [
+            "targetPrepositioned"
+          ]
+        },
+        "120": {
+          "states": [
+            "simulationPositioned"
+          ]
+        },
+        "121": {
+          "states": [
+            "beamGuideComplete"
+          ]
+        },
+        "122": {
+          "states": [
+            "targetReset"
+          ]
+        },
+        "123": {
+          "states": [
+            "shotReady"
+          ]
+        },
+        "124": {
+          "states": [
+            "targetRetracted"
+          ]
+        },
+        "125": {
+          "states": [
+            "analysisComplete"
+          ]
+        },
+        "126": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "127": {
+          "states": [
+            "resetReady"
+          ]
+        },
+        "128": {
+          "states": [
+            "shutdownNormal"
+          ]
+        },
+        "129": {
+          "states": [
+            "faultLock"
+          ]
+        },
+        "130": {
+          "states": [
+            "alignmentFault"
+          ]
+        },
+        "131": {
+          "states": [
+            "commFault"
+          ]
+        },
+        "132": {
+          "states": [
+            "timeoutFault"
+          ]
+        }
       }
-    }
-  },
-  "modeling_notes": [
-    "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
-    "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
-    "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
-    "第125行对测量完成的要求保留为流程层分析动作准入条件；本机只在自身数据分析完成后进入 analysisComplete，不接收外部测量结果作为自身完成事件。"
-  ]
+    },
+    "modeling_notes": [
+      "只建模分系统内部反馈。外部联锁、同步、泵浦、测量等跨系统条件由流程层检查，不作为本机迁移的外部结果确认条件。",
+      "动作请求只建立任务；完成/失败/失效确认反馈才改变关键状态。普通失败可在确认物理状态后重试；不将重试请求视作成功。",
+      "关机不清除故障锁存。异常恢复必须完成设备内部安全处置和物理状态核验；进入就绪/resetReady 后重新功能检查及参数校验，旧发次不得恢复。",
+      "第125行对测量完成的要求保留为流程层分析动作准入条件；本机只在自身数据分析完成后进入 analysisComplete，不接收外部测量结果作为自身完成事件。"
+    ]
+  }
 }
-    ]]></data>
+]]></data>
   </datamodel>
 </scxml>

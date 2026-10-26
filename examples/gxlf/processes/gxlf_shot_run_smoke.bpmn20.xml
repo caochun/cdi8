@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" xmlns:fac="https://cdi8.cn/facility/v1" xmlns:run="https://cdi8.cn/shot-run/v1" targetNamespace="https://cdi8.cn/gxlf/process">
+  <bpmn:process id="gxlf_shot_run_smoke" name="GXLF 初始化与本发参数接收" isExecutable="true">
+    <bpmn:documentation>新链路可执行切片：十四类设备上电检查、功能检查、十二类设备参数接收及逐设备证据。完成只表示此切片完成，不代表正式发射完成。外部预约、联锁、发射及数据归档尚未接入。</bpmn:documentation>
+    <bpmn:startEvent id="start" />
+    <bpmn:serviceTask id="open_run" name="创建本发记录" flowable:expression="${shotRuns.open(execution)}" />
+    <bpmn:serviceTask id="power_check" name="全部设备上电检查" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements>
+        <run:stage value="initializing" />
+        <fac:completion factRef="allPowerChecked" timeout="PT2M" />
+        <fac:actions><fac:action typeRef="seed" capabilityRef="power-on-check" collectionVar="seedTargets" expectedStateRef="powerOnChecked" />
+        <fac:action typeRef="shg" capabilityRef="power-on-check" collectionVar="shgTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="preamp" capabilityRef="power-on-check" collectionVar="preampTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="multipass" capabilityRef="power-on-check" collectionVar="multipassTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="pump" capabilityRef="power-on-check" collectionVar="pumpTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="measurement" capabilityRef="power-on-check" collectionVar="measurementTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="frequency-conversion" capabilityRef="power-on-check" collectionVar="frequency-conversionTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="target-alignment" capabilityRef="power-on-check" collectionVar="target-alignmentTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="vacuum" capabilityRef="power-on-check" collectionVar="vacuumTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="diagnostics" capabilityRef="power-on-check" collectionVar="diagnosticsTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="synchronization" capabilityRef="power-on-check" collectionVar="synchronizationTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="switch-driver" capabilityRef="power-on-check" collectionVar="switch-driverTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="cooling" capabilityRef="power-on-check" collectionVar="coolingTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="control-environment" capabilityRef="power-on-check" collectionVar="control-environmentTargets" expectedStateRef="powerOnOk" /></fac:actions>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="function_check" name="全部设备功能检查" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements>
+        <run:stage value="initializing" />
+        <fac:requires guardRef="simulationFunctionCheckAllowed" />
+        <fac:completion factRef="allFunctionReady" timeout="PT2M" />
+        <fac:actions><fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" expectedStateRef="qualified" />
+        <fac:action typeRef="shg" capabilityRef="function-check" collectionVar="shgTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="preamp" capabilityRef="function-check" collectionVar="preampTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="multipass" capabilityRef="function-check" collectionVar="multipassTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="pump" capabilityRef="function-check" collectionVar="pumpTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="measurement" capabilityRef="function-check" collectionVar="measurementTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="frequency-conversion" capabilityRef="function-check" collectionVar="frequency-conversionTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="target-alignment" capabilityRef="function-check" collectionVar="target-alignmentTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="vacuum" capabilityRef="function-check" collectionVar="vacuumTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="diagnostics" capabilityRef="function-check" collectionVar="diagnosticsTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="synchronization" capabilityRef="function-check" collectionVar="synchronizationTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="switch-driver" capabilityRef="function-check" collectionVar="switch-driverTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="cooling" capabilityRef="function-check" collectionVar="coolingTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="control-environment" capabilityRef="function-check" collectionVar="control-environmentTargets" expectedStateRef="functionReady" /></fac:actions>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="receive_parameters" name="接收本发参数" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements>
+        <run:stage value="parameters_receiving" />
+        <fac:requires guardRef="simulationParameterDispatchAllowed" />
+        <fac:completion factRef="allParametersReceived" timeout="PT2M" />
+        <fac:actions><fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" expectedStateRef="configured" />
+        <fac:action typeRef="shg" capabilityRef="parameter-receive" collectionVar="shgTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="preamp" capabilityRef="parameter-receive" collectionVar="preampTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="multipass" capabilityRef="parameter-receive" collectionVar="multipassTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="pump" capabilityRef="parameter-receive" collectionVar="pumpTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="measurement" capabilityRef="parameter-receive" collectionVar="measurementTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="frequency-conversion" capabilityRef="parameter-receive" collectionVar="frequency-conversionTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="target-alignment" capabilityRef="parameter-receive" collectionVar="target-alignmentTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="diagnostics" capabilityRef="parameter-receive" collectionVar="diagnosticsTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="synchronization" capabilityRef="parameter-receive" collectionVar="synchronizationTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="switch-driver" capabilityRef="parameter-receive" collectionVar="switch-driverTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="cooling" capabilityRef="parameter-receive" collectionVar="coolingTargets" expectedStateRef="parameterOk" /></fac:actions>
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="complete_run" name="完成初始化与参数接收切片" flowable:expression="${shotRuns.complete(execution)}" />
+    <bpmn:endEvent id="end" />
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="open_run" />
+    <bpmn:sequenceFlow id="f2" sourceRef="open_run" targetRef="power_check" />
+    <bpmn:sequenceFlow id="f3" sourceRef="power_check" targetRef="function_check" />
+    <bpmn:sequenceFlow id="f4" sourceRef="function_check" targetRef="receive_parameters" />
+    <bpmn:sequenceFlow id="f5" sourceRef="receive_parameters" targetRef="complete_run" />
+    <bpmn:sequenceFlow id="f6" sourceRef="complete_run" targetRef="end" />
+  </bpmn:process>
+</bpmn:definitions>

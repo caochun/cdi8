@@ -1,33 +1,29 @@
 package cn.cdi8.workbench.integration.flowable;
 
 import cn.cdi8.workbench.run.ComponentCommandTasks;
-import cn.cdi8.workbench.run.ActionContractModel;
 import cn.cdi8.workbench.facility.FacilityActionRuntime;
 import cn.cdi8.workbench.facility.FacilityBpmnModel;
+import cn.cdi8.workbench.facility.FacilityCompletionRuntime;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import org.flowable.bpmn.model.BaseElement;
-import org.flowable.bpmn.model.FieldExtension;
 import org.flowable.bpmn.model.ServiceTask;
 import org.flowable.engine.impl.bpmn.parser.BpmnParse;
 import org.flowable.engine.impl.bpmn.parser.handler.ServiceTaskParseHandler;
 import org.springframework.stereotype.Component;
 
-/** Parses a component-command marker into a triggerable activity. */
+/** Parses facility actions into a triggerable activity and enforces service-task entry guards. */
 @Component
 public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHandler {
-    public static final String TYPE = "component-command";
-
+    private final cn.cdi8.workbench.facility.FacilityStateRuntime states;
     private final ComponentCommandTasks tasks;
-    private final ObjectMapper json;
     private final FacilityActionRuntime facilityActions;
+    private final FacilityCompletionRuntime completions;
 
-    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, ObjectMapper json, FacilityActionRuntime facilityActions) {
+    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, FacilityActionRuntime facilityActions, cn.cdi8.workbench.facility.FacilityStateRuntime states, FacilityCompletionRuntime completions) {
+        this.states=states;
         this.tasks = tasks;
-        this.json = json;
         this.facilityActions = facilityActions;
+        this.completions = completions;
     }
 
     @Override
@@ -37,28 +33,17 @@ public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHand
 
     @Override
     protected void executeParse(BpmnParse parse, ServiceTask task) {
-        ActionContractModel.validateElement(task);
-        boolean hasFacilityActions=task.getExtensionElements().getOrDefault("action",java.util.List.of()).stream()
-            .anyMatch(item->FacilityBpmnModel.FACILITY_NS.equals(item.getNamespace()));
-        if(hasFacilityActions) {
-            FacilityBpmnModel.validateProcess(parse.getBpmnModel());
+        FacilityBpmnModel.validateDeployment(parse.getBpmnModel(),states);
+        boolean hasFacilityActions=!FacilityBpmnModel.actions(task).isEmpty();
+        if(hasFacilityActions || FacilityBpmnModel.completion(task)!=null) {
             task.setTriggerable(true);
-            task.setBehavior(new ComponentCommandActivityBehavior(tasks,json,"","",facilityActions));
+            task.setBehavior(new ComponentCommandActivityBehavior(tasks,facilityActions,completions));
             return;
         }
-        Map<String, String> fields = new LinkedHashMap<>();
-        for (FieldExtension field : task.getFieldExtensions()) {
-            String value = field.getStringValue();
-            if (value == null && field.getExpression() != null) value = field.getExpression();
-            fields.put(field.getFieldName(), value);
-        }
-        if (!"true".equalsIgnoreCase(fields.get("componentCommand"))
-                && !TYPE.equalsIgnoreCase(task.getType())) {
-            super.executeParse(parse, task);
-            return;
-        }
-        task.setTriggerable(true);
-        task.setBehavior(new ComponentCommandActivityBehavior(tasks, json,
-            fields.get("action"), fields.get("expectedState")));
+        super.executeParse(parse, task);
+        if(!task.getExtensionElements().getOrDefault("requires",java.util.List.of()).isEmpty()
+            || !task.getExtensionElements().getOrDefault("stage",java.util.List.of()).isEmpty())
+            task.setBehavior(new FacilityGuardedActivityBehavior(
+                (org.flowable.engine.impl.delegate.ActivityBehavior)task.getBehavior(),facilityActions));
     }
 }

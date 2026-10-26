@@ -17,38 +17,14 @@ public final class ComponentModel {
     public ComponentModel(String xml) {
         this.xml = xml;
         try {
-            var document = ScxmlEngine.secureDocument(xml);
-            var root = document.getDocumentElement();
-            if (!"http://www.w3.org/2005/07/scxml".equals(root.getNamespaceURI()) || !"1.0".equals(root.getAttribute("version")))
-                throw new IllegalArgumentException("要求 SCXML 1.0 模型");
-            JsonNode value = null;
-            var data = root.getElementsByTagNameNS(root.getNamespaceURI(), "data");
-            for (int i=0; i<data.getLength(); i++) if ("componentMetadata".equals(((Element)data.item(i)).getAttribute("id")))
-                value = JSON.readTree(data.item(i).getTextContent());
-            if (value == null || !value.isObject()) throw new IllegalArgumentException("缺少 componentMetadata JSON");
-            metadata = value;
-            if (!metadata.path("model_id").isTextual() || metadata.path("model_id").asText().isBlank())
-                throw new IllegalArgumentException("componentMetadata.model_id 必须为非空字符串");
-            if (!metadata.path("model_version").canConvertToInt())
-                throw new IllegalArgumentException("componentMetadata.model_version 必须为整数");
-            if (!metadata.path("actions").isObject() || metadata.path("actions").isEmpty())
-                throw new IllegalArgumentException("componentMetadata.actions 不能为空");
-            var actions=metadata.path("actions").fields();
-            while(actions.hasNext()) {
-                var action=actions.next();
-                if(action.getValue().has("requests"))
-                    throw new IllegalArgumentException("动作 "+action.getKey()+" 请用 request_event 和 SCXML 请求迁移替换旧 requests 状态表");
-                JsonNode event=action.getValue().path("request_event");
-                if(!event.isTextual() || event.asText().isBlank() || event.asText().matches(".*[\\s*].*"))
-                    throw new IllegalArgumentException("动作 "+action.getKey()+" 的 request_event 必须是单个具体事件名");
-            }
-            if (!metadata.path("context_defaults").isObject())
-                throw new IllegalArgumentException("componentMetadata.context_defaults 必须为对象");
-            var states = root.getElementsByTagNameNS(root.getNamespaceURI(), "state");
+            var contract = new cn.cdi8.model.ComponentContract(xml);
+            metadata = contract.metadata();
+            var root = ScxmlEngine.secureDocument(xml).getDocumentElement();
+            var states = root.getElementsByTagNameNS(root.getNamespaceURI(), "*");
             for (int i=0; i<states.getLength(); i++) {
-                Element state=(Element)states.item(i), parent=state;
-                while (parent.getParentNode() instanceof Element element && "state".equals(element.getLocalName())) parent=element;
-                outer.put(state.getAttribute("id"),parent.getAttribute("id"));
+                Element state=(Element)states.item(i);
+                if ("state".equals(state.getLocalName()) || "final".equals(state.getLocalName()))
+                    outer.put(state.getAttribute("id"),contract.outer(state.getAttribute("id")));
             }
             // Exercise the same engine during validation, trials and device creation.
             if (root.getElementsByTagNameNS(root.getNamespaceURI(), "parallel").getLength() > 0)
