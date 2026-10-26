@@ -185,7 +185,7 @@ public class RunDeploymentService {
                 Map<String, Object> variables = new HashMap<>();
                 if (config.path("variables").isObject()) variables.putAll(json.convertValue(config.get("variables"), Map.class));
                 for(String name:variables.keySet())
-                    if(name.startsWith("facilityAction") || name.startsWith("facilityCompletion") || name.startsWith("facilityDepend") || name.equals("facilityInstances") || name.equals("dependencyHistory") || name.startsWith("command") && !"commandTimeout".equals(name)
+                    if(name.startsWith("facilityAction") || name.startsWith("facilityCompletion") || name.startsWith("facilityDepend") || name.startsWith("facilityHold") || name.startsWith("holdFailure") || name.equals("holdHistory") || name.equals("interruptedCompletionWaits") || name.equals("facilityInstances") || name.equals("dependencyHistory") || name.startsWith("command") && !"commandTimeout".equals(name)
                         || Set.of("target","sent","dispatchAttempted","shotRun","failureReason","outcome","finalFacilityState","runtimeChain").contains(name))
                         throw new IllegalArgumentException("不能覆盖内部运行变量："+name);
                 var catalog = tango.catalog();

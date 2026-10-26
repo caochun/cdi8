@@ -14,13 +14,13 @@ import org.springframework.stereotype.Component;
 /** Parses facility actions into a triggerable activity and enforces service-task entry guards. */
 @Component
 public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHandler {
-    private final cn.cdi8.workbench.facility.FacilityStateRuntime states;
     private final ComponentCommandTasks tasks;
     private final FacilityActionRuntime facilityActions;
     private final FacilityCompletionRuntime completions;
+    private final cn.cdi8.workbench.facility.FacilityHoldRuntime holds;
 
-    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, FacilityActionRuntime facilityActions, cn.cdi8.workbench.facility.FacilityStateRuntime states, FacilityCompletionRuntime completions) {
-        this.states=states;
+    public ComponentCommandBpmnParseHandler(ComponentCommandTasks tasks, FacilityActionRuntime facilityActions, FacilityCompletionRuntime completions,cn.cdi8.workbench.facility.FacilityHoldRuntime holds) {
+        this.holds=holds;
         this.tasks = tasks;
         this.facilityActions = facilityActions;
         this.completions = completions;
@@ -33,17 +33,14 @@ public final class ComponentCommandBpmnParseHandler extends ServiceTaskParseHand
 
     @Override
     protected void executeParse(BpmnParse parse, ServiceTask task) {
-        FacilityBpmnModel.validateDeployment(parse.getBpmnModel(),states);
         boolean hasFacilityActions=!FacilityBpmnModel.actions(task).isEmpty();
         if(hasFacilityActions || FacilityBpmnModel.completion(task)!=null) {
             task.setTriggerable(true);
-            task.setBehavior(new ComponentCommandActivityBehavior(tasks,facilityActions,completions));
+            task.setBehavior(new ComponentCommandActivityBehavior(tasks,facilityActions,completions,holds));
             return;
         }
         super.executeParse(parse, task);
-        if(!task.getExtensionElements().getOrDefault("requires",java.util.List.of()).isEmpty()
-            || !task.getExtensionElements().getOrDefault("stage",java.util.List.of()).isEmpty())
-            task.setBehavior(new FacilityGuardedActivityBehavior(
-                (org.flowable.engine.impl.delegate.ActivityBehavior)task.getBehavior(),facilityActions));
+        task.setBehavior(new FacilityGuardedActivityBehavior(
+            (org.flowable.engine.impl.delegate.ActivityBehavior)task.getBehavior(),facilityActions,holds));
     }
 }

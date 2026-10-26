@@ -9,9 +9,11 @@ import org.springframework.stereotype.Component;
 @Component
 public final class ComponentCommandProcessEngineConfigurer implements ProcessEngineConfigurationConfigurer {
     private final ComponentCommandBpmnParseHandler handler;
+    private final FacilityHoldParseHandler holds;
 
-    public ComponentCommandProcessEngineConfigurer(ComponentCommandBpmnParseHandler handler) {
+    public ComponentCommandProcessEngineConfigurer(ComponentCommandBpmnParseHandler handler,FacilityHoldParseHandler holds) {
         this.handler = handler;
+        this.holds=holds;
     }
 
     @Override
@@ -20,6 +22,10 @@ public final class ComponentCommandProcessEngineConfigurer implements ProcessEng
         var handlers = configuration.getCustomDefaultBpmnParseHandlers();
         if (handlers == null) handlers = new ArrayList<>();
         handlers.add(handler);
+        handlers.add(holds.processHandler());handlers.add(holds);handlers.add(holds.endHandler());
         configuration.setCustomDefaultBpmnParseHandlers(handlers);
+        var listeners=configuration.getEventListeners();
+        if(listeners==null)listeners=new ArrayList<>();
+        listeners.add(holds.lifecycleListener());configuration.setEventListeners(listeners);
     }
 }

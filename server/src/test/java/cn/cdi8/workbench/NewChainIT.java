@@ -26,6 +26,9 @@ class NewChainIT {
     static String bridgeUrl;
     @LocalServerPort int port;
     @org.springframework.beans.factory.annotation.Autowired cn.cdi8.workbench.facility.FacilityStateRuntime facilityStates;
+    @org.springframework.beans.factory.annotation.Autowired cn.cdi8.workbench.facility.FacilityDependencyRuntime dependencyMonitors;
+    @org.springframework.beans.factory.annotation.Autowired org.flowable.engine.RuntimeService engineRuntime;
+    @org.springframework.beans.factory.annotation.Autowired org.flowable.engine.RepositoryService repository;
 
     @DynamicPropertySource static void properties(DynamicPropertyRegistry registry) throws Exception {
         directory=Files.createTempDirectory("cdi8-new-chain-");
@@ -405,5 +408,185 @@ class NewChainIT {
         assertTrue(response.body().contains("power_on_check"),response.body());
         assertSame(activeDefinition,facilityStates.definition(),"失败的模型校验不得切换当前设施模型");
         assertEquals(history,request("GET","/api/workbench/devices/seed_01/history",null),"校验失败不得下发设备命令");
+    }
+
+    String holdProcess(String condition) throws Exception {
+        String xml=Files.readString(Path.of("examples/minimal/process.bpmn20.xml"))
+            .replace("<bpmn:process", "<bpmn:error id=\"holdError\" errorCode=\"HOLD_LOST\"/><bpmn:process")
+            .replace("typeRef=\"seed\" capabilityRef=\"power-on-check\" collectionVar=\"seedTargets\" expectedStateRef=\"powerOnChecked\"",
+                "typeRef=\"multipass\" capabilityRef=\"collimation\" collectionVar=\"multipassTargets\" expectedStateRef=\"collimationReady\"")
+            .replace("    <bpmn:serviceTask id=\"check\"", """
+                <bpmn:subProcess id="holding" name="准直阶段保持">
+                  <bpmn:extensionElements><fac:hold errorRef="holdError"><fac:input typeRef="multipass" capabilityRef="collimation" requirementRef="incident-light" collectionVar="multipassTargets"/></fac:hold></bpmn:extensionElements>
+                  <bpmn:startEvent id="insideStart"/>
+                  <bpmn:serviceTask id="check"""+"\"")
+            .replace("    <bpmn:serviceTask id=\"complete\"", """
+                  <bpmn:serviceTask id="review" name="跨任务等待" flowable:delegateExpression="${facilityActions}"><bpmn:extensionElements><fac:completion %s timeout="PT60S"/></bpmn:extensionElements></bpmn:serviceTask>
+                  <bpmn:endEvent id="insideEnd"/>
+                  <bpmn:sequenceFlow id="i1" sourceRef="insideStart" targetRef="check"/>
+                  <bpmn:sequenceFlow id="i2" sourceRef="check" targetRef="review"/>
+                  <bpmn:sequenceFlow id="i3" sourceRef="review" targetRef="insideEnd"/>
+                </bpmn:subProcess>
+                <bpmn:boundaryEvent id="holdLost" attachedToRef="holding"><bpmn:errorEventDefinition errorRef="holdError"/></bpmn:boundaryEvent>
+                <bpmn:serviceTask id="handleHoldLoss" flowable:expression="${shotRuns.fail(execution, holdFailureReason)}"/>
+                <bpmn:endEvent id="failedEnd"/>
+                <bpmn:sequenceFlow id="h1" sourceRef="holdLost" targetRef="handleHoldLoss"/>
+                <bpmn:sequenceFlow id="h2" sourceRef="handleHoldLoss" targetRef="failedEnd"/>
+                <bpmn:serviceTask id="complete""".formatted(condition)+"\"")
+            .replace("sourceRef=\"open\" targetRef=\"check\"","sourceRef=\"open\" targetRef=\"holding\"")
+            .replace("sourceRef=\"check\" targetRef=\"complete\"","sourceRef=\"holding\" targetRef=\"complete\"");
+        return xml;
+    }
+    ObjectNode heldConfiguration(boolean emit,boolean shg,String condition)throws Exception {
+        var config=opticalConfiguration(emit,shg,false);setProcess(config,"test_stage_hold",holdProcess(condition));return config;
+    }
+    void assertHeldFailure(JsonNode run) {
+        assertEquals("FAILED",run.path("outcome").asText(),run.toPrettyString());
+        assertEquals("failed",run.path("holds").get(0).path("outcome").asText(),run.toPrettyString());
+        assertTrue(run.path("activities").findValuesAsText("id").contains("handleHoldLoss"),run.toPrettyString());
+        assertFalse(run.path("activities").findValuesAsText("id").contains("complete"));
+    }
+
+    @Test @Order(21) void fullStageExampleInitializesHoldsReleasesAndChangesMode()throws Exception {
+        var config=configure(true,true,"PT10S");
+        for(var device:config.path("devices"))((ObjectNode)device).put("count",1);
+        config=(ObjectNode)request("POST","/api/workbench/environment",config);
+        setProcess(config,"test_hold_example",Files.readString(Path.of("examples/gxlf/processes/gxlf_stage_hold.bpmn20.xml")));
+        var result=awaitRun(start(config),r->!r.path("ended").isNull());
+        assertEquals("SUCCEEDED",result.path("outcome").asText(),result.toPrettyString());
+        assertEquals(1,result.path("holds").size());assertEquals("released",result.path("holds").get(0).path("outcome").asText());
+        assertTrue(result.path("activities").findValuesAsText("id").contains("single"));
+        assertEquals("violated",result.path("facilityState").path("deviceFacts").path("synchronization_01").path("synchronizationRepeat").path("status").asText());
+    }
+    @Test @Order(22) void invalidHoldEntryTakesBoundaryWithoutSendingAnyCommand()throws Exception {
+        var result=awaitRun(start(heldConfiguration(false,false,"guardRef=\"triggerAllowed\"")),r->!r.path("ended").isNull());
+        assertHeldFailure(result);assertEquals(0,result.path("commands").size());assertEquals(0,result.path("unresolvedDeviceActions").size());
+    }
+    @Test @Order(23) void stageLossInterruptsCommandButPreservesPhysicalUncertainty()throws Exception {
+        String id=start(heldConfiguration(true,false,"guardRef=\"triggerAllowed\""));opticalActive(id);
+        report("seed_01","emission_lost_confirmed","就绪");
+        var result=awaitRun(id,r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertEquals(1,result.path("unresolvedDeviceActions").size());assertEquals("unknown",result.path("commands").get(0).path("verificationStatus").asText());
+    }
+    @Test @Order(24) void stageHoldSurvivesCommandCompletionAndSeparateTaskWait()throws Exception {
+        String id=start(heldConfiguration(true,false,"guardRef=\"triggerAllowed\""));finishOptical(opticalActive(id));
+        var waiting=awaitRun(id,r->r.path("waits").size()==1);
+        assertEquals("active",waiting.path("holds").get(0).path("outcome").asText());
+        assertEquals("succeeded",waiting.path("dependencies").get(0).path("outcome").asText());
+        report("seed_01","emission_lost_confirmed","就绪");
+        var result=awaitRun(id,r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertEquals(0,result.path("unresolvedDeviceActions").size());assertEquals("succeeded",result.path("commands").get(0).path("verificationStatus").asText());
+        assertEquals("interrupted",result.path("waits").get(0).path("outcome").asText());
+    }
+    @Test @Order(25) void selectedShgIgnoresUnusedSeedButCascadesClockLoss()throws Exception {
+        String id=start(heldConfiguration(true,true,"guardRef=\"triggerAllowed\""));finishOptical(opticalActive(id));
+        var waiting=awaitRun(id,r->r.path("waits").size()==1);Set<String> selected=new HashSet<>();
+        waiting.path("holds").get(0).path("requirements").forEach(r->selected.add(r.path("device").asText()));
+        assertEquals(Set.of("shg_01","preamp_01","synchronization_01"),selected);
+        report("seed_01","fault_confirmed","异常");
+        assertEquals("RUNNING",request("GET","/api/runs/"+id,null).path("outcome").asText());
+        deviceAction("synchronization_01","single_mode");
+        var result=awaitRun(id,r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertTrue(result.path("failureReason").asText().contains("synchronizationRepeat"));
+    }
+    @Test @Order(26) void unknownHighLevelConditionBlocksScopeEntry()throws Exception {
+        var config=heldConfiguration(true,false,"factRef=\"simulationDevicesObserved\"");
+        setProcess(config,"test_unknown_hold",holdProcess("factRef=\"simulationDevicesObserved\"").replace("</fac:hold>","<fac:condition factRef=\"interlockEstablished\"/></fac:hold>"));
+        var result=awaitRun(start(config),r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertEquals("unknown",result.path("holds").get(0).path("status").asText());assertEquals(0,result.path("commands").size());
+    }
+    @Test @Order(27) void cancellationReleasesScopeAndPreservesActiveCommand()throws Exception {
+        String id=start(heldConfiguration(true,false,"guardRef=\"triggerAllowed\""));opticalActive(id);
+        var result=request("POST","/api/runs/"+id+"/stop",Map.of());
+        assertEquals("CANCELLED",result.path("outcome").asText());assertEquals("cancelled",result.path("holds").get(0).path("outcome").asText());
+        assertEquals(1,result.path("unresolvedDeviceActions").size());
+    }
+    @Test @Order(28) void endingOneParallelBranchDoesNotReleaseStageHold()throws Exception {
+        var config=heldConfiguration(true,false,"guardRef=\"triggerAllowed\"");
+        String xml=holdProcess("guardRef=\"triggerAllowed\"")
+            .replace("<bpmn:endEvent id=\"insideEnd\"/>","""
+                <bpmn:parallelGateway id="fork"/>
+                <bpmn:serviceTask id="parallelReview" flowable:delegateExpression="${facilityActions}"><bpmn:extensionElements><fac:completion factRef="simulationDevicesObserved" timeout="PT10S"/></bpmn:extensionElements></bpmn:serviceTask>
+                <bpmn:endEvent id="parallelEnd"/>
+                <bpmn:endEvent id="insideEnd"/>
+                <bpmn:sequenceFlow id="p1" sourceRef="fork" targetRef="review"/>
+                <bpmn:sequenceFlow id="p2" sourceRef="fork" targetRef="parallelReview"/>
+                <bpmn:sequenceFlow id="p3" sourceRef="parallelReview" targetRef="parallelEnd"/>
+                """)
+            .replace("sourceRef=\"check\" targetRef=\"review\"","sourceRef=\"check\" targetRef=\"fork\"");
+        setProcess(config,"test_parallel_hold",xml);String id=start(config);finishOptical(opticalActive(id));
+        var waiting=awaitRun(id,r->r.path("activities").findValuesAsText("id").contains("parallelEnd"));
+        assertEquals("active",waiting.path("holds").get(0).path("outcome").asText());
+        report("seed_01","emission_lost_confirmed","就绪");assertHeldFailure(awaitRun(id,r->!r.path("ended").isNull()));
+    }
+    @Test @Order(29) void loopReentryCreatesIndependentHoldActivations()throws Exception {
+        var config=heldConfiguration(true,false,"factRef=\"simulationDevicesObserved\"");
+        ((ObjectNode)config.path("variables")).put("round",0);
+        String xml=holdProcess("factRef=\"simulationDevicesObserved\"")
+            .replaceAll("<fac:actions>.*?</fac:actions>","<fac:completion factRef=\"simulationDevicesObserved\" timeout=\"PT10S\"/>")
+            .replace("<bpmn:sequenceFlow id=\"f3\" sourceRef=\"holding\" targetRef=\"complete\" />","""
+                <bpmn:serviceTask id="increment" flowable:expression="${execution.setVariable('round',round+1)}"/>
+                <bpmn:exclusiveGateway id="again" default="leaveLoop"/>
+                <bpmn:sequenceFlow id="l1" sourceRef="holding" targetRef="increment"/>
+                <bpmn:sequenceFlow id="l2" sourceRef="increment" targetRef="again"/>
+                <bpmn:sequenceFlow id="l3" sourceRef="again" targetRef="holding"><bpmn:conditionExpression>${round &lt; 2}</bpmn:conditionExpression></bpmn:sequenceFlow>
+                <bpmn:sequenceFlow id="leaveLoop" sourceRef="again" targetRef="complete"/>
+                """);
+        setProcess(config,"test_hold_loop",xml);var result=awaitRun(start(config),r->!r.path("ended").isNull());
+        assertEquals("SUCCEEDED",result.path("outcome").asText(),result.toPrettyString());assertEquals(2,result.path("holds").size());
+        assertNotEquals(result.path("holds").get(0).path("id"),result.path("holds").get(1).path("id"));
+        for(var hold:result.path("holds"))assertEquals("released",hold.path("outcome").asText());
+    }
+    @Test @Order(30) void lossOfContinuousMonitoringCoverageTakesUnknownFailurePath()throws Exception {
+        String id=start(heldConfiguration(true,false,"guardRef=\"triggerAllowed\""));finishOptical(opticalActive(id));
+        var waiting=awaitRun(id,r->r.path("waits").size()==1);
+        dependencyMonitors.release(waiting.path("holds").get(0).path("id").asText());
+        var result=awaitRun(id,r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertEquals("unknown",result.path("holds").get(0).path("status").asText());assertTrue(result.path("failureReason").asText().contains("监控中断"));
+    }
+    @Test @Order(31) void timerBetweenTasksIsStillInsideHoldingScope()throws Exception {
+        var config=heldConfiguration(true,false,"factRef=\"simulationDevicesObserved\"");
+        String xml=holdProcess("factRef=\"simulationDevicesObserved\"")
+            .replace("<bpmn:endEvent id=\"insideEnd\"/>","""
+                <bpmn:intermediateCatchEvent id="settle"><bpmn:timerEventDefinition><bpmn:timeDuration>PT30S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
+                <bpmn:sequenceFlow id="settled" sourceRef="settle" targetRef="review"/>
+                <bpmn:endEvent id="insideEnd"/>
+                """)
+            .replace("sourceRef=\"check\" targetRef=\"review\"","sourceRef=\"check\" targetRef=\"settle\"");
+        setProcess(config,"test_timer_hold",xml);String id=start(config);finishOptical(opticalActive(id));
+        awaitRun(id,r->r.path("timers").size()==1);
+        report("seed_01","emission_lost_confirmed","就绪");
+        var result=awaitRun(id,r->!r.path("ended").isNull());assertHeldFailure(result);
+        assertFalse(result.path("activities").findValuesAsText("id").contains("review"));assertEquals(0,result.path("timers").size());
+    }
+    @Test @Order(32) void observedLossAtScopeExitRollsBackNormalContinuationAndTakesBoundary()throws Exception {
+        var config=heldConfiguration(true,false,"factRef=\"simulationDevicesObserved\"");
+        var injected=new java.util.concurrent.atomic.AtomicBoolean();
+        var listener=new org.flowable.engine.delegate.event.AbstractFlowableEngineEventListener() {
+            @Override protected void activityCompleted(org.flowable.engine.delegate.event.FlowableActivityEvent event) {
+                if("insideEnd".equals(event.getActivityId())&&injected.compareAndSet(false,true))try {
+                    report("seed_01","emission_lost_confirmed","就绪");facilityStates.refresh();
+                }catch(Exception ex){throw new IllegalStateException(ex);}
+            }
+            @Override public boolean isFailOnException(){return true;}
+        };
+        engineRuntime.addEventListener(listener,org.flowable.common.engine.api.delegate.event.FlowableEngineEventType.ACTIVITY_COMPLETED);
+        try {
+            String id=start(config);finishOptical(opticalActive(id));
+            var result=awaitRun(id,r->!r.path("ended").isNull());assertTrue(injected.get());assertHeldFailure(result);
+            assertEquals("violated",result.path("holds").get(0).path("status").asText());
+        }finally{engineRuntime.removeEventListener(listener);}
+    }
+    @Test @Order(33) void directEngineDeploymentCannotIgnoreHoldOnUnsupportedTask() {
+        String xml="""
+            <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:fac="https://cdi8.cn/facility/v1" targetNamespace="test">
+              <process id="invalid_hold" isExecutable="true">
+                <startEvent id="start"/><userTask id="user"><extensionElements><fac:hold errorRef="missing"><fac:condition factRef="simulationDevicesObserved"/></fac:hold></extensionElements></userTask>
+                <endEvent id="end"/><sequenceFlow id="f1" sourceRef="start" targetRef="user"/><sequenceFlow id="f2" sourceRef="user" targetRef="end"/>
+              </process>
+            </definitions>
+            """;
+        assertThrows(RuntimeException.class,()->repository.createDeployment().addString("invalid.bpmn20.xml",xml).deploy());
+        assertEquals(0,repository.createProcessDefinitionQuery().processDefinitionKey("invalid_hold").count());
     }
 }

@@ -44,14 +44,16 @@ async function refreshTrace(ticket=revision){
 }
 function renderWaits(){
   const waits=flattenRuns().flatMap(r=>(r.waits||[]).map(w=>({...w,owner:r})));
+  const holds=flattenRuns().flatMap(r=>(r.holds||[]).filter(h=>h.outcome==='active'));
   const pending=allCommands().filter(c=>!['succeeded','failed','blocked','interrupted','rejected','cancelled'].includes(commandStatus(c)));
-  const count=waits.length+pending.length;
+  const count=waits.length+pending.length+holds.length;
   $('wait-count').textContent=count+' 项';
   $('wait-empty').hidden=Boolean(count);
   $('wait-empty').textContent=run?.ended?'结束时没有未完成的等待事项':run?'当前没有等待事项，流程可继续推进。':'开始运行后，在此查看等待与反馈。';
   $('wait-diagnostics').hidden=!count;
   let html=waits.map(w=>'<div class="wait-row"><div><b>'+escape(w.owner.activities.find(a=>a.id===w.activity)?.name||w.activity)+'</b><small>完成条件：'+escape(w.label||w.condition)+' · '+escape(({valid:'已满足，等待推进',violated:'尚未满足',unknown:'观测未知'})[w.status]||w.status)+(w.started?' · 已等待 '+duration((w.ended||Date.now())-w.started):'')+'</small>'+(w.reason?'<small>'+escape(w.reason)+'</small>':'')+'<small>'+escape(w.endReason||(w.deadline?'剩余 '+duration(w.deadline-Date.now()):''))+'</small></div></div>').join('');
   html+=pending.map(c=>'<div class="wait-row"><div><b>'+escape(c.commandDevice+' · '+StateCharts.action(modelKey(deviceCache.find(d=>d.id===c.commandDevice)?.snapshot||{}),c.commandAction))+'</b><small>'+(c.sent?'设备已受理，等待动作结果':c.dispatchAttempted?'已尝试下发，受理情况待确认；仅查询原命令':'等待命令发送')+' · '+escape(c.commandId)+'</small></div><div>'+(c.sent?'<button data-outcome="success" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">成功反馈</button><button data-outcome="failure" data-device="'+escape(c.commandDevice)+'" data-command="'+escape(c.commandId)+'">失败反馈</button>':'')+'</div></div>').join('');
+  html+=holds.map(h=>'<div class="wait-row"><div><b>阶段持续保持 · '+escape(h.label||h.activity)+'</b><small>'+escape(({valid:'条件成立，持续监控',violated:'保持失效',unknown:'观测未知'})[h.status]||h.status)+' · '+(h.requirements||[]).length+' 项条件</small><small>'+escape(h.reason||'覆盖当前阶段的任务与等待，退出子流程后释放。')+'</small></div></div>').join('');
   const due=flattenRuns().flatMap(r=>r.timers||[]).map(t=>new Date(t.due)).sort((a,b)=>a-b)[0];
   if(due)html+='<p class="muted">最近超时期限：'+escape(due.toLocaleString())+' · 剩余 '+duration(due-Date.now())+'</p>';
   $('wait-list').innerHTML=html;
@@ -220,6 +222,11 @@ function showDetails(){
   }
   for(const wait of (owner?.waits||[]).filter(w=>w.activity===picked))
     html+='<div class="command"><b>等待完成条件：'+escape(wait.label||wait.condition)+'</b><br>'+escape(wait.reason||'条件核验中')+(wait.endReason?'<br>'+escape(wait.endReason):'')+'</div>';
+  for(const hold of (owner?.holds||[]).filter(h=>h.activity===picked)){
+    html+='<div class="command"><b>阶段持续保持 · '+escape(({active:'监控中',released:'正常结束，已释放',failed:'失效，已进入异常路径',cancelled:'已取消',interrupted:'已中断'})[hold.outcome]||hold.outcome)+'</b><p>'+escape(hold.reason||'保持条件成立')+'</p>';
+    for(const req of hold.requirements||[])html+='<small style="display:block">'+escape(req.kind?(req.observation?.label||req.ref):'束线 '+req.beamline+' · '+req.logical+' · '+(req.observation?.label||req.fact))+' · '+escape(({valid:'成立',violated:'失效',unknown:'未知'})[req.status]||'待核验')+'</small>'+(req.via?'<small style="display:block">'+escape(req.via)+'</small>':'');
+    html+='</div>';
+  }
   if(!commands.length)html+='<p class="muted">'+(activities.length?'该节点为流程活动或条件等待。':'尚未产生执行记录。')+'</p>';
   $('details').innerHTML=html;
 }
@@ -248,11 +255,11 @@ function renderRun(){
 function renderSystemIncidents(){
   const host=$('system-incidents'),state=run?.facilityState,shot=run?.shotRun;
   host.hidden=!run;
-  const labels={valid:'成立',unknown:'未知',violated:'不满足',succeeded:'成功',failed:'失败',completed:'完成',cancelled:'已取消',invalidated:'已失效'};
+  const labels={valid:'成立',unknown:'未知',violated:'不满足',succeeded:'成功',failed:'失败',completed:'完成',cancelled:'已取消',invalidated:'已失效',active:'持续监控',released:'已释放',interrupted:'已中断'};
   $('incident-count').textContent=shot?`本发 ${shot.shot_id} · ${labels[shot.stage]||shot.stage} · ${(shot.evidence||[]).length} 条证据`:'';
   const rows=(values,kind)=>Object.entries(values||{}).map(([id,item]:[string,any])=>
     '<article class="incident-row '+escape(item.status)+'"><div><strong>'+escape(item.label||id)+'</strong><span>'+escape(kind+' · '+(labels[item.status]||item.status))+'</span></div>'+(item.reason?'<p>'+escape(item.reason)+'</p>':'')+'</article>').join('');
-  const evidence=(shot?.evidence||[]).map(item=>'<article class="incident-row"><div><strong>'+escape(item.device_id||item.details?.device||item.details?.label||item.details?.condition||item.id)+'</strong><span>'+escape((item.operation||(item.kind==='capability-dependency'?'能力输入依赖':item.details?.purpose==='activity-completion'?'完成条件核验':item.kind))+' · '+(labels[item.status]||item.status))+'</span><time>'+escape(new Date(item.observed_at).toLocaleString())+'</time></div>'+((item.details?.decisionReason||item.details?.reason)?'<p>'+escape(item.details.decisionReason||item.details.reason)+'</p>':'')+'</article>').join('');
+  const evidence=(shot?.evidence||[]).map(item=>'<article class="incident-row"><div><strong>'+escape(item.device_id||item.details?.device||item.details?.label||item.details?.condition||item.id)+'</strong><span>'+escape((item.operation||(item.kind==='stage-hold'?'阶段持续保持':item.kind==='capability-dependency'?'能力输入依赖':item.details?.purpose==='activity-completion'?'完成条件核验':item.kind))+' · '+(labels[item.status]||item.status))+'</span><time>'+escape(new Date(item.observed_at).toLocaleString())+'</time></div>'+((item.details?.decisionReason||item.details?.reason)?'<p>'+escape(item.details.decisionReason||item.details.reason)+'</p>':'')+'</article>').join('');
   $('incident-list').innerHTML=(state?'<details><summary>设施事实与放行条件'+(run.ended?'（结束时快照）':'（当前）')+'</summary>'+rows(state.guards,'放行条件')+rows(state.facts,'设施事实')+'</details>':'')+
     '<details><summary>本发执行证据 · '+(shot?.evidence?.length||0)+'</summary>'+evidence+'</details>';
 }

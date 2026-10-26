@@ -21,8 +21,10 @@ public final class ComponentCommandActivityBehavior extends AbstractBpmnActivity
     private final ComponentCommandTasks tasks;
     private final FacilityActionRuntime facilityActions;
     private final FacilityCompletionRuntime completions;
+    private final cn.cdi8.workbench.facility.FacilityHoldRuntime holds;
 
-    public ComponentCommandActivityBehavior(ComponentCommandTasks tasks, FacilityActionRuntime facilityActions, FacilityCompletionRuntime completions) {
+    public ComponentCommandActivityBehavior(ComponentCommandTasks tasks, FacilityActionRuntime facilityActions, FacilityCompletionRuntime completions,cn.cdi8.workbench.facility.FacilityHoldRuntime holds) {
+        this.holds=holds;
         this.tasks = tasks;
         this.facilityActions = facilityActions;
         this.completions = completions;
@@ -30,6 +32,7 @@ public final class ComponentCommandActivityBehavior extends AbstractBpmnActivity
 
     @Override
     public void execute(DelegateExecution execution) {
+        if(!holds.guard(execution))return;
         facilityActions.enter(execution);
         facilityActions.start(execution);
         if(execution.getVariableLocal("facilityActionQueue")==null)completions.begin(execution);
@@ -37,6 +40,7 @@ public final class ComponentCommandActivityBehavior extends AbstractBpmnActivity
 
     @Override
     public void trigger(DelegateExecution execution, String signalName, Object signalData) {
+        if(!holds.guard(execution))return;
         if(execution.getVariableLocal(FacilityCompletionRuntime.VARIABLE)!=null) {
             if(completions.resume(execution))leave(execution);
             return;

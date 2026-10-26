@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn"
+  xmlns:fac="https://cdi8.cn/facility/v1" targetNamespace="https://cdi8.cn/workbench">
+  <bpmn:error id="alignmentHoldLost" name="准直阶段保持条件失效" errorCode="ALIGNMENT_HOLD_LOST" />
+  <bpmn:process id="gxlf_stage_hold" name="准直阶段持续保持 · 技术验证" isExecutable="true">
+    <bpmn:documentation>原型切片：建立准直输入，在准直、稳定等待和复核之间持续保持。阶段结束后允许切到单次模式。尚未接入真实门禁、人员清场和吹扫联锁。</bpmn:documentation>
+    <bpmn:startEvent id="start" />
+    <bpmn:serviceTask id="open" name="创建本发记录" flowable:expression="${shotRuns.open(execution)}" />
+    <bpmn:serviceTask id="power" name="上电检查" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions>
+        <fac:action typeRef="seed" capabilityRef="power-on-check" collectionVar="seedTargets" expectedStateRef="powerOnChecked" />
+        <fac:action typeRef="synchronization" capabilityRef="power-on-check" collectionVar="synchronizationTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="preamp" capabilityRef="power-on-check" collectionVar="preampTargets" expectedStateRef="powerOnOk" />
+        <fac:action typeRef="multipass" capabilityRef="power-on-check" collectionVar="multipassTargets" expectedStateRef="powerOnOk" />
+      </fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="function" name="自检" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions>
+        <fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" expectedStateRef="qualified" />
+        <fac:action typeRef="synchronization" capabilityRef="function-check" collectionVar="synchronizationTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="preamp" capabilityRef="function-check" collectionVar="preampTargets" expectedStateRef="functionReady" />
+        <fac:action typeRef="multipass" capabilityRef="function-check" collectionVar="multipassTargets" expectedStateRef="functionReady" />
+      </fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="parameters" name="接收参数" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions>
+        <fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" expectedStateRef="configured" />
+        <fac:action typeRef="synchronization" capabilityRef="parameter-receive" collectionVar="synchronizationTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="preamp" capabilityRef="parameter-receive" collectionVar="preampTargets" expectedStateRef="parameterOk" />
+        <fac:action typeRef="multipass" capabilityRef="parameter-receive" collectionVar="multipassTargets" expectedStateRef="parameterOk" />
+      </fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="repeat" name="建立重频模式" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="preamp-repeat-recipe" collectionVar="synchronizationTargets" expectedStateRef="repeatConfigured" /></fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="wakeup" name="预放唤醒" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="wakeup" collectionVar="preampTargets" expectedStateRef="wakeupReady" /></fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="emit" name="种子源出光" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="emit" collectionVar="seedTargets" expectedStateRef="stableEmission" /></fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:subProcess id="alignment" name="准直与复核期间持续保持入射光">
+      <bpmn:extensionElements>
+        <fac:hold errorRef="alignmentHoldLost">
+          <fac:input typeRef="multipass" capabilityRef="collimation" requirementRef="incident-light" collectionVar="multipassTargets" />
+        </fac:hold>
+      </bpmn:extensionElements>
+      <bpmn:startEvent id="alignmentStart" />
+      <bpmn:serviceTask id="collimate" name="执行光路准直" flowable:delegateExpression="${facilityActions}">
+        <bpmn:extensionElements><fac:actions><fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" expectedStateRef="collimationReady" /></fac:actions></bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:intermediateCatchEvent id="settle" name="稳定等待（仍保持入射光）">
+        <bpmn:timerEventDefinition><bpmn:timeDuration>PT5S</bpmn:timeDuration></bpmn:timerEventDefinition>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:serviceTask id="review" name="观测完整性复核" flowable:delegateExpression="${facilityActions}">
+        <bpmn:extensionElements><fac:completion factRef="simulationDevicesObserved" timeout="PT30S" /></bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="alignmentEnd" />
+      <bpmn:sequenceFlow id="a1" sourceRef="alignmentStart" targetRef="collimate" />
+      <bpmn:sequenceFlow id="a2" sourceRef="collimate" targetRef="settle" />
+      <bpmn:sequenceFlow id="a3" sourceRef="settle" targetRef="review" />
+      <bpmn:sequenceFlow id="a4" sourceRef="review" targetRef="alignmentEnd" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="holdLost" name="保持失效" attachedToRef="alignment" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="alignmentHoldLost" />
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="handleHoldLoss" name="记录异常，结束本发" flowable:expression="${shotRuns.fail(execution, holdFailureReason)}" />
+    <bpmn:endEvent id="failedEnd" />
+    <bpmn:serviceTask id="single" name="保持范围结束，切到单次模式" flowable:delegateExpression="${facilityActions}">
+      <bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="single-recipe" collectionVar="synchronizationTargets" expectedStateRef="singleConfigured" /></fac:actions></bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="complete" name="完成验证" flowable:expression="${shotRuns.complete(execution)}" />
+    <bpmn:endEvent id="end" />
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="open" />
+    <bpmn:sequenceFlow id="f2" sourceRef="open" targetRef="power" />
+    <bpmn:sequenceFlow id="f3" sourceRef="power" targetRef="function" />
+    <bpmn:sequenceFlow id="f4" sourceRef="function" targetRef="parameters" />
+    <bpmn:sequenceFlow id="f5" sourceRef="parameters" targetRef="repeat" />
+    <bpmn:sequenceFlow id="f6" sourceRef="repeat" targetRef="wakeup" />
+    <bpmn:sequenceFlow id="f7" sourceRef="wakeup" targetRef="emit" />
+    <bpmn:sequenceFlow id="f8" sourceRef="emit" targetRef="alignment" />
+    <bpmn:sequenceFlow id="f9" sourceRef="alignment" targetRef="single" />
+    <bpmn:sequenceFlow id="f10" sourceRef="single" targetRef="complete" />
+    <bpmn:sequenceFlow id="f11" sourceRef="complete" targetRef="end" />
+    <bpmn:sequenceFlow id="error1" sourceRef="holdLost" targetRef="handleHoldLoss" />
+    <bpmn:sequenceFlow id="error2" sourceRef="handleHoldLoss" targetRef="failedEnd" />
+  </bpmn:process>
+</bpmn:definitions>

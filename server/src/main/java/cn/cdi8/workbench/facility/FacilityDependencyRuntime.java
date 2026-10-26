@@ -25,8 +25,14 @@ public final class FacilityDependencyRuntime {
 
     public ObjectNode plan(String command,String component,String capability,String target,
                            Collection<?> beamlines,Map<String,String> selections,String defaultSource,Map<String,String> instances) {
+        return plan(command,component,capability,target,beamlines,selections,defaultSource,instances,null);
+    }
+    /** Explicit BPMN scopes select one reusable input and extend its lifetime to the scope. */
+    public ObjectNode plan(String command,String component,String capability,String target,
+                           Collection<?> beamlines,Map<String,String> selections,String defaultSource,Map<String,String> instances,String heldInput) {
         var contracts=states.definition().dependencies();
-        var requirements=contracts.inputs(component,capability);
+        var requirements=contracts.inputs(component,capability).stream().filter(i->heldInput==null||heldInput.equals(i.id())).toList();
+        if(heldInput!=null&&requirements.isEmpty())throw new IllegalArgumentException("未定义保持输入："+component+"/"+capability+"/"+heldInput);
         if(requirements.isEmpty())return null;
         ObjectNode plan=json.createObjectNode().put("id",command).put("component",component).put("capability",capability)
             .put("device",target).put("status","unknown").put("reason","尚未核验能力输入依赖");
@@ -39,7 +45,7 @@ public final class FacilityDependencyRuntime {
                 String logical=states.binding().topology().logical(component,beam,source);
                 if(!target.equals(instances.get(logical)))continue;
                 matched++;
-                for(var input:requirements)expand(component,input,beam,source,instances,leaves,input.maintain(),component+"/"+capability+"/"+input.id());
+                for(var input:requirements)expand(component,input,beam,source,instances,leaves,heldInput==null?input.maintain():"execution",component+"/"+capability+"/"+input.id());
             }
             if(matched==0)throw new IllegalArgumentException("动作目标不属于本发所选束线："+target);
         } catch(RuntimeException ex) {
@@ -73,7 +79,7 @@ public final class FacilityDependencyRuntime {
         ObjectNode plan=read(raw);String id=plan.path("id").asText();
         Watch candidate=new Watch(plan);
         if(plan.path("latched").asBoolean())candidate.failure=plan.deepCopy();
-        else if(started&&hasContinuous(plan))candidate.failure=failed(plan,"unknown","持续依赖监控中断，无法证明已下发动作期间输入一直有效");
+        else if(started&&hasContinuous(plan))candidate.failure=failed(plan,"unknown","持续依赖监控中断，无法证明保持期间条件一直有效");
         Watch watch=watches.putIfAbsent(id,candidate);
         if(watch==null)watch=candidate;
         long now=System.currentTimeMillis();
@@ -111,13 +117,15 @@ public final class FacilityDependencyRuntime {
             if(started&&"start".equals(requirement.path("maintain").asText())) {
                 requirement.put("status","released");continue;
             }
-            JsonNode fact=snapshot.path("deviceFacts").path(requirement.path("device").asText()).path(requirement.path("fact").asText());
+            boolean condition=requirement.has("kind");
+            JsonNode fact=condition?snapshot.path("fact".equals(requirement.path("kind").asText())?"facts":"guards").path(requirement.path("ref").asText())
+                :snapshot.path("deviceFacts").path(requirement.path("device").asText()).path(requirement.path("fact").asText());
             String status=fact.path("status").asText("unknown"),reason=fact.path("reason").asText("缺少设备事实观测");
-            if(!requirement.path("component").asText().equals(fact.path("component").asText())) {status="unknown";reason="设备事实类型不匹配或缺失";}
+            if(!condition&&!requirement.path("component").asText().equals(fact.path("component").asText())) {status="unknown";reason="设备事实类型不匹配或缺失";}
             requirement.put("status",status).put("reason",reason);requirement.set("observation",fact.deepCopy());
             if(!"valid".equals(status)&&"valid".equals(result.path("status").asText())) {
-                result.put("status",status).put("reason","束线 "+requirement.path("beamline").asInt()+" / "+requirement.path("logical").asText()
-                    +" / "+requirement.path("fact").asText()+"："+reason);
+                result.put("status",status).put("reason",(condition?requirement.path("ref").asText():"束线 "+requirement.path("beamline").asInt()+" / "+requirement.path("logical").asText()
+                    +" / "+requirement.path("fact").asText())+"："+reason);
             }
         }
         return result;

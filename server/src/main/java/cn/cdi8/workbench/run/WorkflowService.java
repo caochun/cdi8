@@ -3,6 +3,8 @@ package cn.cdi8.workbench.run;
 import cn.cdi8.workbench.facility.FacilityStateRuntime;
 import cn.cdi8.workbench.facility.FacilityCompletionRuntime;
 import cn.cdi8.workbench.facility.FacilityDependencyRuntime;
+import cn.cdi8.workbench.facility.FacilityHoldRuntime;
+import org.flowable.engine.impl.util.CommandContextUtil;
 import cn.cdi8.workbench.integration.tango.TangoGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +33,7 @@ public class WorkflowService {
     private final ComponentCommandTasks tasks;
     private final FacilityCompletionRuntime completions;
     private final FacilityDependencyRuntime dependencies;
+    private final FacilityHoldRuntime holds;
     private final String commandTimeout;
     private final String workflowTimeout;
     private final Set<String> changed = ConcurrentHashMap.newKeySet();
@@ -42,7 +45,7 @@ public class WorkflowService {
 
     public WorkflowService(RuntimeService runtime, RepositoryService repository, HistoryService history,
                            ManagementService management, TangoGateway gateway, ObjectMapper json,
-                           FacilityStateRuntime facilityStates, ShotRunRuntime shots, ComponentCommandTasks tasks, FacilityCompletionRuntime completions, FacilityDependencyRuntime dependencies,
+                           FacilityStateRuntime facilityStates, ShotRunRuntime shots, ComponentCommandTasks tasks, FacilityCompletionRuntime completions, FacilityDependencyRuntime dependencies,FacilityHoldRuntime holds,
                            @Value("${control.command-timeout}") String commandTimeout,
                            @Value("${control.workflow-timeout}") String workflowTimeout) {
         this.runtime = runtime;
@@ -56,6 +59,7 @@ public class WorkflowService {
         this.tasks = tasks;
         this.completions = completions;
         this.dependencies = dependencies;
+        this.holds=holds;
         this.commandTimeout = commandTimeout;
         this.workflowTimeout = workflowTimeout;
     }
@@ -128,6 +132,7 @@ public class WorkflowService {
                         cn.cdi8.workbench.facility.FacilityComponentModels.archived(definition,components));
                     activeFacilityRun=pid;
                 }
+                if(!checkHolds(pid,true))continue;
                 String issue = processIssue(pid);
                 if (issue != null) {
                     stop(pid, issue);
@@ -163,6 +168,8 @@ public class WorkflowService {
         for(var execution:runtime.createExecutionQuery().list()) {
             Object command=runtime.getVariableLocal(execution.getId(),"commandId");
             if(command!=null)watched.add(command.toString());
+            Object hold=runtime.getVariableLocal(execution.getId(),FacilityHoldRuntime.VARIABLE);
+            if(hold!=null)watched.add(dependencies.read(hold).path("id").asText());
         }
         dependencies.retain(watched);
     }
@@ -218,6 +225,7 @@ public class WorkflowService {
     }
 
     private void processCommand(Execution execution, Set<String> dirty) throws Exception {
+        if(!checkHolds(pid(execution),false))return;
         String eid = execution.getId();
         var variables = runtime.getVariablesLocal(eid);
         String id = Objects.toString(variables.get("commandId"), "");
@@ -264,6 +272,7 @@ public class WorkflowService {
         }
         runtime.setVariableLocal(eid, "commandResult", result.toString());
         runtime.setVariableLocal(eid, "commandOutcomeUnknown", false);
+        if(!checkHolds(pid(execution),false))return;
         if(!checkDependencies(execution,true,false))return;
         variables=runtime.getVariablesLocal(eid);
         try { tasks.validateResult(variables); }
@@ -280,6 +289,7 @@ public class WorkflowService {
         } catch (RuntimeException ex) {
             if (runtime.createProcessInstanceQuery().processInstanceId(execution.getProcessInstanceId()).count() > 0)
                 {
+                    if(!checkHolds(pid(execution),false))return;
                     stop(execution.getProcessInstanceId(), Objects.toString(ex.getMessage(), "设备动作校验失败"));
                 }
         }
@@ -287,6 +297,21 @@ public class WorkflowService {
 
     private String pid(Execution execution) {
         return execution.getProcessInstanceId();
+    }
+
+    private boolean checkHolds(String pid,boolean reconcile) {
+        for(var execution:runtime.createExecutionQuery().processInstanceId(pid).list()) {
+            if(!runtime.hasVariableLocal(execution.getId(),FacilityHoldRuntime.VARIABLE))continue;
+            boolean valid;
+            try {
+                valid=management.executeCommand(context->{
+                    var scope=CommandContextUtil.getExecutionEntityManager(context).findById(execution.getId());
+                    return scope==null||!scope.hasVariableLocal(FacilityHoldRuntime.VARIABLE)||holds.check(scope,true,reconcile);
+                });
+            }catch(RuntimeException ex){stop(pid,"阶段保持异常路径执行失败："+ex.getMessage());return false;}
+            if(!valid)return false;
+        }
+        return true;
     }
 
     private boolean checkDependencies(Execution execution,boolean started,boolean reconcile) {
@@ -312,6 +337,7 @@ public class WorkflowService {
 
     private void processCompletion(Execution execution,boolean changedFacility) {
         String eid=execution.getId(),pid=execution.getProcessInstanceId();
+        if(!checkHolds(pid,false))return;
         var wait=completions.read(runtime.getVariableLocal(eid,FacilityCompletionRuntime.VARIABLE));
         if(completions.expired(wait)) {
             stop(pid,"完成条件等待超时："+wait.path("condition").asText()+" / "+wait.path("reason").asText());return;
@@ -323,6 +349,7 @@ public class WorkflowService {
         lastCompletionQuery.put(eid,now);
         wait=completions.evaluate(wait.toString(),true);
         runtime.setVariableLocal(eid,FacilityCompletionRuntime.VARIABLE,wait.toString());
+        if(!checkHolds(pid,false))return;
         if(completions.expired(wait)) {
             stop(pid,"完成条件等待超时："+wait.path("condition").asText());return;
         }
@@ -341,7 +368,7 @@ public class WorkflowService {
                     rememberCompletion(pid,remaining,"invalidated",remaining.path("reason").asText());
             }
         }catch(RuntimeException ex) {
-            if(runtime.createProcessInstanceQuery().processInstanceId(pid).count()>0)
+            if(runtime.createProcessInstanceQuery().processInstanceId(pid).count()>0 && checkHolds(pid,false))
                 stop(pid,Objects.toString(ex.getMessage(),"完成条件推进失败"));
         }
     }
@@ -380,6 +407,9 @@ public class WorkflowService {
         List<Object> waits=new ArrayList<>();
         for(var execution:runtime.createExecutionQuery().processInstanceId(pid).list()) {
             var local=runtime.getVariablesLocal(execution.getId());
+            if(local.containsKey(FacilityHoldRuntime.VARIABLE))management.executeCommand(context->{
+                holds.finish(CommandContextUtil.getExecutionEntityManager(context).findById(execution.getId()),cancelled?"cancelled":"failed");return null;
+            });
             if(local.get(FacilityDependencyRuntime.VARIABLE)!=null) {
                 var assessment=dependencies.check(local.get(FacilityDependencyRuntime.VARIABLE),Boolean.TRUE.equals(local.get("dispatchAttempted")),false);
                 rememberDependency(pid,assessment,cancelled?"cancelled":"failed");
@@ -469,7 +499,10 @@ public class WorkflowService {
             Object wait=runtime.getVariableLocal(execution.getId(),FacilityCompletionRuntime.VARIABLE);
             if(wait!=null)waits.add(parseJson(wait));
         }
-        value.put("waits",process.getEndTime()==null?waits:vars.getOrDefault("finalCompletionWaits",List.of()));
+        if(process.getEndTime()!=null)waits=new ArrayList<>((Collection<?>)vars.getOrDefault("finalCompletionWaits",List.of()));
+        if(vars.get("interruptedCompletionWaits") instanceof Map<?,?> interrupted)waits.addAll(interrupted.values());
+        value.put("waits",waits);
+        value.put("holds",vars.get("holdHistory") instanceof Map<?,?> held?new ArrayList<>(held.values()):List.of());
         Map<String,Object> dependencyLedger=new LinkedHashMap<>();
         if(vars.get("dependencyHistory") instanceof Map<?,?> saved)saved.forEach((id,row)->dependencyLedger.put(id.toString(),row));
         for(var execution:active) {

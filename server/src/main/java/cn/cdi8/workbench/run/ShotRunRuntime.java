@@ -74,6 +74,8 @@ public final class ShotRunRuntime {
         ObjectNode failure=run.putObject("failure").put("code","RUN_FAILED").put("reason",Objects.toString(reason,"流程失败"))
             .put("detected_at",Instant.now().toString()).put("source","workbench");
         execution.setVariable("shotRun",run.toString());execution.setVariable("outcome","FAILED");
+        execution.setVariable("failureReason",reason);
+        execution.setVariable("finalFacilityState",facilityStates.current().toString());
     }
 
     public synchronized void cancel(DelegateExecution execution,String reason){
@@ -90,6 +92,15 @@ public final class ShotRunRuntime {
         evidence.addObject().put("id",id).put("kind","capability-dependency")
             .put("status","unknown".equals(assessment.path("status").asText())?"unknown":assessment.path("outcome").asText())
             .put("observed_at",Instant.now().toString()).set("details",assessment.deepCopy());
+        return run.toString();
+    }
+
+    public String holdEvidence(Object value,ObjectNode assessment) {
+        ObjectNode run=current(value);ArrayNode evidence=run.withArray("evidence");
+        String id="hold-"+assessment.path("id").asText();
+        for(int i=0;i<evidence.size();i++)if(id.equals(evidence.get(i).path("id").asText())){evidence.remove(i);break;}
+        evidence.addObject().put("id",id).put("kind","stage-hold")
+            .put("status",assessment.path("outcome").asText()).put("observed_at",Instant.now().toString()).set("details",assessment.deepCopy());
         return run.toString();
     }
 

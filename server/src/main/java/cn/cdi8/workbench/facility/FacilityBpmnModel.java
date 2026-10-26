@@ -45,6 +45,7 @@ public final class FacilityBpmnModel {
             for(var process:model.getProcesses())for(var element:all(process)) {
                 rejectLegacy(element);
                 FacilityBpmnGrammar.validate(element);
+                if(hold(element)!=null)validateHold(model,element,definition,projection);
                 if(process.isExecutable() && element instanceof CallActivity)
                     throw new IllegalArgumentException("新链路尚未支持跨 callActivity 的发次上下文与失败传播，请先使用同一流程内的任务/子过程："+element.getId());
                 if(element instanceof ServiceTask task && ("${componentCommand}".equals(task.getImplementation())
@@ -157,6 +158,67 @@ public final class FacilityBpmnModel {
         return extensions(element,"actions",FACILITY_NS).stream()
             .flatMap(container->container.getChildElements().getOrDefault("action",List.of()).stream())
             .filter(action->FACILITY_NS.equals(action.getNamespace())).toList();
+    }
+
+    public record HeldInput(String type,String capability,String requirement,String collection) {}
+    public record HeldCondition(String kind,String ref) {}
+    public record Hold(String errorRef,List<HeldInput> inputs,List<HeldCondition> conditions) {}
+
+    public static Hold hold(BaseElement element) {
+        var values=extensions(element,"hold",FACILITY_NS);
+        if(values.isEmpty())return null;
+        var ext=values.get(0);var inputs=new ArrayList<HeldInput>();var conditions=new ArrayList<HeldCondition>();
+        for(var child:ext.getChildElements().values().stream().flatMap(Collection::stream).toList()) {
+            if("input".equals(child.getName()))inputs.add(new HeldInput(attr(child,"typeRef"),attr(child,"capabilityRef"),attr(child,"requirementRef"),attr(child,"collectionVar")));
+            else {
+                String fact=attr(child,"factRef"),guard=attr(child,"guardRef");
+                if(fact.isBlank()==guard.isBlank())throw new IllegalArgumentException("fac:condition 必须且只能引用一个 factRef 或 guardRef");
+                conditions.add(new HeldCondition(fact.isBlank()?"guard":"fact",fact.isBlank()?guard:fact));
+            }
+        }
+        return new Hold(attr(ext,"errorRef"),List.copyOf(inputs),List.copyOf(conditions));
+    }
+
+    private static void validateHold(BpmnModel model,FlowElement element,SystemDefinitionModel definition,FacilityStateProjectionModel projection) {
+        var hold=hold(element);
+        if(!(element instanceof SubProcess sub)||sub instanceof EventSubProcess||sub instanceof Transaction
+            || sub.getLoopCharacteristics()!=null||sub.isForCompensation()||sub.isAsynchronous()||sub.isAsynchronousLeave())
+            throw new IllegalArgumentException("fac:hold 只支持普通内嵌子流程："+element.getId());
+        for(var parent=sub.getSubProcess();parent!=null;parent=parent.getSubProcess())
+            if(hold(parent)!=null)throw new IllegalArgumentException("暂不支持嵌套 fac:hold，请把保持范围展开为明确的阶段："+sub.getId());
+        if(!model.getErrors().containsKey(hold.errorRef())||model.getErrors().get(hold.errorRef()).isBlank())
+            throw new IllegalArgumentException("fac:hold errorRef 必须引用带 errorCode 的 BPMN error："+hold.errorRef());
+        String code=model.getErrors().get(hold.errorRef());
+        var boundaries=model.getProcesses().stream().flatMap(p->all(p).stream()).filter(e->e instanceof BoundaryEvent)
+            .map(e->(BoundaryEvent)e).filter(e->sub.getId().equals(e.getAttachedToRefId())).toList();
+        // Flowable's error-event behavior is always interrupting, although its converter stores cancelActivity=false.
+        if(boundaries.size()!=1 || boundaries.get(0).getOutgoingFlows().isEmpty()
+            || boundaries.get(0).getEventDefinitions().size()!=1 || !(boundaries.get(0).getEventDefinitions().get(0) instanceof ErrorEventDefinition error)
+            || !code.equals(model.getErrors().getOrDefault(error.getErrorCode(),error.getErrorCode())))
+            throw new IllegalArgumentException("fac:hold 必须有唯一匹配 errorRef 的中断型边界错误事件及异常路径："+sub.getId());
+        Set<HeldInput> uniqueInputs=new HashSet<>();Set<HeldCondition> uniqueConditions=new HashSet<>();
+        for(var input:hold.inputs()) {
+            if(!uniqueInputs.add(input))throw new IllegalArgumentException("重复保持输入："+input);
+            if(definition.dependencies().inputs(input.type(),input.capability()).stream().noneMatch(i->i.id().equals(input.requirement())))
+                throw new IllegalArgumentException("fac:input 未定义能力输入依赖："+input.type()+"/"+input.capability()+"/"+input.requirement());
+        }
+        for(var condition:hold.conditions()) {
+            if(!uniqueConditions.add(condition))throw new IllegalArgumentException("重复保持条件："+condition.ref());
+            if("fact".equals(condition.kind())?!projection.hasFact(condition.ref()):!projection.hasGuard(condition.ref()))
+                throw new IllegalArgumentException("fac:condition 未定义："+condition.ref());
+        }
+        // Restrict unsupported escape paths rather than silently losing monitoring coverage.
+        for(var child:all(sub)) {
+            if(child instanceof SubProcess || child instanceof ScriptTask || child instanceof SendTask || child instanceof ManualTask
+                || child instanceof BoundaryEvent || child instanceof CallActivity
+                || (child instanceof Activity a && (a.getLoopCharacteristics()!=null||a.isAsynchronous()||a.isAsynchronousLeave()))
+                || (child instanceof EndEvent end && !end.getEventDefinitions().isEmpty())
+                || (child instanceof FlowNode node && !(child instanceof EndEvent) && node.getOutgoingFlows().isEmpty()))
+                throw new IllegalArgumentException("保持子流程包含暂不支持的活动/隐式出口："+child.getId());
+        }
+        if(sub.getFlowElements().stream().noneMatch(e->e instanceof EndEvent))throw new IllegalArgumentException("保持子流程必须有显式结束事件："+sub.getId());
+        var starts=sub.getFlowElements().stream().filter(e->e instanceof StartEvent).map(e->(StartEvent)e).toList();
+        if(starts.size()!=1||!starts.get(0).getEventDefinitions().isEmpty())throw new IllegalArgumentException("保持子流程必须有唯一普通开始事件："+sub.getId());
     }
 
     private static List<FlowElement> all(FlowElementsContainer container){var result=new ArrayList<FlowElement>();for(var element:container.getFlowElements()){result.add(element);if(element instanceof SubProcess sub)result.addAll(all(sub));}return result;}

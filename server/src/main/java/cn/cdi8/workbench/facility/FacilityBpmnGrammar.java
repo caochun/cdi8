@@ -11,14 +11,17 @@ import static cn.cdi8.workbench.xml.ModelXml.children;
 public final class FacilityBpmnGrammar {
     private static final String BPMN="http://www.omg.org/spec/BPMN/20100524/MODEL";
     private record Rule(Set<String> attributes,Set<String> required) {}
-    private static final Map<String,Rule> RULES=Map.of(
-        "actions",rule("",""),
-        "action",rule("typeRef capabilityRef collectionVar expectedStateRef","typeRef capabilityRef collectionVar"),
-        "requires",rule("guardRef","guardRef"),
-        "completion",rule("factRef guardRef timeout","timeout"),
-        "capability",rule("ownerRef capabilityRef","ownerRef capabilityRef"),
-        "stage",rule("value","value"),
-        "records",rule("kind factRef operation","kind"));
+    private static final Map<String,Rule> RULES=Map.ofEntries(
+        Map.entry("actions",rule("","")),
+        Map.entry("action",rule("typeRef capabilityRef collectionVar expectedStateRef","typeRef capabilityRef collectionVar")),
+        Map.entry("requires",rule("guardRef","guardRef")),
+        Map.entry("completion",rule("factRef guardRef timeout","timeout")),
+        Map.entry("hold",rule("errorRef","errorRef")),
+        Map.entry("input",rule("typeRef capabilityRef requirementRef collectionVar","typeRef capabilityRef requirementRef collectionVar")),
+        Map.entry("condition",rule("factRef guardRef","")),
+        Map.entry("capability",rule("ownerRef capabilityRef","ownerRef capabilityRef")),
+        Map.entry("stage",rule("value","value")),
+        Map.entry("records",rule("kind factRef operation","kind")));
     private FacilityBpmnGrammar() {}
     private static Set<String> words(String value){return value.isBlank()?Set.of():Set.of(value.split(" "));}
     private static Rule rule(String attributes,String required){return new Rule(words(attributes),words(required));}
@@ -42,6 +45,10 @@ public final class FacilityBpmnGrammar {
         var document=ComponentContract.document(xml);var nodes=document.getElementsByTagNameNS("*","*");
         for(int i=0;i<nodes.getLength();i++) {
             Element e=(Element)nodes.item(i);String ns=e.getNamespaceURI(),name=e.getLocalName();
+            // Flowable normalizes this flag away for errors; reject misleading XML before conversion.
+            if(BPMN.equals(ns)&&"boundaryEvent".equals(name)&&"false".equalsIgnoreCase(e.getAttribute("cancelActivity"))
+                && children(e).stream().anyMatch(c->BPMN.equals(c.getNamespaceURI())&&"errorEventDefinition".equals(c.getLocalName())))
+                throw new IllegalArgumentException("边界错误事件必须中断其活动，不能声明 cancelActivity=false："+e.getAttribute("id"));
             // A typo in the namespace must not turn a known safety prefix into an ignored annotation.
             if((Set.of("fac","run").contains(Objects.toString(e.getPrefix(),"")) || projectNamespace(ns))&&!reserved(ns))
                 throw new IllegalArgumentException("不支持的设施/发次扩展命名空间："+ns);
@@ -57,18 +64,20 @@ public final class FacilityBpmnGrammar {
             }
             attributes(ns,name,attrs);
             if(!(e.getParentNode() instanceof Element parent))throw new IllegalArgumentException("扩展位置无效："+name);
-            if("action".equals(name)) {
-                if(!FACILITY_NS.equals(parent.getNamespaceURI())||!"actions".equals(parent.getLocalName()))throw new IllegalArgumentException("fac:action 必须放在 fac:actions 集合内");
+            if(Set.of("action","input","condition").contains(name)) {
+                String container="action".equals(name)?"actions":"hold";
+                if(!FACILITY_NS.equals(parent.getNamespaceURI())||!container.equals(parent.getLocalName()))throw new IllegalArgumentException("fac:"+name+" 必须放在 fac:"+container+" 内");
             } else {
+                String ownerName="hold".equals(name)?"subProcess":"serviceTask";
                 if(!BPMN.equals(parent.getNamespaceURI())||!"extensionElements".equals(parent.getLocalName())
-                    || !(parent.getParentNode() instanceof Element owner)||!BPMN.equals(owner.getNamespaceURI())||!"serviceTask".equals(owner.getLocalName()))
-                    throw new IllegalArgumentException(name+" 必须放在 serviceTask/extensionElements 内");
+                    || !(parent.getParentNode() instanceof Element owner)||!BPMN.equals(owner.getNamespaceURI())||!ownerName.equals(owner.getLocalName()))
+                    throw new IllegalArgumentException(name+" 必须放在 "+ownerName+"/extensionElements 内");
                 if(children(parent).stream().filter(c->ns.equals(c.getNamespaceURI())&&name.equals(c.getLocalName())).count()!=1)
                     throw new IllegalArgumentException("重复扩展："+name);
             }
-            if("actions".equals(name)) {
-                if(children(e).isEmpty())throw new IllegalArgumentException("fac:actions 不能为空");
-                for(Element child:children(e))if(!FACILITY_NS.equals(child.getNamespaceURI())||!"action".equals(child.getLocalName()))throw new IllegalArgumentException("fac:actions 只允许 fac:action 子元素");
+            if(Set.of("actions","hold").contains(name)) {
+                if(children(e).isEmpty())throw new IllegalArgumentException("fac:"+name+" 不能为空");
+                for(Element child:children(e))if(!FACILITY_NS.equals(child.getNamespaceURI())||!childAllowed(name,child.getLocalName()))throw new IllegalArgumentException("fac:"+name+" 包含不支持的子元素");
             } else if(!children(e).isEmpty())throw new IllegalArgumentException(name+" 不支持子元素");
             if(!e.getTextContent().isBlank())throw new IllegalArgumentException(name+" 不支持文本内容");
         }
@@ -78,7 +87,7 @@ public final class FacilityBpmnGrammar {
         Set<String> seen=new HashSet<>();
         for(var group:owner.getExtensionElements().values())for(var ext:group)if(projectNamespace(ext.getNamespace())) {
             if(!reserved(ext.getNamespace()))throw new IllegalArgumentException("不支持的设施/发次扩展命名空间："+ext.getNamespace());
-            if(!(owner instanceof ServiceTask)||"action".equals(ext.getName()))throw new IllegalArgumentException("扩展位置无效："+ext.getName());
+            if("hold".equals(ext.getName())?!(owner instanceof SubProcess):(!(owner instanceof ServiceTask)||Set.of("action","input","condition").contains(ext.getName())))throw new IllegalArgumentException("扩展位置无效："+ext.getName());
             if(!seen.add(ext.getNamespace()+ext.getName()))throw new IllegalArgumentException("重复扩展："+ext.getName());
             validate(ext);
         }
@@ -91,10 +100,11 @@ public final class FacilityBpmnGrammar {
         }
         attributes(ext.getNamespace(),ext.getName(),attrs);
         var children=ext.getChildElements().values().stream().flatMap(Collection::stream).toList();
-        if("actions".equals(ext.getName())) {
-            if(children.isEmpty())throw new IllegalArgumentException("fac:actions 不能为空");
-            for(var child:children){if(!FACILITY_NS.equals(child.getNamespace())||!"action".equals(child.getName()))throw new IllegalArgumentException("fac:actions 只允许 fac:action");validate(child);}
+        if(Set.of("actions","hold").contains(ext.getName())) {
+            if(children.isEmpty())throw new IllegalArgumentException("fac:"+ext.getName()+" 不能为空");
+            for(var child:children){if(!FACILITY_NS.equals(child.getNamespace())||!childAllowed(ext.getName(),child.getName()))throw new IllegalArgumentException("fac:"+ext.getName()+" 包含不支持的子元素");validate(child);}
         }else if(!children.isEmpty())throw new IllegalArgumentException(ext.getName()+" 不支持子元素");
         if(ext.getElementText()!=null&&!ext.getElementText().isBlank())throw new IllegalArgumentException(ext.getName()+" 不支持文本内容");
     }
+    private static boolean childAllowed(String parent,String child){return "actions".equals(parent)?"action".equals(child):Set.of("input","condition").contains(child);}
 }

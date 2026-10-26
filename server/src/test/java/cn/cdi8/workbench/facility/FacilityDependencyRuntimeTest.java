@@ -101,6 +101,16 @@ class FacilityDependencyRuntimeTest {
         change("seed_01","fault");
         assertNull(dependencies.plan("command","multipass","parameter-receive","multipass_01",List.of(1),Map.of(),"seed",instances));
     }
+    @Test void stageScopeExtendsEntryOnlyInputAndLatchesTransientLoss()throws Exception {
+        states.activate(model("gxlf-facility.system-definition.xml").replace("maintain=\"execution\"","maintain=\"start\""),model("gxlf-facility-binding.xml"),model("gxlf-facility-state-projection.xml"));
+        var plan=dependencies.plan("stage","multipass","collimation","multipass_01",List.of(1),Map.of(),"seed",instances,"incident-light");
+        assertEquals(3,plan.path("requirements").size());
+        assertEquals("valid",dependencies.check(plan.toString(),false,true).path("status").asText());
+        change("seed_01","fault");change("seed_01","emitting");
+        assertEquals("violated",dependencies.check(plan.toString(),true,false).path("status").asText());
+        dependencies.release("stage");
+        assertEquals("unknown",dependencies.check(plan.toString(),true,false).path("status").asText(),"失去监控覆盖不能继续声称持续有效");
+    }
     @Test void invalidContractReferencesAreRejected()throws Exception {
         String xml=model("gxlf-facility.system-definition.xml");
         for(String invalid:List.of(xml.replace("maintain=\"execution\"","maintain=\"forever\""),

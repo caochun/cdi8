@@ -27,11 +27,14 @@
 | `fac:action` | `typeRef`、`capabilityRef`、`collectionVar`、`expectedStateRef` | 引用组件类型、该类型的能力、运行变量中的设备集合、该组件的目标叶子状态；可执行模型四项必填 |
 | `fac:requires` | `guardRef` | 每个任务最多一个进入条件；多个条件在投影 guard 中组合 |
 | `fac:completion` | `factRef` 或 `guardRef`，另有 `timeout` | 每个任务最多一个完成条件；引用二选一，时长为至少 1 毫秒的正 ISO-8601 duration |
+| `fac:hold` | `errorRef` | 普通子流程的持续保持范围，至少一个 input/condition；必须有匹配的边界错误异常路径 |
+| `fac:input` | `typeRef`、`capabilityRef`、`requirementRef`、`collectionVar` | 保持已有能力输入，按本发资源递归展开上游输出依赖 |
+| `fac:condition` | `factRef` 或 `guardRef` | 阶段内持续保持一个投影条件，引用二选一 |
 | `run:stage` | `value` | 每个任务最多一个阶段标记；值必须属于已有阶段枚举 |
 | `fac:capability` | `ownerRef`、`capabilityRef` | 设计标注，owner 为组件类型或控制节点；可执行流程拒绝 |
 | `run:records` | `kind`，可选 `factRef`、`operation` | 证据设计标注，`operation` 为说明性业务操作名；可执行流程拒绝 |
 
-这些扩展只允许位于 `serviceTask/extensionElements`；`fac:action` 必须位于 `fac:actions`。引用属性必须是单个标识。`collectionVar` 是运行变量名，不是假定存在于模型中的 ID。直接在任务下放多个 `fac:action`、重复条件、拼错字段、未知属性、未知子元素及非空文本都报错。动作和完成条件任务必须使用 `${facilityActions}`。普通表达式任务可以使用进入条件及阶段标记。
+任务扩展位于 `serviceTask/extensionElements`，`fac:action` 必须位于 `fac:actions`。阶段扩展 `fac:hold` 位于 `subProcess/extensionElements`，其 `fac:input`、`fac:condition` 只能位于 hold 内，具体生命周期见[阶段持续保持](stage-hold.md)。引用属性必须是单个标识。`collectionVar` 是运行变量名，不是假定存在于模型中的 ID。重复条件、拼错字段、未知属性、未知子元素及非空文本都报错。动作和完成条件任务必须使用 `${facilityActions}`。普通表达式任务可以使用进入条件及阶段标记。
 
 `FacilityBpmnGrammar` 先检查原始 XML，避免转换器忽略错误位置或未知扩展；`FacilityBpmnModel` 再检查 Flowable 模型中的扩展及引用。可执行模型不能靠设计标注获得执行语义。
 
