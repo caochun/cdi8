@@ -12,6 +12,8 @@ public final class FacilityInstanceTopology {
     private String defaultSource;
     public int beamlineCount(){return roles.size();}
     public String defaultSource(){return defaultSource;}
+    /** All explicitly expanded instances in binding order. */
+    public List<Instance> instances(){return List.copyOf(instances.values());}
     private final Set<String> sourceTypes=new HashSet<>();
 
     static FacilityInstanceTopology parse(Element root,cn.cdi8.workbench.systemdefinition.SystemDefinitionModel definition) {

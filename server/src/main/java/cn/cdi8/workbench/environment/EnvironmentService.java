@@ -52,7 +52,12 @@ public class EnvironmentService {
             try {Thread.sleep(100);}catch(InterruptedException ex){Thread.currentThread().interrupt();throw new IllegalStateException("环境切换被中断");}
         }
         if(!tango.connected() || ids.stream().anyMatch(id->tango.cached(id)==null))throw new IllegalStateException("模拟环境已创建，但事件重连未完成，请检查连接后重新应用");
-        ObjectNode saved=config.deepCopy();saved.set("environment",environment);saved.set("appliedDevices",config.path("devices").deepCopy());saved.put("appliedAutoComplete",config.path("autoComplete").asBoolean());saved.set("appliedConditions",config.path("conditions").isObject()?config.path("conditions").deepCopy():json.createObjectNode());saveConfig(saved);return saved;
+        ObjectNode saved=config.deepCopy();saved.set("environment",environment);
+        saved.set("appliedDevices",config.path("devices").isArray()?config.path("devices").deepCopy():devices.deepCopy());
+        saved.set("appliedFacility",config.path("facility").isObject()?config.path("facility").deepCopy():json.createObjectNode());
+        saved.put("appliedAutoComplete",config.path("autoComplete").asBoolean());
+        saved.set("appliedConditions",config.path("conditions").isObject()?config.path("conditions").deepCopy():json.createObjectNode());
+        saveConfig(saved);return saved;
       }
     }
 }

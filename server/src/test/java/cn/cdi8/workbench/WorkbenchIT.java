@@ -97,6 +97,33 @@ class WorkbenchIT {
         if(!full)setProcess(config,"test_seed",Files.readString(Path.of("examples/minimal/process.bpmn20.xml")));
         return (ObjectNode)request("POST","/api/workbench/environment",config);
     }
+    ObjectNode configureFacilityProfile(boolean auto) throws Exception {
+        publishDefinition(Files.readString(Path.of("examples/gxlf/system/gxlf-facility.system-definition.xml")));
+        JsonNode models=request("GET","/api/workbench/models",null);
+        Map<String,JsonNode> byId=new HashMap<>();models.forEach(m->byId.put(m.path("id").asText(),m));
+        ObjectNode config=JSON.createObjectNode().put("entry","test_seed").put("autoComplete",true);
+        var facility=config.putObject("facility");
+        facility.putObject("definition").put("model","gxlf-facility").put("revision",latestRevision(byId.get("gxlf-facility")));
+        facility.putObject("binding").put("model","gxlf-facility-binding").put("revision",latestRevision(byId.get("gxlf-facility-binding")));
+        var components=facility.putObject("components");
+        String[][] types={{"seed-source","seed"},{"shg-injection","shg"},{"preamp","preamp"},{"multipass","multipass"},{"pump","pump"},
+            {"measurement","measurement"},{"frequency-conversion","frequency-conversion"},{"target-alignment","target-alignment"},{"vacuum","vacuum"},
+            {"diagnostics","diagnostics"},{"synchronization","synchronization"},{"switch-driver","switch-driver"},{"cooling","cooling"},{"control-environment","control-environment"}};
+        for(var type:types) {
+            String model=type[0]+"-state-machine";
+            components.putObject(type[1]).put("model",model).put("revision",latestRevision(byId.get(model)))
+                .put("count", "preamp".equals(type[1]) ? 2 : 1).put("autoComplete",auto).put("delayMs",30);
+        }
+        config.putObject("conditions");config.putObject("bindings");
+        config.putObject("variables").put("shotId","E2E-FACILITY-"+UUID.randomUUID()).put("recipeRef","simulation").put("recipeVersion","1")
+            .put("commandTimeout","PT20S").put("workflowTimeout","PT120S").putArray("beamlines").add(1);
+        setProcess(config,"test_seed",Files.readString(Path.of("examples/minimal/process.bpmn20.xml")));
+        return (ObjectNode)request("POST","/api/workbench/environment",config);
+    }
+    String latestRevision(JsonNode model) {
+        var revisions=model.path("revisions");
+        return revisions.get(revisions.size()-1).path("id").asText();
+    }
     void setProcess(ObjectNode config,String id,String xml) throws Exception {
         request("POST","/api/workbench/models",Map.of("id",id,"name",id,"kind","bpmn","xml",xml));
         JsonNode revision=request("POST","/api/workbench/models/"+id+"/versions",Map.of());
@@ -820,7 +847,10 @@ class WorkbenchIT {
         assertEquals("SUCCEEDED",admitted.path("outcome").asText(),admitted.toPrettyString());
     }
     @Test @Order(39) void realSimulatorMapsMultipleComponentStatesToFactsWithoutSupervision()throws Exception {
-        configure(true,false,"PT20S");
+        configureFacilityProfile(false);
+        var devices=request("GET","/api/devices",null);
+        assertEquals(2,java.util.stream.StreamSupport.stream(java.util.Spliterators.spliteratorUnknownSize(devices.elements(),0),false)
+            .filter(device -> "preamp".equals(device.path("component").asText())).count());
         var initial=request("GET","/api/facility/facts",null);
         assertFalse(initial.has("constraints"),initial.toPrettyString());
         assertEquals("valid",awaitFactOnly("simulationDevicesObserved","valid").path("status").asText());

@@ -63,8 +63,11 @@ public class RunDeploymentService {
                 throw new IllegalStateException("请先应用当前配置，创建模拟环境");
             JsonNode applied = environments.config();
             JsonNode conditions = config.path("conditions").isObject() ? config.path("conditions") : json.createObjectNode();
+            boolean deviceConfigurationMatches = config.path("facility").isObject()
+                    ? applied.path("appliedFacility").equals(config.path("facility"))
+                    : applied.path("appliedDevices").equals(config.path("devices"));
             if (!applied.path("appliedConditions").equals(conditions)
-                    || !applied.path("appliedDevices").equals(config.path("devices"))
+                    || !deviceConfigurationMatches
                     || applied.path("appliedAutoComplete").asBoolean() != config.path("autoComplete").asBoolean())
                 throw new IllegalStateException("设备配置已修改，请重新应用模拟环境");
             if (!tango.connected()) throw new IllegalStateException("模拟设备事件正在重连，请稍后再启动");
