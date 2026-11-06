@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:fac="https://cdi8.cn/facility/v1"
+    xmlns:run="https://cdi8.cn/shot-run/v1"
+    id="gxlf_shot_run_target_definitions"
+    targetNamespace="https://cdi8.cn/gxlf/process">
+  <bpmn:error id="systemSupervisionError" name="系统监督异常" errorCode="SYSTEM_CONSTRAINT_VIOLATION" />
+  <bpmn:error id="opticalHoldLost" name="光路保持条件失效" errorCode="OPTICAL_HOLD_LOST" />
+  <bpmn:error id="chargeHoldLost" name="充电保持条件失效" errorCode="CHARGE_HOLD_LOST" />
+  <bpmn:process id="gxlf_shot_run_target" name="GXLF 发次运行目标流程（契约）" isExecutable="false">
+    <bpmn:documentation>目标流程契约，不是当前可执行流程。它把发次业务阶段、设施事实/guard、设备动作边界、保持条件、系统监督异常入口和安全退出边界分开表达。所有 contract-unresolved、external-interface-required、manual-confirmation-required 内容必须在对应接口和物理验证完成前保持不可执行；不得用占位表达式伪造成功。</bpmn:documentation>
+
+    <bpmn:startEvent id="target_start" name="开始本发" />
+    <bpmn:serviceTask id="establish_run" name="建立发次上下文与配方记录">
+      <bpmn:documentation>建立 shot-run、所选束线、配方版本和资源关联。发次历史不属于设施事实层。external-interface-required：发次服务和参数服务尚未接入。</bpmn:documentation>
+      <bpmn:extensionElements>
+        <run:stage value="created" />
+        <run:records kind="shot-context" operation="establish" />
+        <fac:capability ownerRef="central-control" capabilityRef="reserve-services" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="reserve_resources" name="资源准入与服务租约确认">
+      <bpmn:documentation>确认参与服务、资源租约和服务健康。租约丢失必须进入系统监督异常路径。</bpmn:documentation>
+      <bpmn:extensionElements>
+        <run:stage value="resources_reserved" />
+        <run:records kind="resource-admission" operation="reserve" />
+        <fac:capability ownerRef="central-control" capabilityRef="monitor-health" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+
+    <bpmn:subProcess id="supervised_run" name="受系统监督的发次阶段">
+      <bpmn:documentation>系统监督覆盖本子流程的所有阶段。设施事实是当前观测，不能单独替代本发动作证据；每个阶段必须同时保存命令、事实、guard 和异常历史。</bpmn:documentation>
+      <bpmn:startEvent id="supervised_start" name="进入设施准备" />
+
+      <bpmn:serviceTask id="power_checks" name="全部参与设备上电检查">
+        <bpmn:documentation>设备动作边界：按当前绑定的多实例集合执行上电检查。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="initializing" />
+          <run:records kind="device-command" operation="power-on-check" />
+          <fac:completion factRef="allPowerChecked" timeout="PT2M" />
+          <fac:actions>
+            <fac:action typeRef="seed" capabilityRef="power-on-check" collectionVar="seedTargets" />
+            <fac:action typeRef="shg" capabilityRef="power-on-check" collectionVar="shgTargets" />
+            <fac:action typeRef="preamp" capabilityRef="power-on-check" collectionVar="preampTargets" />
+            <fac:action typeRef="multipass" capabilityRef="power-on-check" collectionVar="multipassTargets" />
+            <fac:action typeRef="pump" capabilityRef="power-on-check" collectionVar="pumpTargets" />
+            <fac:action typeRef="measurement" capabilityRef="power-on-check" collectionVar="measurementTargets" />
+            <fac:action typeRef="frequency-conversion" capabilityRef="power-on-check" collectionVar="frequencyConversionTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="power-on-check" collectionVar="targetAlignmentTargets" />
+            <fac:action typeRef="vacuum" capabilityRef="power-on-check" collectionVar="vacuumTargets" />
+            <fac:action typeRef="diagnostics" capabilityRef="power-on-check" collectionVar="diagnosticsTargets" />
+            <fac:action typeRef="synchronization" capabilityRef="power-on-check" collectionVar="synchronizationTargets" />
+            <fac:action typeRef="switch-driver" capabilityRef="power-on-check" collectionVar="switchDriverTargets" />
+            <fac:action typeRef="cooling" capabilityRef="power-on-check" collectionVar="coolingTargets" />
+            <fac:action typeRef="control-environment" capabilityRef="power-on-check" collectionVar="controlEnvironmentTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="function_checks" name="全部参与设备功能检查">
+        <bpmn:documentation>进入条件：allPowerChecked 且服务健康。设备动作成功后等待功能就绪事实。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="initializing" />
+          <run:records kind="device-command" operation="function-check" />
+          <fac:requires guardRef="functionCheckAllowed" />
+          <fac:completion factRef="allFunctionReady" timeout="PT2M" />
+          <fac:actions>
+            <fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" />
+            <fac:action typeRef="shg" capabilityRef="function-check" collectionVar="shgTargets" />
+            <fac:action typeRef="preamp" capabilityRef="function-check" collectionVar="preampTargets" />
+            <fac:action typeRef="multipass" capabilityRef="function-check" collectionVar="multipassTargets" />
+            <fac:action typeRef="pump" capabilityRef="function-check" collectionVar="pumpTargets" />
+            <fac:action typeRef="measurement" capabilityRef="function-check" collectionVar="measurementTargets" />
+            <fac:action typeRef="frequency-conversion" capabilityRef="function-check" collectionVar="frequencyConversionTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="function-check" collectionVar="targetAlignmentTargets" />
+            <fac:action typeRef="vacuum" capabilityRef="function-check" collectionVar="vacuumTargets" />
+            <fac:action typeRef="diagnostics" capabilityRef="function-check" collectionVar="diagnosticsTargets" />
+            <fac:action typeRef="synchronization" capabilityRef="function-check" collectionVar="synchronizationTargets" />
+            <fac:action typeRef="switch-driver" capabilityRef="function-check" collectionVar="switchDriverTargets" />
+            <fac:action typeRef="cooling" capabilityRef="function-check" collectionVar="coolingTargets" />
+            <fac:action typeRef="control-environment" capabilityRef="function-check" collectionVar="controlEnvironmentTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="receive_parameters" name="接收本发参数">
+        <bpmn:documentation>参数服务是 external-interface-required。参数接收成功只能由当前本发动作证据和 allParametersReceived 共同确认。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="parameters_receiving" />
+          <run:records kind="device-command" operation="parameter-receive" />
+          <fac:requires guardRef="parameterDispatchAllowed" />
+          <fac:completion factRef="allParametersReceived" timeout="PT2M" />
+          <fac:actions>
+            <fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" />
+            <fac:action typeRef="shg" capabilityRef="parameter-receive" collectionVar="shgTargets" />
+            <fac:action typeRef="preamp" capabilityRef="parameter-receive" collectionVar="preampTargets" />
+            <fac:action typeRef="multipass" capabilityRef="parameter-receive" collectionVar="multipassTargets" />
+            <fac:action typeRef="pump" capabilityRef="parameter-receive" collectionVar="pumpTargets" />
+            <fac:action typeRef="measurement" capabilityRef="parameter-receive" collectionVar="measurementTargets" />
+            <fac:action typeRef="frequency-conversion" capabilityRef="parameter-receive" collectionVar="frequencyConversionTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="parameter-receive" collectionVar="targetAlignmentTargets" />
+            <fac:action typeRef="diagnostics" capabilityRef="parameter-receive" collectionVar="diagnosticsTargets" />
+            <fac:action typeRef="synchronization" capabilityRef="parameter-receive" collectionVar="synchronizationTargets" />
+            <fac:action typeRef="switch-driver" capabilityRef="parameter-receive" collectionVar="switchDriverTargets" />
+            <fac:action typeRef="cooling" capabilityRef="parameter-receive" collectionVar="coolingTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+
+      <bpmn:serviceTask id="safety_prepare" name="安全准备与联锁建立">
+        <bpmn:documentation>入口 guard：preparationAllowed。这里表达清场、真空、环境联锁等设备动作边界；系统固有约束不能因本任务结束而释放。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="preparing" />
+          <run:records kind="safety-preparation" operation="establish" />
+          <fac:requires guardRef="preparationAllowed" />
+          <fac:completion factRef="interlockOperational" timeout="PT5M" />
+          <fac:actions>
+            <fac:action typeRef="control-environment" capabilityRef="clearance" collectionVar="controlEnvironmentTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="target-preposition" collectionVar="targetAlignmentTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+
+      <bpmn:subProcess id="optical_hold" name="光路准备与保持">
+        <bpmn:documentation>保持范围：光路动作期间持续满足联锁、所选束线可用和入射光输入要求。光路保持失效必须中断本阶段并进入监督处置。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <fac:hold errorRef="opticalHoldLost">
+            <fac:input typeRef="multipass" capabilityRef="collimation" requirementRef="incident-light" collectionVar="multipassTargets" />
+            <fac:condition factRef="interlockOperational" />
+            <fac:condition factRef="selectedOpticalDeliveryReady" />
+          </fac:hold>
+        </bpmn:extensionElements>
+        <bpmn:startEvent id="optical_start" name="进入光路准备" />
+        <bpmn:serviceTask id="optical_actions" name="执行光源、预放和准直动作">
+          <bpmn:documentation>设备动作边界：种子源/二倍频出光、预放唤醒和多程准直。真实光路选通协议仍 external-interface-required。</bpmn:documentation>
+          <bpmn:extensionElements>
+            <run:stage value="preparing" />
+            <run:records kind="optical-preparation" operation="prepare" />
+            <fac:actions>
+              <fac:action typeRef="seed" capabilityRef="emit" collectionVar="seedTargets" />
+              <fac:action typeRef="shg" capabilityRef="emit" collectionVar="shgTargets" />
+              <fac:action typeRef="preamp" capabilityRef="wakeup" collectionVar="preampTargets" />
+              <fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" />
+            </fac:actions>
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:serviceTask id="optical_verify" name="确认光路准备事实">
+          <bpmn:extensionElements>
+            <fac:completion factRef="selectedOpticalDeliveryReady" timeout="PT5M" />
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:endEvent id="optical_end" name="光路准备完成" />
+        <bpmn:sequenceFlow id="optical_f1" sourceRef="optical_start" targetRef="optical_actions" />
+        <bpmn:sequenceFlow id="optical_f2" sourceRef="optical_actions" targetRef="optical_verify" />
+        <bpmn:sequenceFlow id="optical_f3" sourceRef="optical_verify" targetRef="optical_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="optical_hold_boundary" name="光路保持失效" attachedToRef="optical_hold" cancelActivity="true">
+        <bpmn:errorEventDefinition errorRef="opticalHoldLost" />
+      </bpmn:boundaryEvent>
+
+      <bpmn:serviceTask id="shot_preparation" name="靶瞄、诊断和发射准备">
+        <bpmn:documentation>完成事实必须覆盖靶瞄、测量运动、诊断准备和泵浦发射准备；正式发射成功判据不在此任务中伪造。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="prepared" />
+          <run:records kind="shot-preparation" operation="prepare" />
+          <fac:completion factRef="emissionPreparationReady" timeout="PT10M" />
+          <fac:actions>
+            <fac:action typeRef="measurement" capabilityRef="aim-prepare" collectionVar="measurementTargets" />
+            <fac:action typeRef="measurement" capabilityRef="motion-prepare" collectionVar="measurementTargets" />
+            <fac:action typeRef="measurement" capabilityRef="measurement-prepare" collectionVar="measurementTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="enter-shot" collectionVar="targetAlignmentTargets" />
+            <fac:action typeRef="diagnostics" capabilityRef="emission-prepare" collectionVar="diagnosticsTargets" />
+            <fac:action typeRef="pump" capabilityRef="emission-prepare" collectionVar="pumpTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+
+      <bpmn:subProcess id="charging_hold" name="充电与触发窗口准备">
+        <bpmn:documentation>充电期间持续保持联锁和服务健康。充电中断、已充电未触发、服务失联等均由系统监督分类，不在普通完成路径中吞掉。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <fac:hold errorRef="chargeHoldLost">
+            <fac:condition factRef="interlockOperational" />
+            <fac:condition factRef="allServicesHealthy" />
+          </fac:hold>
+        </bpmn:extensionElements>
+        <bpmn:startEvent id="charging_start" name="进入充电" />
+        <bpmn:serviceTask id="charge_prepare" name="充电准备">
+          <bpmn:extensionElements>
+            <run:stage value="charging" />
+            <run:records kind="charge-preparation" operation="prepare" />
+            <fac:completion factRef="chargePreparationReady" timeout="PT5M" />
+            <fac:actions>
+              <fac:action typeRef="pump" capabilityRef="charge-prepare" collectionVar="pumpTargets" />
+              <fac:action typeRef="switch-driver" capabilityRef="trigger-prepare" collectionVar="switchDriverTargets" />
+            </fac:actions>
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:serviceTask id="charge_devices" name="执行泵浦和开关充电">
+          <bpmn:extensionElements>
+            <run:stage value="charging" />
+            <run:records kind="device-command" operation="charge" />
+            <fac:completion guardRef="triggerAllowed" timeout="PT10M" />
+            <fac:actions>
+              <fac:action typeRef="pump" capabilityRef="charge" collectionVar="pumpTargets" />
+              <fac:action typeRef="switch-driver" capabilityRef="charge" collectionVar="switchDriverTargets" />
+            </fac:actions>
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+        <bpmn:endEvent id="charging_end" name="进入触发窗口" />
+        <bpmn:sequenceFlow id="charging_f1" sourceRef="charging_start" targetRef="charge_prepare" />
+        <bpmn:sequenceFlow id="charging_f2" sourceRef="charge_prepare" targetRef="charge_devices" />
+        <bpmn:sequenceFlow id="charging_f3" sourceRef="charge_devices" targetRef="charging_end" />
+      </bpmn:subProcess>
+      <bpmn:boundaryEvent id="charge_hold_boundary" name="充电保持失效" attachedToRef="charging_hold" cancelActivity="true">
+        <bpmn:errorEventDefinition errorRef="chargeHoldLost" />
+      </bpmn:boundaryEvent>
+
+      <bpmn:serviceTask id="trigger_prepare" name="触发准备与时序窗口确认">
+        <bpmn:documentation>入口 guard：triggerAllowed。同步配方、独立运动链路和实时触发总线仍 external-interface-required。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="triggering" />
+          <run:records kind="trigger-preparation" operation="prepare" />
+          <fac:requires guardRef="triggerAllowed" />
+          <fac:completion factRef="synchronizationReady" timeout="PT2M" />
+          <fac:actions>
+            <fac:action typeRef="pump" capabilityRef="trigger-prepare" collectionVar="pumpTargets" />
+            <fac:action typeRef="switch-driver" capabilityRef="trigger-prepare" collectionVar="switchDriverTargets" />
+            <fac:action typeRef="synchronization" capabilityRef="single-recipe" collectionVar="synchronizationTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="fire_shot" name="执行正式同步触发">
+        <bpmn:documentation>contract-unresolved：正式发射成功判据、同步触发确认和硬件时序证据尚未接入；不得把命令返回当作发射成功。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="triggering" />
+          <run:records kind="trigger-attempt" operation="synchronous-trigger" />
+          <fac:actions>
+            <fac:action typeRef="synchronization" capabilityRef="synchronous-trigger" collectionVar="synchronizationTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="confirm_emission" name="等待发射结果确认（未决）">
+        <bpmn:documentation>external-interface-required、manual-confirmation-required：正式发射结果、计数、诊断和实验数据服务尚未形成事实契约。本节点只保留目标边界。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="emission_confirmed" />
+          <run:records kind="emission-result" operation="external-confirmation" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+
+      <bpmn:serviceTask id="postprocess" name="发射后采集与设备后处理">
+        <bpmn:documentation>后处理动作不等于人员安全释放。储能消除、光学退出和联锁解除必须分别确认。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="postprocessing" />
+          <run:records kind="postprocess" operation="collect-and-reset" />
+          <fac:actions>
+            <fac:action typeRef="diagnostics" capabilityRef="postprocess" collectionVar="diagnosticsTargets" />
+            <fac:action typeRef="target-alignment" capabilityRef="retract" collectionVar="targetAlignmentTargets" />
+            <fac:action typeRef="seed" capabilityRef="standby" collectionVar="seedTargets" />
+            <fac:action typeRef="shg" capabilityRef="standby-reset" collectionVar="shgTargets" />
+            <fac:action typeRef="preamp" capabilityRef="standby" collectionVar="preampTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="pump_discharge" name="确认泵浦储能消除">
+        <bpmn:documentation>设备动作边界：紧急/正常泄放策略待现场协议确认；完成只能由 pumpEnergyAbsent 事实证明。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:records kind="safety-evidence" factRef="pumpEnergyAbsent" operation="pump-discharge" />
+          <fac:completion factRef="pumpEnergyAbsent" timeout="PT10M" />
+          <fac:capability ownerRef="pump" capabilityRef="emergency-vent" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="switch_discharge" name="确认开关储能消除">
+        <bpmn:extensionElements>
+          <run:records kind="safety-evidence" factRef="switchEnergyAbsent" operation="switch-discharge" />
+          <fac:completion factRef="switchEnergyAbsent" timeout="PT10M" />
+          <fac:actions><fac:action typeRef="switch-driver" capabilityRef="standby" collectionVar="switchDriverTargets" /></fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="optical_release" name="确认光源与预放退出工作状态">
+        <bpmn:extensionElements>
+          <run:records kind="safety-evidence" factRef="opticalOperationReleased" operation="optical-release" />
+          <fac:completion factRef="opticalOperationReleased" timeout="PT5M" />
+          <fac:actions>
+            <fac:action typeRef="seed" capabilityRef="standby" collectionVar="seedTargets" />
+            <fac:action typeRef="shg" capabilityRef="standby-reset" collectionVar="shgTargets" />
+            <fac:action typeRef="preamp" capabilityRef="standby" collectionVar="preampTargets" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="release_interlock" name="协调联锁解除并取得确认">
+        <bpmn:documentation>contract-unresolved：正常解除顺序、门控策略和控制器会话尚未形成可执行接口；软件取消不能替代 interlockReleased。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="completed" />
+          <run:records kind="safety-evidence" factRef="interlockReleased" operation="release-interlock" />
+          <fac:completion factRef="interlockReleased" timeout="PT5M" />
+          <fac:capability ownerRef="control-environment" capabilityRef="interlock" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="supervised_end" name="正常安全退出完成" />
+
+      <bpmn:serviceTask id="supervision_classify" name="系统监督异常分类">
+        <bpmn:documentation>异常分类：联锁/人员安全、充电中断、已充电未触发、光路失效、设备/服务失联、时序窗口失效。分类结果必须进入发次异常历史。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:records kind="supervision-event" operation="classify" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="emergency_stop_charge" name="停止充电并进入物理处置">
+        <bpmn:documentation>系统监督只负责识别和编排，不把停止请求当作储能消除证据。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:stage value="failed" />
+          <run:records kind="supervision-action" operation="emergency-stop-charge" />
+          <fac:capability ownerRef="pump" capabilityRef="emergency-stop-charge" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:serviceTask id="emergency_vent" name="执行紧急泄放策略（未决）">
+        <bpmn:documentation>external-interface-required：泵浦紧急泄放和开关紧急放电的物理策略、确认量和互锁广播仍待现场协议。</bpmn:documentation>
+        <bpmn:extensionElements>
+          <run:records kind="supervision-action" operation="emergency-vent" />
+          <fac:capability ownerRef="pump" capabilityRef="emergency-vent" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:receiveTask id="emergency_safety_confirm" name="等待外部安全状态确认（未决）">
+        <bpmn:documentation>manual-confirmation-required：必须取得储能、联锁、屏蔽门和人员安全的外部确认后，才能决定重新初始化或结束本发。</bpmn:documentation>
+      </bpmn:receiveTask>
+      <bpmn:serviceTask id="record_failure" name="记录本发失败并结束">
+        <bpmn:extensionElements>
+          <run:stage value="failed" />
+          <run:records kind="shot-failure" operation="supervision-abort" />
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="failed_end" name="本发异常结束" />
+
+      <bpmn:sequenceFlow id="supervised_f1" sourceRef="supervised_start" targetRef="power_checks" />
+      <bpmn:sequenceFlow id="supervised_f2" sourceRef="power_checks" targetRef="function_checks" />
+      <bpmn:sequenceFlow id="supervised_f3" sourceRef="function_checks" targetRef="receive_parameters" />
+      <bpmn:sequenceFlow id="supervised_f4" sourceRef="receive_parameters" targetRef="safety_prepare" />
+      <bpmn:sequenceFlow id="supervised_f5" sourceRef="safety_prepare" targetRef="optical_hold" />
+      <bpmn:sequenceFlow id="supervised_f6" sourceRef="optical_hold" targetRef="shot_preparation" />
+      <bpmn:sequenceFlow id="supervised_f7" sourceRef="shot_preparation" targetRef="charging_hold" />
+      <bpmn:sequenceFlow id="supervised_f8" sourceRef="charging_hold" targetRef="trigger_prepare" />
+      <bpmn:sequenceFlow id="supervised_f9" sourceRef="trigger_prepare" targetRef="fire_shot" />
+      <bpmn:sequenceFlow id="supervised_f10" sourceRef="fire_shot" targetRef="confirm_emission" />
+      <bpmn:sequenceFlow id="supervised_f11" sourceRef="confirm_emission" targetRef="postprocess" />
+      <bpmn:sequenceFlow id="supervised_f12" sourceRef="postprocess" targetRef="pump_discharge" />
+      <bpmn:sequenceFlow id="supervised_f13" sourceRef="pump_discharge" targetRef="switch_discharge" />
+      <bpmn:sequenceFlow id="supervised_f14" sourceRef="switch_discharge" targetRef="optical_release" />
+      <bpmn:sequenceFlow id="supervised_f15" sourceRef="optical_release" targetRef="release_interlock" />
+      <bpmn:sequenceFlow id="supervised_f16" sourceRef="release_interlock" targetRef="supervised_end" />
+
+      <bpmn:sequenceFlow id="optical_error_flow" sourceRef="optical_hold_boundary" targetRef="supervision_classify" />
+      <bpmn:sequenceFlow id="charge_error_flow" sourceRef="charge_hold_boundary" targetRef="supervision_classify" />
+      <bpmn:sequenceFlow id="exception_f1" sourceRef="supervision_classify" targetRef="emergency_stop_charge" />
+      <bpmn:sequenceFlow id="exception_f2" sourceRef="emergency_stop_charge" targetRef="emergency_vent" />
+      <bpmn:sequenceFlow id="exception_f3" sourceRef="emergency_vent" targetRef="emergency_safety_confirm" />
+      <bpmn:sequenceFlow id="exception_f4" sourceRef="emergency_safety_confirm" targetRef="record_failure" />
+      <bpmn:sequenceFlow id="exception_f5" sourceRef="record_failure" targetRef="failed_end" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="system_supervision_boundary" name="系统监督异常" attachedToRef="supervised_run" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="systemSupervisionError" />
+    </bpmn:boundaryEvent>
+
+    <bpmn:serviceTask id="archive_run" name="归档发次证据">
+      <bpmn:documentation>归档命令结果、事实快照、guard 评估、监督事件和外部确认。实验数据归档接口 external-interface-required。</bpmn:documentation>
+      <bpmn:extensionElements>
+        <run:stage value="completed" />
+        <run:records kind="shot-archive" operation="archive" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="release_resources" name="释放资源租约">
+      <bpmn:extensionElements>
+        <run:records kind="resource-release" operation="release" />
+        <fac:capability ownerRef="central-control" capabilityRef="reserve-services" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="supervision_escalation" name="接管系统监督异常">
+      <bpmn:documentation>系统监督异常从设施子流程中断后转入外层处置；实际广播终止、人员确认和物理安全退出策略仍未决。</bpmn:documentation>
+      <bpmn:extensionElements>
+        <run:stage value="failed" />
+        <run:records kind="supervision-event" operation="outer-escalation" />
+      </bpmn:extensionElements>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="supervision_end" name="系统监督接管结束" />
+    <bpmn:endEvent id="target_end" name="本发完成" />
+
+    <bpmn:sequenceFlow id="target_f1" sourceRef="target_start" targetRef="establish_run" />
+    <bpmn:sequenceFlow id="target_f2" sourceRef="establish_run" targetRef="reserve_resources" />
+    <bpmn:sequenceFlow id="target_f3" sourceRef="reserve_resources" targetRef="supervised_run" />
+    <bpmn:sequenceFlow id="target_f4" sourceRef="supervised_run" targetRef="archive_run" />
+    <bpmn:sequenceFlow id="target_f5" sourceRef="archive_run" targetRef="release_resources" />
+    <bpmn:sequenceFlow id="target_f6" sourceRef="release_resources" targetRef="target_end" />
+    <bpmn:sequenceFlow id="target_error_flow" sourceRef="system_supervision_boundary" targetRef="supervision_escalation" />
+    <bpmn:sequenceFlow id="supervision_escalation_flow" sourceRef="supervision_escalation" targetRef="supervision_end" />
+  </bpmn:process>
+</bpmn:definitions>

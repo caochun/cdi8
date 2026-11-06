@@ -1,14 +1,24 @@
-# 实验主干设计模型
+# 实验发次设计模型
 
-[gxlf_shot_run_backbone.bpmn20.xml](gxlf_shot_run_backbone.bpmn20.xml) 根据[控制流程业务说明](../../../docs/domain/gxlf/process-control/集中管控系统控制流程业务说明.md)建立新的发次主干，包含初始化、参数接收、发射准备、同步触发、后处理和发次结束。
+本目录保存不可执行的 BPMN 设计契约，不能直接作为 Flowable 运行入口。当前有三类文件：
 
-本目录是非执行设计，`isExecutable="false"`。它只表达 BPMN 的操作编排、并行汇合、设施放行条件和发次证据边界，不直接下发设备动作。
+- [gxlf_shot_run_target.bpmn20.xml](gxlf_shot_run_target.bpmn20.xml)：当前目标流程契约，按“发次建立与资源准入 → 设施准备 → 安全准备 → 光路与靶瞄准备 → 充电与触发 → 发射结果确认 → 后处理与安全退出 → 归档与资源释放”组织完整运行系统；明确阶段入口 guard、完成事实、保持条件、设备动作边界、系统监督异常和未决外部接口。
+- [gxlf_shot_run_backbone.bpmn20.xml](gxlf_shot_run_backbone.bpmn20.xml)：前一版较详细的业务主干，保留作业务说明和并行结构参考，不作为监督层的直接实现清单。
+- [../processes/gxlf_shot_run_smoke.bpmn20.xml](../processes/gxlf_shot_run_smoke.bpmn20.xml)：当前可执行回归切片，覆盖上电检查、功能检查和参数接收。
 
 模型复用：
 
 - [设施系统定义](../system/gxlf-facility.system-definition.xml)：设备、端口、拓扑、能力依赖、结构约束和设计说明；
 - [设施实例绑定](../system/gxlf-facility-binding.xml)：运行实例地址和束线映射引用；
-- [设施状态投影](../system/gxlf-facility-state-projection.xml)：设施观测、事实和放行谓词；
+- [设施状态投影](../system/gxlf-facility-state-projection.xml)：设施观测、事实和放行 guard；
 - [发次运行模型](../../../contracts/shot-run.schema.json)：本发阶段和证据记录。
 
-`fac:requires` 表示设施放行条件，`fac:action` 表示按绑定集合展开的设备能力动作，`run:stage` 和 `run:records` 表示本发阶段及证据。当前主干仍不可执行；初始化切片已实现目标状态确认、超时/取消和逐命令证据，准备、充电、触发及后处理仍须逐段执行化。`fac:capability` 与 `run:records` 仅用于设计标注，可执行 BPMN 会拒绝这两类扩展。
+扩展语义：
+
+- `fac:requires`：任务进入前的设施放行 guard；
+- `fac:completion`：本次动作发出后等待的事实或 guard，不等同于历史证据；
+- `fac:hold`：阶段运行期间持续保持的输入和事实条件，失效后进入中断异常路径；
+- `fac:actions` / `fac:capability`：设备动作或外部能力边界；
+- `run:stage` / `run:records`：本发阶段和证据归档边界。
+
+目标流程中的 `contract-unresolved`、`external-interface-required` 和 `manual-confirmation-required` 是明确的设计缺口，不得通过占位表达式伪装成可执行成功。系统安全、联锁、服务健康和储能约束属于系统固有义务，不能因为某个 BPMN 阶段结束而自动释放。

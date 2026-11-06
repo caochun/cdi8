@@ -8,7 +8,7 @@
 |---|---|---|
 | 系统定义 | 系统如何组成；某项能力依赖什么；在什么实际工作状态下必须持续满足哪些要求；什么证据允许解除 | [gxlf-facility.system-definition.xml](../../examples/gxlf/system/gxlf-facility.system-definition.xml) |
 | 状态投影与系统监督 | 设备现在在做什么；观测是否可信；事实是否成立；适用中的约束是否失效 | [gxlf-facility-state-projection.xml](../../examples/gxlf/system/gxlf-facility-state-projection.xml)、`FacilityStateRuntime`、`FacilitySupervision` |
-| BPMN | 本发如何进入/退出这些状态；操作的先后和并行关系；异常后怎样中断、处置和决定恢复 | [gxlf_shot_run_backbone.bpmn20.xml](../../examples/gxlf/design/gxlf_shot_run_backbone.bpmn20.xml) |
+| BPMN | 本发如何进入/退出这些状态；操作的先后和并行关系；异常后怎样中断、处置和决定恢复 | [gxlf_shot_run_target.bpmn20.xml](../../examples/gxlf/design/gxlf_shot_run_target.bpmn20.xml) |
 
 系统义务的寿命跟随实际设备/控制器状态。BPMN 的任务结束、子流程退出、取消整发都不能证明设备已停止、储能已消除或联锁已解除。模型归档用于说明本次执行依据，不引入运行时版本分支。
 

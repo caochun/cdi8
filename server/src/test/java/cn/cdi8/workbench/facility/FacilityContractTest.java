@@ -57,11 +57,27 @@ class FacilityContractTest {
             }
         }
     }
+    @Test void targetDesignDeclaresTheSystemRunContract()throws Exception {
+        String xml=Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_target.bpmn20.xml"));
+        var model=ModelValidation.parse(xml);
+        assertFalse(model.getMainProcess().isExecutable());
+        assertTrue(xml.contains("id=\"supervised_run\""));
+        assertTrue(xml.contains("id=\"optical_hold\""));
+        assertTrue(xml.contains("id=\"charging_hold\""));
+        assertTrue(xml.contains("id=\"system_supervision_boundary\""));
+        assertTrue(xml.contains("kind=\"emission-result\""));
+        assertTrue(xml.contains("contract-unresolved"));
+        assertTrue(xml.contains("external-interface-required"));
+        assertTrue(xml.contains("manual-confirmation-required"));
+        assertTrue(ModelValidation.engineErrors(model).isEmpty());
+        FacilityBpmnModel.validateProcess(model);
+    }
+
     @Test void onlyExplicitlyNonExecutableDesignsMayOmitServiceImplementations()throws Exception {
-        String design=Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_backbone.bpmn20.xml"));
+        String design=Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_target.bpmn20.xml"));
         assertTrue(ModelValidation.engineErrors(ModelValidation.parse(design)).isEmpty());
         assertFalse(ModelValidation.engineErrors(ModelValidation.parse(design.replace("isExecutable=\"false\"","isExecutable=\"true\""))).isEmpty());
-        String broken=design.replace("sourceRef=\"run_start\"","sourceRef=\"missing_node\"");
+        String broken=design.replace("sourceRef=\"supervised_start\"","sourceRef=\"missing_node\"");
         assertFalse(ModelValidation.engineErrors(ModelValidation.parse(broken)).isEmpty(),"设计模型仍须检查结构引用");
     }
     @Test void checksModelPathsAndCapabilityActionReferences()throws Exception {
