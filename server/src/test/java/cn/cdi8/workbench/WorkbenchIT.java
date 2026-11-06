@@ -679,6 +679,15 @@ class WorkbenchIT {
         }while(System.nanoTime()<end);
         fail("系统事实等待超时："+fact+" / "+result);return null;
     }
+    JsonNode awaitFactOnly(String fact,String status)throws Exception {
+        long end=System.nanoTime()+Duration.ofSeconds(15).toNanos();JsonNode result;
+        do {
+            result=request("GET","/api/facility/facts",null).path("facts").path(fact);
+            if(status.equals(result.path("status").asText()))return result;
+            Thread.sleep(100);
+        }while(System.nanoTime()<end);
+        fail("事实投影等待超时："+fact+" / "+result);return null;
+    }
     @Test @Order(35) void cancellingBpmnDoesNotReleaseSystemDutyOrStopItsObservations()throws Exception {
         String id=start(supervisedOpticalConfiguration());var active=opticalActive(id);
         assertTrue(awaitConstraint("valid").path("active").asBoolean());
@@ -810,4 +819,22 @@ class WorkbenchIT {
         var admitted=awaitRun(start(config),r->!r.path("ended").isNull());
         assertEquals("SUCCEEDED",admitted.path("outcome").asText(),admitted.toPrettyString());
     }
+    @Test @Order(39) void realSimulatorMapsMultipleComponentStatesToFactsWithoutSupervision()throws Exception {
+        configure(true,false,"PT20S");
+        var initial=request("GET","/api/facility/facts",null);
+        assertFalse(initial.has("constraints"),initial.toPrettyString());
+        assertEquals("valid",awaitFactOnly("simulationDevicesObserved","valid").path("status").asText());
+
+        initialize("preamp_01");
+        initialize("preamp_02");
+        deviceAction("preamp_02","preamp_wakeup");
+
+        var active=awaitFactOnly("opticalOperationActive","valid");
+        assertEquals("valid",active.path("status").asText());
+        var facts=request("GET","/api/facility/facts",null);
+        assertTrue(facts.path("observations").has("preamp_01"));
+        assertTrue(facts.path("observations").has("preamp_02"));
+        assertEquals("wakeup",deviceView("preamp_02").path("snapshot").path("outer_state").asText());
+    }
+
 }

@@ -70,6 +70,19 @@ class FacilityStateRuntimeTest {
         transport.present=false;runtime.refresh();assertEquals("unknown",status());
     }
 
+    @Test void reconnectAcceptsEvidenceFromTheNewSimulatorGeneration() {
+        transport.online=false;
+        runtime.observe(new TangoGateway.Notice(JSON.createObjectNode().put("type","connection_lost")));
+        assertEquals("unknown",status());
+
+        transport.online=true;
+        transport.value.put("source_id","source-b").put("state_revision",1);
+        runtime.refresh();
+
+        assertEquals("valid",status(),"重连后的新模拟器代次应从空快照开始建立事实");
+        assertEquals("source-b",runtime.current().path("observations").path(DEVICE).path("source_id").asText());
+    }
+
     @Test void publishesFactChangesWithoutIssuingWorkflowCommands() {
         var notices=new ArrayList<Object>();
         runtime=new FacilityStateRuntime(JSON,transport,notices::add);

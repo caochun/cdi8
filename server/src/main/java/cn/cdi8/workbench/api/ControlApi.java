@@ -23,6 +23,7 @@ public class ControlApi {
     public String xml(@PathVariable String key) { return workflows.xml(key); }
     @GetMapping("/connection") public Object connection() { return tango.status(); }
     @GetMapping("/facility/state") public Object facilityState() { return facilityStates.assessment(false); }
+    @GetMapping("/facility/facts") public Object facilityFacts() { return facilityStates.factAssessment(false); }
     @GetMapping("/devices") public Object devices() { return tango.catalog(); }
     @GetMapping("/models") public Map<String, String> models() throws java.io.IOException {
         var resources = new org.springframework.core.io.support.PathMatchingResourcePatternResolver()

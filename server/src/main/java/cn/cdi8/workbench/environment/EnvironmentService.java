@@ -1,6 +1,7 @@
 package cn.cdi8.workbench.environment;
 
 import cn.cdi8.workbench.integration.tango.TangoGateway;
+import cn.cdi8.workbench.facility.FacilitySimulationProfile;
 import cn.cdi8.workbench.model.ModelStore;
 import cn.cdi8.workbench.run.WorkflowService;
 import com.fasterxml.jackson.databind.*;
@@ -40,23 +41,10 @@ public class EnvironmentService {
     public synchronized JsonNode apply(JsonNode config) {
       synchronized(workflows) {
         ensureIdle();
-        ArrayNode devices=json.createArrayNode();Set<String> ids=new HashSet<>();
-        for(JsonNode row:config.path("devices")) {
-            String modelId=row.path("model").asText(), revision=row.path("revision").asText();
-            var model=store.get(modelId);
-            if(!"scxml".equals(model.path("kind").asText()))throw new IllegalArgumentException("设备必须使用 SCXML 模型");
-            JsonNode version=store.revision(modelId,revision);
-            if(row.path("count").asInt(1)<1)throw new IllegalArgumentException("每组至少需要一个实例");
-            for(int i=1;i<=row.path("count").asInt(1);i++) {
-                if(i>200)throw new IllegalArgumentException("单组实例数不能超过 200");
-                String id=row.path("component").asText()+"_"+String.format("%02d",i);
-                if(!ids.add(id))throw new IllegalArgumentException("组件类型重复："+row.path("component").asText());
-                devices.addObject().put("id",id).put("component",row.path("component").asText())
-                    .put("revision",revision).put("xml",version.path("xml").asText())
-                    .put("autoComplete",row.path("autoComplete").asBoolean())
-                    .put("delayMs",row.path("delayMs").asInt(500));
-            }
-        }
+        var profile=FacilitySimulationProfile.resolve(config,store);
+        ArrayNode devices=profile.toSimulatorDevices(json);
+        Set<String> ids=new HashSet<>();
+        for(JsonNode device:devices)ids.add(device.path("id").asText());
         var environment=tango.request("POST","/lab/environment",Map.of("devices",devices,"autoComplete",config.path("autoComplete").asBoolean(),"conditions",config.path("conditions").isObject()?config.path("conditions"):json.createObjectNode()));
         tango.reconnect();
         for(int attempt=0;attempt<100;attempt++) {
