@@ -209,6 +209,11 @@ public class WorkflowService {
     private String processIssue(String pid) {
         if(observationFailure!=null)return observationFailure;
         long start=((Number)runtime.getVariable(pid,"runStartedAt")).longValue();
+        for(JsonNode constraint:facilityStates.assessment(false).path("constraints")) {
+            JsonNode incident=constraint.path("lastIncident");
+            if(constraint.path("latched").asBoolean()||incident.path("occurredAt").asLong()>=start)
+                return "系统工作状态约束失效："+constraint.path("label").asText()+" / "+incident.path("reason").asText();
+        }
         if(System.currentTimeMillis()-start>java.time.Duration.parse(runtime.getVariable(pid,"workflowTimeout").toString()).toMillis())
             return "流程等待超时";
         if(!gateway.connected())return "Tango 事件通道中断，设施观测失效";

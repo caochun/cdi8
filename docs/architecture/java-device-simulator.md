@@ -87,7 +87,7 @@ mvn package
 # 构建并启动隔离 Java 服务
 make java-workbench-smoke
 # 已打包时单独运行端到端测试
-mvn -Pnew-chain-e2e -Dexec.skip=true verify
+mvn -Pworkbench-e2e -Dexec.skip=true verify
 ```
 
-`NewChainIT` 使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable，覆盖十四类设备初始化、参数接收、多实例证据、命令失败、目标状态不符、取消、超时、设备崩溃、guard 拦截及循环重入。独立试验、完整发射、资源租约和外部安全事实仍需继续补充测试。
+`WorkbenchIT` 使用 Java Workbench、Java bridge、Java Tango 设备进程和 Flowable，覆盖十四类设备初始化、参数接收、多实例证据、命令失败、目标状态不符、取消、超时、设备崩溃、guard 拦截及循环重入。独立试验、完整发射、资源租约和外部安全事实仍需继续补充测试。

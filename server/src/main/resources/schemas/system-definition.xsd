@@ -126,8 +126,28 @@
     <xs:attribute name="maintain" type="m:maintain" use="optional" />
   </xs:complexType>
   <xs:complexType name="requirements">
-    <xs:sequence>
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
       <xs:element name="inputRequirement" type="m:inputRequirement" minOccurs="1" maxOccurs="unbounded" />
+      <xs:element name="factRequirement" type="m:factRequirement" />
+    </xs:choice>
+  </xs:complexType>
+  <xs:complexType name="factRequirement">
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="factRef" type="xs:NCName" use="required" />
+    <xs:attribute name="maintain" type="m:maintain" use="required" />
+  </xs:complexType>
+  <xs:complexType name="operatingConstraint">
+    <xs:sequence>
+      <xs:element name="requirements" type="m:requirements" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="activationFactRef" type="xs:NCName" use="required" />
+    <xs:attribute name="releaseFactRef" type="xs:NCName" use="required" />
+  </xs:complexType>
+  <xs:complexType name="operatingConstraints">
+    <xs:sequence>
+      <xs:element name="operatingConstraint" type="m:operatingConstraint" maxOccurs="unbounded" />
     </xs:sequence>
   </xs:complexType>
   <xs:complexType name="output">
@@ -371,6 +391,7 @@
         <xs:element name="topology" type="m:topology" minOccurs="0" />
         <xs:element name="mappings" type="m:mappings" minOccurs="0" />
         <xs:element name="structuralConstraints" type="m:structuralConstraints" minOccurs="0" />
+        <xs:element name="operatingConstraints" type="m:operatingConstraints" minOccurs="0" />
         <xs:element name="annotations" type="m:annotations" minOccurs="0" />
       </xs:sequence>
       <xs:attribute name="id" type="xs:NCName" use="required" />
@@ -379,6 +400,10 @@
     </xs:complexType>
     <xs:key name="resourcesKey">
       <xs:selector xpath="m:resources/m:resource" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="operatingConstraintsKey">
+      <xs:selector xpath="m:operatingConstraints/m:operatingConstraint" />
       <xs:field xpath="@id" />
     </xs:key>
     <xs:key name="interfacesKey">

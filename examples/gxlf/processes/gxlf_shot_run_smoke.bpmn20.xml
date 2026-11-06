@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" xmlns:fac="https://cdi8.cn/facility/v1" xmlns:run="https://cdi8.cn/shot-run/v1" targetNamespace="https://cdi8.cn/gxlf/process">
   <bpmn:process id="gxlf_shot_run_smoke" name="GXLF 初始化与本发参数接收" isExecutable="true">
-    <bpmn:documentation>新链路可执行切片：十四类设备上电检查、功能检查、十二类设备参数接收及逐设备证据。完成只表示此切片完成，不代表正式发射完成。外部预约、联锁、发射及数据归档尚未接入。</bpmn:documentation>
+    <bpmn:documentation>实验准备可执行切片：十四类设备上电检查、功能检查、十二类设备参数接收及逐设备证据。完成只表示此切片完成，不代表正式发射完成。外部预约、联锁、发射及数据归档尚未接入。</bpmn:documentation>
     <bpmn:startEvent id="start" />
     <bpmn:serviceTask id="open_run" name="创建本发记录" flowable:expression="${shotRuns.open(execution)}" />
     <bpmn:serviceTask id="power_check" name="全部设备上电检查" flowable:delegateExpression="${facilityActions}">

@@ -55,7 +55,7 @@
   </build>
   <profiles>
     <profile>
-      <id>new-chain-e2e</id>
+      <id>workbench-e2e</id>
       <build><plugins><plugin>
         <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
         <configuration><workingDirectory>${project.basedir}/..</workingDirectory></configuration>

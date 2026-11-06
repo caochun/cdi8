@@ -45,7 +45,7 @@ export function resolveProcesses(models:Model[],entry:string,preferred:ProcessSe
     for(const process of item.doc.getElementsByTagNameNS(BPMN,'process'))
       if(process.getAttribute('isExecutable')!=='true')issues.push('设计流程不能执行：'+item.model.name);
     for(const call of item.doc.getElementsByTagNameNS(BPMN,'callActivity')){
-      issues.push('新链路暂不支持跨 callActivity，请使用同一流程内的任务或嵌入子过程');
+      issues.push('暂不支持跨 callActivity，请使用同一流程内的任务或嵌入子过程');
       const key=call.getAttribute('calledElement')||'';
       const owners=catalogue.filter(c=>c.keys.includes(key));
       const preferredOwners=owners.filter(owner=>chosen.has(owner.model.id)),matches=preferredOwners.length?preferredOwners:owners;

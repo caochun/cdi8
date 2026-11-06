@@ -46,7 +46,9 @@
 
 可执行动作以 `flowable:delegateExpression="${facilityActions}"` 标记，`fac:action` 必须声明 typeRef、capabilityRef、collectionVar、expectedStateRef。集合中的每个实例拥有独立命令 ID；结果必须关联同一命令和设备来源，且成功到达目标状态。参数携带 shot_id、recipe_ref 和 version。循环再次进入任务会创建新命令，重查结果保持原命令 ID。
 
-`fac:requires` 是 serviceTask 的进入条件，任务执行期间不会持续要求原有状态保持不变（动作本身可能改变它）。运行中会监视设备失联、来源变化、通信中断，并执行动作/流程超时；动作取消和超时不会伪造设备已停止，未决动作保留为 unknown。能力上的 `requirements/inputRequirement maintain="execution"` 已接入动作期间持续依赖监控，输入未知或失效时停止流程推进；其规则定义在系统模型中，详见[设施能力的输入依赖](capability-dependencies.md)。全局持续安全条件、联锁广播及恢复门槛仍须独立实现。
+`fac:requires` 是 serviceTask 的进入条件，任务执行期间不会持续要求原有状态保持不变（动作本身可能改变它）。运行中会监视设备失联、来源变化、通信中断，并执行动作/流程超时；动作取消和超时不会伪造设备已停止，未决动作保留为 unknown。能力上的 `requirements/inputRequirement maintain="execution"` 已接入动作期间持续依赖监控，输入未知或失效时停止流程推进；其规则定义在系统模型中，详见[设施能力的输入依赖](capability-dependencies.md)。联锁广播及恢复门槛仍须实现。
+
+上述持续约束已进一步区分为能力 `factRequirement` 和系统 `operatingConstraints`：后者由独立系统监督按实际工作状态与退出证据管理，不随 BPMN 取消解除。Java 已支持监督失效后的保守中止，真实外部观测、联锁广播和恢复闭环仍待接入。完整职责和业务修订以[系统监督复审](system-supervision-review.md)为准；`fac:hold` 只表达本次实验额外选择的阶段条件。
 
 `fac:completion factRef="…" timeout="PT2M"` 或 `guardRef="…"` 是活动完成条件：全部本发命令验收成功后等待指定设施条件为 valid，超时失败。也支持只声明完成条件、不发送动作的等待任务。投影发布事实变化，运行协调器关联当前等待后调用 Flowable `trigger()`，具体契约见[活动完成条件](activity-completion.md)。
 

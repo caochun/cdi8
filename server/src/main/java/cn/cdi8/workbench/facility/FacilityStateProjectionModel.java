@@ -9,7 +9,7 @@ import static cn.cdi8.workbench.xml.ModelXml.*;
 public final class FacilityStateProjectionModel {
     public static final String NS="https://cdi8.cn/facility-state/v1";
     public record DeviceFact(String id,String component,String label,String states,String outerStates) {}
-    public record Condition(String kind,String ref,String states,String outerStates,String expected,List<Condition> terms) {}
+    public record Condition(String kind,String ref,String states,String outerStates,String expected,String action,boolean active,boolean anyDevice,List<Condition> terms) {}
     public record Predicate(String id,String label,Condition condition) {}
     public record Observation(String id,String adapter,Element source) {}
     private final Element root;
@@ -67,9 +67,24 @@ public final class FacilityStateProjectionModel {
             var fact=deviceFacts.get(output.fact());
             if(fact==null||!fact.component.equals(output.component()))throw invalid("输出信号引用未定义或类型不匹配的设备事实："+output.component()+" / "+output.fact());
         }
+        for(var requirement:definition.dependencies().facts())requireFact(requirement.fact());
+        for(var constraint:definition.operatingConstraints()) {
+            requireFact(constraint.activation());requireFact(constraint.release());
+            for(var requirement:constraint.requirements())requireFact(requirement.fact());
+            var applicability=new HashSet<String>();
+            factReferences(facts.get(constraint.activation()).condition,applicability);
+            factReferences(facts.get(constraint.release()).condition,applicability);
+            for(var requirement:constraint.requirements())if(applicability.contains(requirement.fact()))
+                throw invalid("工作状态的启用/解除不能依赖被要求的事实："+constraint.id()+" / "+requirement.fact());
+        }
+    }
+    private void requireFact(String ref){if(!facts.containsKey(ref))throw invalid("系统约束引用未定义事实："+ref);}
+    private void factReferences(Condition condition,Set<String> refs) {
+        if("factPredicate".equals(condition.kind)&&refs.add(condition.ref))factReferences(facts.get(condition.ref).condition,refs);
+        condition.terms.forEach(term->factReferences(term,refs));
     }
     private void validateCross(Condition condition,SystemDefinitionModel definition) {
-        if("devicePredicate".equals(condition.kind))definition.instanceSet(condition.ref);
+        if(Set.of("devicePredicate","actionPredicate").contains(condition.kind))definition.instanceSet(condition.ref);
         condition.terms.forEach(c->validateCross(c,definition));
     }
     public void validateComponents(SystemDefinitionModel definition,FacilityComponentModels models) {
@@ -79,6 +94,8 @@ public final class FacilityStateProjectionModel {
     }
     private void validateStates(Condition c,SystemDefinitionModel definition,FacilityComponentModels models) {
         if("devicePredicate".equals(c.kind))models.validateStates(definition.instanceSet(c.ref).type(),c.states,c.outerStates,"devicePredicate "+c.ref);
+        if("actionPredicate".equals(c.kind)&&!models.model(definition.instanceSet(c.ref).type()).hasAction(c.action))
+            throw invalid("actionPredicate 引用未知动作："+c.ref+" / "+c.action);
         if("observationPredicate".equals(c.kind)) {
             var observation=observations.get(c.ref);
             if("device-state".equals(observation.adapter))
@@ -115,8 +132,9 @@ public final class FacilityStateProjectionModel {
         if(depth>64)throw invalid("条件嵌套超过 64 层");
         String kind=e.getLocalName();
         if("devicePredicate".equals(kind))statesRequired(e);
-        String ref=switch(kind){case "factPredicate"->e.getAttribute("factRef");case "observationPredicate"->e.getAttribute("observationRef");case "devicePredicate"->e.getAttribute("instanceSetRef");default->"";};
-        return new Condition(kind,ref,e.getAttribute("states"),e.getAttribute("outerStates"),e.getAttribute("expected"),children(e).stream().map(term->condition(term,depth+1)).toList());
+        String ref=switch(kind){case "factPredicate"->e.getAttribute("factRef");case "observationPredicate"->e.getAttribute("observationRef");case "devicePredicate","actionPredicate"->e.getAttribute("instanceSetRef");default->"";};
+        return new Condition(kind,ref,e.getAttribute("states"),e.getAttribute("outerStates"),e.getAttribute("expected"),e.getAttribute("actionRef"),
+            Set.of("true","1").contains(e.getAttribute("active")),"any".equals(e.getAttribute("quantifier")),children(e).stream().map(term->condition(term,depth+1)).toList());
     }
     private static void statesRequired(Element e){if(e.getAttribute("states").isBlank()&&e.getAttribute("outerStates").isBlank())throw invalid("设备判据缺少 states 或 outerStates："+e.getAttribute("id"));}
     @SafeVarargs private static List<Predicate> concat(Collection<Predicate>... collections){var result=new ArrayList<Predicate>();for(var c:collections)result.addAll(c);return result;}

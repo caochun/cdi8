@@ -61,6 +61,7 @@ public class ModelValidation {
                         value.put("componentTypes",model.componentTypeCount());
                         value.put("instanceSets",model.instanceSetCount());
                         value.put("structuralConstraints",model.structuralConstraintCount());
+                        value.put("operatingConstraints",model.operatingConstraints().size());
                         value.put("connections",model.connectionCount());
                         value.put("openIssues",model.openIssueCount());
                     }
@@ -99,15 +100,26 @@ public class ModelValidation {
             projection.validateComponents(definition,components);
             FacilityBpmnModel.validateProcess(model,definition,projection,components);
             if(model.getProcesses().isEmpty())throw new IllegalArgumentException("BPMN 缺少 process");
-            for(var error:new ProcessValidatorFactory().createDefaultProcessValidator().validate(model)) {
-                if(error.isWarning())continue;
+            for(var error:engineErrors(model)) {
                 diagnostics.addObject().put("severity","error").put("message",error.getDefaultDescription()).put("elementId",error.getActivityId()==null?"":error.getActivityId());
             }
             value.put("processKey",model.getMainProcess().getId());
+            value.put("executable",model.getProcesses().stream().allMatch(org.flowable.bpmn.model.Process::isExecutable));
         } catch(Exception ex) {
             diagnostic(diagnostics,ex);
         }
         value.put("valid",diagnostics.isEmpty());return value;
+    }
+    /** A design must be structurally valid without pretending that a service has an implementation. */
+    public static java.util.List<org.flowable.validation.ValidationError> engineErrors(BpmnModel model) {
+        return new ProcessValidatorFactory().createDefaultProcessValidator().validate(model).stream().filter(error->{
+            if(error.isWarning())return false;
+            if("flowable-process-definition-not-executable".equals(error.getProblem())
+                &&model.getProcesses().stream().noneMatch(org.flowable.bpmn.model.Process::isExecutable))return false;
+            if("flowable-servicetask-missing-implementation".equals(error.getProblem())
+                &&model.getProcesses().stream().anyMatch(p->p.getId().equals(error.getProcessDefinitionId())&&!p.isExecutable()))return false;
+            return true;
+        }).toList();
     }
     private static void diagnostic(ArrayNode diagnostics,Exception ex) {
             Throwable cause=ex;while(cause.getCause()!=null)cause=cause.getCause();

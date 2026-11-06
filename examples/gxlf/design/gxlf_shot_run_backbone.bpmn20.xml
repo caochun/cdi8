@@ -1,49 +1,332 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" xmlns:fac="https://cdi8.cn/facility/v1" xmlns:run="https://cdi8.cn/shot-run/v1" id="gxlf_shot_run_definitions" targetNamespace="https://cdi8.cn/gxlf/process">
-  <bpmn:process id="gxlf_shot_run_backbone" name="GXLF 发次主干（新模型设计）" isExecutable="false">
-    <bpmn:documentation>只表达一次发次的操作编排、设施放行条件和本发证据边界。设施结构来自 gxlf-facility.system-definition.xml，设施事实来自 gxlf-facility-state-projection.xml，本发上下文来自 contracts/shot-run.schema.json。当前不直接下发设备动作。</bpmn:documentation>
-    <bpmn:startEvent id="run_start" name="创建发次" />
-    <bpmn:serviceTask id="open_run" name="建立发次运行记录" flowable:expression="${shotRuns.open(execution)}"><bpmn:extensionElements><run:stage value="created" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="reserve_resources" name="预约实验资源" flowable:expression="${shotRuns.stage(execution, 'resources_reserved')}"><bpmn:extensionElements><run:stage value="resources_reserved" /><fac:capability ownerRef="central-control" capabilityRef="reserve-services" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="initialize_components" name="组件初始化：上电与功能检查" flowable:expression="${shotRuns.stage(execution, 'initializing')}"><bpmn:extensionElements><run:stage value="initializing" /><fac:requires guardRef="functionCheckAllowed" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="record_initialized" name="记录组件初始化证据" flowable:expression="${shotRuns.record(execution, 'facility-fact', 'allFunctionReady', 'succeeded')}"><bpmn:extensionElements><run:stage value="initialized" /><run:records kind="facility-fact" factRef="allFunctionReady" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="receive_parameters" name="接收本发参数" flowable:expression="${shotRuns.stage(execution, 'parameters_receiving')}"><bpmn:extensionElements><run:stage value="parameters_receiving" /><fac:requires guardRef="parameterDispatchAllowed" /><fac:capability ownerRef="central-control" capabilityRef="dispatch-commands" /><fac:actions><fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" /><fac:action typeRef="shg" capabilityRef="parameter-receive" collectionVar="shgTargets" /><fac:action typeRef="preamp" capabilityRef="parameter-receive" collectionVar="preampTargets" /><fac:action typeRef="multipass" capabilityRef="parameter-receive" collectionVar="multipassTargets" /><fac:action typeRef="pump" capabilityRef="parameter-receive" collectionVar="pumpTargets" /><fac:action typeRef="measurement" capabilityRef="parameter-receive" collectionVar="measurementTargets" /><fac:action typeRef="frequency-conversion" capabilityRef="parameter-receive" collectionVar="frequencyConversionTargets" /><fac:action typeRef="target-alignment" capabilityRef="parameter-receive" collectionVar="targetAlignmentTargets" /><fac:action typeRef="diagnostics" capabilityRef="parameter-receive" collectionVar="diagnosticsTargets" /><fac:action typeRef="synchronization" capabilityRef="parameter-receive" collectionVar="synchronizationTargets" /><fac:action typeRef="switch-driver" capabilityRef="parameter-receive" collectionVar="switchDriverTargets" /><fac:action typeRef="cooling" capabilityRef="parameter-receive" collectionVar="coolingTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="record_parameters" name="记录参数接收证据" flowable:expression="${shotRuns.record(execution, 'command-result', 'parameters-received', 'succeeded')}"><bpmn:extensionElements><run:stage value="parameters_received" /><run:records kind="command-result" operation="parameter_dispatch" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:parallelGateway id="preparation_split" name="展开发射准备" />
-    <bpmn:serviceTask id="prepare_optical" name="光源、预放和光路准备" flowable:expression="${shotRuns.record(execution, 'command-result', 'optical-preparation', 'succeeded')}"><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="emit" collectionVar="sourceTargets" /><fac:action typeRef="shg" capabilityRef="emit" collectionVar="sourceTargets" /><fac:action typeRef="preamp" capabilityRef="wakeup" collectionVar="preampTargets" /><fac:action typeRef="preamp" capabilityRef="coarse-loop" collectionVar="preampTargets" /><fac:action typeRef="preamp" capabilityRef="fine-loop" collectionVar="preampTargets" /><fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" /></fac:actions><run:records kind="command-result" operation="optical_preparation" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="prepare_target" name="靶瞄、测量和诊断准备" flowable:expression="${shotRuns.record(execution, 'command-result', 'target-preparation', 'succeeded')}"><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="target-preposition" collectionVar="targetAlignmentTargets" /><fac:action typeRef="target-alignment" capabilityRef="simulation-position" collectionVar="targetAlignmentTargets" /><fac:action typeRef="target-alignment" capabilityRef="beam-guide" collectionVar="targetAlignmentTargets" /><fac:action typeRef="measurement" capabilityRef="aim-prepare" collectionVar="measurementTargets" /><fac:action typeRef="measurement" capabilityRef="motion-prepare" collectionVar="measurementTargets" /><fac:action typeRef="diagnostics" capabilityRef="emission-prepare" collectionVar="diagnosticsTargets" /></fac:actions><run:records kind="command-result" operation="target_preparation" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="prepare_safety" name="建立安全联锁" flowable:expression="${shotRuns.record(execution, 'interlock', 'interlock-established', 'succeeded')}"><bpmn:extensionElements><fac:requires guardRef="preparationAllowed" /><fac:actions><fac:action typeRef="control-environment" capabilityRef="clearance" collectionVar="controlEnvironmentTargets" /><fac:action typeRef="cooling" capabilityRef="purge" collectionVar="coolingTargets" /></fac:actions><run:records kind="interlock" factRef="interlockEstablished" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:parallelGateway id="preparation_join" name="发射准备汇合" />
-    <bpmn:serviceTask id="prepared_gate" name="核验发射准备完成" flowable:expression="${facilityStates.requireGuard('preparationAllowed')}"><bpmn:extensionElements><fac:requires guardRef="preparationAllowed" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="stage_prepared" name="进入 prepared 阶段" flowable:expression="${shotRuns.stage(execution, 'prepared')}" />
-    <bpmn:serviceTask id="charge" name="发射充电" flowable:expression="${shotRuns.stage(execution, 'charging')}"><bpmn:extensionElements><fac:requires guardRef="preparationAllowed" /><fac:actions><fac:action typeRef="pump" capabilityRef="charge" collectionVar="pumpTargets" /><fac:action typeRef="switch-driver" capabilityRef="charge" collectionVar="switchDriverTargets" /></fac:actions><run:records kind="command-result" operation="charge" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="trigger_gate" name="核验同步触发窗口" flowable:expression="${facilityStates.requireGuard('triggerAllowed')}"><bpmn:extensionElements><fac:requires guardRef="triggerAllowed" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="trigger" name="T0/T+3/T+5 同步触发" flowable:expression="${shotRuns.record(execution, 'timing', 'formal-trigger', 'succeeded')}"><bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="synchronous-trigger" collectionVar="synchronizationTargets" /><fac:action typeRef="pump" capabilityRef="trigger-prepare" collectionVar="pumpTargets" /><fac:action typeRef="switch-driver" capabilityRef="trigger-prepare" collectionVar="switchDriverTargets" /></fac:actions><run:stage value="triggering" /><run:records kind="timing" operation="synchronous_trigger" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="record_emission" name="记录正式发射结果" flowable:expression="${shotRuns.record(execution, 'trigger-result', 'emission', 'succeeded')}"><bpmn:extensionElements><run:stage value="emission_confirmed" /><run:records kind="trigger-result" operation="emission" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="postprocess" name="发射后处理与数据归档" flowable:expression="${shotRuns.stage(execution, 'postprocessing')}"><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="collect-laser-parameters" collectionVar="sourceTargets" /><fac:action typeRef="shg" capabilityRef="collect-laser-parameters" collectionVar="sourceTargets" /><fac:action typeRef="preamp" capabilityRef="collect-energy-data" collectionVar="preampTargets" /><fac:action typeRef="pump" capabilityRef="collect-data" collectionVar="pumpTargets" /><fac:action typeRef="measurement" capabilityRef="collect-laser-parameters" collectionVar="measurementTargets" /><fac:action typeRef="target-alignment" capabilityRef="analysis" collectionVar="targetAlignmentTargets" /><fac:action typeRef="switch-driver" capabilityRef="collect-waveform" collectionVar="switchDriverTargets" /></fac:actions><run:records kind="postprocess-result" operation="postprocessing" /></bpmn:extensionElements></bpmn:serviceTask>
-    <bpmn:serviceTask id="complete_run" name="完成发次运行记录" flowable:expression="${shotRuns.stage(execution, 'completed')}" />
-    <bpmn:endEvent id="run_end" name="发次完成" />
-    <bpmn:sequenceFlow id="flow_start_open" sourceRef="run_start" targetRef="open_run" />
-    <bpmn:sequenceFlow id="flow_open_reserve" sourceRef="open_run" targetRef="reserve_resources" />
-    <bpmn:sequenceFlow id="flow_reserve_init" sourceRef="reserve_resources" targetRef="initialize_components" />
-    <bpmn:sequenceFlow id="flow_init_record" sourceRef="initialize_components" targetRef="record_initialized" />
-    <bpmn:sequenceFlow id="flow_record_receive" sourceRef="record_initialized" targetRef="receive_parameters" />
-    <bpmn:sequenceFlow id="flow_receive_record" sourceRef="receive_parameters" targetRef="record_parameters" />
-    <bpmn:sequenceFlow id="flow_record_split" sourceRef="record_parameters" targetRef="preparation_split" />
-    <bpmn:sequenceFlow id="flow_split_optical" sourceRef="preparation_split" targetRef="prepare_optical" />
-    <bpmn:sequenceFlow id="flow_split_target" sourceRef="preparation_split" targetRef="prepare_target" />
-    <bpmn:sequenceFlow id="flow_split_safety" sourceRef="preparation_split" targetRef="prepare_safety" />
-    <bpmn:sequenceFlow id="flow_optical_join" sourceRef="prepare_optical" targetRef="preparation_join" />
-    <bpmn:sequenceFlow id="flow_target_join" sourceRef="prepare_target" targetRef="preparation_join" />
-    <bpmn:sequenceFlow id="flow_safety_join" sourceRef="prepare_safety" targetRef="preparation_join" />
-    <bpmn:sequenceFlow id="flow_join_gate" sourceRef="preparation_join" targetRef="prepared_gate" />
-    <bpmn:sequenceFlow id="flow_gate_stage" sourceRef="prepared_gate" targetRef="stage_prepared" />
-    <bpmn:sequenceFlow id="flow_stage_charge" sourceRef="stage_prepared" targetRef="charge" />
-    <bpmn:sequenceFlow id="flow_charge_trigger_gate" sourceRef="charge" targetRef="trigger_gate" />
-    <bpmn:sequenceFlow id="flow_trigger_gate" sourceRef="trigger_gate" targetRef="trigger" />
-    <bpmn:sequenceFlow id="flow_trigger_result" sourceRef="trigger" targetRef="record_emission" />
-    <bpmn:sequenceFlow id="flow_result_post" sourceRef="record_emission" targetRef="postprocess" />
-    <bpmn:sequenceFlow id="flow_post_complete" sourceRef="postprocess" targetRef="complete_run" />
-    <bpmn:sequenceFlow id="flow_complete_end" sourceRef="complete_run" targetRef="run_end" />
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fac="https://cdi8.cn/facility/v1" id="gxlf_shot_run_definitions" targetNamespace="https://cdi8.cn/gxlf/process">
+  <bpmn:error id="systemError" name="系统约束失效" errorCode="SYSTEM_CONSTRAINT_VIOLATION" />
+  <bpmn:error id="timingError" name="触发时序失效" errorCode="TRIGGER_WINDOW_MISSED" />
+  <bpmn:message id="emergencyTriggerMessage" name="人工紧急触发请求（现场策略待确认）" />
+  <bpmn:process id="gxlf_shot_run_backbone" name="GXLF 实验操作与异常处理（业务设计）" isExecutable="false">
+    <bpmn:documentation>依据集中管控系统控制流程业务说明修订。系统定义拥有结构依赖及工作状态约束，状态投影/监督提供真实状态与异常，BPMN 驱动状态转换和实验步骤。本文件明确保持不可执行：外部安全、独立同步配方、实时触发、正式结果和正常开门策略未完成，不以占位表达式写成功。详见 docs/architecture/system-supervision-review.md。</bpmn:documentation>
+    <bpmn:startEvent id="run_start" name="创建本发实验上下文"></bpmn:startEvent>
+    <bpmn:task id="open_run" name="建立发次、配方和所选束线记录"><bpmn:documentation>设备历史状态不能替代本发命令结果；模型运行时使用当前模型集。</bpmn:documentation></bpmn:task>
+    <bpmn:serviceTask id="reserve_resources" name="预约服务并取得资源租约"><bpmn:documentation>所有实验节点持续观测租约/服务健康，丢失后进入中断处置。接口待实现。</bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="central-control" capabilityRef="reserve-services" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:subProcess id="experiment" name="受系统监督的实验操作"><bpmn:documentation>这是不可执行的业务设计。运行中任何服务/安全失效交由系统监督识别；BPMN 组织异常处理。当前 Java 已阻断流程并留存未决物理动作，真实广播、恢复和事件路由尚未接入。系统义务不由此子流程的结束释放。</bpmn:documentation>
+    <bpmn:startEvent id="exp_start" name="开始实验操作"></bpmn:startEvent>
+    <bpmn:serviceTask id="power_checks" name="全部参与设备上电检查"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="power-on-check" collectionVar="seedTargets" /><fac:action typeRef="shg" capabilityRef="power-on-check" collectionVar="shgTargets" /><fac:action typeRef="preamp" capabilityRef="power-on-check" collectionVar="preampTargets" /><fac:action typeRef="multipass" capabilityRef="power-on-check" collectionVar="multipassTargets" /><fac:action typeRef="pump" capabilityRef="power-on-check" collectionVar="pumpTargets" /><fac:action typeRef="measurement" capabilityRef="power-on-check" collectionVar="measurementTargets" /><fac:action typeRef="frequency-conversion" capabilityRef="power-on-check" collectionVar="frequencyConversionTargets" /><fac:action typeRef="target-alignment" capabilityRef="power-on-check" collectionVar="targetAlignmentTargets" /><fac:action typeRef="vacuum" capabilityRef="power-on-check" collectionVar="vacuumTargets" /><fac:action typeRef="diagnostics" capabilityRef="power-on-check" collectionVar="diagnosticsTargets" /><fac:action typeRef="synchronization" capabilityRef="power-on-check" collectionVar="synchronizationTargets" /><fac:action typeRef="switch-driver" capabilityRef="power-on-check" collectionVar="switchDriverTargets" /><fac:action typeRef="cooling" capabilityRef="power-on-check" collectionVar="coolingTargets" /><fac:action typeRef="control-environment" capabilityRef="power-on-check" collectionVar="controlEnvironmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="power_complete" name="确认全部上电检查完成"><bpmn:documentation>设施事实 allPowerChecked 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:serviceTask id="function_checks" name="全部参与设备功能检查"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" /><fac:action typeRef="shg" capabilityRef="function-check" collectionVar="shgTargets" /><fac:action typeRef="preamp" capabilityRef="function-check" collectionVar="preampTargets" /><fac:action typeRef="multipass" capabilityRef="function-check" collectionVar="multipassTargets" /><fac:action typeRef="pump" capabilityRef="function-check" collectionVar="pumpTargets" /><fac:action typeRef="measurement" capabilityRef="function-check" collectionVar="measurementTargets" /><fac:action typeRef="frequency-conversion" capabilityRef="function-check" collectionVar="frequencyConversionTargets" /><fac:action typeRef="target-alignment" capabilityRef="function-check" collectionVar="targetAlignmentTargets" /><fac:action typeRef="vacuum" capabilityRef="function-check" collectionVar="vacuumTargets" /><fac:action typeRef="diagnostics" capabilityRef="function-check" collectionVar="diagnosticsTargets" /><fac:action typeRef="synchronization" capabilityRef="function-check" collectionVar="synchronizationTargets" /><fac:action typeRef="switch-driver" capabilityRef="function-check" collectionVar="switchDriverTargets" /><fac:action typeRef="cooling" capabilityRef="function-check" collectionVar="coolingTargets" /><fac:action typeRef="control-environment" capabilityRef="function-check" collectionVar="controlEnvironmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="function_complete" name="确认全部功能检查完成"><bpmn:documentation>设施事实 allFunctionReady 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:serviceTask id="parameters" name="加载配方并下发本发参数"><bpmn:documentation>真空参数接口尚未建成；不能以缺少 SCXML action 为理由省略真实业务需求。参数服务取值和关联证据待接入。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" /><fac:action typeRef="shg" capabilityRef="parameter-receive" collectionVar="shgTargets" /><fac:action typeRef="preamp" capabilityRef="parameter-receive" collectionVar="preampTargets" /><fac:action typeRef="multipass" capabilityRef="parameter-receive" collectionVar="multipassTargets" /><fac:action typeRef="pump" capabilityRef="parameter-receive" collectionVar="pumpTargets" /><fac:action typeRef="measurement" capabilityRef="parameter-receive" collectionVar="measurementTargets" /><fac:action typeRef="frequency-conversion" capabilityRef="parameter-receive" collectionVar="frequencyConversionTargets" /><fac:action typeRef="target-alignment" capabilityRef="parameter-receive" collectionVar="targetAlignmentTargets" /><fac:action typeRef="diagnostics" capabilityRef="parameter-receive" collectionVar="diagnosticsTargets" /><fac:action typeRef="synchronization" capabilityRef="parameter-receive" collectionVar="synchronizationTargets" /><fac:action typeRef="switch-driver" capabilityRef="parameter-receive" collectionVar="switchDriverTargets" /><fac:action typeRef="cooling" capabilityRef="parameter-receive" collectionVar="coolingTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="vacuum_parameters" name="真空系统参数初始化（接口待接入）"><bpmn:documentation>业务6.1包含真空系统参数；独立保留未实现节点，不以现有SCXML缺少参数动作作为省略理由。</bpmn:documentation></bpmn:task>
+    <bpmn:receiveTask id="parameters_complete" name="确认本发参数初始化完成"><bpmn:documentation>设施事实 allParametersReceived 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:subProcess id="establish_safety" name="清场、锁门与启用安全联锁"><bpmn:documentation>6.2—6.7 已要求联锁正常，因此原型按严格前置先完成清场/锁门/联锁。图中原并行位置与 card 存在冲突，需现场确认。联锁义务由系统控制器观测保持，离开此子流程不解除。</bpmn:documentation>
+    <bpmn:startEvent id="safety_start" name="进入安全准备"></bpmn:startEvent>
+    <bpmn:serviceTask id="clearance" name="清场语音定时喊话"><bpmn:documentation>6.8 清场时长待确认，不作为已清场的证明。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="control-environment" capabilityRef="clearance" collectionVar="controlEnvironmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="personnel_zero" name="核验人员计数归零"><bpmn:documentation>设施事实 personnelCountZero 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:task id="close_lock_door" name="关闭并锁定中子屏蔽门"><bpmn:documentation>6.9 门控接口待接入。风淋门是否参加联锁为未决项，不能静默视为通过。</bpmn:documentation></bpmn:task>
+    <bpmn:receiveTask id="interlock_inputs" name="核验门禁、人员与两类真空输入"><bpmn:documentation>设施事实 interlockEstablished 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:task id="arm_interlock" name="请求控制器启用安全联锁"><bpmn:documentation>必须取得独立的控制器 armed 确认；输入正常本身不等于联锁启用。</bpmn:documentation></bpmn:task>
+    <bpmn:receiveTask id="interlock_confirm" name="确认联锁实际启用且无触发"><bpmn:documentation>设施事实 interlockOperational 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:endEvent id="safety_end" name="允许受保护操作"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_1" sourceRef="safety_start" targetRef="clearance" />
+    <bpmn:sequenceFlow id="flow_2" sourceRef="clearance" targetRef="personnel_zero" />
+    <bpmn:sequenceFlow id="flow_3" sourceRef="personnel_zero" targetRef="close_lock_door" />
+    <bpmn:sequenceFlow id="flow_4" sourceRef="close_lock_door" targetRef="interlock_inputs" />
+    <bpmn:sequenceFlow id="flow_5" sourceRef="interlock_inputs" targetRef="arm_interlock" />
+    <bpmn:sequenceFlow id="flow_6" sourceRef="arm_interlock" targetRef="interlock_confirm" />
+    <bpmn:sequenceFlow id="flow_7" sourceRef="interlock_confirm" targetRef="safety_end" /></bpmn:subProcess>
+    <bpmn:subProcess id="prepare" name="发射准备"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="prep_start" name="开始并行准备"></bpmn:startEvent>
+    <bpmn:parallelGateway id="prep_split" name="展开光学、靶瞄及泵浦准备"></bpmn:parallelGateway>
+    <bpmn:subProcess id="optical" name="光源、预放与准直"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="opt_start" name="准备光学链"></bpmn:startEvent>
+    <bpmn:parallelGateway id="opt_split" name="光源与预放并行"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="emit_selected" name="所选束线光源出光"><bpmn:documentation>按实际 sourceSelections 分派，不能同时命令未选中的光源。集合及现场选通证据尚待完整接入。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="emit" collectionVar="selectedSeedTargets" /><fac:action typeRef="shg" capabilityRef="emit" collectionVar="selectedShgTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="preamp_repeat" name="同步预放重频配方"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="preamp-repeat-recipe" collectionVar="synchronizationTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="wakeup" name="预放唤醒"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="wakeup" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="opt_join" name="所选光源出光且预放唤醒"></bpmn:parallelGateway>
+    <bpmn:endEvent id="opt_end" name="所选光源出光且预放唤醒"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_8" sourceRef="opt_start" targetRef="opt_split" />
+    <bpmn:sequenceFlow id="flow_9" sourceRef="opt_split" targetRef="emit_selected" />
+    <bpmn:sequenceFlow id="flow_10" sourceRef="emit_selected" targetRef="opt_join" />
+    <bpmn:sequenceFlow id="flow_11" sourceRef="opt_split" targetRef="preamp_repeat" />
+    <bpmn:sequenceFlow id="flow_12" sourceRef="preamp_repeat" targetRef="wakeup" />
+    <bpmn:sequenceFlow id="flow_13" sourceRef="wakeup" targetRef="opt_join" />
+    <bpmn:sequenceFlow id="flow_14" sourceRef="opt_join" targetRef="opt_end" /></bpmn:subProcess>
+    <bpmn:subProcess id="aiming" name="测量靶瞄与模拟靶定位"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="aim_start" name="进入靶瞄准备"></bpmn:startEvent>
+    <bpmn:serviceTask id="measurement_repeat" name="同步测量重频配方"><bpmn:documentation>与预放重频是独立配置通道；现有统一 repeat_mode 仅为原型，不证明两个通道同时配置。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="measurement-repeat-recipe" collectionVar="synchronizationTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="aim_split" name="并行准备"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="aim_prepare" name="测量靶瞄准备"><bpmn:documentation>暂时把测量控制权交给靶瞄；需授权交接证据。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="measurement" capabilityRef="aim-prepare" collectionVar="measurementTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="target_preposition" name="实验靶预定位"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="target-preposition" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="aim_join" name="准备完成"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="simulation_position" name="模拟靶定位"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="simulation-position" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:endEvent id="aim_end" name="模拟靶已定位"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_15" sourceRef="aim_start" targetRef="measurement_repeat" />
+    <bpmn:sequenceFlow id="flow_16" sourceRef="measurement_repeat" targetRef="aim_split" />
+    <bpmn:sequenceFlow id="flow_17" sourceRef="aim_split" targetRef="aim_prepare" />
+    <bpmn:sequenceFlow id="flow_18" sourceRef="aim_prepare" targetRef="aim_join" />
+    <bpmn:sequenceFlow id="flow_19" sourceRef="aim_split" targetRef="target_preposition" />
+    <bpmn:sequenceFlow id="flow_20" sourceRef="target_preposition" targetRef="aim_join" />
+    <bpmn:sequenceFlow id="flow_21" sourceRef="aim_join" targetRef="simulation_position" />
+    <bpmn:sequenceFlow id="flow_22" sourceRef="simulation_position" targetRef="aim_end" /></bpmn:subProcess>
+    <bpmn:serviceTask id="pump_prepare" name="泵浦发射准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="emission-prepare" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="optical_ready_split" name="光学输入就绪后并行进行闭环与准直"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="coarse" name="能量粗闭环"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="coarse-loop" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="fine_first" name="第一次能量精闭环"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="fine-loop" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="purge_stopped" name="等待上一轮吹扫实际停止"><bpmn:documentation>设施事实 purgeStopped 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。允许下一发准备与吹扫尾段重叠，但准直必须等待实际停吹扫。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:serviceTask id="collimation" name="执行光路准直"><bpmn:documentation>准直执行期间要求系统输入有效；准直达标是结果，不代表持续准直。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="position_split" name="模拟靶定位后的两条结果链"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="diagnostic_prepare" name="诊断设备发射准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="diagnostics" capabilityRef="emission-prepare" collectionVar="diagnosticsTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="guide_join" name="准直达标且模拟靶已定位"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="beam_guide" name="光束引导"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="beam-guide" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="guide_split" name="引导后的三条独立结果链"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="target_reset" name="实验靶复位"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="target-reset" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="target_enter_shot" name="靶瞄进入打靶状态"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="enter-shot" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="measurement_motion" name="测量打靶运动准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="measurement" capabilityRef="motion-prepare" collectionVar="measurementTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="independent_motion" name="独立打靶运动准备"><bpmn:documentation>6.19 与测量运动准备保留为独立链路；设备归属和接口待确认。</bpmn:documentation></bpmn:task>
+    <bpmn:parallelGateway id="prep_join" name="等待各准备操作结束"></bpmn:parallelGateway>
+    <bpmn:receiveTask id="prepared" name="核验发射准备全部完成"><bpmn:documentation>设施事实 emissionPreparationReady 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。6.22 AND 里程碑，不下发“准备完成”命令。同步状态与每次命令成功证据均需核验。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:endEvent id="prep_end" name="发射准备就绪"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_23" sourceRef="prep_start" targetRef="prep_split" />
+    <bpmn:sequenceFlow id="flow_24" sourceRef="prep_split" targetRef="optical" />
+    <bpmn:sequenceFlow id="flow_25" sourceRef="optical" targetRef="optical_ready_split" />
+    <bpmn:sequenceFlow id="flow_26" sourceRef="optical_ready_split" targetRef="coarse" />
+    <bpmn:sequenceFlow id="flow_27" sourceRef="coarse" targetRef="fine_first" />
+    <bpmn:sequenceFlow id="flow_28" sourceRef="fine_first" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_29" sourceRef="optical_ready_split" targetRef="purge_stopped" />
+    <bpmn:sequenceFlow id="flow_30" sourceRef="purge_stopped" targetRef="collimation" />
+    <bpmn:sequenceFlow id="flow_31" sourceRef="collimation" targetRef="guide_join" />
+    <bpmn:sequenceFlow id="flow_32" sourceRef="prep_split" targetRef="aiming" />
+    <bpmn:sequenceFlow id="flow_33" sourceRef="aiming" targetRef="position_split" />
+    <bpmn:sequenceFlow id="flow_34" sourceRef="position_split" targetRef="guide_join" />
+    <bpmn:sequenceFlow id="flow_35" sourceRef="position_split" targetRef="diagnostic_prepare" />
+    <bpmn:sequenceFlow id="flow_36" sourceRef="diagnostic_prepare" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_37" sourceRef="prep_split" targetRef="pump_prepare" />
+    <bpmn:sequenceFlow id="flow_38" sourceRef="pump_prepare" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_39" sourceRef="guide_join" targetRef="beam_guide" />
+    <bpmn:sequenceFlow id="flow_40" sourceRef="beam_guide" targetRef="guide_split" />
+    <bpmn:sequenceFlow id="flow_41" sourceRef="guide_split" targetRef="target_reset" />
+    <bpmn:sequenceFlow id="flow_42" sourceRef="target_reset" targetRef="target_enter_shot" />
+    <bpmn:sequenceFlow id="flow_43" sourceRef="target_enter_shot" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_44" sourceRef="guide_split" targetRef="measurement_motion" />
+    <bpmn:sequenceFlow id="flow_45" sourceRef="measurement_motion" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_46" sourceRef="guide_split" targetRef="independent_motion" />
+    <bpmn:sequenceFlow id="flow_47" sourceRef="independent_motion" targetRef="prep_join" />
+    <bpmn:sequenceFlow id="flow_48" sourceRef="prep_join" targetRef="prepared" />
+    <bpmn:sequenceFlow id="flow_49" sourceRef="prepared" targetRef="prep_end" /></bpmn:subProcess>
+    <bpmn:subProcess id="before_charge" name="发射充电前准备"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="charge_prep_start" name="准备已全部就绪"></bpmn:startEvent>
+    <bpmn:parallelGateway id="charge_prep_split" name="六条准备链"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="acquisition" name="诊断设备采集设置"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="diagnostics" capabilityRef="acquisition-setup" collectionVar="diagnosticsTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="crystal" name="晶体位姿设置"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="frequency-conversion" capabilityRef="pose-set" collectionVar="frequencyConversionTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="pump_charge_prepare" name="泵浦发射充电准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="charge-prepare" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="fine_second" name="第二次能量精闭环"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="fine-loop" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="preamp_single" name="同步预放单次配方"><bpmn:documentation>6.27 操作对象是同步分系统；独立配方接口待接入。</bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="synchronization" capabilityRef="preamp-single-recipe" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="meter_clear" name="预放能量计清零"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="clear-energy-meter" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="measurement_single" name="同步测量单次配方"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="synchronization" capabilityRef="measurement-single-recipe" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="measurement_shot" name="打靶测量准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="measurement" capabilityRef="measurement-prepare" collectionVar="measurementTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="switch_charge" name="开关充电"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="switch-driver" capabilityRef="charge" collectionVar="switchDriverTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="charge_prep_join" name="全部充电前结果成立"></bpmn:parallelGateway>
+    <bpmn:receiveTask id="charge_ready" name="核验泵浦充电前置条件"><bpmn:documentation>设施事实 chargePreparationReady 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。本发第二次精闭环与两个独立单次配方成功证据必须存在。当前统一 single_mode 尚不足以证明完整判据。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:endEvent id="charge_prep_end" name="允许泵浦充电"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_50" sourceRef="charge_prep_start" targetRef="charge_prep_split" />
+    <bpmn:sequenceFlow id="flow_51" sourceRef="charge_prep_split" targetRef="acquisition" />
+    <bpmn:sequenceFlow id="flow_52" sourceRef="acquisition" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_53" sourceRef="charge_prep_split" targetRef="crystal" />
+    <bpmn:sequenceFlow id="flow_54" sourceRef="crystal" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_55" sourceRef="charge_prep_split" targetRef="pump_charge_prepare" />
+    <bpmn:sequenceFlow id="flow_56" sourceRef="pump_charge_prepare" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_57" sourceRef="charge_prep_split" targetRef="switch_charge" />
+    <bpmn:sequenceFlow id="flow_58" sourceRef="switch_charge" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_59" sourceRef="charge_prep_split" targetRef="fine_second" />
+    <bpmn:sequenceFlow id="flow_60" sourceRef="fine_second" targetRef="preamp_single" />
+    <bpmn:sequenceFlow id="flow_61" sourceRef="preamp_single" targetRef="meter_clear" />
+    <bpmn:sequenceFlow id="flow_62" sourceRef="meter_clear" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_63" sourceRef="charge_prep_split" targetRef="measurement_single" />
+    <bpmn:sequenceFlow id="flow_64" sourceRef="measurement_single" targetRef="measurement_shot" />
+    <bpmn:sequenceFlow id="flow_65" sourceRef="measurement_shot" targetRef="charge_prep_join" />
+    <bpmn:sequenceFlow id="flow_66" sourceRef="charge_prep_join" targetRef="charge_ready" />
+    <bpmn:sequenceFlow id="flow_67" sourceRef="charge_ready" targetRef="charge_prep_end" /></bpmn:subProcess>
+    <bpmn:serviceTask id="warning_light" name="开启警灯"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-light-on" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="warning_sound" name="开启警示音乐"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-sound-on" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="pump_charge" name="泵浦发射充电"><bpmn:documentation>6.32 充电 75±3 秒；设备计时与完成观测待接入。不能在 BPMN 结束时解除储能状态约束。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="charge" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="charged" name="确认实际充电完成"><bpmn:documentation>设施事实 pumpChargeComplete 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:serviceTask id="stop_sound" name="停止警示音乐，保持警灯"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-sound-off" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:receiveTask id="trigger_ready" name="核验进入触发窗口条件"><bpmn:documentation>设施事实 triggerWindowReady 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。已充电不得长时间停留，但最大停留时间未给出，不能自行设定。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:subProcess id="timing_window" name="T0 / T+3 / T+5 触发窗口"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="timing_start" name="建立同一设备时基 T0"></bpmn:startEvent>
+    <bpmn:task id="countdown" name="T0：同步控制器接受定时触发计划"><bpmn:documentation>这里需要专用时间契约；现有 trigger 命令不能证明真实 T0/T+5 硬件行为。</bpmn:documentation></bpmn:task>
+    <bpmn:subProcess id="trigger_preparations" name="T+3 前泵浦与开关完成准备"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="tp_start" name="触发准备"></bpmn:startEvent>
+    <bpmn:parallelGateway id="tp_split" name="同时准备"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="pump_trigger_prepare" name="泵浦触发准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="trigger-prepare" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="switch_trigger_prepare" name="开关触发准备"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="switch-driver" capabilityRef="trigger-prepare" collectionVar="switchDriverTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="tp_join" name="两项准备均确认"></bpmn:parallelGateway>
+    <bpmn:endEvent id="tp_end" name="准备完成"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_68" sourceRef="tp_start" targetRef="tp_split" />
+    <bpmn:sequenceFlow id="flow_69" sourceRef="tp_split" targetRef="pump_trigger_prepare" />
+    <bpmn:sequenceFlow id="flow_70" sourceRef="pump_trigger_prepare" targetRef="tp_join" />
+    <bpmn:sequenceFlow id="flow_71" sourceRef="tp_split" targetRef="switch_trigger_prepare" />
+    <bpmn:sequenceFlow id="flow_72" sourceRef="switch_trigger_prepare" targetRef="tp_join" />
+    <bpmn:sequenceFlow id="flow_73" sourceRef="tp_join" targetRef="tp_end" /></bpmn:subProcess>
+    <bpmn:boundaryEvent id="missed_t3" name="T+3 截止仍未准备完成" attachedToRef="trigger_preparations" cancelActivity="true"><bpmn:timerEventDefinition><bpmn:timeDate xsi:type="bpmn:tFormalExpression">${T0_plus_3s}</bpmn:timeDate></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+    <bpmn:endEvent id="timing_failed" name="触发窗口失效"><bpmn:errorEventDefinition errorRef="timingError" /></bpmn:endEvent>
+    <bpmn:intermediateCatchEvent id="at_t5" name="等待同一 T0 的 T+5"><bpmn:timerEventDefinition><bpmn:timeDate xsi:type="bpmn:tFormalExpression">${T0_plus_5s}</bpmn:timeDate></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
+    <bpmn:task id="physical_trigger" name="同步控制器在 T+5 发出物理触发"><bpmn:documentation>硬件控制器必须在 T+3 检查准备结果并在失效时抑制触发；BPMN 计时仅表示业务时序，不能承担实时安全控制。</bpmn:documentation></bpmn:task>
+    <bpmn:endEvent id="timing_end" name="等待正式发射结果"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_74" sourceRef="timing_start" targetRef="countdown" />
+    <bpmn:sequenceFlow id="flow_75" sourceRef="countdown" targetRef="trigger_preparations" />
+    <bpmn:sequenceFlow id="flow_76" sourceRef="trigger_preparations" targetRef="at_t5" />
+    <bpmn:sequenceFlow id="flow_77" sourceRef="at_t5" targetRef="physical_trigger" />
+    <bpmn:sequenceFlow id="flow_78" sourceRef="physical_trigger" targetRef="timing_end" />
+    <bpmn:sequenceFlow id="flow_79" sourceRef="missed_t3" targetRef="timing_failed" /></bpmn:subProcess>
+    <bpmn:receiveTask id="emission_result" name="正式发射完成判据（待业务确认）"><bpmn:documentation>6.37 同步总体成功与泵浦触发结果的关系未确定。在判据和关联接口确定前不产生成功记录、不执行此设计为真实发次。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:subProcess id="postprocess" name="发射后处理和设备退出工作状态"><bpmn:documentation>此 AND 用于归档所有后处理证据，不宣称它已获确认为开门门槛。开门最终合取规则仍由后续“释放策略待确认”阻断。靶瞄收靶和分析的设备忙闲/可达性冲突需现场动作契约解决。</bpmn:documentation>
+    <bpmn:startEvent id="post_start" name="收到本发有效触发结果"></bpmn:startEvent>
+    <bpmn:parallelGateway id="post_split" name="并行后处理"></bpmn:parallelGateway>
+    <bpmn:serviceTask id="diagnostic_post" name="物理诊断后处理、退高压、DIM 复位"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="diagnostics" capabilityRef="postprocess" collectionVar="diagnosticsTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="source_collect" name="所选光源激光参数采集"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="collect-laser-parameters" collectionVar="selectedSeedTargets" /><fac:action typeRef="shg" capabilityRef="collect-laser-parameters" collectionVar="selectedShgTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="source_standby" name="所选光源关光并确认退出工作状态"><bpmn:documentation>由正常解除联锁前必须退出受保护工作状态推导的收尾步骤。6.4支持关光；当前原型以待机动作映射，现场关光与待机关系需确认。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="standby" collectionVar="selectedSeedTargets" /><fac:action typeRef="shg" capabilityRef="standby-reset" collectionVar="selectedShgTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="energy_collect" name="预放能量数据采集"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="collect-energy-data" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="preamp_standby" name="预放待机"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="preamp" capabilityRef="standby" collectionVar="preampTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:subProcess id="pump_post" name="泵浦数据、待机与预电离链"><bpmn:documentation></bpmn:documentation>
+    <bpmn:startEvent id="pump_post_start" name="正式发射后"></bpmn:startEvent>
+    <bpmn:serviceTask id="pump_collect" name="泵浦数据采集"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="collect-data" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="pump_standby" name="泵浦待机"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="pump" capabilityRef="standby" collectionVar="pumpTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="preion_prepare" name="预电离发射准备"><bpmn:documentation>6.43—6.50 需独立阶段参数与真实动作映射；不能把正式充电的所有前置条件复制到预电离。</bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="pump" capabilityRef="preionization" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="preion_music" name="预电离警示音乐开启"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-sound-on" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="preion_charge" name="预电离发射充电"><bpmn:documentation>独立配方/阶段未接入，不能用空节点确认成功。</bpmn:documentation></bpmn:task>
+    <bpmn:serviceTask id="preion_music_off" name="预电离充电完成后停止音乐"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-sound-off" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="preion_trigger_prepare" name="预电离泵浦触发准备"><bpmn:documentation>观察实际充电、音乐停止和联锁状态。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="preion_trigger" name="预电离同步触发"><bpmn:documentation>6.47、6.48 顺序须以准备完成后才允许触发为准；专用阶段接口待接入。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="preion_collect" name="预电离泵浦数据采集"><bpmn:documentation>取得关联的实际触发结果后执行。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="preion_standby" name="预电离后泵浦待机"><bpmn:documentation>仍需独立储能消除观测。</bpmn:documentation></bpmn:task>
+    <bpmn:endEvent id="pump_post_end" name="泵浦后处理完成"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_80" sourceRef="pump_post_start" targetRef="pump_collect" />
+    <bpmn:sequenceFlow id="flow_81" sourceRef="pump_collect" targetRef="pump_standby" />
+    <bpmn:sequenceFlow id="flow_82" sourceRef="pump_standby" targetRef="preion_prepare" />
+    <bpmn:sequenceFlow id="flow_83" sourceRef="preion_prepare" targetRef="preion_music" />
+    <bpmn:sequenceFlow id="flow_84" sourceRef="preion_music" targetRef="preion_charge" />
+    <bpmn:sequenceFlow id="flow_85" sourceRef="preion_charge" targetRef="preion_music_off" />
+    <bpmn:sequenceFlow id="flow_86" sourceRef="preion_music_off" targetRef="preion_trigger_prepare" />
+    <bpmn:sequenceFlow id="flow_87" sourceRef="preion_trigger_prepare" targetRef="preion_trigger" />
+    <bpmn:sequenceFlow id="flow_88" sourceRef="preion_trigger" targetRef="preion_collect" />
+    <bpmn:sequenceFlow id="flow_89" sourceRef="preion_collect" targetRef="preion_standby" />
+    <bpmn:sequenceFlow id="flow_90" sourceRef="preion_standby" targetRef="pump_post_end" /></bpmn:subProcess>
+    <bpmn:serviceTask id="measurement_collect" name="测量激光参数采集"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="measurement" capabilityRef="collect-laser-parameters" collectionVar="measurementTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="target_analysis" name="靶瞄数据分析"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="analysis" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="target_retract" name="靶瞄收靶"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="target-alignment" capabilityRef="retract" collectionVar="targetAlignmentTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="switch_waveform" name="开关放电波形采集"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="switch-driver" capabilityRef="collect-waveform" collectionVar="switchDriverTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="switch_standby" name="开关待机"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="switch-driver" capabilityRef="standby" collectionVar="switchDriverTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:serviceTask id="purge" name="片放吹扫"><bpmn:documentation>6.57 吹扫40分钟；允许下一发提前15分钟开始准备，准直仍必须等待实际停止。跨发次预约/重叠策略待实现。</bpmn:documentation><bpmn:extensionElements><fac:actions><fac:action typeRef="cooling" capabilityRef="purge" collectionVar="coolingTargets" /></fac:actions></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:parallelGateway id="post_join" name="归集后处理证据"></bpmn:parallelGateway>
+    <bpmn:endEvent id="post_end" name="提交释放审查"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_source_standby" sourceRef="source_standby" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_91" sourceRef="post_start" targetRef="post_split" />
+    <bpmn:sequenceFlow id="flow_92" sourceRef="post_split" targetRef="diagnostic_post" />
+    <bpmn:sequenceFlow id="flow_93" sourceRef="diagnostic_post" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_94" sourceRef="post_split" targetRef="source_collect" />
+    <bpmn:sequenceFlow id="flow_95" sourceRef="source_collect" targetRef="source_standby" />
+    <bpmn:sequenceFlow id="flow_96" sourceRef="post_split" targetRef="pump_post" />
+    <bpmn:sequenceFlow id="flow_97" sourceRef="pump_post" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_98" sourceRef="post_split" targetRef="target_retract" />
+    <bpmn:sequenceFlow id="flow_99" sourceRef="target_retract" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_100" sourceRef="post_split" targetRef="purge" />
+    <bpmn:sequenceFlow id="flow_101" sourceRef="purge" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_102" sourceRef="post_split" targetRef="energy_collect" />
+    <bpmn:sequenceFlow id="flow_103" sourceRef="energy_collect" targetRef="preamp_standby" />
+    <bpmn:sequenceFlow id="flow_104" sourceRef="preamp_standby" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_105" sourceRef="post_split" targetRef="measurement_collect" />
+    <bpmn:sequenceFlow id="flow_106" sourceRef="measurement_collect" targetRef="target_analysis" />
+    <bpmn:sequenceFlow id="flow_107" sourceRef="target_analysis" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_108" sourceRef="post_split" targetRef="switch_waveform" />
+    <bpmn:sequenceFlow id="flow_109" sourceRef="switch_waveform" targetRef="switch_standby" />
+    <bpmn:sequenceFlow id="flow_110" sourceRef="switch_standby" targetRef="post_join" />
+    <bpmn:sequenceFlow id="flow_111" sourceRef="post_join" targetRef="post_end" /></bpmn:subProcess>
+    <bpmn:task id="release_policy" name="确认本发安全释放策略（未决项阻断）"><bpmn:documentation>6.58 开门是否等待全部后处理还是最终泵浦待机，尚未确认。本原型不默认全通过。</bpmn:documentation></bpmn:task>
+    <bpmn:receiveTask id="pump_safe" name="确认泵浦实际储能已消除"><bpmn:documentation>设施事实 pumpEnergyAbsent 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:receiveTask id="switch_safe" name="确认开关实际储能已消除"><bpmn:documentation>设施事实 switchEnergyAbsent 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:receiveTask id="optical_safe" name="确认光源与预放均退出受保护工作状态"><bpmn:documentation>设施事实 opticalOperationReleased 必须为valid；取消流程、发出待机请求及故障状态均不能替代退出观测。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:task id="release_interlock" name="协调联锁控制器进入正常解除序列"><bpmn:documentation>开门会使锁门输入失效，必须由控制器提供明确的解除状态转换；解除顺序与释放门槛待现场协议确认，不能直接清掉软件规则。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="unlock_door" name="按确认策略解锁并打开中子屏蔽门"><bpmn:documentation>正常解除与人员遇险时的紧急解锁分别处理。</bpmn:documentation></bpmn:task>
+    <bpmn:serviceTask id="light_off" name="关闭警灯和报警"><bpmn:documentation></bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="control-environment" capabilityRef="warning-light-off" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="announce_end" name="广播本发实验结束"><bpmn:documentation>取得门状态、灯/报警关闭及结束广播证据。</bpmn:documentation></bpmn:task>
+    <bpmn:receiveTask id="released" name="取得联锁控制器解除完成确认"><bpmn:documentation>设施事实 interlockReleased 必须为 valid，并关联当前操作的真实完成证据；unknown 不放行。</bpmn:documentation></bpmn:receiveTask>
+    <bpmn:endEvent id="exp_end" name="实验操作完成"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_vacuum_parameters" sourceRef="vacuum_parameters" targetRef="parameters_complete" />
+    <bpmn:sequenceFlow id="flow_optical_safe" sourceRef="optical_safe" targetRef="release_interlock" />
+    <bpmn:sequenceFlow id="flow_112" sourceRef="exp_start" targetRef="power_checks" />
+
+    <bpmn:sequenceFlow id="flow_113" sourceRef="power_checks" targetRef="power_complete" />
+    <bpmn:sequenceFlow id="flow_114" sourceRef="power_complete" targetRef="function_checks" />
+    <bpmn:sequenceFlow id="flow_115" sourceRef="function_checks" targetRef="function_complete" />
+    <bpmn:sequenceFlow id="flow_116" sourceRef="function_complete" targetRef="parameters" />
+    <bpmn:sequenceFlow id="flow_117" sourceRef="parameters" targetRef="vacuum_parameters" />
+    <bpmn:sequenceFlow id="flow_118" sourceRef="parameters_complete" targetRef="establish_safety" />
+    <bpmn:sequenceFlow id="flow_119" sourceRef="establish_safety" targetRef="prepare" />
+    <bpmn:sequenceFlow id="flow_120" sourceRef="prepare" targetRef="before_charge" />
+    <bpmn:sequenceFlow id="flow_121" sourceRef="before_charge" targetRef="warning_light" />
+    <bpmn:sequenceFlow id="flow_122" sourceRef="warning_light" targetRef="warning_sound" />
+    <bpmn:sequenceFlow id="flow_123" sourceRef="warning_sound" targetRef="pump_charge" />
+    <bpmn:sequenceFlow id="flow_124" sourceRef="pump_charge" targetRef="charged" />
+    <bpmn:sequenceFlow id="flow_125" sourceRef="charged" targetRef="stop_sound" />
+    <bpmn:sequenceFlow id="flow_126" sourceRef="stop_sound" targetRef="trigger_ready" />
+    <bpmn:sequenceFlow id="flow_127" sourceRef="trigger_ready" targetRef="timing_window" />
+    <bpmn:sequenceFlow id="flow_128" sourceRef="timing_window" targetRef="emission_result" />
+    <bpmn:sequenceFlow id="flow_129" sourceRef="emission_result" targetRef="postprocess" />
+    <bpmn:sequenceFlow id="flow_130" sourceRef="postprocess" targetRef="release_policy" />
+    <bpmn:sequenceFlow id="flow_131" sourceRef="release_policy" targetRef="pump_safe" />
+    <bpmn:sequenceFlow id="flow_132" sourceRef="pump_safe" targetRef="switch_safe" />
+    <bpmn:sequenceFlow id="flow_133" sourceRef="switch_safe" targetRef="optical_safe" />
+    <bpmn:sequenceFlow id="flow_134" sourceRef="release_interlock" targetRef="unlock_door" />
+    <bpmn:sequenceFlow id="flow_135" sourceRef="unlock_door" targetRef="light_off" />
+    <bpmn:sequenceFlow id="flow_136" sourceRef="light_off" targetRef="announce_end" />
+    <bpmn:sequenceFlow id="flow_137" sourceRef="announce_end" targetRef="released" />
+    <bpmn:sequenceFlow id="flow_138" sourceRef="released" targetRef="exp_end" /></bpmn:subProcess>
+    <bpmn:boundaryEvent id="system_failure" name="系统监督报告失效或观测不可信" attachedToRef="experiment" cancelActivity="true"><bpmn:errorEventDefinition errorRef="systemError" /></bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="timing_failure" name="触发准备超出 T+3" attachedToRef="experiment" cancelActivity="true"><bpmn:errorEventDefinition errorRef="timingError" /></bpmn:boundaryEvent>
+    <bpmn:task id="classify_failure" name="冻结正常推进，按实际风险分类"><bpmn:documentation>保留本发失败、未决命令和监督证据。流程中断不证明设备已停止；下列物理处置接口须取得真实回执。</bpmn:documentation></bpmn:task>
+    <bpmn:exclusiveGateway id="failure_kind" name="识别异常类别"></bpmn:exclusiveGateway>
+    <bpmn:task id="interlock_emergency" name="联锁触发：广播终止、紧急解锁并启动声光报警"><bpmn:documentation>业务第4节：人员急停、真空异常、重大音视频险情。紧急解锁与普通安全释放不同，不能等待普通后处理汇合。具体联锁控制器协调顺序待现场确认。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="stop_charge" name="充电中：紧急停充"><bpmn:documentation>仅适用实际正在充电。等待停充和储能状态观测，不据回执推断能量消失。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="discharge" name="已充电未触发：紧急泄放"><bpmn:documentation>由真实储能和触发结果确定适用性，不用 BPMN 所在节点猜测。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="service_abort" name="其他服务或设备故障：停止实验推进"><bpmn:documentation>按风险请求物理安全处置；通信断开意味着安全状态未知。</bpmn:documentation></bpmn:task>
+    <bpmn:exclusiveGateway id="failure_join" name="汇合异常处理"></bpmn:exclusiveGateway>
+    <bpmn:task id="observe_safe_exit" name="等待物理处置、储能消除和联锁状态确认"><bpmn:documentation>不能用清除告警、取消流程或执行 standby 请求替代物理退出证据。</bpmn:documentation></bpmn:task>
+    <bpmn:userTask id="recovery_review" name="人工审查中断后的恢复或结束"><bpmn:documentation>恢复须重新核验现场状态、服务与租约，明确哪些参数和结果失效；禁止自动重试发射/充电。</bpmn:documentation></bpmn:userTask>
+    <bpmn:exclusiveGateway id="recovery_decision" name="是否重新建发并初始化"></bpmn:exclusiveGateway>
+    <bpmn:endEvent id="recovery_end" name="本发中断，允许重新建发和初始化"></bpmn:endEvent>
+    <bpmn:endEvent id="failed_end" name="本发中断并结束"></bpmn:endEvent>
+    <bpmn:task id="archive" name="归档本发命令、时序和安全退出证据"><bpmn:documentation>只使用关联回执与观测，禁止表达式直接写 succeeded。</bpmn:documentation></bpmn:task>
+    <bpmn:task id="release_resources" name="释放资源租约"><bpmn:documentation>实验结束和物理约束释放分别确认。</bpmn:documentation></bpmn:task>
+    <bpmn:endEvent id="run_end" name="本发完成"></bpmn:endEvent>
+    <bpmn:subProcess id="emergency_trigger_handler" name="独立紧急触发请求" triggeredByEvent="true">    <bpmn:startEvent id="emergency_trigger_requested" name="收到紧急触发/紧急停车请求" isInterrupting="true"><bpmn:messageEventDefinition messageRef="emergencyTriggerMessage" /></bpmn:startEvent>
+    <bpmn:serviceTask id="emergency_trigger" name="按经确认的现场策略请求同步紧急触发"><bpmn:documentation>业务说明将紧急触发、紧急停车都指向同步紧急触发；不能误译为一般停机。策略未确认、接口未接入时禁止执行。</bpmn:documentation><bpmn:extensionElements><fac:capability ownerRef="synchronization" capabilityRef="emergency-trigger" /></bpmn:extensionElements></bpmn:serviceTask>
+    <bpmn:task id="emergency_result" name="核验实际结果并进入人工安全处置"><bpmn:documentation>不得写入正常正式发射成功。</bpmn:documentation></bpmn:task>
+    <bpmn:endEvent id="emergency_end" name="本发异常结束，系统监督继续"></bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_161" sourceRef="emergency_trigger_requested" targetRef="emergency_trigger" />
+    <bpmn:sequenceFlow id="flow_162" sourceRef="emergency_trigger" targetRef="emergency_result" />
+    <bpmn:sequenceFlow id="flow_163" sourceRef="emergency_result" targetRef="emergency_end" /></bpmn:subProcess>
+    <bpmn:sequenceFlow id="flow_139" sourceRef="run_start" targetRef="open_run" />
+    <bpmn:sequenceFlow id="flow_140" sourceRef="open_run" targetRef="reserve_resources" />
+    <bpmn:sequenceFlow id="flow_141" sourceRef="reserve_resources" targetRef="experiment" />
+    <bpmn:sequenceFlow id="flow_142" sourceRef="experiment" targetRef="archive" />
+    <bpmn:sequenceFlow id="flow_143" sourceRef="archive" targetRef="release_resources" />
+    <bpmn:sequenceFlow id="flow_144" sourceRef="release_resources" targetRef="run_end" />
+    <bpmn:sequenceFlow id="flow_145" sourceRef="system_failure" targetRef="classify_failure" />
+    <bpmn:sequenceFlow id="flow_146" sourceRef="timing_failure" targetRef="classify_failure" />
+    <bpmn:sequenceFlow id="flow_147" sourceRef="classify_failure" targetRef="failure_kind" />
+    <bpmn:sequenceFlow id="flow_148" name="联锁触发" sourceRef="failure_kind" targetRef="interlock_emergency"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">failureKind == interlockTrip</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_149" sourceRef="interlock_emergency" targetRef="failure_join" />
+    <bpmn:sequenceFlow id="flow_150" name="充电中且需停充" sourceRef="failure_kind" targetRef="stop_charge"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">failureKind == charging</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_151" sourceRef="stop_charge" targetRef="failure_join" />
+    <bpmn:sequenceFlow id="flow_152" name="储能且尚未触发" sourceRef="failure_kind" targetRef="discharge"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">failureKind == storedEnergy</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_153" sourceRef="discharge" targetRef="failure_join" />
+    <bpmn:sequenceFlow id="flow_154" name="其他故障/状态未知" sourceRef="failure_kind" targetRef="service_abort"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">failureKind == other</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_155" sourceRef="service_abort" targetRef="failure_join" />
+    <bpmn:sequenceFlow id="flow_156" sourceRef="failure_join" targetRef="observe_safe_exit" />
+    <bpmn:sequenceFlow id="flow_157" sourceRef="observe_safe_exit" targetRef="recovery_review" />
+    <bpmn:sequenceFlow id="flow_158" sourceRef="recovery_review" targetRef="recovery_decision" />
+    <bpmn:sequenceFlow id="flow_159" name="重新建发" sourceRef="recovery_decision" targetRef="recovery_end"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">recoveryDecision == restart</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow_160" name="结束" sourceRef="recovery_decision" targetRef="failed_end"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">recoveryDecision == end</bpmn:conditionExpression></bpmn:sequenceFlow>
   </bpmn:process>
 </bpmn:definitions>

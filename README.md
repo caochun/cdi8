@@ -78,8 +78,8 @@ mvn clean package
 # 已有前端构建时只打包 Java 模块
 mvn -Dexec.skip=true package
 
-# 新链路端到端测试：随机端口、临时数据库、真实 Java Tango 设备
-mvn -Pnew-chain-e2e verify
+# 工作台端到端测试：随机端口、临时数据库、真实 Java Tango 设备
+mvn -Pworkbench-e2e verify
 
 # 启动 Java 后端，工作目录保持为仓库根目录
 make operator
@@ -88,13 +88,13 @@ make operator
 npm run dev --prefix frontend
 ```
 
-也可以用下面的目标构建并执行 Java 新链路端到端测试：
+也可以用下面的目标构建并执行 Java 工作台端到端测试：
 
 ```bash
 make java-workbench-smoke
 ```
 
-`NewChainIT` 通过工作台 HTTP API 创建模拟环境，验证十四类设备初始化、参数接收、多实例动作证据，以及失败、目标状态不符、取消、超时、失联、guard 拦截和循环重入。完整正式发射、安全联锁及资源服务接入仍见 [todo.md](todo.md)。
+`WorkbenchIT` 通过工作台 HTTP API 创建模拟环境，验证十四类设备初始化、参数接收、多实例动作证据，以及失败、目标状态不符、取消、超时、失联、guard 拦截和循环重入。完整正式发射、安全联锁及资源服务接入仍见 [todo.md](todo.md)。
 
 ## 运行数据和当前范围
 
@@ -109,3 +109,5 @@ make java-workbench-smoke
 模块依赖及迁移边界见[架构说明](docs/architecture/workbench.md)，GXLF 验证范围见[示例说明](examples/gxlf/README.md)。
 
 BPMN 自定义扩展、SCXML 元数据及跨模型引用约定见[自定义模型契约](docs/architecture/custom-model-contracts.md)。
+
+系统定义、状态投影/监督与 BPMN 的职责，以及按业务说明修订的完整发次设计见[系统监督复审](docs/architecture/system-supervision-review.md)。真实联锁未知时，受保护动作会被阻止；完整发次仍是不可执行设计，初始化切片可用于 Java 联调。

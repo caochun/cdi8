@@ -41,7 +41,7 @@ SCXML 的解析和执行统一交给 Apache Commons SCXML。Java 校验会实际
 
 页面按“选择流程 → 准备组件 → 开始调试”组织，运行检查区显示设备是否就绪及阻塞原因；未完成准备时禁用“开始调试”。首次使用时选择入口流程，或用次要入口“使用示例方案”预填当前可执行的 GXLF 设备方案；设计目录中的不可执行主干不会被当作运行入口。
 
-选择入口 BPMN 的已保存版本后，当前新链路执行同一流程内的任务和嵌入子过程。跨 `callActivity` 的发次记录归属与失败传播尚未实现，可执行模型校验会明确拒绝；设计模型仍可编辑和查看。
+选择入口 BPMN 的已保存版本后，工作台执行同一流程内的任务和嵌入子过程。跨 `callActivity` 的发次记录归属与失败传播尚未实现，可执行模型校验会明确拒绝；设计模型仍可编辑和查看。
 
 组件区选择各组 SCXML 版本、组件类型、实例数量与反馈方式。类型 `preamp` 的三个实例编号为 `preamp_01`、`preamp_02`、`preamp_03`；类型必须能在设施绑定中解析。所有实例和同步条件设备由同一个 Device Server 进程承载。
 
@@ -111,13 +111,13 @@ Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/
 
 后台常驻的 Java 服务可从 `data/runtime/` 中的独立 JAR 副本启动。`server/target/` 是可重写的构建目录；使用独立运行副本可以让后续 Maven 打包与正在运行的版本互不影响。
 
-## 新链路运行与验证
+## 实验运行与验证
 
 “使用示例方案”选择 `gxlf_shot_run_smoke`，创建十四类组件后，依次执行上电检查、功能检查、参数接收。高级参数可配置 shotId、recipeRef、recipeVersion、beamlines、defaultSource 以及两个超时；正式发射不在此切片范围内。运行页显示设施事实、guard、发次阶段和逐设备证据；结束后查看的是当时设施快照。
 
 可执行动作声明为 `flowable:delegateExpression="${facilityActions}"`，在 extensionElements 的 `fac:actions` 集合内写 `fac:action typeRef="seed" capabilityRef="power-on-check" collectionVar="seedTargets" expectedStateRef="powerOnChecked"`。记录表达式放在单独任务；旧组件命令和综合系统状态扩展已删除。
 
-执行 `make java-workbench-smoke` 或 `mvn -Pnew-chain-e2e verify` 可启动隔离的 Java bridge、Java 设备和工作台测试。它使用随机端口、临时模型目录和 H2 内存库，不操作日常 8080/8766 服务。
+执行 `make java-workbench-smoke` 或 `mvn -Pworkbench-e2e verify` 可启动隔离的 Java bridge、Java 设备和工作台测试。它使用随机端口、临时模型目录和 H2 内存库，不操作日常 8080/8766 服务。
 
 ## 设施模型格式
 

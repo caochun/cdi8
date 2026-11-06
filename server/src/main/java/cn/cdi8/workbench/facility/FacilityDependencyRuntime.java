@@ -32,11 +32,15 @@ public final class FacilityDependencyRuntime {
                            Collection<?> beamlines,Map<String,String> selections,String defaultSource,Map<String,String> instances,String heldInput) {
         var contracts=states.definition().dependencies();
         var requirements=contracts.inputs(component,capability).stream().filter(i->heldInput==null||heldInput.equals(i.id())).toList();
+        var facts=heldInput==null?contracts.facts(component,capability):List.<CapabilityDependencies.Fact>of();
         if(heldInput!=null&&requirements.isEmpty())throw new IllegalArgumentException("未定义保持输入："+component+"/"+capability+"/"+heldInput);
-        if(requirements.isEmpty())return null;
+        if(requirements.isEmpty()&&facts.isEmpty())return null;
         ObjectNode plan=json.createObjectNode().put("id",command).put("component",component).put("capability",capability)
             .put("device",target).put("status","unknown").put("reason","尚未核验能力输入依赖");
         ArrayNode leaves=plan.putArray("requirements");
+        for(var fact:facts)leaves.addObject().put("kind","fact").put("ref",fact.fact()).put("maintain",fact.maintain())
+            .put("via",component+"/"+capability+"/"+fact.id());
+        if(requirements.isEmpty())return plan;
         try {
             int matched=0;
             for(Object value:beamlines) {

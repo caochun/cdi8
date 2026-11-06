@@ -32,9 +32,10 @@ public final class FacilityStateRuntime {
     private long sequence;
     private volatile ObjectNode current;
     private FacilityComponentModels components;
+    private final FacilitySupervision supervision;
 
     public FacilityStateRuntime(ObjectMapper json, TangoGateway gateway, ApplicationEventPublisher events) {
-        this.json=json; this.gateway=gateway; this.events=events;
+        this.json=json; this.gateway=gateway; this.events=events;this.supervision=new FacilitySupervision(json);
         try {
             String definitionXml=resource("system-models/gxlf-facility.system-definition.xml");
             String bindingXml=resource("system-models/gxlf-facility-binding.xml");
@@ -50,6 +51,7 @@ public final class FacilityStateRuntime {
             .put("binding",binding.id()).put("integrity","unknown").put("connected",false)
             .put("sequence",0).put("reason","尚未取得 Tango 设施观测").put("changedAt",System.currentTimeMillis());
         current.putObject("facts"); current.putObject("guards"); current.putObject("observations");current.putObject("deviceFacts");
+        current.putObject("constraints");
     }
 
     public synchronized ObjectNode current() { return current.deepCopy(); }
@@ -74,6 +76,7 @@ public final class FacilityStateRuntime {
         nextProjection.validateComponents(nextDefinition,nextComponents);
         if(!nextDefinition.id().equals(nextBinding.definitionRef()) || !nextDefinition.id().equals(nextProjection.definitionRef())
             || !nextBinding.id().equals(nextProjection.bindingRef()))throw new IllegalArgumentException("设施模型引用不一致");
+        supervision.validateReplacement(nextDefinition.operatingConstraints());
         definition=nextDefinition;binding=nextBinding;projection=nextProjection;components=nextComponents;
         snapshots.clear();componentBindings.clear();observedAt.clear();invalidObservations.clear();
         current.put("model",projection.id()).put("definition",definition.id()).put("binding",binding.id());
@@ -187,11 +190,14 @@ public final class FacilityStateRuntime {
                     .put("state",snapshot.path("state_id").asText());
             }
         }
-        boolean changed=!facts.equals(current.path("facts")) || !guards.equals(current.path("guards")) || !deviceFacts.equals(current.path("deviceFacts"));
+        ObjectNode constraints=supervision.assess(definition.operatingConstraints(),facts);
+        boolean changed=!facts.equals(current.path("facts")) || !guards.equals(current.path("guards")) || !deviceFacts.equals(current.path("deviceFacts"))
+            || !constraints.equals(current.path("constraints"));
         if(changed)sequence++;
         current.put("sequence",sequence);
         current.set("facts",facts);current.set("guards",guards);
         current.set("deviceFacts",deviceFacts);
+        current.set("constraints",constraints);
         current.put("integrity",integrity).put("reason",reason).put("connected",gateway.connected());
         ObjectNode observations=(ObjectNode)current.with("observations");observations.removeAll();
         for(var entry:snapshots.entrySet())observations.putObject(entry.getKey())
@@ -205,7 +211,7 @@ public final class FacilityStateRuntime {
     private Status evaluateCondition(FacilityStateProjectionModel.Condition condition,Map<String,Status> statuses) {
         return switch(condition.kind()) {
             case "factPredicate" -> statuses.getOrDefault(condition.ref(),Status.unknown("事实尚未计算："+condition.ref()));
-            case "devicePredicate" -> deviceRequirement(Set.of(condition.ref()),condition.states(),condition.outerStates(),false);
+            case "devicePredicate", "actionPredicate" -> quantifiedRequirement(condition);
             case "observationPredicate" -> observationStatus(condition.ref(),condition.expected());
             case "all", "any" -> {
                 boolean any="any".equals(condition.kind());
@@ -218,6 +224,24 @@ public final class FacilityStateRuntime {
             }
             default -> throw new IllegalStateException("不支持的条件："+condition.kind());
         };
+    }
+
+    private Status quantifiedRequirement(FacilityStateProjectionModel.Condition condition) {
+        var selected=componentBindings.keySet().stream().filter(id->condition.ref().equals(binding.instanceSetForRuntimeKey(componentBindings.get(id)))).toList();
+        if(selected.isEmpty())return Status.unknown("缺少设施设备观测："+condition.ref());
+        Status result=condition.anyDevice()?Status.violated("没有设备满足工作状态判据"):Status.ok();
+        for(String id:selected) {
+            Status value=deviceStatus(id);JsonNode snapshot=snapshots.get(id);
+            if("valid".equals(value.status)) {
+                if("actionPredicate".equals(condition.kind())) {
+                    if(!snapshot.has("active_action")||!snapshot.has("active_command_id"))value=Status.unknown("缺少动作执行观测："+id);
+                    else if(snapshot.path("active_action").isNull()!=snapshot.path("active_command_id").isNull())value=Status.unknown("动作与命令标识观测不一致："+id);
+                    else if(condition.active()!=condition.action().equals(snapshot.path("active_action").asText()))value=Status.violated("设备动作状态不满足："+id+" / "+condition.action());
+                } else if(!matches(snapshot,condition.states(),condition.outerStates()))value=Status.violated("设备状态不满足："+id+" / "+snapshot.path("state_id").asText());
+            }
+            result=condition.anyDevice()?either(result,value):combine(result,value);
+        }
+        return result;
     }
 
     /** Quantifies the participating runtime devices bound to the declared instance set. */

@@ -15,7 +15,7 @@ const viewer = new BpmnViewer({container:$('canvas')});
 const childViewer = new BpmnViewer({container:$('child-canvas')});
 attachScopeNavigation(viewer,{select:$('scope'),onChange:paint,onError:showError});
 attachScopeNavigation(childViewer,{onChange:paint,onError:showError});
-let definitions=[], key='', run=null, picked=null, busy=false, loaded=false;
+let definitions=[], key='', run=null, liveFacility=null, picked=null, busy=false, loaded=false;
 let childRun=null, childId='', childLoading='', detailViewer=null, selectedViewer=viewer, deviceCache=[];
 const cardNodes=new Map();
 
@@ -254,14 +254,15 @@ function renderRun(){
 }
 function renderSystemIncidents(){
   const host=$('system-incidents'),state=run?.facilityState,shot=run?.shotRun;
-  host.hidden=!run;
-  const labels={valid:'成立',unknown:'未知',violated:'不满足',succeeded:'成功',failed:'失败',completed:'完成',cancelled:'已取消',invalidated:'已失效',active:'持续监控',released:'已释放',interrupted:'已中断'};
+  host.hidden=!run&&!liveFacility;
+  const labels={valid:'成立',unknown:'未知',violated:'不满足',inactive:'已确认不适用',succeeded:'成功',failed:'失败',completed:'完成',cancelled:'已取消',invalidated:'已失效',active:'持续监控',released:'已释放',interrupted:'已中断'};
   $('incident-count').textContent=shot?`本发 ${shot.shot_id} · ${labels[shot.stage]||shot.stage} · ${(shot.evidence||[]).length} 条证据`:'';
   const rows=(values,kind)=>Object.entries(values||{}).map(([id,item]:[string,any])=>
     '<article class="incident-row '+escape(item.status)+'"><div><strong>'+escape(item.label||id)+'</strong><span>'+escape(kind+' · '+(labels[item.status]||item.status))+'</span></div>'+(item.reason?'<p>'+escape(item.reason)+'</p>':'')+'</article>').join('');
   const evidence=(shot?.evidence||[]).map(item=>'<article class="incident-row"><div><strong>'+escape(item.device_id||item.details?.device||item.details?.label||item.details?.condition||item.id)+'</strong><span>'+escape((item.operation||(item.kind==='stage-hold'?'阶段持续保持':item.kind==='capability-dependency'?'能力输入依赖':item.details?.purpose==='activity-completion'?'完成条件核验':item.kind))+' · '+(labels[item.status]||item.status))+'</span><time>'+escape(new Date(item.observed_at).toLocaleString())+'</time></div>'+((item.details?.decisionReason||item.details?.reason)?'<p>'+escape(item.details.decisionReason||item.details.reason)+'</p>':'')+'</article>').join('');
-  $('incident-list').innerHTML=(state?'<details><summary>设施事实与放行条件'+(run.ended?'（结束时快照）':'（当前）')+'</summary>'+rows(state.guards,'放行条件')+rows(state.facts,'设施事实')+'</details>':'')+
-    '<details><summary>本发执行证据 · '+(shot?.evidence?.length||0)+'</summary>'+evidence+'</details>';
+  $('incident-list').innerHTML=(liveFacility?'<details open><summary>系统监督（当前，流程结束后仍继续）</summary>'+rows(liveFacility.constraints,'工作状态约束')+'</details>':'')+
+    (state?'<details><summary>本发设施判据'+(run.ended?'（结束时快照）':'（当前）')+'</summary>'+rows(state.guards,'放行条件')+rows(state.facts,'设施事实')+'</details>':'')+
+    (shot?'<details><summary>本发执行证据 · '+(shot.evidence?.length||0)+'</summary>'+evidence+'</details>':'');
 }
 function duration(ms){if(!Number.isFinite(ms))return '—';const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)} 分 ${seconds%60} 秒`;}
 for(const target of [viewer,childViewer]){
@@ -387,9 +388,9 @@ function tick(){
   if(busy)return polling;
   busy=true;const ticket=revision;
   polling=(async()=>{
-    const next=run?await api('/runs/'+encodeURIComponent(run.id)):null;
+    const [next,facility]=await Promise.all([run?api('/runs/'+encodeURIComponent(run.id)):null,api('/facility/state')]);
     if(disposed||ticket!==revision)return;
-    run=next;
+    run=next;liveFacility=facility;
     await refreshTrace(ticket);
     if(disposed||ticket!==revision)return;
     renderRun();await syncChild(ticket);

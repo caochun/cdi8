@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import org.junit.jupiter.api.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Event integrity rules use an in-memory transport; HTTP/JTango is covered by NewChainIT. */
+/** Event integrity rules use an in-memory transport; HTTP/JTango is covered by WorkbenchIT. */
 class FacilityStateRuntimeTest {
     static final ObjectMapper JSON=new ObjectMapper();
     static final String DEVICE="a-device-without-component-prefix";
@@ -43,7 +43,10 @@ class FacilityStateRuntimeTest {
     @AfterEach void close(){transport.close();}
     String status(){return runtime.current().path("guards").path("ready").path("status").asText();}
     String resource(String name) throws Exception {
-        try(var input=getClass().getResourceAsStream("/system-models/"+name)){return new String(input.readAllBytes(),StandardCharsets.UTF_8);}
+        try(var input=getClass().getResourceAsStream("/system-models/"+name)) {
+            String xml=new String(input.readAllBytes(),StandardCharsets.UTF_8);
+            return name.endsWith(".system-definition.xml")?FacilityTestModels.opticalOnly(xml):xml;
+        }
     }
     @Test void resolvesBindingWithoutGuessingDevicePrefix() {
         assertEquals("valid",status());assertDoesNotThrow(()->runtime.requireGuard("ready"));

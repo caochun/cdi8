@@ -21,7 +21,7 @@
 
 设施结构由 [`gxlf-facility.system-definition.xml`](system/gxlf-facility.system-definition.xml) 声明；逻辑实例的运行地址及束线映射引用由 [`gxlf-facility-binding.xml`](system/gxlf-facility-binding.xml) 声明；实时设施事实由 [`gxlf-facility-state-projection.xml`](system/gxlf-facility-state-projection.xml) 声明；本发数据边界由 [`shot-run.schema.json`](../../contracts/shot-run.schema.json) 声明。
 
-新的发次 BPMN 主干只编排初始化、参数接收、发射准备、同步触发、后处理和结束，并通过 `fac:requires`、`fac:action`、`run:stage` 和 `run:records` 引用设施事实及本发证据。完整主干仍是不可执行设计；初始化切片已具备目标状态校验、超时、取消和逐设备证据。正式发射、安全联锁和资源服务仍待接入。
+发次 BPMN 主干按业务说明展开初始化、参数、清场与联锁建立、发射准备、充电前准备、充电、同步时序、后处理/预电离、安全退出及异常处置。完整主干仍是不可执行设计，不含直接写成功的占位表达式；初始化切片可运行。能力固有要求与工作状态义务在系统定义中声明，投影和系统监督独立于 BPMN 生命周期检查，详见[系统监督复审](../../docs/architecture/system-supervision-review.md)。真实安全、服务健康和独立同步配方尚未接入，因此受保护动作在默认契约下会被 unknown 阻止。
 
 设备动态状态由 `components/` 下的 SCXML 描述。设施当前状态、发次阶段和 BPMN 令牌不再放进同一个综合 XML。
 
@@ -36,7 +36,7 @@
 
 ## 规则实现与固定版本验证
 
-旧 GXLF 场景策略、综合系统状态运行时和兼容命令入口已经删除。所有设施动作通过 `fac:action` → `FacilityActionRuntime` → Java bridge → JTango → Java SCXML 设备执行。当前端到端验证见 `server/src/test/java/cn/cdi8/workbench/NewChainIT.java`；运行 `make java-workbench-smoke`。
+旧 GXLF 场景策略、综合系统状态运行时和兼容命令入口已经删除。所有设施动作通过 `fac:action` → `FacilityActionRuntime` → Java bridge → JTango → Java SCXML 设备执行。当前端到端验证见 `server/src/test/java/cn/cdi8/workbench/WorkbenchIT.java`；运行 `make java-workbench-smoke`。
 
 初始化切片在上电检查、功能检查、参数接收三个活动分别声明 `fac:completion`：全部本发动作验收成功后，等待 `allPowerChecked`、`allFunctionReady`、`allParametersReceived` 当前成立。投影变化促使协调器检查并推进，等待超时则失败。详见[活动完成条件](../../docs/architecture/activity-completion.md)。
 

@@ -75,11 +75,13 @@
 
 单个模型校验不能证明完整实验过程安全：外部观测、全局安全条件及现场处置边界仍以 `todo.md` 为准。本次校验解决模型声明不一致和扩展被静默忽略的问题。
 
+系统定义新增能力 `factRequirement` 与独立 `operatingConstraints`；投影新增量词和 `actionPredicate`。系统定义单独发布检查结构及 SCXML 动作；事实引用在投影发布、BPMN 校验及模型组部署时联合核验，允许先编辑系统定义再补齐投影，未配齐的模型组不能运行。工作状态义务与 BPMN 保持范围的区别、当前运行实现及业务复审见[系统监督复审](system-supervision-review.md)。
+
 ## 验证
 
-`ComponentModelTest` 覆盖全部十四类设备、非法元数据、状态/事件引用、祖先事件匹配、null 反馈和请求先迁移的情况。`FacilityContractTest` 覆盖原始 XML 和 Flowable 扩展、能力/投影引用及实际选中模型不兼容。`NewChainIT` 通过真实 HTTP、Flowable、JTango 验证不兼容设备模型在发出任何命令前被拒绝。
+`ComponentModelTest` 覆盖全部十四类设备、非法元数据、状态/事件引用、祖先事件匹配、null 反馈和请求先迁移的情况。`FacilityContractTest` 覆盖原始 XML 和 Flowable 扩展、能力/投影引用及实际选中模型不兼容。`WorkbenchIT` 通过真实 HTTP、Flowable、JTango 验证不兼容设备模型在发出任何命令前被拒绝。
 
 ```bash
 mvn -Dexec.skip=true test
-mvn -Pnew-chain-e2e verify
+mvn -Pworkbench-e2e verify
 ```

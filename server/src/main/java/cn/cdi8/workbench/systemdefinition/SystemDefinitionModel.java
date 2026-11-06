@@ -18,6 +18,7 @@ public final class SystemDefinitionModel {
     }
     public record Mapping(String id, String kind, String resource, int groupSize, List<Member> members) {}
     public record Endpoint(String kind, String ref, String port) {}
+    public record OperatingConstraint(String id,String label,String activation,String release,List<CapabilityDependencies.Fact> requirements) {}
     private final Element root;
     private final Map<String,Element> types, controls, externals, interfaces, signals, paths;
     private final Map<String,Integer> resources = new LinkedHashMap<>();
@@ -25,6 +26,7 @@ public final class SystemDefinitionModel {
     private final Map<String,List<String>> groups = new LinkedHashMap<>();
     private final Map<String,Mapping> mappings = new LinkedHashMap<>();
     private final CapabilityDependencies dependencies;
+    private final List<OperatingConstraint> operatingConstraints=new ArrayList<>();
     private int connections;
 
     private SystemDefinitionModel(Element root) {
@@ -94,6 +96,17 @@ public final class SystemDefinitionModel {
             if ("mappingCoverage".equals(e.getLocalName())) mapping(e.getAttribute("mappingRef"));
         }
         dependencies = CapabilityDependencies.parse(root,this);
+        for(var e:entries(root,"operatingConstraints")) {
+            var requirements=CapabilityDependencies.parseFacts(e);
+            if(requirements.size()!=entries(e,"requirements").size()||requirements.stream().anyMatch(r->!"execution".equals(r.maintain())))
+                throw invalid("工作状态约束只接受 execution 范围的 factRequirement："+e.getAttribute("id"));
+            if(requirements.stream().map(CapabilityDependencies.Fact::id).distinct().count()!=requirements.size())throw invalid("工作状态约束的依赖 id 重复");
+            String activation=required(e,"activationFactRef"),release=required(e,"releaseFactRef");
+            if(activation.equals(release))throw invalid("工作状态约束的启用和解除判据不能相同");
+            if(requirements.stream().anyMatch(r->r.fact().equals(activation)||r.fact().equals(release)))
+                throw invalid("约束适用性不能直接由其要求的事实决定："+e.getAttribute("id"));
+            operatingConstraints.add(new OperatingConstraint(required(e,"id"),required(e,"label"),activation,release,requirements));
+        }
     }
     private void parseMapping(Element e) {
         String id=e.getAttribute("id"), kind=e.getAttribute("kind"), resource=e.getAttribute("resourceRef");
@@ -163,6 +176,7 @@ public final class SystemDefinitionModel {
     public int connectionCount(){return connections;}
     public int openIssueCount(){return entries(child(root,"annotations"),"issues").size();}
     public CapabilityDependencies dependencies(){return dependencies;}
+    public List<OperatingConstraint> operatingConstraints(){return List.copyOf(operatingConstraints);}
     public Collection<InstanceSet> instanceSets(){return Collections.unmodifiableCollection(instanceSets.values());}
     public Collection<Mapping> mappings(){return Collections.unmodifiableCollection(mappings.values());}
     public InstanceSet instanceSet(String id){return requireRef(instanceSets,id,"实例集合");}

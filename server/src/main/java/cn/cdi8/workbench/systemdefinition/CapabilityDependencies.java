@@ -7,10 +7,12 @@ import static cn.cdi8.workbench.xml.ModelXml.*;
 /** Capability contracts use validated topology; connectivity alone creates no running dependency. */
 public final class CapabilityDependencies {
     public record Input(String id,String path,String port,String signal,String maintain) {}
+    public record Fact(String id,String fact,String maintain) {}
     public record Output(String component,String port,String signal,String fact,List<Input> inputs) {}
     public record Connection(String path,String id,String source,String sourcePort,String target,String targetPort,
                              String mappingRef,String resourceRef) {}
     private final Map<String,List<Input>> actions=new LinkedHashMap<>();
+    private final Map<String,List<Fact>> actionFacts=new LinkedHashMap<>();
     private final Map<String,Output> outputs=new LinkedHashMap<>();
     private final List<Connection> connections=new ArrayList<>();
     private final Map<String,String> directions=new LinkedHashMap<>();
@@ -19,6 +21,8 @@ public final class CapabilityDependencies {
     private CapabilityDependencies(SystemDefinitionModel definition){this.definition=definition;}
 
     public List<Input> inputs(String component,String capability){return actions.getOrDefault(component+"/"+capability,List.of());}
+    public List<Fact> facts(String component,String capability){return actionFacts.getOrDefault(component+"/"+capability,List.of());}
+    public Collection<Fact> facts(){return actionFacts.values().stream().flatMap(Collection::stream).toList();}
     public Collection<Output> outputs(){return Collections.unmodifiableCollection(outputs.values());}
     public Output output(String component,String port,String signal){return outputs.get(key(component,port,signal));}
     public List<Connection> incoming(String component,Input input){return connections.stream().filter(c->c.path.equals(input.path)&&c.target.equals(component)&&c.targetPort.equals(input.port)).toList();}
@@ -47,8 +51,10 @@ public final class CapabilityDependencies {
             }
             for(var capability:entries(type,"capabilities")) {
                 var inputs=model.parseInputs(capability,true);
-                if(!inputs.isEmpty()&&capability.getAttribute("actionRef").isBlank())throw invalid("依赖能力必须具有 actionRef："+component+"/"+capability.getAttribute("id"));
+                var facts=parseFacts(capability);
+                if((!inputs.isEmpty()||!facts.isEmpty())&&capability.getAttribute("actionRef").isBlank())throw invalid("依赖能力必须具有 actionRef："+component+"/"+capability.getAttribute("id"));
                 model.actions.put(component+"/"+capability.getAttribute("id"),inputs);
+                model.actionFacts.put(component+"/"+capability.getAttribute("id"),facts);
             }
         }
         for(var path:entries(child(root,"topology"),"paths")) {
@@ -97,7 +103,13 @@ public final class CapabilityDependencies {
     }
     private List<Input> parseInputs(Element parent,boolean capability) {
         var result=new ArrayList<Input>();
+        var ids=new HashSet<String>();
         for(var req:entries(parent,"requirements")) {
+            if(!ids.add(req.getAttribute("id")))throw invalid("依赖 id 重复："+req.getAttribute("id"));
+            if("factRequirement".equals(req.getLocalName())) {
+                if(!capability)throw invalid("输出依赖只接受 inputRequirement");
+                continue;
+            }
             String maintain=capability?required(req,"maintain"):"execution";
             if(!capability&&req.hasAttribute("maintain"))throw invalid("输出依赖继承调用者保持范围，不能指定 maintain");
             String signal=req.getAttribute("signalRef");
@@ -105,6 +117,10 @@ public final class CapabilityDependencies {
             result.add(new Input(req.getAttribute("id"),req.getAttribute("pathRef"),req.getAttribute("inputPortRef"),signal,maintain));
         }
         return List.copyOf(result);
+    }
+    public static List<Fact> parseFacts(Element parent) {
+        return entries(parent,"requirements").stream().filter(e->"factRequirement".equals(e.getLocalName()))
+            .map(e->new Fact(e.getAttribute("id"),e.getAttribute("factRef"),e.getAttribute("maintain"))).toList();
     }
     private static String key(String component,String port,String signal){return component+"/"+port+"/"+signal;}
     private static IllegalArgumentException invalid(String message){return new IllegalArgumentException(message);}

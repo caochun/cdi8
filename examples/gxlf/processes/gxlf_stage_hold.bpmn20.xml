@@ -2,8 +2,8 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn"
   xmlns:fac="https://cdi8.cn/facility/v1" targetNamespace="https://cdi8.cn/workbench">
   <bpmn:error id="alignmentHoldLost" name="准直阶段保持条件失效" errorCode="ALIGNMENT_HOLD_LOST" />
-  <bpmn:process id="gxlf_stage_hold" name="准直阶段持续保持 · 技术验证" isExecutable="true">
-    <bpmn:documentation>原型切片：建立准直输入，在准直、稳定等待和复核之间持续保持。阶段结束后允许切到单次模式。尚未接入真实门禁、人员清场和吹扫联锁。</bpmn:documentation>
+  <bpmn:process id="gxlf_stage_hold" name="附加光学保持试验 · 技术验证" isExecutable="true">
+    <bpmn:documentation>附加试验切片：人为要求准直后再保持入射光5秒用于验证 fac:hold，这不是业务说明的强制准直阶段，也不表示准直结果在无光时自动失效。真实安全条件由系统定义和系统监督负责；默认模型因外部联锁未知会阻止受保护动作。Java E2E 使用明确的光学隔离测试契约运行本试验。</bpmn:documentation>
     <bpmn:startEvent id="start" />
     <bpmn:serviceTask id="open" name="创建本发记录" flowable:expression="${shotRuns.open(execution)}" />
     <bpmn:serviceTask id="power" name="上电检查" flowable:delegateExpression="${facilityActions}">
@@ -39,7 +39,7 @@
     <bpmn:serviceTask id="emit" name="种子源出光" flowable:delegateExpression="${facilityActions}">
       <bpmn:extensionElements><fac:actions><fac:action typeRef="seed" capabilityRef="emit" collectionVar="seedTargets" expectedStateRef="stableEmission" /></fac:actions></bpmn:extensionElements>
     </bpmn:serviceTask>
-    <bpmn:subProcess id="alignment" name="准直与复核期间持续保持入射光">
+    <bpmn:subProcess id="alignment" name="本次附加试验：保持入射光至复核结束">
       <bpmn:extensionElements>
         <fac:hold errorRef="alignmentHoldLost">
           <fac:input typeRef="multipass" capabilityRef="collimation" requirementRef="incident-light" collectionVar="multipassTargets" />
@@ -49,7 +49,7 @@
       <bpmn:serviceTask id="collimate" name="执行光路准直" flowable:delegateExpression="${facilityActions}">
         <bpmn:extensionElements><fac:actions><fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" expectedStateRef="collimationReady" /></fac:actions></bpmn:extensionElements>
       </bpmn:serviceTask>
-      <bpmn:intermediateCatchEvent id="settle" name="稳定等待（仍保持入射光）">
+      <bpmn:intermediateCatchEvent id="settle" name="附加试验等待5秒（仍保持入射光）">
         <bpmn:timerEventDefinition><bpmn:timeDuration>PT5S</bpmn:timeDuration></bpmn:timerEventDefinition>
       </bpmn:intermediateCatchEvent>
       <bpmn:serviceTask id="review" name="观测完整性复核" flowable:delegateExpression="${facilityActions}">
@@ -66,7 +66,7 @@
     </bpmn:boundaryEvent>
     <bpmn:serviceTask id="handleHoldLoss" name="记录异常，结束本发" flowable:expression="${shotRuns.fail(execution, holdFailureReason)}" />
     <bpmn:endEvent id="failedEnd" />
-    <bpmn:serviceTask id="single" name="保持范围结束，切到单次模式" flowable:delegateExpression="${facilityActions}">
+    <bpmn:serviceTask id="single" name="附加试验结束，切到单次模式" flowable:delegateExpression="${facilityActions}">
       <bpmn:extensionElements><fac:actions><fac:action typeRef="synchronization" capabilityRef="single-recipe" collectionVar="synchronizationTargets" expectedStateRef="singleConfigured" /></fac:actions></bpmn:extensionElements>
     </bpmn:serviceTask>
     <bpmn:serviceTask id="complete" name="完成验证" flowable:expression="${shotRuns.complete(execution)}" />

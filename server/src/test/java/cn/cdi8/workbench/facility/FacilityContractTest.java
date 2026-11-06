@@ -46,8 +46,23 @@ class FacilityContractTest {
     @Test void allExecutableAndDesignExamplesValidate()throws Exception {
         validate(minimal());
         for(String dir:List.of("processes","design"))try(var files=Files.list(Path.of("examples/gxlf",dir))) {
-            for(Path file:files.filter(p->p.toString().endsWith(".bpmn20.xml")).toList())validate(Files.readString(file));
+            for(Path file:files.filter(p->p.toString().endsWith(".bpmn20.xml")).toList()) {
+                var xml=Files.readString(file);validate(xml);
+                var errors=ModelValidation.engineErrors(ModelValidation.parse(xml));
+                assertTrue(errors.isEmpty(),file+" / "+errors);
+                if("design".equals(dir)) {
+                    assertFalse(ModelValidation.parse(xml).getMainProcess().isExecutable());
+                    assertFalse(xml.contains("shotRuns.record"),"业务设计不得以占位表达式写成功证据");
+                }
+            }
         }
+    }
+    @Test void onlyExplicitlyNonExecutableDesignsMayOmitServiceImplementations()throws Exception {
+        String design=Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_backbone.bpmn20.xml"));
+        assertTrue(ModelValidation.engineErrors(ModelValidation.parse(design)).isEmpty());
+        assertFalse(ModelValidation.engineErrors(ModelValidation.parse(design.replace("isExecutable=\"false\"","isExecutable=\"true\""))).isEmpty());
+        String broken=design.replace("sourceRef=\"run_start\"","sourceRef=\"missing_node\"");
+        assertFalse(ModelValidation.engineErrors(ModelValidation.parse(broken)).isEmpty(),"设计模型仍须检查结构引用");
     }
     @Test void checksModelPathsAndCapabilityActionReferences()throws Exception {
         String xml=FacilityXmlModelTest.definition();

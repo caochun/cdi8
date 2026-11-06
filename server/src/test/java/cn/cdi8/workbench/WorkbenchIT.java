@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** HTTP -> Flowable -> Java bridge -> real JTango -> SCXML. Isolated ports and storage. */
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"debug=false","logging.level.org.springframework=WARN"})
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class NewChainIT {
+class WorkbenchIT {
     static final ObjectMapper JSON=new ObjectMapper();
     static final HttpClient HTTP=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     static Path directory;
@@ -31,9 +31,9 @@ class NewChainIT {
     @org.springframework.beans.factory.annotation.Autowired org.flowable.engine.RepositoryService repository;
 
     @DynamicPropertySource static void properties(DynamicPropertyRegistry registry) throws Exception {
-        directory=Files.createTempDirectory("cdi8-new-chain-");
+        directory=Files.createTempDirectory("cdi8-workbench-e2e-");
         Path jar=Path.of("device-simulator/target/device-simulator-0.1.0.jar").toAbsolutePath();
-        assertTrue(Files.exists(jar),"先执行根目录 mvn -Pnew-chain-e2e verify");
+        assertTrue(Files.exists(jar),"先执行根目录 mvn -Pworkbench-e2e verify");
         Path ready=directory.resolve("bridge-ready.json");
         bridge=new ProcessBuilder(Path.of(System.getProperty("java.home"),"bin","java").toString(),"-jar",jar.toString(),
             "--bridge","--port","0","--ready-file",ready.toString(),"--data-dir",directory.resolve("simulator").toString())
@@ -46,7 +46,7 @@ class NewChainIT {
         bridgeUrl=JSON.readTree(ready.toFile()).path("url").asText();
         registry.add("control.tango-url",()->bridgeUrl);
         registry.add("control.workbench-directory",()->directory.resolve("workbench").toString());
-        registry.add("spring.datasource.url",()->"jdbc:h2:mem:new-chain;DB_CLOSE_DELAY=-1");
+        registry.add("spring.datasource.url",()->"jdbc:h2:mem:workbench-e2e;DB_CLOSE_DELAY=-1");
         registry.add("control.pump-delay",()->"50");
     }
 
@@ -56,7 +56,7 @@ class NewChainIT {
             if(!bridge.waitFor(10,java.util.concurrent.TimeUnit.SECONDS))bridge.destroyForcibly();
             for(var child:children)if(child.isAlive())child.destroyForcibly();
         }
-        System.out.println("New-chain E2E logs: "+directory);
+        System.out.println("Workbench E2E logs: "+directory);
     }
 
     JsonNode request(String method,String path,Object body) throws Exception {
@@ -75,6 +75,7 @@ class NewChainIT {
         fail("运行等待超时："+value);return null;
     }
     ObjectNode configure(boolean full,boolean auto,String timeout) throws Exception {
+        publishDefinition(Files.readString(Path.of("examples/gxlf/system/gxlf-facility.system-definition.xml")));
         JsonNode models=request("GET","/api/workbench/models",null);
         Map<String,JsonNode> byId=new HashMap<>();models.forEach(m->byId.put(m.path("id").asText(),m));
         ObjectNode config=JSON.createObjectNode().put("entry",full?"gxlf_shot_run_smoke":"test_seed").put("autoComplete",true);
@@ -102,6 +103,37 @@ class NewChainIT {
         config.put("entry",id);config.putArray("processes").addObject().put("model",id).put("revision",revision.path("id").asText());
     }
     String start(JsonNode config) throws Exception {return request("POST","/api/workbench/runs",config).path("id").asText();}
+    HttpResponse<String> startResponse(JsonNode config)throws Exception {
+        return HTTP.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/api/workbench/runs"))
+            .timeout(Duration.ofSeconds(70)).header("Content-Type","application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(config))).build(),HttpResponse.BodyHandlers.ofString());
+    }
+    void publishDefinition(String xml)throws Exception {
+        JsonNode current=null;
+        for(var model:request("GET","/api/workbench/models",null))if("gxlf-facility".equals(model.path("id").asText()))current=model;
+        assertNotNull(current);
+        var revisions=current.path("revisions");
+        if(!revisions.isEmpty()&&xml.equals(revisions.get(revisions.size()-1).path("xml").asText()))return;
+        request("POST","/api/workbench/models",Map.of("id","gxlf-facility","name","E2E 设施契约","kind","system","xml",xml));
+        request("POST","/api/workbench/models/gxlf-facility/versions",Map.of());
+    }
+    void publishProjection(String xml)throws Exception {
+        JsonNode current=null;
+        for(var model:request("GET","/api/workbench/models",null))if("gxlf-facility-state-projection".equals(model.path("id").asText()))current=model;
+        assertNotNull(current);
+        var revisions=current.path("revisions");
+        if(!revisions.isEmpty()&&xml.equals(revisions.get(revisions.size()-1).path("xml").asText()))return;
+        request("POST","/api/workbench/models",Map.of("id","gxlf-facility-state-projection","name","E2E 设施状态投影","kind","system","xml",xml));
+        request("POST","/api/workbench/models/gxlf-facility-state-projection/versions",Map.of());
+    }
+    void useOpticalTestContract()throws Exception {
+        String definition=cn.cdi8.workbench.facility.FacilityTestModels.opticalOnly(
+            Files.readString(Path.of("examples/gxlf/system/gxlf-facility.system-definition.xml")));
+        publishDefinition(definition);
+        // Establish the explicitly isolated fixture before manual optical setup changes live modes.
+        facilityStates.activate(definition,Files.readString(Path.of("examples/gxlf/system/gxlf-facility-binding.xml")),
+            Files.readString(Path.of("examples/gxlf/system/gxlf-facility-state-projection.xml")));
+    }
 
     @Test @Order(1) void allComponentsInitializeAndReceiveParameters() throws Exception {
         var config=configure(true,true,"PT10S");
@@ -315,11 +347,16 @@ class NewChainIT {
         var completed=request("POST","/api/workbench/devices/"+device+"/simulate",Map.of("command_id",command,"outcome","success"));
         assertEquals("succeeded",completed.path("status").asText(),completed.toPrettyString());
     }
+    JsonNode deviceView(String id)throws Exception {
+        for(JsonNode value:request("GET","/api/devices",null))if(id.equals(value.path("id").asText()))return value;
+        fail("缺少模拟设备："+id);return null;
+    }
     void initialize(String device) throws Exception {
         for(String action:List.of("power_on_check","function_check","parameter_dispatch"))deviceAction(device,action);
     }
     ObjectNode opticalConfiguration(boolean emit,boolean shg,boolean wait) throws Exception {
         var config=configure(true,false,"PT20S");
+        useOpticalTestContract();
         initialize("synchronization_01");deviceAction("synchronization_01","repeat_mode");
         initialize("preamp_01");deviceAction("preamp_01","preamp_wakeup");
         initialize("multipass_01");
@@ -449,6 +486,7 @@ class NewChainIT {
 
     @Test @Order(21) void fullStageExampleInitializesHoldsReleasesAndChangesMode()throws Exception {
         var config=configure(true,true,"PT10S");
+        useOpticalTestContract();
         for(var device:config.path("devices"))((ObjectNode)device).put("count",1);
         config=(ObjectNode)request("POST","/api/workbench/environment",config);
         setProcess(config,"test_hold_example",Files.readString(Path.of("examples/gxlf/processes/gxlf_stage_hold.bpmn20.xml")));
@@ -588,5 +626,188 @@ class NewChainIT {
             """;
         assertThrows(RuntimeException.class,()->repository.createDeployment().addString("invalid.bpmn20.xml",xml).deploy());
         assertEquals(0,repository.createProcessDefinitionQuery().processDefinitionKey("invalid_hold").count());
+    }
+    @Test @Order(34) void productionSafetyContractBlocksEmissionWithoutExternalInterlock()throws Exception {
+        var config=configure(false,false,"PT10S");initialize("seed_01");
+        String xml=Files.readString(Path.of("examples/minimal/process.bpmn20.xml"))
+            .replace("capabilityRef=\"power-on-check\"","capabilityRef=\"emit\"").replace("expectedStateRef=\"powerOnChecked\"","expectedStateRef=\"stableEmission\"");
+        setProcess(config,"test_real_safety_gate",xml);
+        var result=awaitRun(start(config),r->!r.path("ended").isNull());
+        assertEquals("FAILED",result.path("outcome").asText(),result.toPrettyString());
+        assertTrue(result.path("failureReason").asText().contains("interlockOperational"));
+        assertFalse(result.path("commands").get(0).path("dispatchAttempted").asBoolean());
+        assertEquals(0,result.path("unresolvedDeviceActions").size());
+    }
+    ObjectNode supervisedOpticalConfiguration()throws Exception {
+        var config=opticalConfiguration(true,false,false);initialize("cooling_01");
+        String definition=cn.cdi8.workbench.facility.FacilityTestModels.opticalOnly(
+            Files.readString(Path.of("examples/gxlf/system/gxlf-facility.system-definition.xml")));
+        definition=definition.replace("</structuralConstraints>","""
+            </structuralConstraints>
+            <operatingConstraints>
+              <operatingConstraint id="test-collimation" label="系统准直与吹扫互斥" activationFactRef="collimationExecuting" releaseFactRef="collimationIdle">
+                <requirements><factRequirement id="purge" factRef="purgeStopped" maintain="execution"/></requirements>
+              </operatingConstraint>
+            </operatingConstraints>
+            """);
+        publishDefinition(definition);return config;
+    }
+    JsonNode awaitConstraint(String status)throws Exception {
+        long end=System.nanoTime()+Duration.ofSeconds(15).toNanos();JsonNode result;
+        do {
+            result=request("GET","/api/facility/state",null).path("constraints").path("test-collimation");
+            if(status.equals(result.path("status").asText()))return result;
+            Thread.sleep(100);
+        }while(System.nanoTime()<end);
+        fail("系统监督等待超时："+result);return null;
+    }
+    JsonNode awaitGuard(String guard,String status)throws Exception {
+        long end=System.nanoTime()+Duration.ofSeconds(15).toNanos();JsonNode result;
+        do {
+            result=request("GET","/api/facility/state",null).path("guards").path(guard);
+            if(status.equals(result.path("status").asText()))return result;
+            Thread.sleep(100);
+        }while(System.nanoTime()<end);
+        fail("系统放行条件等待超时："+guard+" / "+result);return null;
+    }
+    JsonNode awaitFact(String fact,String status)throws Exception {
+        long end=System.nanoTime()+Duration.ofSeconds(15).toNanos();JsonNode result;
+        do {
+            result=request("GET","/api/facility/state",null).path("facts").path(fact);
+            if(status.equals(result.path("status").asText()))return result;
+            Thread.sleep(100);
+        }while(System.nanoTime()<end);
+        fail("系统事实等待超时："+fact+" / "+result);return null;
+    }
+    @Test @Order(35) void cancellingBpmnDoesNotReleaseSystemDutyOrStopItsObservations()throws Exception {
+        String id=start(supervisedOpticalConfiguration());var active=opticalActive(id);
+        assertTrue(awaitConstraint("valid").path("active").asBoolean());
+        assertEquals(0,active.path("holds").size(),"系统义务不依赖 fac:hold");
+        request("POST","/api/runs/"+id+"/stop",Map.of());
+        assertTrue(awaitConstraint("valid").path("active").asBoolean());
+        deviceAction("cooling_01","purge_start");
+        assertTrue(awaitConstraint("violated").path("latched").asBoolean(),"流程结束后仍识别实际设备异常");
+        finishOptical(active);
+        var released=awaitConstraint("inactive");assertTrue(released.has("lastIncident"));assertFalse(released.path("active").asBoolean());
+    }
+    @Test @Order(36) void systemViolationStopsAWorkflowWithoutAnyHoldDeclaration()throws Exception {
+        String id=start(supervisedOpticalConfiguration());var active=opticalActive(id);
+        awaitConstraint("valid");deviceAction("cooling_01","purge_start");
+        var result=awaitRun(id,r->!r.path("ended").isNull());
+        assertEquals("FAILED",result.path("outcome").asText());
+        assertTrue(result.path("failureReason").asText().contains("系统工作状态约束失效"),result.toPrettyString());
+        assertEquals(1,result.path("unresolvedDeviceActions").size());
+        assertTrue(awaitConstraint("violated").path("active").asBoolean());
+        finishOptical(active);awaitConstraint("inactive");
+    }
+    @Test @Order(37) void businessDesignCanBePublishedButCannotBeStarted()throws Exception {
+        var config=configure(false,false,"PT10S");
+        setProcess(config,"test_business_design",Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_backbone.bpmn20.xml")));
+        var response=HTTP.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/api/workbench/runs"))
+            .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(config))).build(),HttpResponse.BodyHandlers.ofString());
+        assertEquals(409,response.statusCode(),response.body());assertTrue(response.body().contains("isExecutable=true"),response.body());
+        assertEquals(0,engineRuntime.createProcessInstanceQuery().count());
+        for(var device:request("GET","/api/devices",null))assertTrue(device.path("snapshot").path("active_command_id").isNull()||device.path("snapshot").path("active_command_id").isMissingNode());
+    }
+
+    String storageReleaseProjection() throws Exception {
+        String projection=Files.readString(Path.of("examples/gxlf/system/gxlf-facility-state-projection.xml"));
+        projection=projection.replaceFirst("(?s)<fact id=\"pumpEnergyAbsent\".*?</fact>",
+            "<fact id=\"pumpEnergyAbsent\" label=\"模拟器确认泵浦已停充泄放\"><condition><devicePredicate instanceSetRef=\"pump\" outerStates=\"notReady ready\" /></condition></fact>");
+        projection=projection.replaceFirst("(?s)<fact id=\"switchEnergyAbsent\".*?</fact>",
+            "<fact id=\"switchEnergyAbsent\" label=\"模拟器确认开关已安全泄放\"><condition><devicePredicate instanceSetRef=\"switch-driver\" outerStates=\"notReady ready\" /></condition></fact>");
+        projection=projection.replace("</guards>","""
+    <guard id="shieldDoorReleaseAllowed" label="模拟门禁：泵浦与开关储能已释放">
+      <condition><all><factPredicate factRef="pumpEnergyAbsent" /><factPredicate factRef="switchEnergyAbsent" /></all></condition>
+    </guard>
+    <guard id="shotAdmissionAllowed" label="模拟发次准入：泵浦与开关储能已释放">
+      <condition><all><factPredicate factRef="pumpEnergyAbsent" /><factPredicate factRef="switchEnergyAbsent" /></all></condition>
+    </guard>
+  </guards>""");
+        return projection;
+    }
+    String waitingProcess(String id)throws Exception {
+        return """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="test">
+              <bpmn:process id="%s" isExecutable="true">
+                <bpmn:startEvent id="start" />
+                <bpmn:intermediateCatchEvent id="wait"><bpmn:timerEventDefinition><bpmn:timeDuration>PT60S</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:intermediateCatchEvent>
+                <bpmn:endEvent id="end" />
+                <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="wait" />
+                <bpmn:sequenceFlow id="f2" sourceRef="wait" targetRef="end" />
+              </bpmn:process>
+            </bpmn:definitions>
+            """.formatted(id);
+    }
+    String guardedGateProcess(String id,String guard)throws Exception {
+        return """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" xmlns:fac="https://cdi8.cn/facility/v1" targetNamespace="test">
+              <bpmn:process id="%s" isExecutable="true">
+                <bpmn:startEvent id="start" />
+                <bpmn:serviceTask id="gate" name="储能安全门禁" flowable:expression="${execution.setVariable('gateCompleted', true)}">
+                  <bpmn:extensionElements><fac:requires guardRef="%s" /></bpmn:extensionElements>
+                </bpmn:serviceTask>
+                <bpmn:endEvent id="end" />
+                <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="gate" />
+                <bpmn:sequenceFlow id="f2" sourceRef="gate" targetRef="end" />
+              </bpmn:process>
+            </bpmn:definitions>
+            """.formatted(id,guard);
+    }
+
+    @Test @Order(38) void realSimulatorEnergyDutySurvivesCancelledRunUntilSafeRelease()throws Exception {
+        var config=configure(true,false,"PT10S");
+        publishProjection(storageReleaseProjection());
+        setProcess(config,"test_energy_wait",waitingProcess("test_energy_wait"));
+        String id=start(config);
+        var waiting=awaitRun(id,r->r.path("timers").size()==1&&r.path("ended").isNull());
+        assertEquals("RUNNING",waiting.path("outcome").asText(),waiting.toPrettyString());
+        var cancelled=request("POST","/api/runs/"+id+"/stop",Map.of());
+        assertEquals("CANCELLED",cancelled.path("outcome").asText(),cancelled.toPrettyString());
+
+        initialize("pump_01");
+        deviceAction("pump_01","emission_prepare");
+        deviceAction("pump_01","charge_prepare");
+        deviceAction("pump_01","charge");
+        report("pump_01","charging_completed","泵浦充电完成");
+        initialize("switch-driver_01");
+        deviceAction("switch-driver_01","charge");
+
+        assertEquals("valid",awaitFact("pumpEnergyActive","valid").path("status").asText());
+        assertEquals("valid",awaitFact("switchEnergyActive","valid").path("status").asText());
+        assertEquals("charged",deviceView("pump_01").path("snapshot").path("outer_state").asText());
+        assertTrue(request("GET","/api/facility/state",null).path("constraints").path("pump-energy").path("active").asBoolean());
+        assertTrue(request("GET","/api/facility/state",null).path("constraints").path("switch-energy").path("active").asBoolean());
+
+        assertTrue(request("GET","/api/facility/state",null).path("constraints").path("pump-energy").path("active").asBoolean(),"取消流程不能解除泵浦储能义务");
+        assertTrue(request("GET","/api/facility/state",null).path("constraints").path("switch-energy").path("active").asBoolean(),"取消流程不能解除开关储能义务");
+        assertEquals("violated",awaitGuard("shieldDoorReleaseAllowed","violated").path("status").asText());
+
+        setProcess(config,"test_energy_door",guardedGateProcess("test_energy_door","shieldDoorReleaseAllowed"));
+        var blockedDoor=startResponse(config);
+        assertEquals(409,blockedDoor.statusCode(),blockedDoor.body());
+        assertTrue(blockedDoor.body().contains("shieldDoorReleaseAllowed"),blockedDoor.body());
+        for(var device:request("GET","/api/devices",null))assertTrue(device.path("snapshot").path("active_command_id").isNull()||device.path("snapshot").path("active_command_id").isMissingNode());
+
+        setProcess(config,"test_energy_conflict",guardedGateProcess("test_energy_conflict","shotAdmissionAllowed"));
+        var blockedShot=startResponse(config);
+        assertEquals(409,blockedShot.statusCode(),blockedShot.body());
+        assertTrue(blockedShot.body().contains("shotAdmissionAllowed"),blockedShot.body());
+        for(var device:request("GET","/api/devices",null))assertTrue(device.path("snapshot").path("active_command_id").isNull()||device.path("snapshot").path("active_command_id").isMissingNode());
+
+        deviceAction("pump_01","standby_reset");
+        deviceAction("switch-driver_01","standby_reset");
+        assertEquals("valid",awaitFact("pumpEnergyAbsent","valid").path("status").asText());
+        assertEquals("valid",awaitFact("switchEnergyAbsent","valid").path("status").asText());
+        assertEquals("inactive",request("GET","/api/facility/state",null).path("constraints").path("pump-energy").path("status").asText());
+        assertEquals("inactive",request("GET","/api/facility/state",null).path("constraints").path("switch-energy").path("status").asText());
+        assertEquals("valid",awaitGuard("shieldDoorReleaseAllowed","valid").path("status").asText());
+        assertEquals("valid",awaitGuard("shotAdmissionAllowed","valid").path("status").asText());
+
+        setProcess(config,"test_energy_released",guardedGateProcess("test_energy_released","shotAdmissionAllowed"));
+        var admitted=awaitRun(start(config),r->!r.path("ended").isNull());
+        assertEquals("SUCCEEDED",admitted.path("outcome").asText(),admitted.toPrettyString());
     }
 }

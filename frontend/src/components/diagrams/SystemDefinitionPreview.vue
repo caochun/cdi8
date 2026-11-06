@@ -10,7 +10,9 @@ const condition=(node:Element|null):string=>{
   if(['condition','all','any'].includes(node.localName))return '('+[...node.children].map(condition).join(node.localName==='any'?' 或 ':' 且 ')+')';
   if(node.localName==='factPredicate')return attr(node,'factRef');
   if(node.localName==='observationPredicate')return attr(node,'observationRef')+(attr(node,'expected')?' = '+attr(node,'expected'):'');
-  return attr(node,'instanceSetRef')+': '+[attr(node,'states'),attr(node,'outerStates')].filter(Boolean).join(' / ');
+  const scope=(attr(node,'quantifier')==='any'?'任一':'全部')+' '+attr(node,'instanceSetRef');
+  if(node.localName==='actionPredicate')return scope+(attr(node,'active')==='true'?' 正在执行 ':' 未在执行 ')+attr(node,'actionRef');
+  return scope+': '+[attr(node,'states'),attr(node,'outerStates')].filter(Boolean).join(' / ');
 };
 const model=computed(()=>{
   const doc=new DOMParser().parseFromString(props.xml,'application/xml');
@@ -49,7 +51,7 @@ const dependencyModel=computed(()=>{
   const root=new DOMParser().parseFromString(props.xml,'application/xml').documentElement;
   const attr=(node:Element,name:string)=>node.getAttribute(name)||'';
   const children=(node:Element,name:string)=>[...node.children].filter(child=>child.localName===name);
-  const inputs=(node:Element)=>entries(node,'requirements').map(req=>({id:attr(req,'id'),path:attr(req,'pathRef'),input:attr(req,'inputPortRef'),signal:attr(req,'signalRef'),maintain:attr(req,'maintain')}));
+  const inputs=(node:Element)=>entries(node,'requirements').filter(req=>req.localName==='inputRequirement').map(req=>({id:attr(req,'id'),path:attr(req,'pathRef'),input:attr(req,'inputPortRef'),signal:attr(req,'signalRef'),maintain:attr(req,'maintain')}));
   const types=children(root,'componentTypes').flatMap(section=>children(section,'componentType'));
   const requirements=types.flatMap(type=>entries(type,'capabilities').flatMap(capability=>inputs(capability).map(input=>({
     ...input,owner:attr(type,'label'),capability:attr(capability,'label'),key:attr(type,'id')+'/'+attr(capability,'id')+'/'+input.id
@@ -58,7 +60,9 @@ const dependencyModel=computed(()=>{
     key:attr(type,'id')+'/'+attr(port,'id')+'/'+attr(output,'signalRef'),owner:attr(type,'label'),port:attr(port,'id'),signal:attr(output,'signalRef'),fact:attr(output,'factRef'),inputs:inputs(output)
   }))));
   const facts=children(root,'deviceFacts').flatMap(section=>children(section,'deviceFact')).map(fact=>({id:attr(fact,'id'),component:attr(fact,'typeRef'),label:attr(fact,'label'),states:attr(fact,'states'),outerStates:attr(fact,'outerStates')}));
-  return {requirements,outputs,facts};
+  const conditions=types.flatMap(type=>entries(type,'capabilities').flatMap(cap=>entries(cap,'requirements').filter(req=>req.localName==='factRequirement').map(req=>({key:attr(type,'id')+'/'+attr(cap,'id')+'/'+attr(req,'id'),owner:attr(type,'label'),capability:attr(cap,'label'),fact:attr(req,'factRef'),maintain:attr(req,'maintain')}))));
+  const constraints=entries(root,'operatingConstraints').map(rule=>({id:attr(rule,'id'),label:attr(rule,'label'),activation:attr(rule,'activationFactRef'),release:attr(rule,'releaseFactRef'),facts:entries(rule,'requirements').map(req=>attr(req,'factRef')).join(' 且 ')}));
+  return {requirements,outputs,facts,conditions,constraints};
 });
 const details=computed(()=>{
   const root=new DOMParser().parseFromString(props.xml,'application/xml').documentElement;
@@ -91,6 +95,14 @@ const details=computed(()=>{
     <table><thead><tr><th>设备 / 输出端口</th><th>输出信号</th><th>自身事实</th><th>进一步依赖</th></tr></thead><tbody>
      <tr v-for="output in dependencyModel.outputs" :key="output.key"><td>{{output.owner}}<br><code>{{output.port}}</code></td><td><code>{{output.signal}}</code></td><td><code>{{output.fact}}</code></td><td><div v-for="input in output.inputs" :key="input.id"><code>{{input.path}} / {{input.input}} → {{input.signal}}</code></div><span v-if="!output.inputs.length">无上游输入依赖</span></td></tr>
     </tbody></table>
+   </template>
+   <template v-if="dependencyModel.constraints.length">
+    <h3 class="section-title">系统工作状态约束</h3>
+    <table><thead><tr><th>约束</th><th>实际状态启用 / 安全退出解除</th><th>期间必须成立</th></tr></thead><tbody><tr v-for="rule in dependencyModel.constraints" :key="rule.id"><td>{{rule.label}}<br><code>{{rule.id}}</code></td><td>启用：<code>{{rule.activation}}</code><br>解除：<code>{{rule.release}}</code></td><td>{{rule.facts}}</td></tr></tbody></table>
+   </template>
+   <template v-if="dependencyModel.conditions.length">
+    <h3 class="section-title">能力的系统事实要求</h3>
+    <table><thead><tr><th>设备 / 能力</th><th>所需事实</th><th>适用范围</th></tr></thead><tbody><tr v-for="req in dependencyModel.conditions" :key="req.key"><td>{{req.owner}} / {{req.capability}}</td><td><code>{{req.fact}}</code></td><td>{{req.maintain==='start'?'下发前':'本次动作执行期间'}}</td></tr></tbody></table>
    </template>
    <div v-if="model.kind==='definition'" class="component-grid">
     <article v-for="type in model.types" :key="type.id" class="component-card">

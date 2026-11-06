@@ -47,7 +47,7 @@ public final class FacilityBpmnModel {
                 FacilityBpmnGrammar.validate(element);
                 if(hold(element)!=null)validateHold(model,element,definition,projection);
                 if(process.isExecutable() && element instanceof CallActivity)
-                    throw new IllegalArgumentException("新链路尚未支持跨 callActivity 的发次上下文与失败传播，请先使用同一流程内的任务/子过程："+element.getId());
+                    throw new IllegalArgumentException("尚未支持跨 callActivity 的发次上下文与失败传播，请先使用同一流程内的任务/子过程："+element.getId());
                 if(element instanceof ServiceTask task && ("${componentCommand}".equals(task.getImplementation())
                     || Objects.toString(task.getImplementation(),"").contains("systemStates.")
                     || Objects.toString(task.getImplementation(),"").contains("tango.")))

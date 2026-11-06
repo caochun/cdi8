@@ -120,7 +120,7 @@ public class RunDeploymentService {
                     for (int i = 0; i < processes.getLength(); i++) {
                         Element process = (Element) processes.item(i);
                         if (!"true".equalsIgnoreCase(process.getAttribute("isExecutable")))
-                            throw new IllegalArgumentException("新链路只能运行 isExecutable=true 的 BPMN：" + model);
+                            throw new IllegalArgumentException("只能运行 isExecutable=true 的 BPMN：" + model);
                     }
                     documents.put(model, doc);
                     versions.put(model, revision);

@@ -1,4 +1,4 @@
-# GXLF 新链路进展与待办
+# GXLF 工作台进展与待办
 
 唯一开发链路：`system-definition + facility-binding + facility-state-projection + shot-run + BPMN fac:action + Java SCXML/Tango`。
 
@@ -25,15 +25,22 @@
 - [x] 统一三类设施 XML：复数集合容器、`…Ref`/`…Href`、信号目录、结构化端点及显式实例组；数量和资源映射集中到系统定义，绑定只引用映射。
 - [x] 内置三份严格 XSD，加 Java 校验端口/信号/映射/依赖环和跨模型引用；拒绝旧格式、未知属性及未支持的执行规则。
 - [x] 投影改为显式 `condition/all|any` 三值条件树，支持无环的事实前向引用；连接可观测事实也执行过期检查。安全/时间设计说明和未决项放入 annotations，预览明确区分执行契约和设计说明。
-- [x] 新增 18 项单元测试，覆盖格式、引用、映射唯一来源、条件组合、前向引用和激活失败原子性。完整 `mvn -Pnew-chain-e2e verify` 最终通过，前端构建成功。
+- [x] 新增 18 项单元测试，覆盖格式、引用、映射唯一来源、条件组合、前向引用和激活失败原子性。完整 `mvn -Pworkbench-e2e verify` 最终通过，前端构建成功。
 
 - [x] 规范 BPMN 自定义扩展：`fac:actions/action` 集合、`typeRef/capabilityRef/expectedStateRef`、`guardRef/factRef` 与 `collectionVar`；原始 XML 与 Flowable 模型均拒绝未知字段、错误位置、重复声明及可执行流程中的设计标注。
 - [x] 新增共享 `model-contract`，严格校验 SCXML `componentMetadata` 的 JSON 类型、字段、状态/事件引用和确认来源；说明性字段迁入 `annotations`，十四类设备执行语义保持一致。
 - [x] 发布时关联当前已发布 SCXML，校验 `stateModelHref/actionRef`、投影叶子/外层状态和 BPMN 目标状态；部署再校验实际设备所加载的 XML 摘要及能力契约，检查和 Flowable 部署成功后才激活模型。
 - [x] 部署同时归档组件 SCXML，恢复使用同一组执行内容；端到端验证不兼容设备模型在下发任何命令前被拒绝，且不切换当前设施模型。
-- [x] 最终 `mvn -Pnew-chain-e2e verify` 通过：108 项单元测试、20 项 Java JTango E2E、前端类型检查和打包。契约规范见 `docs/architecture/custom-model-contracts.md`。
+- [x] 最终 `mvn -Pworkbench-e2e verify` 通过：108 项单元测试、20 项 Java JTango E2E、前端类型检查和打包。契约规范见 `docs/architecture/custom-model-contracts.md`。
 
-## P0：继续完善新链路运行契约
+## P0：继续完善实验运行契约
+
+- [x] 按业务说明重新划分系统定义、投影/监督与 BPMN：能力增加事实要求，系统增加按实际状态启用、按退出证据解除的工作状态约束；监督独立于流程寿命，保留异常、未知与未决物理动作。复审及具体边界见 `docs/architecture/system-supervision-review.md`。
+- [x] 修正联锁输入/控制器启用混淆、初始化就绪事实随配置失效、准备里程碑条件过宽和业务 BPMN 的循环前置/占位成功；补齐充电、时序、预电离、收尾和异常路径设计。完整发次仍不可执行，未决现场接口明确阻断。
+- [x] 本次复审最终回归 `mvn -Pworkbench-e2e verify` 通过：126 项单元测试、37 项 Java HTTP → Flowable → JTango → SCXML E2E，以及前端类型检查和构建。新增未知联锁阻止下发、取消后系统监督继续、无 fac:hold 的系统异常中止，以及非执行业务设计可发布但不可启动的覆盖。
+- [ ] 为独立系统监督持久化完整异常历史并验证后端崩溃恢复；当前首次观测已处于工作状态按 unknown 锁存，不能证明之前连续有效。
+- [ ] 将系统监督异常接入设计 BPMN 的物理处置、人工恢复路径；当前 Java 策略是结束本发并保留未决命令，尚未下发真实广播终止、停充、泄放和解锁。
+- [ ] 为取消流程后的逐束光路建立独立实例绑定和实际选通/输出监督；当前递归输入监控仍按命令或显式附加试验范围管理，不能用它代替全时系统监督。
 
 - [x] BPMN `fac:hold` 子流程阶段保持：复用能力输入递归依赖和投影条件，覆盖跨任务、计时等待与并行分支；入口核验、短暂失效锁存、回调重验、边界错误路由、退出释放和未决物理动作证据。新增可执行 `gxlf_stage_hold` 示例及运行界面诊断，契约见 `docs/architecture/stage-hold.md`。
 - [x] 阶段保持最终回归通过：114 项单元测试、33 项 Java HTTP → Flowable → JTango → SCXML E2E，以及前端类型检查和构建。覆盖退出瞬间失效的事务回滚/边界路由；绕过工作台直接部署到引擎也会校验保持声明。
@@ -41,7 +48,7 @@
 - [ ] 将依赖机制扩展到更多能力和信号，补充现场实例绑定、光路实际选通/输出传感器证据及非单输入拓扑；当前支持有限束线模板、预放分组和每束单一光源选择。
 - [ ] 复现并处理快照补读与事件交错导致的修订号回退误报：XML 迁移首轮 E2E 的 `successfulCommandWaitsForFacilityAndStateChangeResumesOnlyOnce` 在 switch-driver 观测上锁存回退并等待超时，完整复跑通过。需为双通道建立可验证的排序规则，既区分延迟观测与真实回退，也不能漏掉短暂依赖失效；不能简单忽略所有旧事件。
 - [ ] 对外部服务健康/心跳、事件连续性和新鲜度建立完整证据契约；当前直接快照读取只证明模拟设备可观测，不能代替真实服务健康。
-- [ ] 基于已实现的阶段保持补齐全局安全范围、联锁广播和人工确认；扩展嵌套/跨流程范围并验证完整后端崩溃恢复。`fac:requires` 是任务进入条件，`fac:completion` 是活动完成等待条件，阶段持续保持使用 `fac:hold`；设备断连仍受全局故障中止策略约束。
+- [ ] 完善系统工作状态约束覆盖、真实联锁广播和人工确认，验证完整后端崩溃恢复。`fac:requires` 是任务进入条件，`fac:completion` 是活动完成等待条件，`fac:hold` 仅表示本次实验附加的阶段保持；系统固有约束不随其退出释放。
 - [ ] 补充参数服务读取、动作参数映射和同步/异步物理完成语义；当前命令携带 shot_id/recipe_ref/version，尚未读取真实配方内容。
 - [ ] 为 run:records 定义可验证的证据来源和运行语义；目前仅允许作为不可执行设计标注，设备结果自动保存，其他证据显式调用 shotRuns.record。
 - [ ] 补充 shot-run 的完整 JSON Schema 校验、资源租约及 artifacts；初始化切片已校验基本字段并写入终态。

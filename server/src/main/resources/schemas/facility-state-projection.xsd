@@ -74,6 +74,16 @@
     <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
     <xs:attribute name="states" type="m:text" use="optional" />
     <xs:attribute name="outerStates" type="m:text" use="optional" />
+    <xs:attribute name="quantifier" type="m:quantifier" default="all" />
+  </xs:complexType>
+  <xs:simpleType name="quantifier">
+    <xs:restriction base="xs:token"><xs:enumeration value="all" /><xs:enumeration value="any" /></xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="actionPredicate">
+    <xs:attribute name="instanceSetRef" type="xs:NCName" use="required" />
+    <xs:attribute name="actionRef" type="xs:NCName" use="required" />
+    <xs:attribute name="active" type="xs:boolean" use="required" />
+    <xs:attribute name="quantifier" type="m:quantifier" default="all" />
   </xs:complexType>
   <xs:complexType name="factPredicate">
     <xs:attribute name="factRef" type="xs:NCName" use="required" />
@@ -87,6 +97,7 @@
       <xs:element name="all" type="m:junction" />
       <xs:element name="any" type="m:junction" />
       <xs:element name="devicePredicate" type="m:devicePredicate" />
+      <xs:element name="actionPredicate" type="m:actionPredicate" />
       <xs:element name="factPredicate" type="m:factPredicate" />
       <xs:element name="observationPredicate" type="m:observationPredicate" />
     </xs:choice>
@@ -96,6 +107,7 @@
       <xs:element name="all" type="m:junction" />
       <xs:element name="any" type="m:junction" />
       <xs:element name="devicePredicate" type="m:devicePredicate" />
+      <xs:element name="actionPredicate" type="m:actionPredicate" />
       <xs:element name="factPredicate" type="m:factPredicate" />
       <xs:element name="observationPredicate" type="m:observationPredicate" />
     </xs:choice>

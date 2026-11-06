@@ -11,8 +11,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FacilityDependencyRuntimeTest {
     static final ObjectMapper JSON=new ObjectMapper();
-    static String model(String name)throws Exception{return Files.readString(Path.of("examples/gxlf/system/"+name));}
-    static class Transport extends TangoGateway {
+    static String model(String name)throws Exception{
+        String xml=Files.readString(Path.of("examples/gxlf/system/"+name));
+        return name.endsWith(".system-definition.xml")?FacilityTestModels.opticalOnly(xml):xml;
+    }
+    static class Transport extends TangoGateway implements AutoCloseable {
         final Map<String,ObjectNode> values=new LinkedHashMap<>();
         final Map<String,Map<String,String>> devices=new LinkedHashMap<>();
         Transport(){super(JSON,event->{},"http://unused",false);}
@@ -25,14 +28,15 @@ class FacilityDependencyRuntimeTest {
         @Override public JsonNode catalog(){var out=JSON.createArrayNode();devices.values().forEach(d->out.addObject().put("id",d.get("id")).put("component",d.get("component")).put("connected",true));return out;}
     }
     Transport transport;FacilityStateRuntime states;FacilityDependencyRuntime dependencies;Map<String,String> instances;
-    @BeforeEach void setup() {
+    @BeforeEach void setup() throws Exception {
         transport=new Transport();
         transport.add("seed_01","seed","emitting");transport.add("shg_01","shg","emitting");
         transport.add("preamp_01","preamp","wakeup");transport.add("preamp_02","preamp","wakeup");
         transport.add("multipass_01","multipass","ready");transport.add("multipass_07","multipass","ready");
         transport.add("synchronization_01","synchronization","repeatMode");transport.add("synchronization_07","synchronization","repeatMode");
         states=new FacilityStateRuntime(JSON,transport,event->{if(dependencies!=null)dependencies.changed((FacilityStateRuntime.Changed)event);});
-        dependencies=new FacilityDependencyRuntime(JSON,states);states.refresh();
+        dependencies=new FacilityDependencyRuntime(JSON,states);
+        states.activate(model("gxlf-facility.system-definition.xml"),model("gxlf-facility-binding.xml"),model("gxlf-facility-state-projection.xml"));
         instances=states.binding().topology().bind(transport.devices,Map.of());
     }
     @AfterEach void close(){transport.close();}

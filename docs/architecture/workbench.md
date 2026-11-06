@@ -10,7 +10,7 @@
 - `device-simulator/`：默认 Java bridge、模拟环境管理、独立试验及 Apache SCXML / JTango 多设备进程。
 - `examples/`：示例模型唯一的版本化源文件。`minimal/` 直接供前端新建模型使用；`gxlf/design/` 保存不可执行的发次主干设计，`gxlf/components/` 和 `gxlf/system/` 分别提供十四类设备模型与 GXLF 设施模型。
 - `contracts/`：跨运行时的命令、结果与事件格式。
-- `server/src/test/java/cn/cdi8/workbench/NewChainIT.java` 从 HTTP API 执行 Flowable、真实 JTango 和 Java SCXML 联调；`make java-workbench-smoke` 构建并执行隔离测试。
+- `server/src/test/java/cn/cdi8/workbench/WorkbenchIT.java` 从 HTTP API 执行 Flowable、真实 JTango 和 Java SCXML 联调；`make java-workbench-smoke` 构建并执行隔离测试。
 
 后端目前按职责分包：
 

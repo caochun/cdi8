@@ -30,7 +30,7 @@ workbench-status:
 
 # Real HTTP / Flowable / JTango / Java SCXML integration tests in isolated ports and data directories.
 java-workbench-smoke:
-	mvn -Pnew-chain-e2e verify
+	mvn -Pworkbench-e2e verify
 
 java-device-package:
 	mvn -pl device-simulator -am package

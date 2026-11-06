@@ -35,6 +35,8 @@
         <port id="data-in" direction="in" interfaceRef="experiment-data-store" />
         <port id="data-out" direction="out" interfaceRef="experiment-data-store" />
         <port id="reservation" direction="inout" interfaceRef="reservation-service" />
+        <port id="selection-evidence-out" direction="out" interfaceRef="health-events" />
+        <port id="shot-motion-out" direction="out" interfaceRef="health-events" />
       </ports>
       <capabilities>
         <capability id="reserve-services" label="预约分系统服务" kind="coordination" />
@@ -60,7 +62,12 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="emit" label="种子源出光" kind="control" actionRef="seed_source_emit" />
+        <capability id="emit" label="种子源出光" kind="control" actionRef="seed_source_emit">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="laser_parameter_collect" />
         <capability id="standby" label="待机" kind="control" actionRef="standby_reset" />
       </capabilities>
@@ -80,7 +87,12 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="emit" label="二倍频出光" kind="control" actionRef="frequency_doubled_emit" />
+        <capability id="emit" label="二倍频出光" kind="control" actionRef="frequency_doubled_emit">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="laser_parameter_collect" />
         <capability id="standby-reset" label="待机复位" kind="control" actionRef="standby_reset" />
       </capabilities>
@@ -109,30 +121,32 @@
         <capability id="wakeup" label="预放唤醒" kind="control" actionRef="preamp_wakeup">
           <requirements>
             <inputRequirement id="repeat-clock" maintain="execution" pathRef="trigger-path" inputPortRef="command-in" signalRef="preamp-repeat" />
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
           </requirements>
         </capability>
         <capability id="coarse-loop" label="能量粗闭环" kind="control" actionRef="coarse_loop">
           <requirements>
             <inputRequirement id="incident-light" maintain="execution" pathRef="optical-path" inputPortRef="optical-in" signalRef="alignment-light" />
             <inputRequirement id="repeat-clock" maintain="execution" pathRef="trigger-path" inputPortRef="command-in" signalRef="preamp-repeat" />
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
           </requirements>
         </capability>
         <capability id="fine-loop" label="能量精闭环" kind="control" actionRef="fine_loop">
           <requirements>
             <inputRequirement id="incident-light" maintain="execution" pathRef="optical-path" inputPortRef="optical-in" signalRef="alignment-light" />
             <inputRequirement id="repeat-clock" maintain="execution" pathRef="trigger-path" inputPortRef="command-in" signalRef="preamp-repeat" />
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
           </requirements>
         </capability>
-        <capability id="single-recipe" label="预放单次配方" kind="control">
-          <annotations>
-            <notes>
-              <note id="implementation" kind="implementation">
-                <description>仅声明业务能力，尚未映射设备动作。</description>
-              </note>
-            </notes>
-          </annotations>
+        <capability id="clear-energy-meter" label="能量计清零" kind="control" actionRef="energy_meter_clear">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
         </capability>
-        <capability id="clear-energy-meter" label="能量计清零" kind="control" actionRef="energy_meter_clear" />
         <capability id="collect-energy-data" label="能量数据采集" kind="observe" actionRef="energy_collect" />
         <capability id="standby" label="预放待机" kind="control" actionRef="standby_reset" />
       </capabilities>
@@ -154,13 +168,22 @@
         <capability id="collimation" label="光路准直" kind="control" actionRef="collimation">
           <requirements>
             <inputRequirement id="incident-light" maintain="execution" pathRef="optical-path" inputPortRef="optical-in" signalRef="alignment-light" />
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+            <factRequirement id="purge-stopped" factRef="purgeStopped" maintain="execution" />
           </requirements>
         </capability>
-        <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot" />
+        <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
       </capabilities>
     </componentType>
     <componentType id="pump" label="泵浦分系统" role="pump" interfaceRef="tango-control" stateModelHref="components/pump-state-machine.scxml">
       <ports>
+        <port id="energy-safety-out" direction="out" interfaceRef="interlock-bus" />
         <port id="command-in" direction="in" interfaceRef="tango-control" />
         <port id="state-out" direction="out" interfaceRef="tango-control" />
         <port id="health-out" direction="out" interfaceRef="health-events" />
@@ -172,10 +195,31 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="emission-prepare" label="泵浦发射准备" kind="control" actionRef="emission_prepare" />
-        <capability id="charge-prepare" label="发射充电准备" kind="control" actionRef="charge_prepare" />
-        <capability id="charge" label="发射充电" kind="control" actionRef="charge" />
-        <capability id="trigger-prepare" label="泵浦触发准备" kind="control" actionRef="trigger_prepare" />
+        <capability id="emission-prepare" label="泵浦发射准备" kind="control" actionRef="emission_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="charge-prepare" label="发射充电准备" kind="control" actionRef="charge_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="charge" label="发射充电" kind="control" actionRef="charge">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+            <factRequirement id="charge-preparation" factRef="chargePreparationReady" maintain="start" />
+          </requirements>
+        </capability>
+        <capability id="trigger-prepare" label="泵浦触发准备" kind="control" actionRef="trigger_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="collect-data" label="泵浦数据采集" kind="observe" actionRef="collect" />
         <capability id="standby" label="泵浦待机" kind="control" actionRef="standby_reset" />
         <capability id="preionization" label="预电离发射链路" kind="control">
@@ -219,9 +263,24 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="aim-prepare" label="测量靶瞄准备" kind="control" actionRef="aim_prepare" />
-        <capability id="motion-prepare" label="测量打靶运动准备" kind="control" actionRef="motion_prepare" />
-        <capability id="measurement-prepare" label="打靶测量准备" kind="control" actionRef="measurement_prepare" />
+        <capability id="aim-prepare" label="测量靶瞄准备" kind="control" actionRef="aim_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="motion-prepare" label="测量打靶运动准备" kind="control" actionRef="motion_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="measurement-prepare" label="打靶测量准备" kind="control" actionRef="measurement_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="collect-laser-parameters" label="激光参数采集" kind="observe" actionRef="collect" />
       </capabilities>
     </componentType>
@@ -237,7 +296,12 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="pose-set" label="晶体位姿设置" kind="control" actionRef="set_pose" />
+        <capability id="pose-set" label="晶体位姿设置" kind="control" actionRef="set_pose">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
       </capabilities>
     </componentType>
     <componentType id="target-alignment" label="靶瞄准定位系统" role="target" interfaceRef="tango-control" stateModelHref="components/target-alignment-state-machine.scxml">
@@ -253,12 +317,42 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="target-preposition" label="实验靶预定位" kind="control" actionRef="target_preposition" />
-        <capability id="simulation-position" label="模拟靶定位" kind="control" actionRef="simulation_position" />
-        <capability id="beam-guide" label="光束引导" kind="control" actionRef="beam_guide" />
-        <capability id="target-reset" label="实验靶复位" kind="control" actionRef="target_reset" />
-        <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot" />
-        <capability id="analysis" label="靶瞄数据分析" kind="observe" actionRef="analyze" />
+        <capability id="target-preposition" label="实验靶预定位" kind="control" actionRef="target_preposition">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="simulation-position" label="模拟靶定位" kind="control" actionRef="simulation_position">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="beam-guide" label="光束引导" kind="control" actionRef="beam_guide">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="target-reset" label="实验靶复位" kind="control" actionRef="target_reset">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="enter-shot" label="进入打靶状态" kind="control" actionRef="enter_shot">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="analysis" label="靶瞄数据分析" kind="observe" actionRef="analyze">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="retract" label="靶瞄收靶" kind="control" actionRef="retract" />
       </capabilities>
     </componentType>
@@ -314,12 +408,19 @@
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
         <capability id="emission-prepare" label="诊断设备发射准备" kind="control" actionRef="device_confirm" />
-        <capability id="acquisition-setup" label="诊断设备采集设置" kind="control" actionRef="acquisition_setup" />
+        <capability id="acquisition-setup" label="诊断设备采集设置" kind="control" actionRef="acquisition_setup">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="postprocess" label="物理诊断后处理" kind="observe" actionRef="postprocess" />
       </capabilities>
     </componentType>
     <componentType id="synchronization" label="集中同步分系统" role="timing" interfaceRef="tango-control" stateModelHref="components/synchronization-state-machine.scxml">
       <ports>
+        <port id="preamp-recipe-out" direction="out" interfaceRef="timing-bus" />
+        <port id="measurement-recipe-out" direction="out" interfaceRef="timing-bus" />
         <port id="command-in" direction="in" interfaceRef="tango-control" />
         <port id="state-out" direction="out" interfaceRef="tango-control" />
         <port id="health-out" direction="out" interfaceRef="health-events" />
@@ -334,10 +435,33 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="preamp-repeat-recipe" label="同步预放重频配方" kind="control" actionRef="repeat_mode" />
-        <capability id="measurement-repeat-recipe" label="同步测量重频配方" kind="control" actionRef="repeat_mode" />
-        <capability id="single-recipe" label="单次配方" kind="control" actionRef="single_mode" />
-        <capability id="synchronous-trigger" label="同步触发" kind="control" actionRef="trigger" />
+        <capability id="preamp-repeat-recipe" label="同步预放重频配方" kind="control" actionRef="repeat_mode">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="measurement-repeat-recipe" label="同步测量重频配方" kind="control" actionRef="repeat_mode">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="single-recipe" label="单次模式（原型统一动作）" kind="control" actionRef="single_mode">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="synchronous-trigger" label="同步触发" kind="control" actionRef="trigger">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+            <factRequirement id="trigger-window" factRef="triggerWindowReady" maintain="start" />
+          </requirements>
+        </capability>
+        <capability id="preamp-single-recipe" label="同步预放单次配方（独立配方接口待接入）" kind="control" />
+        <capability id="measurement-single-recipe" label="同步测量单次配方（独立配方接口待接入）" kind="control" />
         <capability id="count-verification" label="计数核验" kind="observe" actionRef="post_collect" />
         <capability id="emergency-trigger" label="紧急触发" kind="safety">
           <annotations>
@@ -352,6 +476,7 @@
     </componentType>
     <componentType id="switch-driver" label="开关驱动源组件" role="switch" interfaceRef="tango-control" stateModelHref="components/switch-driver-state-machine.scxml">
       <ports>
+        <port id="energy-safety-out" direction="out" interfaceRef="interlock-bus" />
         <port id="command-in" direction="in" interfaceRef="tango-control" />
         <port id="state-out" direction="out" interfaceRef="tango-control" />
         <port id="health-out" direction="out" interfaceRef="health-events" />
@@ -363,8 +488,18 @@
         <capability id="power-on-check" label="上电检查" kind="diagnostic" actionRef="power_on_check" />
         <capability id="function-check" label="功能检查" kind="diagnostic" actionRef="function_check" />
         <capability id="parameter-receive" label="参数接收" kind="control" actionRef="parameter_dispatch" />
-        <capability id="charge" label="开关充电" kind="control" actionRef="charge" />
-        <capability id="trigger-prepare" label="开关触发准备" kind="control" actionRef="trigger_prepare" />
+        <capability id="charge" label="开关充电" kind="control" actionRef="charge">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
+        <capability id="trigger-prepare" label="开关触发准备" kind="control" actionRef="trigger_prepare">
+          <requirements>
+            <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+          </requirements>
+        </capability>
         <capability id="collect-waveform" label="放电波形采集" kind="observe" actionRef="collect_waveform" />
         <capability id="standby" label="开关待机" kind="control" actionRef="standby_reset" />
       </capabilities>
@@ -527,6 +662,8 @@
         <port id="door-in" direction="in" interfaceRef="interlock-bus" />
         <port id="personnel-in" direction="in" interfaceRef="interlock-bus" />
         <port id="event-out" direction="out" interfaceRef="interlock-bus" />
+        <port id="session-out" direction="out" interfaceRef="interlock-bus" />
+        <port id="trip-state-out" direction="out" interfaceRef="interlock-bus" />
         <port id="stop-out" direction="out" interfaceRef="interlock-bus" />
       </ports>
     </externalEndpoint>
@@ -710,10 +847,44 @@
     <mappingCoverage id="preamp-coverage" mappingRef="preamp-to-beamline" />
     <mappingCoverage id="one-to-one-beamline-services" mappingRef="beamline-components" />
   </structuralConstraints>
+  <operatingConstraints>
+    <operatingConstraint id="interlock-session" label="联锁启用期间保持安全输入和服务健康" activationFactRef="interlockArmed" releaseFactRef="interlockReleased">
+      <requirements>
+            <factRequirement id="requirement-1" factRef="interlockEstablished" maintain="execution" />
+            <factRequirement id="requirement-2" factRef="noInterlockTrip" maintain="execution" />
+            <factRequirement id="requirement-3" factRef="allServicesHealthy" maintain="execution" />
+      </requirements>
+    </operatingConstraint>
+    <operatingConstraint id="pump-energy" label="泵浦充电、储能或待触发期间保持联锁" activationFactRef="pumpEnergyActive" releaseFactRef="pumpEnergyAbsent">
+      <requirements>
+            <factRequirement id="requirement-1" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="requirement-2" factRef="allServicesHealthy" maintain="execution" />
+      </requirements>
+    </operatingConstraint>
+    <operatingConstraint id="switch-energy" label="开关充电、储能或待触发期间保持联锁" activationFactRef="switchEnergyActive" releaseFactRef="switchEnergyAbsent">
+      <requirements>
+            <factRequirement id="requirement-1" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="requirement-2" factRef="allServicesHealthy" maintain="execution" />
+      </requirements>
+    </operatingConstraint>
+    <operatingConstraint id="collimation-operation" label="准直正在执行时保持吹扫停止与联锁" activationFactRef="collimationExecuting" releaseFactRef="collimationIdle">
+      <requirements>
+            <factRequirement id="requirement-1" factRef="purgeStopped" maintain="execution" />
+            <factRequirement id="requirement-2" factRef="interlockOperational" maintain="execution" />
+            <factRequirement id="requirement-3" factRef="allServicesHealthy" maintain="execution" />
+      </requirements>
+    </operatingConstraint>
+    <operatingConstraint id="optical-operation" label="光源出光及预放工作期间保持联锁" activationFactRef="opticalOperationActive" releaseFactRef="opticalOperationReleased">
+      <requirements>
+        <factRequirement id="interlock" factRef="interlockOperational" maintain="execution" />
+        <factRequirement id="services" factRef="allServicesHealthy" maintain="execution" />
+      </requirements>
+    </operatingConstraint>
+  </operatingConstraints>
   <annotations>
     <notes>
       <note id="safety-interlock-inputs" kind="safety-design">
-        <description>安全联锁需要屏蔽门锁闭、人员归零、靶室及钛泵真空正常。实际安全接口及联锁处置尚未接入；本条不是运行规则。</description>
+        <description>安全联锁需要屏蔽门锁闭、人员归零、靶室及钛泵真空正常。输入判据与控制器启用状态分开观测；运行规则见 operatingConstraints 和能力 requirements。实际安全接口及物理联锁处置尚未接入，未知输入不放行。</description>
       </note>
       <note id="synchronous-trigger-window" kind="timing-design">
         <description>同步触发设计窗口：T0 接受触发，T+3s 泵浦和开关就绪，T+5s 正式触发。专用时间契约引擎尚未实现。</description>
@@ -723,6 +894,9 @@
       </note>
     </notes>
     <issues>
+      <issue id="energy-release-evidence" status="open" impact="safety"><description>需接入泵浦与开关的储能消除确认；故障态、待机命令回执和流程结束不能替代此证据。已充电最大停留时间尚未给出。</description></issue>
+      <issue id="selection-readiness-evidence" status="open" impact="operation"><description>准备就绪需要所选束线的实际光源选通和双链路运动准备证据；不能用任意光源出光替代。同步预放和测量配方需要独立状态与参数接口。</description></issue>
+      <issue id="interlock-before-preparation" status="reviewed-prototype" impact="safety"><description>6.2—6.7 已要求联锁正常，而图中清场位于准备并行链；原型按严格前置将清场、锁门和联锁启用置于出光、重频和唤醒之前，需现场确认。</description></issue>
       <issue id="wind-shower-scope" status="open" impact="safety">
         <description>风淋门是否属于安全联锁和光路准直前置条件尚未确认</description>
       </issue>
