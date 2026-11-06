@@ -5,9 +5,13 @@ import cn.cdi8.workbench.facility.FacilityCompletionRuntime;
 import cn.cdi8.workbench.facility.FacilityDependencyRuntime;
 import cn.cdi8.workbench.facility.FacilityHoldRuntime;
 import org.flowable.engine.impl.util.CommandContextUtil;
+import org.flowable.engine.impl.bpmn.helper.ErrorPropagation;
+import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import cn.cdi8.workbench.integration.tango.TangoGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -133,6 +137,13 @@ public class WorkflowService {
                     activeFacilityRun=pid;
                 }
                 if(!checkHolds(pid,true))continue;
+                ObjectNode supervision=supervisionIssue(pid);
+                if(supervision!=null) {
+                    rememberSupervision(pid,supervision);
+                    if(!routeSupervision(pid))
+                        stop(pid,"系统工作状态约束失效："+supervision.path("reason").asText("系统监督异常"));
+                    continue;
+                }
                 String issue = processIssue(pid);
                 if (issue != null) {
                     stop(pid, issue);
@@ -209,11 +220,6 @@ public class WorkflowService {
     private String processIssue(String pid) {
         if(observationFailure!=null)return observationFailure;
         long start=((Number)runtime.getVariable(pid,"runStartedAt")).longValue();
-        for(JsonNode constraint:facilityStates.assessment(false).path("constraints")) {
-            JsonNode incident=constraint.path("lastIncident");
-            if(constraint.path("latched").asBoolean()||incident.path("occurredAt").asLong()>=start)
-                return "系统工作状态约束失效："+constraint.path("label").asText()+" / "+incident.path("reason").asText();
-        }
         if(System.currentTimeMillis()-start>java.time.Duration.parse(runtime.getVariable(pid,"workflowTimeout").toString()).toMillis())
             return "流程等待超时";
         if(!gateway.connected())return "Tango 事件通道中断，设施观测失效";
@@ -227,6 +233,90 @@ public class WorkflowService {
                 return id+" 设备已重启或被替换";
         }
         return null;
+    }
+
+    /** Convert the supervisor's current constraint latch into a durable BPMN input. */
+    private com.fasterxml.jackson.databind.node.ObjectNode supervisionIssue(String pid) {
+        long start=((Number)runtime.getVariable(pid,"runStartedAt")).longValue();
+        JsonNode state=facilityStates.assessment(false);
+        var constraints=state.path("constraints");
+        var fields=constraints.fields();
+        while(fields.hasNext()) {
+            var entry=fields.next();String constraintId=entry.getKey();JsonNode constraint=entry.getValue();
+            JsonNode incident=constraint.path("lastIncident");
+            if(!constraint.path("latched").asBoolean()&&incident.path("occurredAt").asLong()<start)continue;
+            long occurred=incident.path("occurredAt").asLong(System.currentTimeMillis());
+            var event=json.createObjectNode()
+                .put("eventId",UUID.nameUUIDFromBytes((pid+"|"+constraintId+"|"+occurred).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString())
+                .put("kind","system-supervision")
+                .put("errorCode","SYSTEM_CONSTRAINT_VIOLATION")
+                .put("constraintId",constraintId)
+                .put("status",constraint.path("status").asText("unknown"))
+                .put("reason",incident.path("reason").asText(constraint.path("reason").asText("系统工作状态约束失效")))
+                .put("occurredAt",occurred);
+            event.set("constraint",constraint.deepCopy());event.set("facilityState",state.deepCopy());
+            return event;
+        }
+        return null;
+    }
+
+    /** Route only when the deployed BPMN declares the supervision boundary; otherwise keep legacy fail-safe termination. */
+    private void rememberSupervision(String pid,com.fasterxml.jackson.databind.node.ObjectNode event) {
+        runtime.setVariable(pid,"supervisionEvent",event.toString());
+        runtime.setVariable(pid,"supervisionReason",event.path("reason").asText("系统监督异常"));
+        runtime.setVariable(pid,"supervisionDispatchedAt",System.currentTimeMillis());
+        ArrayNode history;
+        try {
+            JsonNode rawHistory=runtime.getVariable(pid,"supervisionHistory")==null?null:json.readTree(runtime.getVariable(pid,"supervisionHistory").toString());
+            history=rawHistory!=null&&rawHistory.isArray()?(ArrayNode)rawHistory:json.createArrayNode();
+        } catch(Exception ignored) { history=json.createArrayNode(); }
+        boolean seen=false;for(JsonNode item:history)if(event.path("eventId").asText().equals(item.path("eventId").asText())){seen=true;break;}
+        if(!seen)history.add(event.deepCopy());
+        runtime.setVariable(pid,"supervisionHistory",history.toString());
+        Object raw=runtime.getVariable(pid,"shotRun");
+        if(raw!=null)runtime.setVariable(pid,"shotRun",shots.supervisionEvidence(raw,event));
+    }
+
+    private boolean routeSupervision(String pid) {
+        var instance=runtime.createProcessInstanceQuery().processInstanceId(pid).singleResult();
+        var definition=instance==null?null:repository.getProcessDefinition(instance.getProcessDefinitionId());
+        if(definition==null||!hasSupervisionBoundary(repository.getBpmnModel(definition.getId())))return false;
+        try {
+            return management.executeCommand(context->{
+                var root=CommandContextUtil.getExecutionEntityManager(context).findById(pid);
+                if(root==null)return false;
+                ErrorPropagation.propagateError("SYSTEM_CONSTRAINT_VIOLATION",deepest(root));
+                return true;
+            });
+        } catch(RuntimeException ex) {
+            if(runtime.createProcessInstanceQuery().processInstanceId(pid).count()==0)return true;
+            return false;
+        }
+    }
+
+    private static ExecutionEntity deepest(ExecutionEntity execution) {
+        ExecutionEntity result=execution;
+        for(ExecutionEntity child:execution.getExecutions()) {
+            if(child.getCurrentFlowElement()!=null)result=deepest(child);
+        }
+        return result;
+    }
+
+    private static boolean hasSupervisionBoundary(org.flowable.bpmn.model.BpmnModel model) {
+        for(var process:model.getProcesses())if(hasSupervisionBoundary(model,process))return true;
+        return false;
+    }
+    private static boolean hasSupervisionBoundary(org.flowable.bpmn.model.BpmnModel model,org.flowable.bpmn.model.FlowElementsContainer container) {
+        for(var element:container.getFlowElements()) {
+            if(element instanceof org.flowable.bpmn.model.BoundaryEvent boundary)
+                for(var definition:boundary.getEventDefinitions())
+                    if(definition instanceof org.flowable.bpmn.model.ErrorEventDefinition error) {
+                        String code=model.getErrors().getOrDefault(error.getErrorCode(),error.getErrorCode());
+                        if("SYSTEM_CONSTRAINT_VIOLATION".equals(code))return true;
+                    }
+            if(element instanceof org.flowable.bpmn.model.SubProcess sub&&hasSupervisionBoundary(model,sub))return true;
+        }
+        return false;
     }
 
     private void processCommand(Execution execution, Set<String> dirty) throws Exception {
@@ -487,6 +577,8 @@ public class WorkflowService {
         value.put("shotRun", parseJson(vars.get("shotRun")));
         value.put("facilityState", process.getEndTime()==null ? facilityStates.current() : parseJson(vars.get("finalFacilityState")));
         value.put("failureReason", vars.get("failureReason"));
+        value.put("supervisionEvent", parseJson(vars.get("supervisionEvent")));
+        value.put("supervisionHistory", parseJson(vars.get("supervisionHistory")));
         value.put("communicationError", vars.get("communicationError"));
         var active = runtime.createExecutionQuery().processInstanceId(pid).list();
         value.put("activeActivities", active.stream().map(Execution::getActivityId).filter(Objects::nonNull).distinct().toList());

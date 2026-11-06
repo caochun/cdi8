@@ -4,7 +4,7 @@
 
 ## 流程与组件
 
-当前可执行入口为 [`processes/gxlf_shot_run_smoke.bpmn20.xml`](processes/gxlf_shot_run_smoke.bpmn20.xml)，覆盖十四类设备上电/功能检查及十二类设备参数接收；按设备实例记录命令、目标状态和本发证据。当前目标流程契约位于 [`design/gxlf_shot_run_target.bpmn20.xml`](design/gxlf_shot_run_target.bpmn20.xml)，标记为 `isExecutable="false"`，用于表达完整运行阶段、设施放行条件、保持条件、系统监督异常和发次证据边界；[`design/gxlf_shot_run_backbone.bpmn20.xml`](design/gxlf_shot_run_backbone.bpmn20.xml) 保留为前一版较详细的业务设计参考。
+当前可执行入口为 [`processes/gxlf_shot_run_smoke.bpmn20.xml`](processes/gxlf_shot_run_smoke.bpmn20.xml)，覆盖十四类设备上电/功能检查及十二类设备参数接收；按设备实例记录命令、目标状态和本发证据。新增 [`processes/gxlf_supervision_bridge.bpmn20.xml`](processes/gxlf_supervision_bridge.bpmn20.xml) 作为设备模拟器→事实层→监督层→BPMN 异常边界的窄贯通切片。当前目标流程契约位于 [`design/gxlf_shot_run_target.bpmn20.xml`](design/gxlf_shot_run_target.bpmn20.xml)，标记为 `isExecutable="false"`，用于表达完整运行阶段、设施放行条件、保持条件、系统监督异常和发次证据边界；[`design/gxlf_shot_run_backbone.bpmn20.xml`](design/gxlf_shot_run_backbone.bpmn20.xml) 保留为前一版较详细的业务设计参考。
 
 `components/` 保存十四类设备模型。其中原四类为：
 

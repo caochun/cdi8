@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:flowable="http://flowable.org/bpmn"
+    xmlns:fac="https://cdi8.cn/facility/v1"
+    id="gxlf_supervision_bridge_definitions"
+    targetNamespace="https://cdi8.cn/gxlf/process">
+  <bpmn:error id="systemSupervisionError" name="系统工作状态约束失效" errorCode="SYSTEM_CONSTRAINT_VIOLATION" />
+  <bpmn:process id="gxlf_supervision_bridge" name="GXLF 系统监督贯通切片" isExecutable="true">
+    <bpmn:documentation>可执行贯通切片：设备模拟器状态变化经设施快照、事实投影和系统监督后，进入 BPMN 的中断处置路径。该流程只验证监督异常路由，不代表完整发射流程，也不把停充/泄放请求当作物理安全完成。</bpmn:documentation>
+    <bpmn:startEvent id="start" name="开始监督切片" />
+    <bpmn:serviceTask id="open_run" name="建立本发记录" flowable:expression="${shotRuns.open(execution)}" />
+    <bpmn:subProcess id="supervised_operation" name="受系统监督的设备操作">
+      <bpmn:startEvent id="operation_start" />
+      <bpmn:serviceTask id="collimate" name="执行多程光路准直" flowable:delegateExpression="${facilityActions}">
+        <bpmn:extensionElements>
+          <fac:actions>
+            <fac:action typeRef="multipass" capabilityRef="collimation" collectionVar="multipassTargets" expectedStateRef="collimationReady" />
+          </fac:actions>
+        </bpmn:extensionElements>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="operation_end" />
+      <bpmn:sequenceFlow id="operation_f1" sourceRef="operation_start" targetRef="collimate" />
+      <bpmn:sequenceFlow id="operation_f2" sourceRef="collimate" targetRef="operation_end" />
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="supervision_boundary" name="系统监督异常" attachedToRef="supervised_operation" cancelActivity="true">
+      <bpmn:errorEventDefinition errorRef="systemSupervisionError" />
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="complete_run" name="完成监督切片" flowable:expression="${shotRuns.complete(execution)}" />
+    <bpmn:serviceTask id="handle_supervision" name="记录监督异常并结束本发" flowable:expression="${shotRuns.fail(execution, supervisionReason)}" />
+    <bpmn:endEvent id="completed" name="监督切片完成" />
+    <bpmn:endEvent id="failed" name="监督异常结束" />
+    <bpmn:sequenceFlow id="f1" sourceRef="start" targetRef="open_run" />
+    <bpmn:sequenceFlow id="f2" sourceRef="open_run" targetRef="supervised_operation" />
+    <bpmn:sequenceFlow id="f3" sourceRef="supervised_operation" targetRef="complete_run" />
+    <bpmn:sequenceFlow id="f4" sourceRef="complete_run" targetRef="completed" />
+    <bpmn:sequenceFlow id="supervision_flow" sourceRef="supervision_boundary" targetRef="handle_supervision" />
+    <bpmn:sequenceFlow id="supervision_end_flow" sourceRef="handle_supervision" targetRef="failed" />
+  </bpmn:process>
+</bpmn:definitions>

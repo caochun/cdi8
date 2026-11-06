@@ -78,6 +78,17 @@ public final class ShotRunRuntime {
         execution.setVariable("finalFacilityState",facilityStates.current().toString());
     }
 
+    /** Record a supervisor decision before the BPMN exception path takes over. */
+    public synchronized String supervisionEvidence(Object value,JsonNode event){
+        ObjectNode run=current(value);ArrayNode evidence=run.withArray("evidence");
+        String id="supervision-"+event.path("eventId").asText(UUID.randomUUID().toString());
+        for(int i=0;i<evidence.size();i++)if(id.equals(evidence.get(i).path("id").asText())){evidence.remove(i);break;}
+        evidence.addObject().put("id",id).put("kind","system-supervision")
+            .put("status",event.path("status").asText("unknown"))
+            .put("observed_at",Instant.now().toString()).set("details",event.deepCopy());
+        return run.toString();
+    }
+
     public synchronized void cancel(DelegateExecution execution,String reason){
         ObjectNode run=current(execution);run.put("stage","cancelled");
         run.putObject("failure").put("code","RUN_CANCELLED").put("reason",Objects.toString(reason,"流程已取消"))

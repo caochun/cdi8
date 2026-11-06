@@ -736,7 +736,23 @@ class WorkbenchIT {
         assertTrue(awaitConstraint("violated").path("active").asBoolean());
         finishOptical(active);awaitConstraint("inactive");
     }
-    @Test @Order(37) void businessDesignCanBePublishedButCannotBeStarted()throws Exception {
+    @Test @Order(37) void simulatorFactsAndSupervisorRouteIntoBpmnBoundary()throws Exception {
+        var config=supervisedOpticalConfiguration();
+        setProcess(config,"test_supervision_bridge",Files.readString(Path.of("examples/gxlf/processes/gxlf_supervision_bridge.bpmn20.xml")));
+        String id=start(config);var active=opticalActive(id);
+        awaitConstraint("valid");
+        deviceAction("cooling_01","purge_start");
+        var result=awaitRun(id,r->!r.path("ended").isNull());
+        assertEquals("FAILED",result.path("outcome").asText(),result.toPrettyString());
+        assertTrue(result.path("activities").findValuesAsText("id").contains("handle_supervision"),result.toPrettyString());
+        assertEquals("test-collimation",result.path("supervisionEvent").path("constraintId").asText(),result.toPrettyString());
+        assertEquals("violated",result.path("supervisionEvent").path("status").asText(),result.toPrettyString());
+        assertEquals("SYSTEM_CONSTRAINT_VIOLATION",result.path("supervisionEvent").path("errorCode").asText());
+        assertEquals(1,result.path("supervisionHistory").size(),result.toPrettyString());
+        assertTrue(result.path("shotRun").path("evidence").findValuesAsText("kind").contains("system-supervision"),result.toPrettyString());
+        finishOptical(active);awaitConstraint("inactive");
+    }
+    @Test @Order(38) void businessDesignCanBePublishedButCannotBeStarted()throws Exception {
         var config=configure(false,false,"PT10S");
         setProcess(config,"test_business_design",Files.readString(Path.of("examples/gxlf/design/gxlf_shot_run_backbone.bpmn20.xml")));
         var response=HTTP.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+"/api/workbench/runs"))
@@ -793,7 +809,7 @@ class WorkbenchIT {
             """.formatted(id,guard);
     }
 
-    @Test @Order(38) void realSimulatorEnergyDutySurvivesCancelledRunUntilSafeRelease()throws Exception {
+    @Test @Order(39) void realSimulatorEnergyDutySurvivesCancelledRunUntilSafeRelease()throws Exception {
         var config=configure(true,false,"PT10S");
         publishProjection(storageReleaseProjection());
         setProcess(config,"test_energy_wait",waitingProcess("test_energy_wait"));
@@ -846,7 +862,7 @@ class WorkbenchIT {
         var admitted=awaitRun(start(config),r->!r.path("ended").isNull());
         assertEquals("SUCCEEDED",admitted.path("outcome").asText(),admitted.toPrettyString());
     }
-    @Test @Order(39) void realSimulatorMapsMultipleComponentStatesToFactsWithoutSupervision()throws Exception {
+    @Test @Order(40) void realSimulatorMapsMultipleComponentStatesToFactsWithoutSupervision()throws Exception {
         configureFacilityProfile(false);
         var devices=request("GET","/api/devices",null);
         assertEquals(2,java.util.stream.StreamSupport.stream(java.util.Spliterators.spliteratorUnknownSize(devices.elements(),0),false)
