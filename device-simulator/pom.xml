@@ -1,27 +1,26 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <parent><groupId>cn.cdi8</groupId><artifactId>cdi8-workbench</artifactId><version>0.1.0</version></parent>
+  <parent><groupId>cn.cdi8</groupId><artifactId>cdi8</artifactId><version>0.1.0</version></parent>
   <artifactId>device-simulator</artifactId>
   <name>Java SCXML Tango Device Simulator</name>
   <properties>
-    <commons-scxml.version>2.0-20260701.010636-103</commons-scxml.version>
-    <jtango.version>10.0.1</jtango.version>
+    <basys-scxml.version>0.5.1</basys-scxml.version>
     <jackson-bom.version>2.22.0</jackson-bom.version>
     <commons-io.version>2.22.0</commons-io.version>
   </properties>
-  <repositories>
-    <repository>
-      <id>apache-scxml-snapshots</id>
-      <url>https://repository.apache.org/content/repositories/snapshots</url>
-      <releases><enabled>false</enabled></releases>
-      <snapshots><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></snapshots>
-    </repository>
-  </repositories>
+  <dependencyManagement>
+    <dependencies>
+      <!-- SCXML brings Commons IO transitively; retain the verified version. -->
+      <dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId><version>${commons-io.version}</version></dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
-    <dependency><groupId>cn.cdi8</groupId><artifactId>model-contract</artifactId><version>${project.version}</version></dependency>
-    <dependency><groupId>org.apache.commons</groupId><artifactId>commons-scxml2</artifactId><version>${commons-scxml.version}</version></dependency>
+    <dependency><groupId>cn.cdi8</groupId><artifactId>component-contract</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>org.tango-controls</groupId><artifactId>JTangoServer</artifactId><version>10.0.1</version></dependency>
+    <!-- BaSyS distribution of Apache Commons SCXML 2 (org.apache.commons.scxml2),
+         published as a fixed artifact on Maven Central. 0.5.1 is the distribution version. -->
+    <dependency><groupId>de.dfki.cos.basys.common</groupId><artifactId>scxml</artifactId><version>${basys-scxml.version}</version></dependency>
     <dependency><groupId>org.apache.commons</groupId><artifactId>commons-jexl3</artifactId><version>3.6.4</version></dependency>
-    <dependency><groupId>org.tango-controls</groupId><artifactId>JTangoServer</artifactId><version>${jtango.version}</version></dependency>
     <dependency><groupId>org.xerial</groupId><artifactId>sqlite-jdbc</artifactId><version>3.46.1.0</version></dependency>
     <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
     <!-- JTango reports request failures through SLF4J; keep the standalone

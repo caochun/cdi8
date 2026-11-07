@@ -42,7 +42,7 @@
 
 唯一的 `componentMetadata` 放在根 `scxml/datamodel/data`，以 JSON 文本或 CDATA 表达，不能放进子状态，不能通过 `src` 或 `expr` 引入。重复 JSON 字段、尾随 JSON 内容和重复 XML ID 都拒绝。
 
-共享的 `model-contract/ComponentContract` 负责结构与静态引用，服务端和 Java 模拟器使用同一实现。模拟器还会加载 Apache Commons SCXML 引擎，校验实际可执行性。当前快照协议只支持一个活动叶子状态，不支持 `parallel`。
+共享的 `component-contract/ComponentContract` 负责结构与静态引用，服务端和 Java 模拟器使用同一实现。模拟器还会加载 Apache Commons SCXML 引擎，校验实际可执行性。当前快照协议只支持一个活动叶子状态，不支持 `parallel`。
 
 | 字段 | 校验 |
 |---|---|
@@ -66,16 +66,16 @@
 
 ## 发布、部署与恢复
 
-1. SCXML 发布和独立试验经过相同的 Java 元数据校验及引擎加载。
+1. SCXML 发布与模拟环境创建经过相同的 Java 元数据校验及引擎加载。
 2. 系统定义的 `stateModelHref="components/<模型编号>.scxml"` 解析到工作台模型库当前已发布内容；组件能力的 `actionRef` 必须在该 SCXML 的 `actions` 中存在。绑定和投影引用当前已发布设施模型。
 3. 投影 `states` 必须引用实际叶子状态，`outerStates` 必须引用实际外层状态；`device-state` 观测的 expected 检查对应组件的叶子或外层状态。BPMN 的 `expectedStateRef` 只接受一个实际叶子状态。
 4. 启动时重新检查当前已应用环境的设备集合、组件、发布快照标识和 XML 摘要。环境描述的 `modelDigest` 与 Tango 快照的 `model_digest` 必须匹配选中 XML。选中模型与定义所引用模型的 `model_id` 必须一致；同一组件类型在当前环境中使用同一份模型内容。
 5. 使用实际选中的设备 SCXML 再验证能力、投影和 BPMN。模型组、流程、实例绑定及运行参数检查完成后，Flowable 使用候选模型完成部署，再激活设施模型并启动流程。失败的模型检查或部署不切换当前设施模型，不发送设备命令。
 6. 设施三模型及各类型的实际 SCXML 随流程部署归档。恢复使用这组归档，避免后来编辑模型影响在途运行。归档是本次执行内容的证据，不引入运行时版本分支。
 
-单个模型校验不能证明完整实验过程安全：外部观测、全局安全条件及现场处置边界仍以 `todo.md` 为准。本次校验解决模型声明不一致和扩展被静默忽略的问题。
+单个模型校验不能证明完整实验过程安全：外部观测、全局安全条件及现场处置边界见[当前范围与验证](../development/validation.md)。本次校验解决模型声明不一致和扩展被静默忽略的问题。
 
-系统定义新增能力 `factRequirement` 与独立 `operatingConstraints`；投影新增量词和 `actionPredicate`。系统定义单独发布检查结构及 SCXML 动作；事实引用在投影发布、BPMN 校验及模型组部署时联合核验，允许先编辑系统定义再补齐投影，未配齐的模型组不能运行。工作状态义务与 BPMN 保持范围的区别、当前运行实现及业务复审见[系统监督复审](system-supervision-review.md)。
+系统定义支持能力 `factRequirement` 与独立 `operatingConstraints`；投影支持量词和 `actionPredicate`。系统定义单独发布检查结构及 SCXML 动作；事实引用在投影发布、BPMN 校验及模型组部署时联合核验，允许先编辑系统定义再补齐投影，未配齐的模型组不能运行。工作状态义务与 BPMN 保持范围的区别及当前运行实现见[监督运行边界](facility-runtime.md)。
 
 ## 验证
 

@@ -1,36 +1,60 @@
-.PHONY: java-device-package control-package operator tango-bridge workbench workbench-start workbench-stop workbench-restart workbench-status java-workbench-smoke
+.PHONY: package backend-package adapter-package simulator-package facility workbench simulation simulation-start simulation-stop simulation-restart simulation-status facility-start facility-stop workbench-start workbench-stop workbench-restart simulation-test
 
-control-package:
+package:
 	mvn package
 
-operator:
-	mvn -pl model-contract -am install -DskipTests
-	mvn -pl server spring-boot:run
+backend-package:
+	mvn -pl facility-server,workbench-server -am package
 
-# Managed Java bridge; devices are created from saved SCXML versions in the workbench.
-tango-bridge:
-	java -jar device-simulator/target/device-simulator-0.1.0.jar --bridge
+adapter-package:
+	mvn -pl tango-adapter -am package
+
+simulator-package:
+	mvn -pl device-simulator -am package
+
+# Run each business backend independently in the foreground.
+facility:
+	mvn -pl facility-server -am package
+	java -jar facility-server/target/facility-server-0.1.0.jar
 
 workbench:
+	mvn -pl facility-contract -am install -DskipTests
+	mvn -pl workbench-server spring-boot:run
+
+# The facility server embeds Tango access and launches the simulation device JVM.
+simulation:
 	mvn package
-	java scripts/Workbench.java start
+	java scripts/Services.java start
+
+simulation-start:
+	java scripts/Services.java start
+
+simulation-stop:
+	java scripts/Services.java stop
+
+simulation-restart:
+	mvn package
+	java scripts/Services.java restart
+
+simulation-status:
+	java scripts/Services.java status
+
+# Facility scope includes its simulation device child process.
+facility-start:
+	java scripts/Services.java start facility
+
+facility-stop:
+	java scripts/Services.java stop facility
 
 workbench-start:
-	java scripts/Workbench.java start
+	java scripts/Services.java start workbench
 
 workbench-stop:
-	java scripts/Workbench.java stop
+	java scripts/Services.java stop workbench
 
 workbench-restart:
-	mvn package
-	java scripts/Workbench.java restart
+	java scripts/Services.java restart workbench
 
-workbench-status:
-	java scripts/Workbench.java status
-
-# Real HTTP / Flowable / JTango / Java SCXML integration tests in isolated ports and data directories.
-java-workbench-smoke:
+# Real HTTP / Flowable / JTango / SCXML integration, using isolated data and ports.
+simulation-test:
 	mvn -Pworkbench-e2e verify
-
-java-device-package:
-	mvn -pl device-simulator -am package

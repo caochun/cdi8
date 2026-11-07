@@ -142,7 +142,7 @@ public class ComponentRuntime implements AutoCloseable {
         value.put("model",model.metadata.path("model_id").asText()).put("model_version",model.metadata.path("model_version").asInt());
         value.put("model_digest",model.digest);
         value.put("model_revision",modelRevision);
-        value.put("component",model.metadata.path("display_name").asText()).put("engine","apache-commons-scxml2");
+        value.put("componentLabel",model.metadata.path("display_name").asText()).put("engine","apache-commons-scxml2");
         value.put("state_id",leaf).put("outer_state",outer).put("outer_state_label",model.metadata.path("outer_labels").path(outer).asText());
         value.put("inner_state",leaf).put("inner_state_label",model.metadata.path("inner_labels").path(leaf).asText());
         value.put("active_command_id",(String)state.get("active_id")).put("active_action",active==null?null:(String)active.get("action"));

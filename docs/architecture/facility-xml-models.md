@@ -25,7 +25,7 @@
 
 `id` 是程序标识，`label` 是展示名称，`description` 是文字内容。ID 在所属集合内唯一，端口和能力在所属对象内唯一。不同组件可都有 `command-in` 和 `power-on-check`。
 
-`factRequirement` 的 `factRef` 必须引用同组投影中的事实；能力要求的 `maintain` 为 start/execution。`operatingConstraint` 必须有独立 `activationFactRef`、`releaseFactRef`，且只接受 execution 事实要求。启用/解除不得直接或经 fact 引用树依赖被要求的事实。`devicePredicate` 可声明 all/any 量词，`actionPredicate` 用实际 `actionRef` 与 `active` 观测动作是否执行。跨模型和实际 SCXML 校验均强制执行，详细状态语义见[系统监督复审](system-supervision-review.md)。
+`factRequirement` 的 `factRef` 必须引用同组投影中的事实；能力要求的 `maintain` 为 start/execution。`operatingConstraint` 必须有独立 `activationFactRef`、`releaseFactRef`，且只接受 execution 事实要求。启用/解除不得直接或经 fact 引用树依赖被要求的事实。`devicePredicate` 可声明 all/any 量词，`actionPredicate` 用实际 `actionRef` 与 `active` 观测动作是否执行。跨模型和实际 SCXML 校验均强制执行，详细状态语义见[监督运行边界](facility-runtime.md)。
 
 对象引用使用 `typeRef`、`instanceSetRef`、`signalRef`、`factRef`、`pathRef`、`inputPortRef` 等属性；文件引用使用 `stateModelHref`。源码示例的 `components/…scxml` 相对于 `examples/gxlf/`；导入工作台后以文件名对应的模型编号解析当前已发布 SCXML。XML 不触发文件下载或远程 schema 加载。
 
@@ -54,7 +54,7 @@
 
 ```xml
 <instanceBindings resolution="runtime-configuration">
-  <instanceBinding instanceSetRef="preamp" runtimeKey="preamp" runtimePattern="preamp_{index}" />
+  <instanceBinding instanceSetRef="preamp" deviceBindingKey="preamp" deviceIdPattern="preamp_{index}" />
 </instanceBindings>
 <beamlineBindings resolution="runtime-configuration">
   <beamlineBinding id="beamlines" resourceRef="beamline">
@@ -67,7 +67,7 @@
 </beamlineBindings>
 ```
 
-这是结构片段；完整绑定必须覆盖系统定义的全部实例集合和所选束线资源的全部映射。运行设备目录可只包含原型环境中实际部署的部分实例；动作需要的具体实例缺失时仍阻断。`runtimeKey` 对应目录报告的组件键，再经 `instanceSetRef → typeRef` 解析类型，不根据设备名猜测类型。运行配置的 `facilityInstances` 可提供具体实例到实际设备编号的覆盖映射。
+这是结构片段；完整绑定必须覆盖系统定义的全部实例集合和所选束线资源的全部映射。运行设备目录可只包含原型环境中实际部署的部分实例；动作需要的具体实例缺失时仍阻断。`deviceBindingKey` 对应设备目录的同名字段，再经 `instanceSetRef → typeRef` 解析类型，不根据设备名猜测类型。运行配置的 `facilityInstances` 可提供具体实例到实际设备编号的覆盖映射。
 
 当前运行时仅支持一个束线资源集合；参与能力依赖的类型须唯一对应实例集合，每束每项输入须唯一选路。超出这些能力的模型会明确拒绝，不作隐式推断。
 
@@ -124,10 +124,10 @@
 
 ## 校验与回归
 
-三个权威 XSD 位于 [`server/src/main/resources/schemas/`](../../server/src/main/resources/schemas/)。它们限制层次、章节顺序、基数、类型、枚举、属性及部分文档内键/引用，不接收任意扩展元素或属性。服务端通过禁止 DTD 和外部实体的公共 `ModelXml` 入口加载内置 schema。
+三个权威 XSD 位于 [`facility-contract/src/main/resources/schemas/`](../../facility-contract/src/main/resources/schemas)。它们限制层次、章节顺序、基数、类型、枚举、属性及部分文档内键/引用，不接收任意扩展元素或属性。两个后端通过共享契约中禁止 DTD 和外部实体的公共 `ModelXml` 入口加载内置 schema。
 
 Java 语义校验补充端口归属/方向、物理接口一致性、信号、映射覆盖、依赖环、条件引用及跨文档关系。系统模型校验 API 返回 `validationScope=referenced-models`：定义中的 `stateModelHref` 解析到模型库当前已发布 SCXML，核验能力 `actionRef`；绑定解析当前已发布定义；投影另外核验组件叶子/外层状态及模型引用。运行部署以本次选中的实际设备 SCXML 再做检查，归档所有参与校验的组件模型；重启恢复使用同一份归档。候选模型检查和 Flowable 部署完成后才激活，失败不切换当前模型。BPMN 与 SCXML 元数据规范见[自定义模型契约](custom-model-contracts.md)。
 
-使用 `mvn -pl server -am -Dexec.skip=true test` 验证语法和运行单元测试；使用 `mvn -Pworkbench-e2e verify` 验证真实 Java JTango、Flowable 和前端构建。不会创建 CI 工作流。
+使用 `mvn -pl workbench-server -am -Dexec.skip=true test` 验证语法和运行单元测试；使用 `mvn -Pworkbench-e2e verify` 验证真实 Java JTango、Flowable 和前端构建。不会创建 CI 工作流。
 
 启动时会按现有模型库规则更新未被用户修改的内置示例，并新增发布快照。用户修改过的旧格式草稿、发布内容和在途部署归档不会被自动改写；这些模型需按新格式重新导入/编辑并发布，旧格式在途归档不能在新解析器中恢复。

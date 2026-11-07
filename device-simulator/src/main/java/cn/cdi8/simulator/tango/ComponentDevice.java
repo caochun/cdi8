@@ -21,7 +21,7 @@ import org.tango.server.events.EventType;
 import org.tango.utils.DevFailedUtils;
 import static cn.cdi8.simulator.runtime.ComponentModel.*;
 
-/** A real JTango device exposing the same command/snapshot contract as PyTango. */
+/** Tango endpoint exposing a simulated component instance or a condition source. */
 @Device(transactionType=TransactionType.NONE)
 public class ComponentDevice {
     public record Settings(ComponentModel model, Path database, boolean autoComplete, long delayMs,
@@ -152,7 +152,7 @@ public class ComponentDevice {
             }
         }
         synchronized JsonNode snapshot() {
-            ObjectNode value=JSON.createObjectNode().put("model","preparation-context-demo-v1").put("component","演示同步及环境条件");
+            ObjectNode value=JSON.createObjectNode().put("model","preparation-context-demo-v1").put("componentLabel","演示同步及环境条件");
             value.set("conditions",JSON.valueToTree(conditions));value.put("active_command_id",active);
             value.put("active_action",active==null?null:"preamp_repeat");
             value.set("last_result",last==null?NullNode.instance:results.get(last));return value;

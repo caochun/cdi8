@@ -17,7 +17,7 @@ public final class ComponentModel {
     public ComponentModel(String xml) {
         this.xml = xml;
         try {
-            var contract = new cn.cdi8.model.ComponentContract(xml);
+            var contract = new cn.cdi8.component.contract.ComponentContract(xml);
             metadata = contract.metadata();
             var root = ScxmlEngine.secureDocument(xml).getDocumentElement();
             var states = root.getElementsByTagNameNS(root.getNamespaceURI(), "*");
@@ -26,7 +26,7 @@ public final class ComponentModel {
                 if ("state".equals(state.getLocalName()) || "final".equals(state.getLocalName()))
                     outer.put(state.getAttribute("id"),contract.outer(state.getAttribute("id")));
             }
-            // Exercise the same engine during validation, trials and device creation.
+            // Exercise the same engine during validation and device creation.
             if (root.getElementsByTagNameNS(root.getNamespaceURI(), "parallel").getLength() > 0)
                 throw new IllegalArgumentException("组件快照协议要求单一叶子状态，不支持 parallel");
             outer(new ScxmlEngine(xml).leaf());

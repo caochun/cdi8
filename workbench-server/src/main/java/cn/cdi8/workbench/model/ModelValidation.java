@@ -1,0 +1,139 @@
+package cn.cdi8.workbench.model;
+
+import cn.cdi8.workbench.integration.facility.FacilityClient;
+
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.*;
+import java.io.StringReader;
+import javax.xml.stream.*;
+import org.flowable.bpmn.converter.BpmnXMLConverter;
+import org.flowable.bpmn.model.BpmnModel;
+import org.flowable.validation.ProcessValidatorFactory;
+import org.springframework.stereotype.Service;
+import cn.cdi8.facility.contract.SystemDefinitionModel;
+import cn.cdi8.facility.contract.FacilityBindingModel;
+import cn.cdi8.facility.contract.FacilityStateProjectionModel;
+import cn.cdi8.workbench.workflow.facility.FacilityBpmnModel;
+import cn.cdi8.facility.contract.FacilityComponentModels;
+
+@Service
+public class ModelValidation {
+    private final ObjectMapper json;
+    private final FacilityClient facility;
+    private final cn.cdi8.workbench.integration.facility.FacilityStateClient states;
+    private final ModelStore store;
+    @org.springframework.beans.factory.annotation.Autowired
+    public ModelValidation(ObjectMapper json,FacilityClient facility,cn.cdi8.workbench.integration.facility.FacilityStateClient states,ModelStore store){this.json=json;this.facility=facility;this.states=states;this.store=store;}
+    public ModelValidation(ObjectMapper json,FacilityClient facility,cn.cdi8.workbench.integration.facility.FacilityStateClient states){this(json,facility,states,null);}
+    public String publishedXml(String id) {
+        var revisions=store.get(id).path("revisions");
+        if(revisions.isEmpty())throw new IllegalArgumentException("引用模型尚未发布："+id);
+        return revisions.get(revisions.size()-1).path("xml").asText();
+    }
+    public FacilityComponentModels components(SystemDefinitionModel definition) {
+        return store==null?FacilityComponentModels.bundled(definition):FacilityComponentModels.resolve(definition,href->{
+            String id=FacilityComponentModels.modelId(href);
+            if(!"scxml".equals(store.get(id).path("kind").asText()))throw new IllegalArgumentException("stateModelHref 必须引用 SCXML："+href);
+            return publishedXml(id);
+        });
+    }
+    private SystemDefinitionModel publishedDefinition(){return store==null?states.definition():SystemDefinitionModel.parse(publishedXml("gxlf-facility"));}
+    private FacilityStateProjectionModel publishedProjection(){return store==null?states.projection():FacilityStateProjectionModel.parse(publishedXml("gxlf-facility-state-projection"));}
+    public static BpmnModel parse(String xml) throws Exception {
+        cn.cdi8.workbench.workflow.facility.FacilityBpmnGrammar.validateXml(xml);
+        var factory=XMLInputFactory.newFactory();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD,false);
+        factory.setProperty("javax.xml.stream.isSupportingExternalEntities",false);
+        if(xml==null || xml.length()>1_000_000 || xml.toUpperCase().contains("<!DOCTYPE") || xml.toUpperCase().contains("<!ENTITY"))throw new IllegalArgumentException("XML 为空、过大或包含 DTD/实体");
+        var reader=factory.createXMLStreamReader(new StringReader(xml));
+        try{return new BpmnXMLConverter().convertToBpmnModel(reader);}finally{reader.close();}
+    }
+    public JsonNode validate(String kind,String xml) {
+        if("scxml".equals(kind))return facility.request("POST","/lab/validate",java.util.Map.of("xml",xml));
+        ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
+        try {
+            if("system".equals(kind)) {
+                switch (rootName(xml)) {
+                    case "system-definition" -> {
+                        var model=SystemDefinitionModel.parse(xml);
+                        components(model);
+                        value.put("systemDefinition",model.id());
+                        value.put("componentTypes",model.componentTypeCount());
+                        value.put("instanceSets",model.instanceSetCount());
+                        value.put("structuralConstraints",model.structuralConstraintCount());
+                        value.put("operatingConstraints",model.operatingConstraints().size());
+                        value.put("connections",model.connectionCount());
+                        value.put("openIssues",model.openIssueCount());
+                    }
+                    case "facility-binding" -> {
+                        var model=FacilityBindingModel.parse(xml,publishedDefinition());
+                        value.put("facilityBinding",model.id());
+                        value.put("instanceBindings",model.instanceBindingCount());
+                        value.put("beamlineBindings",model.beamlineBindingCount());
+                        value.put("externalBindings",model.externalBindingCount());
+                    }
+                    case "facility-state-projection" -> {
+                        var model=FacilityStateProjectionModel.parse(xml);
+                        var definition=publishedDefinition();model.validateComponents(definition,components(definition));
+                        var binding=store==null?states.binding():FacilityBindingModel.parse(publishedXml("gxlf-facility-binding"),definition);
+                        if(!binding.id().equals(model.bindingRef()))throw new IllegalArgumentException("设施投影 bindingRef 不一致");
+                        value.put("facilityStateProjection",model.id());
+                        value.put("observations",model.observationCount());
+                        value.put("facts",model.factCount());
+                        value.put("guards",model.guardCount());
+                    }
+                    default -> throw new IllegalArgumentException("不支持的系统模型根元素："+rootName(xml));
+                }
+                value.put("validationScope","referenced-models");
+                value.put("valid",true);return value;
+            }
+            return validateBpmn(xml,publishedDefinition(),publishedProjection(),components(publishedDefinition()));
+        } catch(Exception ex) {
+            diagnostic(diagnostics,ex);
+        }
+        value.put("valid",diagnostics.isEmpty());return value;
+    }
+    public JsonNode validateBpmn(String xml,SystemDefinitionModel definition,FacilityStateProjectionModel projection,FacilityComponentModels components) {
+        ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
+        try {
+            var model=parse(xml);
+            projection.validateComponents(definition,components);
+            FacilityBpmnModel.validateProcess(model,definition,projection,components);
+            if(model.getProcesses().isEmpty())throw new IllegalArgumentException("BPMN 缺少 process");
+            for(var error:engineErrors(model)) {
+                diagnostics.addObject().put("severity","error").put("message",error.getDefaultDescription()).put("elementId",error.getActivityId()==null?"":error.getActivityId());
+            }
+            value.put("processKey",model.getMainProcess().getId());
+            value.put("executable",model.getProcesses().stream().allMatch(org.flowable.bpmn.model.Process::isExecutable));
+        } catch(Exception ex) {
+            diagnostic(diagnostics,ex);
+        }
+        value.put("valid",diagnostics.isEmpty());return value;
+    }
+    /** A design must be structurally valid without pretending that a service has an implementation. */
+    public static java.util.List<org.flowable.validation.ValidationError> engineErrors(BpmnModel model) {
+        return new ProcessValidatorFactory().createDefaultProcessValidator().validate(model).stream().filter(error->{
+            if(error.isWarning())return false;
+            if("flowable-process-definition-not-executable".equals(error.getProblem())
+                &&model.getProcesses().stream().noneMatch(org.flowable.bpmn.model.Process::isExecutable))return false;
+            if("flowable-servicetask-missing-implementation".equals(error.getProblem())
+                &&model.getProcesses().stream().anyMatch(p->p.getId().equals(error.getProcessDefinitionId())&&!p.isExecutable()))return false;
+            return true;
+        }).toList();
+    }
+    private static void diagnostic(ArrayNode diagnostics,Exception ex) {
+            Throwable cause=ex;while(cause.getCause()!=null)cause=cause.getCause();
+            var item=diagnostics.addObject().put("severity","error").put("message",cause.getMessage()==null?cause.toString():cause.getMessage());
+            if(cause instanceof org.xml.sax.SAXParseException error)
+                item.put("line",error.getLineNumber()).put("column",error.getColumnNumber());
+            if(cause instanceof XMLStreamException error && error.getLocation()!=null)
+                item.put("line",error.getLocation().getLineNumber()).put("column",error.getLocation().getColumnNumber());
+    }
+    private static String rootName(String xml) throws Exception {
+        var factory=javax.xml.parsers.DocumentBuilderFactory.newInstance();factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities",false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities",false);
+        return factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new StringReader(xml))).getDocumentElement().getLocalName();
+    }
+}

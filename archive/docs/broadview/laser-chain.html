@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GXLF 激光链路 — Broadview</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #2a2a2e; color: #e0e0e0; font-family: 'Consolas','Monaco','Courier New',monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+.status-bar { background: #1a1a1e; border-bottom: 1px solid #444; padding: 4px 12px; display: flex; justify-content: space-between; align-items: center; height: 28px; flex-shrink: 0; }
+.status-bar .left { display: flex; gap: 16px; align-items: center; }
+.status-bar .indicator { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; display: inline-block; margin-right: 4px; }
+.status-bar .shot-id { color: #00ced1; font-weight: bold; }
+.main { display: flex; flex: 1; overflow: hidden; }
+.svg-container { flex: 1; overflow: auto; }
+.detail-panel { width: 360px; background: #1e1e22; border-left: 1px solid #444; overflow-y: auto; display: none; flex-shrink: 0; }
+.detail-panel.open { display: block; }
+svg text { font-family: 'Consolas','Monaco','Courier New',monospace; }
+.panel-section { border-bottom: 1px solid #333; }
+.panel-header { background: #252528; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
+.panel-header h3 { font-size: 13px; font-weight: bold; color: #00ced1; }
+.panel-close { cursor: pointer; color: #888; font-size: 16px; }
+.panel-close:hover { color: #fff; }
+.panel-body { padding: 8px 12px; }
+.info-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+.info-row .label { color: #888; }
+.info-row .value { color: #e0e0e0; }
+.cmd-item { padding: 5px 8px; margin: 3px 0; background: #252528; border-radius: 3px; border-left: 3px solid #444; }
+.cmd-item .cmd-name { color: #00ced1; font-size: 11px; font-weight: bold; }
+.cmd-item .cmd-phase { font-size: 9px; color: #888; margin-top: 2px; }
+.cmd-item .cmd-timeout { font-size: 9px; color: #666; }
+.cmd-item.phase-a { border-left-color: #4caf50; }
+.cmd-item.phase-b { border-left-color: #ff9800; }
+.cmd-item.phase-c { border-left-color: #2196f3; }
+.param-item { display: flex; align-items: center; padding: 4px 0; border-bottom: 1px solid #2a2a2e; font-size: 11px; }
+.param-item:last-child { border-bottom: none; }
+.param-led { width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+.param-led.ok { background: #4caf50; }
+.param-led.warn { background: #ff9800; }
+.param-led.err { background: #f44336; }
+.param-name { color: #aaa; flex: 1; }
+.param-val { color: #e0e0e0; font-weight: bold; min-width: 80px; text-align: right; }
+.bottom-bar { background: #1a1a1e; border-top: 1px solid #444; padding: 4px 12px; display: flex; gap: 16px; align-items: center; height: 24px; flex-shrink: 0; font-size: 11px; color: #888; }
+.legend { display: flex; gap: 14px; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.legend-dot.ready { background: #4caf50; }
+.legend-dot.progress { background: #ff9800; }
+.legend-dot.fault { background: #f44336; }
+.legend-dot.offline { background: #666; }
+/* PLACEHOLDER_MORE_STYLES */
+</style>
+</head>
+<body>
+
+<div class="status-bar">
+  <div class="left">
+    <span><span class="indicator"></span>Connected</span>
+    <span>Automatic Updates</span>
+    <span>GXLF 激光链路 Broadview — 种子源至靶室全链路</span>
+  </div>
+  <div>
+    <span class="shot-id">Shot_SY20260426_0003</span>
+    <span style="margin-left:12px;color:#888">Phase: A (发射准备)</span>
+    <span style="margin-left:12px;color:#888">v1.0.0</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="svg-container" id="svgContainer">
+    <svg width="1640" height="900" viewBox="0 0 1640 900" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#00ced1"/></marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#4caf50"/></marker>
+        <marker id="arrowGray" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto"><path d="M0,0 L6,2 L0,4" fill="#666"/></marker>
+        <linearGradient id="beamFan" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00ced1" stop-opacity="0.8"/><stop offset="100%" stop-color="#00ced1" stop-opacity="0.2"/></linearGradient>
+        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- ===== Title bar ===== -->
+      <rect x="10" y="10" width="1620" height="32" fill="#1a1a1e" stroke="#444"/>
+      <text x="20" y="32" fill="#aaa" font-size="13" font-weight="bold">激光链路全景视图 — Laser Chain Front View</text>
+      <text x="500" y="32" fill="#666" font-size="11">主光路 (青色虚线): 种子 1053nm → 主放 1ω → 倍频 2ω/3ω → 靶</text>
+      <text x="1100" y="32" fill="#666" font-size="11">辅助系统 (灰色): 同步/泵浦/开关/测量/冷却</text>
+
+      <!-- ===== MAIN BEAM PATH (centerline at y=320) ===== -->
+
+      <!-- Beam path arrows: cyan dashed connecting main amplification chain -->
+      <line x1="180" y1="320" x2="240" y2="320" stroke="#00ced1" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="380" y1="320" x2="440" y2="320" stroke="#00ced1" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <!-- Fan-out 6→10 (preamp split) -->
+      <path d="M580,320 Q620,250 660,200" fill="none" stroke="url(#beamFan)" stroke-width="1" stroke-dasharray="5,3"/>
+      <path d="M580,320 Q620,290 660,280" fill="none" stroke="url(#beamFan)" stroke-width="1" stroke-dasharray="5,3"/>
+      <path d="M580,320 Q620,320 660,320" fill="none" stroke="url(#beamFan)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <path d="M580,320 Q620,350 660,360" fill="none" stroke="url(#beamFan)" stroke-width="1" stroke-dasharray="5,3"/>
+      <path d="M580,320 Q620,400 660,440" fill="none" stroke="url(#beamFan)" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="615" y="245" fill="#00ced1" font-size="9" opacity="0.7">6→10</text>
+      <!-- Fan-out 10→61 (main amp split) -->
+      <path d="M820,200 Q860,180 900,170" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <path d="M820,200 Q860,200 900,200" fill="none" stroke="url(#beamFan)" stroke-width="1" stroke-dasharray="4,2"/>
+      <path d="M820,280 Q860,270 900,260" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <path d="M820,280 Q860,290 900,300" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <path d="M820,320 Q860,320 900,320" fill="none" stroke="url(#beamFan)" stroke-width="1.5" stroke-dasharray="4,2"/>
+      <path d="M820,360 Q860,360 900,360" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <path d="M820,440 Q860,430 900,420" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <path d="M820,440 Q860,450 900,460" fill="none" stroke="url(#beamFan)" stroke-width="0.8" stroke-dasharray="4,2"/>
+      <text x="855" y="155" fill="#00ced1" font-size="9" opacity="0.7">10→61</text>
+      <!-- Continuing: 61 beams main amp → freq conv → transport -->
+      <line x1="1040" y1="320" x2="1100" y2="320" stroke="#00ced1" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="1240" y1="320" x2="1300" y2="320" stroke="#00ced1" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="1440" y1="320" x2="1480" y2="320" stroke="#00ced1" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+
+      <!-- ===== MAIN PATH NODES ===== -->
+
+      <!-- 01 Seed Source (6 beams) -->
+      <g class="module-node" data-mod="seed_source" onclick="showDetail('seed_source')" style="cursor:pointer">
+        <rect x="20" y="270" width="160" height="100" rx="3" fill="#2a3a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="20" y="270" width="160" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="100" y="285" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">光纤种子源 (6束)</text>
+        <text x="30" y="307" fill="#888" font-size="9">Fiber Seed Source</text>
+        <text x="30" y="322" fill="#aaa" font-size="9">波长: 1053nm</text>
+        <text x="30" y="336" fill="#aaa" font-size="9">脉宽: 3ns</text>
+        <text x="30" y="350" fill="#aaa" font-size="9">能量: 5.2nJ</text>
+        <text x="30" y="364" fill="#00ced1" font-size="8">gxlf/seed_source/01</text>
+        <circle cx="170" cy="280" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- 02 SHG Broadband Injection (6 beams) -->
+      <g class="module-node" data-mod="shg_injection" onclick="showDetail('shg_injection')" style="cursor:pointer">
+        <rect x="240" y="270" width="140" height="100" rx="3" fill="#2a3a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="240" y="270" width="140" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="310" y="285" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">二倍频注入 (6束)</text>
+        <text x="250" y="307" fill="#888" font-size="9">SHG Injection</text>
+        <text x="250" y="322" fill="#aaa" font-size="9">宽带整形输出</text>
+        <text x="250" y="336" fill="#aaa" font-size="9">能量: 12mJ</text>
+        <text x="250" y="364" fill="#00ced1" font-size="8">gxlf/shg_injection/01</text>
+        <circle cx="370" cy="280" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- 03 Preamp (10 beams - shown as group) -->
+      <g class="module-node" data-mod="preamplifier" onclick="showDetail('preamplifier')" style="cursor:pointer">
+        <rect x="440" y="180" width="140" height="280" rx="3" fill="#2a3a3a" stroke="#ff9800" stroke-width="1.5"/>
+        <rect x="440" y="180" width="140" height="20" rx="3" fill="#ff9800" opacity="0.25"/>
+        <text x="510" y="195" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">再生与双程放大 (10束)</text>
+        <text x="450" y="217" fill="#888" font-size="9">Regen + 2-Pass Amp</text>
+        <text x="450" y="232" fill="#aaa" font-size="9">能量闭环控制</text>
+        <text x="450" y="246" fill="#aaa" font-size="9">─────────────</text>
+        <text x="450" y="260" fill="#aaa" font-size="9">粗闭环目标: 8.5J</text>
+        <text x="450" y="274" fill="#aaa" font-size="9">精闭环目标: 9.0J</text>
+        <text x="450" y="288" fill="#ff9800" font-size="9">当前: 7.2J ⚠</text>
+        <!-- 10 beam stripes -->
+        <g stroke="#ff9800" stroke-width="0.6" opacity="0.4">
+          <line x1="450" y1="310" x2="570" y2="310"/>
+          <line x1="450" y1="320" x2="570" y2="320"/>
+          <line x1="450" y1="330" x2="570" y2="330"/>
+          <line x1="450" y1="340" x2="570" y2="340"/>
+          <line x1="450" y1="350" x2="570" y2="350"/>
+          <line x1="450" y1="360" x2="570" y2="360"/>
+          <line x1="450" y1="370" x2="570" y2="370"/>
+          <line x1="450" y1="380" x2="570" y2="380"/>
+          <line x1="450" y1="390" x2="570" y2="390"/>
+          <line x1="450" y1="400" x2="570" y2="400"/>
+        </g>
+        <text x="510" y="425" text-anchor="middle" fill="#888" font-size="8">10 beams</text>
+        <text x="450" y="450" fill="#00ced1" font-size="8">gxlf/preamplifier/[1-10]</text>
+        <circle cx="570" cy="190" r="4" fill="#ff9800"/>
+      </g>
+
+      <!-- 04 Main Amplifier (61 beams - shown as group) -->
+      <g class="module-node" data-mod="main_amplifier" onclick="showDetail('main_amplifier')" style="cursor:pointer">
+        <rect x="660" y="140" width="160" height="360" rx="3" fill="#2a3a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="660" y="140" width="160" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="740" y="155" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">多程放大 (61束)</text>
+        <text x="670" y="177" fill="#888" font-size="9">Multi-Pass Amplifier</text>
+        <text x="670" y="192" fill="#aaa" font-size="9">钕玻璃片放大</text>
+        <text x="670" y="206" fill="#aaa" font-size="9">─────────────</text>
+        <text x="670" y="220" fill="#aaa" font-size="9">光路准直: ✓</text>
+        <text x="670" y="234" fill="#aaa" font-size="9">单束输出: ~2kJ</text>
+        <text x="670" y="248" fill="#aaa" font-size="9">总能量: ~120kJ</text>
+        <!-- 61 beam stripes (compressed) -->
+        <g stroke="#4caf50" stroke-width="0.4" opacity="0.5">
+          <g id="mainBeams"></g>
+        </g>
+        <rect x="670" y="260" width="140" height="200" fill="none" stroke="#4caf50" stroke-width="0.3" opacity="0.3"/>
+        <text x="740" y="365" text-anchor="middle" fill="#4caf50" font-size="22" font-weight="bold" opacity="0.4">61</text>
+        <text x="740" y="385" text-anchor="middle" fill="#888" font-size="8">beams</text>
+        <text x="670" y="490" fill="#00ced1" font-size="8">gxlf/main_amplifier/[1-61]</text>
+        <circle cx="810" cy="150" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- 08 Frequency Conversion (61 beams) -->
+      <g class="module-node" data-mod="freq_conversion" onclick="showDetail('freq_conversion')" style="cursor:pointer">
+        <rect x="1100" y="240" width="140" height="160" rx="3" fill="#2a3a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="1100" y="240" width="140" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="1170" y="255" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">频率转换 (61束)</text>
+        <text x="1110" y="277" fill="#888" font-size="9">Frequency Conv (KDP)</text>
+        <text x="1110" y="292" fill="#aaa" font-size="9">1ω 1053nm → 3ω 351nm</text>
+        <text x="1110" y="306" fill="#aaa" font-size="9">─────────────</text>
+        <text x="1110" y="320" fill="#aaa" font-size="9">KDP晶体位姿: 已设</text>
+        <text x="1110" y="334" fill="#aaa" font-size="9">转换效率: 78%</text>
+        <text x="1110" y="350" fill="#aaa" font-size="9">输出: 3ω (UV)</text>
+        <text x="1110" y="395" fill="#00ced1" font-size="8">gxlf/freq_conversion/[1-61]</text>
+        <circle cx="1230" cy="250" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- Transport & Focus (no separate subsystem - implied by Measurement Sample) -->
+      <g style="cursor:default">
+        <rect x="1300" y="280" width="140" height="80" rx="3" fill="#2a2a2e" stroke="#666" stroke-width="1" stroke-dasharray="4,2"/>
+        <text x="1370" y="298" text-anchor="middle" fill="#aaa" font-size="11" font-weight="bold">传输聚焦光路</text>
+        <text x="1310" y="318" fill="#888" font-size="9">Transport &amp; Focus</text>
+        <text x="1310" y="332" fill="#aaa" font-size="9">反射镜阵列</text>
+        <text x="1310" y="346" fill="#aaa" font-size="9">聚焦透镜</text>
+      </g>
+
+      <!-- Target Chamber -->
+      <g class="module-node" data-mod="vacuum_chamber" onclick="showDetail('vacuum_chamber')" style="cursor:pointer">
+        <rect x="1480" y="240" width="140" height="160" rx="3" fill="#3a2a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="1480" y="240" width="140" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="1550" y="255" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">真空靶室</text>
+        <text x="1490" y="277" fill="#888" font-size="9">Vacuum Chamber</text>
+        <circle cx="1550" cy="320" r="22" fill="none" stroke="#888" stroke-width="1" stroke-dasharray="4,2"/>
+        <circle cx="1550" cy="320" r="3" fill="#00ced1" filter="url(#glow)"/>
+        <text x="1550" y="360" text-anchor="middle" fill="#00ced1" font-size="8">靶球</text>
+        <text x="1490" y="385" fill="#aaa" font-size="9">真空: 1.2E-4 Pa ✓</text>
+        <text x="1490" y="395" fill="#00ced1" font-size="8">gxlf/vacuum_chamber/01</text>
+        <circle cx="1610" cy="250" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- 09 Target Alignment (sits next to chamber) -->
+      <g class="module-node" data-mod="target_alignment" onclick="showDetail('target_alignment')" style="cursor:pointer">
+        <rect x="1480" y="420" width="140" height="60" rx="3" fill="#2a3a2a" stroke="#ff9800" stroke-width="1.5"/>
+        <rect x="1480" y="420" width="140" height="18" rx="3" fill="#ff9800" opacity="0.25"/>
+        <text x="1550" y="434" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">靶瞄准定位</text>
+        <text x="1490" y="454" fill="#aaa" font-size="9">光束引导: 进行中</text>
+        <text x="1490" y="468" fill="#00ced1" font-size="8">gxlf/target_alignment/01</text>
+        <circle cx="1610" cy="430" r="4" fill="#ff9800"/>
+      </g>
+
+      <!-- 10 LD Target -->
+      <g class="module-node" data-mod="ld_target" onclick="showDetail('ld_target')" style="cursor:pointer">
+        <rect x="1480" y="500" width="140" height="50" rx="3" fill="#2a3a2a" stroke="#666" stroke-width="1.5"/>
+        <rect x="1480" y="500" width="140" height="18" rx="3" fill="#666" opacity="0.25"/>
+        <text x="1550" y="514" text-anchor="middle" fill="#aaa" font-size="11" font-weight="bold">LD靶分系统</text>
+        <text x="1490" y="534" fill="#aaa" font-size="9">低温靶 D₂ 冰层</text>
+        <circle cx="1610" cy="510" r="4" fill="#666"/>
+      </g>
+
+      <!-- ===== AUXILIARY SYSTEMS (below main path) ===== -->
+
+      <!-- Section divider -->
+      <line x1="20" y1="540" x2="1620" y2="540" stroke="#444" stroke-width="1"/>
+      <text x="20" y="558" fill="#aaa" font-size="11" font-weight="bold">辅助系统 — Auxiliary Systems (并行挂载到主光路关键位置)</text>
+
+      <!-- 06 Pump Laser (drives main amp) -->
+      <g class="module-node" data-mod="pump_laser" onclick="showDetail('pump_laser')" style="cursor:pointer">
+        <rect x="660" y="580" width="160" height="100" rx="3" fill="#3a2e2a" stroke="#ff9800" stroke-width="1.5"/>
+        <rect x="660" y="580" width="160" height="20" rx="3" fill="#ff9800" opacity="0.25"/>
+        <text x="740" y="595" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">泵浦分系统 (2套)</text>
+        <text x="670" y="617" fill="#888" font-size="9">Pump Laser System</text>
+        <text x="670" y="632" fill="#aaa" font-size="9">闪光灯泵浦能量</text>
+        <text x="670" y="648" fill="#aaa" font-size="9">充电进度: 67% ⚡</text>
+        <text x="670" y="662" fill="#aaa" font-size="9">主电压: 22.5kV</text>
+        <text x="670" y="676" fill="#00ced1" font-size="8">gxlf/pump_laser/[1-2]</text>
+        <circle cx="810" cy="590" r="4" fill="#ff9800"/>
+      </g>
+      <!-- Pump → Main Amp connection -->
+      <line x1="740" y1="580" x2="740" y2="500" stroke="#ff9800" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
+      <text x="745" y="540" fill="#ff9800" font-size="8" opacity="0.7">泵浦能量</text>
+
+      <!-- 05 Switch Driver -->
+      <g class="module-node" data-mod="switch_driver" onclick="showDetail('switch_driver')" style="cursor:pointer">
+        <rect x="440" y="580" width="180" height="100" rx="3" fill="#2e2a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="440" y="580" width="180" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="530" y="595" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">开关驱动源 (30套)</text>
+        <text x="450" y="617" fill="#888" font-size="9">Switch Driver (Pockels)</text>
+        <text x="450" y="632" fill="#aaa" font-size="9">控制 Pockels Cell 通断</text>
+        <text x="450" y="648" fill="#aaa" font-size="9">充电状态: 就绪</text>
+        <text x="450" y="662" fill="#aaa" font-size="9">触发就绪: ✓</text>
+        <text x="450" y="676" fill="#00ced1" font-size="8">gxlf/switch_driver/[1-30]</text>
+        <circle cx="610" cy="590" r="4" fill="#4caf50"/>
+      </g>
+      <line x1="530" y1="580" x2="530" y2="460" stroke="#666" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
+      <text x="535" y="525" fill="#aaa" font-size="8" opacity="0.7">脉冲控制</text>
+
+      <!-- 14 Cooling Air -->
+      <g class="module-node" data-mod="cooling_air" onclick="showDetail('cooling_air')" style="cursor:pointer">
+        <rect x="860" y="580" width="160" height="100" rx="3" fill="#2a323a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="860" y="580" width="160" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="940" y="595" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">冷却管路 (2套)</text>
+        <text x="870" y="617" fill="#888" font-size="9">Cooling / Slab Purge</text>
+        <text x="870" y="632" fill="#aaa" font-size="9">片放吹扫 ~15min</text>
+        <text x="870" y="648" fill="#aaa" font-size="9">吹扫状态: 待机</text>
+        <text x="870" y="662" fill="#aaa" font-size="9">温度: 23.5°C</text>
+        <text x="870" y="676" fill="#00ced1" font-size="8">gxlf/cooling_air/01</text>
+        <circle cx="1010" cy="590" r="4" fill="#4caf50"/>
+      </g>
+      <line x1="940" y1="580" x2="940" y2="500" stroke="#666" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
+      <text x="945" y="540" fill="#aaa" font-size="8" opacity="0.7">片放冷却</text>
+
+      <!-- 07 Measurement Sample (62 sets) -->
+      <g class="module-node" data-mod="measurement_sample" onclick="showDetail('measurement_sample')" style="cursor:pointer">
+        <rect x="1060" y="580" width="180" height="100" rx="3" fill="#2a3a32" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="1060" y="580" width="180" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="1150" y="595" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">测量取样 (62套)</text>
+        <text x="1070" y="617" fill="#888" font-size="9">Measurement Sampling</text>
+        <text x="1070" y="632" fill="#aaa" font-size="9">近场/远场/能量/波形</text>
+        <text x="1070" y="648" fill="#aaa" font-size="9">波前测量: 准备就绪</text>
+        <text x="1070" y="662" fill="#aaa" font-size="9">取样点遍布全链路</text>
+        <text x="1070" y="676" fill="#00ced1" font-size="8">gxlf/measurement_sample/01</text>
+        <circle cx="1230" cy="590" r="4" fill="#4caf50"/>
+      </g>
+      <!-- Measurement taps to multiple stages (light gray dotted) -->
+      <line x1="1150" y1="580" x2="100" y2="380" stroke="#666" stroke-width="0.4" stroke-dasharray="2,3" opacity="0.4"/>
+      <line x1="1150" y1="580" x2="310" y2="380" stroke="#666" stroke-width="0.4" stroke-dasharray="2,3" opacity="0.4"/>
+      <line x1="1150" y1="580" x2="510" y2="470" stroke="#666" stroke-width="0.4" stroke-dasharray="2,3" opacity="0.4"/>
+      <line x1="1150" y1="580" x2="740" y2="510" stroke="#666" stroke-width="0.4" stroke-dasharray="2,3" opacity="0.4"/>
+      <line x1="1150" y1="580" x2="1170" y2="410" stroke="#666" stroke-width="0.4" stroke-dasharray="2,3" opacity="0.4"/>
+
+      <!-- 13 Central Timing Sync (66 sets) - spans entire width -->
+      <g class="module-node" data-mod="timing_sync" onclick="showDetail('timing_sync')" style="cursor:pointer">
+        <rect x="20" y="700" width="1220" height="60" rx="3" fill="#2e2a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="20" y="700" width="1220" height="20" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="630" y="715" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">集中同步分系统 (66套) — 贯穿全链路，纳秒级时序控制</text>
+        <text x="30" y="737" fill="#888" font-size="9">Central Timing Sync</text>
+        <text x="200" y="737" fill="#aaa" font-size="9">AWG 出光时序</text>
+        <text x="400" y="737" fill="#aaa" font-size="9">同步触发: 就绪</text>
+        <text x="600" y="737" fill="#aaa" font-size="9">3ω 信号反馈测量</text>
+        <text x="850" y="737" fill="#aaa" font-size="9">同步偏差: ±0.8ns ✓</text>
+        <text x="1100" y="737" fill="#00ced1" font-size="8">gxlf/timing_sync/01</text>
+        <text x="30" y="753" fill="#aaa" font-size="9">从种子源 AWG 到靶室 3ω 信号反馈，闭环纳秒级精度同步</text>
+        <circle cx="1230" cy="710" r="4" fill="#4caf50"/>
+      </g>
+      <!-- Timing sync vertical taps -->
+      <g stroke="#9c27b0" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5">
+        <line x1="100" y1="700" x2="100" y2="370"/>
+        <line x1="310" y1="700" x2="310" y2="370"/>
+        <line x1="510" y1="700" x2="510" y2="460"/>
+        <line x1="740" y1="700" x2="740" y2="500"/>
+        <line x1="1170" y1="700" x2="1170" y2="400"/>
+        <line x1="1550" y1="700" x2="1550" y2="400"/>
+      </g>
+
+      <!-- ===== SAFETY & SUPPORT (right side bottom) ===== -->
+      <g class="module-node" data-mod="safety_interlock" onclick="showDetail('safety_interlock')" style="cursor:pointer">
+        <rect x="1280" y="580" width="160" height="60" rx="3" fill="#3a2a2a" stroke="#f44336" stroke-width="1.5"/>
+        <rect x="1280" y="580" width="160" height="18" rx="3" fill="#f44336" opacity="0.25"/>
+        <text x="1360" y="594" text-anchor="middle" fill="#f44336" font-size="11" font-weight="bold">安全联锁</text>
+        <text x="1290" y="614" fill="#aaa" font-size="9">屏蔽门: 已锁 ✓</text>
+        <text x="1290" y="628" fill="#aaa" font-size="9">清场: 完成 ✓</text>
+        <circle cx="1430" cy="590" r="4" fill="#f44336"/>
+      </g>
+      <g class="module-node" data-mod="diag_system" onclick="showDetail('diag_system')" style="cursor:pointer">
+        <rect x="1280" y="650" width="160" height="50" rx="3" fill="#2a3a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="1280" y="650" width="160" height="18" rx="3" fill="#4caf50" opacity="0.25"/>
+        <text x="1360" y="664" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">物理诊断</text>
+        <text x="1290" y="684" fill="#aaa" font-size="9">9类20套 →详见诊断视图</text>
+        <circle cx="1430" cy="660" r="4" fill="#4caf50"/>
+      </g>
+      <g class="module-node" data-mod="model_calibration" onclick="showDetail('model_calibration')" style="cursor:pointer">
+        <rect x="1460" y="580" width="160" height="60" rx="3" fill="#2a2e3a" stroke="#666" stroke-width="1.5"/>
+        <rect x="1460" y="580" width="160" height="18" rx="3" fill="#666" opacity="0.25"/>
+        <text x="1540" y="594" text-anchor="middle" fill="#aaa" font-size="11" font-weight="bold">模型校准</text>
+        <text x="1470" y="614" fill="#aaa" font-size="9">参数反演计算</text>
+        <text x="1470" y="628" fill="#aaa" font-size="9">后处理阶段</text>
+        <circle cx="1610" cy="590" r="4" fill="#666"/>
+      </g>
+
+      <!-- ===== Right side: Shot summary panel ===== -->
+      <rect x="1280" y="710" width="340" height="170" rx="3" fill="#252528" stroke="#444"/>
+      <text x="1450" y="730" text-anchor="middle" fill="#00ced1" font-size="11" font-weight="bold">发射摘要 — Shot Summary</text>
+      <text x="1290" y="752" fill="#888" font-size="10">总束线数</text><text x="1610" y="752" text-anchor="end" fill="#e0e0e0" font-size="10">61</text>
+      <text x="1290" y="770" fill="#888" font-size="10">总能量目标 (3ω)</text><text x="1610" y="770" text-anchor="end" fill="#e0e0e0" font-size="10">~120 kJ</text>
+      <text x="1290" y="788" fill="#888" font-size="10">同步精度</text><text x="1610" y="788" text-anchor="end" fill="#4caf50" font-size="10">±0.8 ns</text>
+      <text x="1290" y="806" fill="#888" font-size="10">辐照波长</text><text x="1610" y="806" text-anchor="end" fill="#e0e0e0" font-size="10">351 nm (3ω)</text>
+      <text x="1290" y="824" fill="#888" font-size="10">真空度</text><text x="1610" y="824" text-anchor="end" fill="#4caf50" font-size="10">1.2E-4 Pa</text>
+      <text x="1290" y="842" fill="#888" font-size="10">当前阶段</text><text x="1610" y="842" text-anchor="end" fill="#ff9800" font-size="10">A: 发射准备 T08</text>
+      <text x="1290" y="860" fill="#888" font-size="10">距下一发预计</text><text x="1610" y="860" text-anchor="end" fill="#e0e0e0" font-size="10">~42 min</text>
+
+      <!-- ===== Left side facility note ===== -->
+      <rect x="20" y="780" width="1240" height="100" rx="3" fill="#252528" stroke="#444"/>
+      <text x="30" y="800" fill="#00ced1" font-size="11" font-weight="bold">物理布局对应（点击节点查看 Tango Commands 与实时参数）</text>
+      <text x="30" y="820" fill="#aaa" font-size="10">激光大厅(-1层): 种子源同步间 + 电控区(开关驱动) + 一层束线(注入/放大/频率转换/测量/靶瞄)</text>
+      <text x="30" y="836" fill="#aaa" font-size="10">靶场区: 零层靶室(诊断设备+DIM+真空) | 负一层(传输聚焦+时间波形) | 四周(核诊断)</text>
+      <text x="30" y="852" fill="#aaa" font-size="10">P1能库: 泵浦分系统现场监控</text>
+      <text x="30" y="870" fill="#9c27b0" font-size="9">─── 紫色虚线: 同步信号分发 ─── 灰色虚线: 测量取样支路 ─── 橙色虚线: 泵浦能量 ─── 青色虚线: 主激光光路</text>
+
+      <!-- Generate 61 beam strips for main amplifier via inline JS-rendered group -->
+      <script type="text/ecmascript"><![CDATA[
+        (function(){
+          var g = document.getElementById('mainBeams');
+          if (!g) return;
+          var svgNS = 'http://www.w3.org/2000/svg';
+          for (var i = 0; i < 61; i++) {
+            var y = 265 + (i * 3.2);
+            var line = document.createElementNS(svgNS, 'line');
+            line.setAttribute('x1', '670'); line.setAttribute('x2', '810');
+            line.setAttribute('y1', y); line.setAttribute('y2', y);
+            line.setAttribute('stroke', '#4caf50');
+            line.setAttribute('stroke-width', '0.4');
+            line.setAttribute('opacity', '0.4');
+            g.appendChild(line);
+          }
+        })();
+      ]]></script>
+    </svg>
+  </div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="panel-section">
+      <div class="panel-header">
+        <h3 id="panelTitle">子系统详情</h3>
+        <span class="panel-close" onclick="closePanel()">✕</span>
+      </div>
+    </div>
+    <div class="panel-body" id="panelInfo"></div>
+    <div class="panel-section"><div class="panel-header"><h3>Tango Commands</h3></div></div>
+    <div class="panel-body" id="panelCmds"></div>
+    <div class="panel-section"><div class="panel-header"><h3>实时参数</h3></div></div>
+    <div class="panel-body" id="panelParams"></div>
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <div class="legend">
+    <span style="color:#aaa">状态：</span>
+    <div class="legend-item"><div class="legend-dot ready"></div>Ready</div>
+    <div class="legend-item"><div class="legend-dot progress"></div>In Progress</div>
+    <div class="legend-item"><div class="legend-dot fault"></div>Fault</div>
+    <div class="legend-item"><div class="legend-dot offline"></div>Offline</div>
+  </div>
+  <span>束线: 6→10→61</span>
+  <span style="margin-left:auto">14 Subsystems | Tango CORBA</span>
+</div>
+
+<script>
+const subsysData = {
+  seed_source: {
+    name: '光纤种子源组件', nameEn: 'Fiber Seed Source', tango: 'gxlf/seed_source/01',
+    instances: '6 束', location: '激光大厅 -1层 / 种子源同步间', status: 'Ready',
+    desc: '产生最初的低功率激光脉冲种子。脉冲波形在这里精确定义。',
+    cmds: [
+      { name: 'SeedLaserOn', phase: 'A', desc: '种子源出光' },
+      { name: 'SeedLaserParamCollect', phase: 'C', desc: '采集种子激光参数' },
+      { name: 'SeedLaserStandby', phase: 'C', desc: '种子源待机' }
+    ],
+    params: [
+      { name: '波长 (nm)', val: '1053', led: 'ok' },
+      { name: '脉宽 (ns)', val: '3.0', led: 'ok' },
+      { name: '种子能量 (nJ)', val: '5.2', led: 'ok' },
+      { name: '稳定性 (rms)', val: '0.3%', led: 'ok' },
+      { name: '光路状态', val: 'ON', led: 'ok' }
+    ]
+  },
+  shg_injection: {
+    name: '二倍频宽带激光注入组件', nameEn: 'SHG Broadband Laser Injection', tango: 'gxlf/shg_injection/01',
+    instances: '6 束', location: '激光大厅 一层束线', status: 'Ready',
+    desc: '对种子光进行宽带注入和整形，为后续放大做准备。',
+    cmds: [
+      { name: 'SHGLaserOn', phase: 'A', desc: '二倍频出光' },
+      { name: 'SHGLaserParamCollect', phase: 'C', desc: '采集二倍频参数' },
+      { name: 'SHGLaserStandby', phase: 'C', desc: '二倍频待机' }
+    ],
+    params: [
+      { name: '输出能量 (mJ)', val: '12.0', led: 'ok' },
+      { name: '宽带带宽', val: '1.2 nm', led: 'ok' },
+      { name: '光路状态', val: 'ON', led: 'ok' }
+    ]
+  },
+  preamplifier: {
+    name: '再生与双程放大组件', nameEn: 'Regenerative + 2-Pass Amplifier', tango: 'gxlf/preamplifier/<beamline_id>',
+    instances: '10 束 / 每束一实例', location: '激光大厅 一层束线', status: 'In Progress',
+    desc: '预放大阶段。粗闭环 + 精闭环确保每束能量在目标范围。',
+    cmds: [
+      { name: 'PreampWakeup', phase: 'A', desc: '预放唤醒' },
+      { name: 'PreampLaserOn', phase: 'A', desc: '预放出光' },
+      { name: 'EnergyCoarseLoop', phase: 'A', desc: '能量粗闭环 (target_energy_j)' },
+      { name: 'EnergyFineLoop', phase: 'A/B', desc: '能量精闭环' },
+      { name: 'EnergyMeterReset', phase: 'B', desc: '能量计清零' },
+      { name: 'EnergyDataCollect', phase: 'C', desc: '能量数据采集' },
+      { name: 'PreampStandby', phase: 'C', desc: '预放待机' }
+    ],
+    params: [
+      { name: '粗闭环目标 (J)', val: '8.5', led: 'ok' },
+      { name: '精闭环目标 (J)', val: '9.0', led: 'ok' },
+      { name: '当前能量 (J)', val: '7.2', led: 'warn' },
+      { name: '闭环偏差', val: '-20%', led: 'warn' },
+      { name: '光路状态', val: 'ON', led: 'ok' }
+    ]
+  },
+  main_amplifier: {
+    name: '多程放大分系统', nameEn: 'Multi-Pass Amplifier', tango: 'gxlf/main_amplifier/<beamline_id>',
+    instances: '61 束 / 每束一实例', location: '激光大厅 一层束线', status: 'Ready',
+    desc: '主放大阶段。激光在大口径钕玻璃片中多次通过，功率放大到极高。',
+    cmds: [
+      { name: 'BeamlineAlign', phase: 'A', desc: '光路准直 (300s 超时)' },
+      { name: 'RepRateLaserConfirm', phase: 'A', desc: '重频光确认' },
+      { name: 'ShotStatusConfirm', phase: 'A', desc: '打靶状态确认' }
+    ],
+    params: [
+      { name: '准直状态', val: 'OK', led: 'ok' },
+      { name: '单束输出 (kJ)', val: '~2.0', led: 'ok' },
+      { name: '总能量 (kJ)', val: '~120', led: 'ok' },
+      { name: '钕玻璃温度 (°C)', val: '24.1', led: 'ok' }
+    ]
+  },
+  switch_driver: {
+    name: '开关驱动源组件', nameEn: 'Switch Driver (Pockels Cell)', tango: 'gxlf/switch_driver/<beamline_id>',
+    instances: '30 套', location: '激光大厅 -1层 电控区', status: 'Ready',
+    desc: '驱动电光开关 (Pockels Cell)，控制激光脉冲的通断和时序。',
+    cmds: [
+      { name: 'SwitchCharge', phase: 'B', desc: '开关充电 (30s 超时)' },
+      { name: 'TriggerReady', phase: 'B', desc: '开关触发准备' },
+      { name: 'DischargeWaveformCollect', phase: 'C', desc: '放电波形采集' },
+      { name: 'SwitchStandby', phase: 'C', desc: '开关待机' }
+    ],
+    params: [
+      { name: '充电状态', val: '就绪', led: 'ok' },
+      { name: '触发就绪', val: 'YES', led: 'ok' },
+      { name: '高压 (kV)', val: '8.5', led: 'ok' }
+    ]
+  },
+  pump_laser: {
+    name: '泵浦分系统', nameEn: 'Pump Laser System', tango: 'gxlf/pump_laser/<beamline_id>',
+    instances: '2 套', location: 'P1 能库', status: 'In Progress',
+    desc: '为主放大器提供泵浦能量（闪光灯泵浦）。充电是发射流程中耗时最长的环节之一。',
+    cmds: [
+      { name: 'PumpShotReady', phase: 'A', desc: '泵浦发射准备 (pre_voltage_v, main_voltage_v)' },
+      { name: 'ShotChargeReady', phase: 'B', desc: '充电准备' },
+      { name: 'ShotCharge', phase: 'B', desc: '发射充电 (60s 超时)' },
+      { name: 'PumpTriggerReady', phase: 'B/C', desc: '泵浦触发准备' },
+      { name: 'ChargeProgressReport', phase: 'B/C', desc: '充电进度推送 (0-100%)' },
+      { name: 'EmergencyStopReport', phase: 'B/C', desc: '紧急停充上报' },
+      { name: 'PumpDataCollect', phase: 'C', desc: '泵浦数据采集' },
+      { name: 'PumpStandby', phase: 'C', desc: '泵浦待机' },
+      { name: 'PreionizationShotReady', phase: 'C', desc: '预电离发射准备' },
+      { name: 'PreionizationShotCharge', phase: 'C', desc: '预电离发射充电' },
+      { name: 'ShutdownReset', phase: 'B/C', desc: '紧急停充复位' }
+    ],
+    params: [
+      { name: '充电进度', val: '67%', led: 'warn' },
+      { name: '主电压 (kV)', val: '22.5', led: 'ok' },
+      { name: '预电压 (kV)', val: '5.0', led: 'ok' },
+      { name: '紧急停充', val: '正常', led: 'ok' },
+      { name: '闪光灯温度', val: '正常', led: 'ok' }
+    ]
+  },
+  measurement_sample: {
+    name: '测量取样组件', nameEn: 'Measurement Sampling', tango: 'gxlf/measurement_sample/01',
+    instances: '62 套 (取样点遍布全链路)', location: '激光大厅 一层束线', status: 'Ready',
+    desc: '在激光链路关键位置取样测量近场/远场/能量/时间波形/波前等参数，用于实时监控和事后分析。',
+    cmds: [
+      { name: 'MeasTargetAlignReady', phase: 'A', desc: '测量靶瞄准备' },
+      { name: 'MeasShotMotionReady', phase: 'A', desc: '测量打靶运动准备 (120s 超时)' },
+      { name: 'ShotMeasurementReady', phase: 'B', desc: '打靶测量准备' },
+      { name: 'LaserParamCollect', phase: 'C', desc: '激光参数采集 (近场/远场/能量/波形)' },
+      { name: 'MeasStandby', phase: 'C', desc: '测量待机' }
+    ],
+    params: [
+      { name: '运动控制', val: '就绪', led: 'ok' },
+      { name: '取样镜状态', val: '校准完成', led: 'ok' },
+      { name: '能量计', val: '已清零', led: 'ok' },
+      { name: '波前传感器', val: 'OK', led: 'ok' }
+    ]
+  },
+  freq_conversion: {
+    name: '频率转换分系统', nameEn: 'Frequency Conversion (KDP)', tango: 'gxlf/freq_conversion/<beamline_id>',
+    instances: '61 束', location: '激光大厅 一层束线', status: 'Ready',
+    desc: '将基频激光 (1053nm) 转换为二倍频 (527nm) 或三倍频 (351nm)。通过调整 KDP 晶体的位姿角度实现。',
+    cmds: [
+      { name: 'CrystalPoseAdjust', phase: 'B', desc: 'KDP 晶体位姿设置 (60s 超时)' }
+    ],
+    params: [
+      { name: '输出波长 (nm)', val: '351', led: 'ok' },
+      { name: 'KDP 晶体位姿', val: '已设定', led: 'ok' },
+      { name: '转换效率', val: '78%', led: 'ok' },
+      { name: '晶体温度 (°C)', val: '24.0', led: 'ok' }
+    ]
+  },
+  target_alignment: {
+    name: '靶瞄准定位分系统', nameEn: 'Target Alignment & Positioning', tango: 'gxlf/target_alignment/01',
+    instances: '1 套', location: '靶场零层 / 一层束线控制', status: 'In Progress',
+    desc: '将微米级靶丸精确定位到靶室中心，引导所有激光束线对准靶丸。光束引导是发射准备的关键门控节点。',
+    cmds: [
+      { name: 'ExpTargetPrePosition', phase: 'A', desc: '实验靶预定位 (120s)' },
+      { name: 'SimTargetPosition', phase: 'A', desc: '模拟靶定位 (120s)' },
+      { name: 'BeamGuide', phase: 'A', desc: '光束引导 (180s, 关键门控)' },
+      { name: 'ExpTargetReset', phase: 'A', desc: '实验靶复位' },
+      { name: 'TargetShotStatusConfirm', phase: 'A', desc: '靶瞄打靶状态确认' },
+      { name: 'TargetRetract', phase: 'C', desc: '收靶 (120s)' },
+      { name: 'TargetAlignDataAnalysis', phase: 'C', desc: '靶瞄数据分析' }
+    ],
+    params: [
+      { name: '光束引导', val: '进行中', led: 'warn' },
+      { name: '靶位精度 (μm)', val: '4.2', led: 'ok' },
+      { name: '靶室中心坐标', val: '已锁定', led: 'ok' }
+    ]
+  },
+  ld_target: {
+    name: 'LD 靶分系统', nameEn: 'LD (Layered D₂) Target', tango: 'gxlf/ld_target/01',
+    instances: '25 套', location: '靶场零层', status: 'Offline',
+    desc: '管理低温靶 (Layered D₂ 氘冰层靶)。需要在极低温下维持均匀冰层。',
+    cmds: [
+      { name: 'SimLDTargetOpen', phase: '-', desc: '模拟 LD 靶开罩' },
+      { name: 'LDTargetReset', phase: 'A', desc: 'LD 靶复位' },
+      { name: 'LDTargetOpen', phase: 'B', desc: 'LD 靶开罩' },
+      { name: 'LDTargetRetract', phase: 'C', desc: 'LD 靶收回 (60s)' }
+    ],
+    params: [
+      { name: '靶温度 (K)', val: '—', led: 'err' },
+      { name: '冰层均匀度', val: '—', led: 'err' },
+      { name: '开罩状态', val: '关闭', led: 'ok' }
+    ]
+  },
+  vacuum_chamber: {
+    name: '真空靶室分系统', nameEn: 'Vacuum Chamber', tango: 'gxlf/vacuum_chamber/01',
+    instances: '1 套', location: '靶场零层 (靶室)', status: 'Ready',
+    desc: '维持靶室高真空环境。激光打靶必须在真空中进行（避免空气击穿和能量损耗）。',
+    cmds: [
+      { name: 'VacuumPump', phase: 'A/B', desc: '真空抽气 (600s 超时, 0=invalid 1=start 2=stop)' },
+      { name: 'VacuumLevelOk', phase: '*', desc: '真空度 OK 属性 (Attribute)' }
+    ],
+    params: [
+      { name: '真空度 (Pa)', val: '1.2E-4', led: 'ok' },
+      { name: '真空 OK', val: 'YES', led: 'ok' },
+      { name: '阀门状态', val: '关闭', led: 'ok' },
+      { name: '冷阱状态', val: '正常', led: 'ok' },
+      { name: '干泵状态', val: '运行', led: 'ok' },
+      { name: '低温泵状态', val: '运行', led: 'ok' }
+    ]
+  },
+  diag_system: {
+    name: '物理实验诊断分系统', nameEn: 'Physics Diagnostics System', tango: 'gxlf/diag_system/01',
+    instances: '9 类 / ~20 套', location: '靶场零层 + 靶场四周', status: 'Ready',
+    desc: '诊断设备分布在靶球周围，捕捉物理信号。详见诊断系统 Broadview。',
+    cmds: [
+      { name: 'DiagStatusConfirm', phase: 'A', desc: '诊断设备状态确认 (15s)' },
+      { name: 'DiagCollectSetup', phase: 'B', desc: '诊断设备采集设置 (30s)' },
+      { name: 'DiagDeviceAction', phase: 'B', desc: '诊断设备动作 (60s)' },
+      { name: 'DiagDataCollect', phase: 'C', desc: '诊断设备数据采集 (120s)' },
+      { name: 'DiagShotPostProcess', phase: 'C', desc: '发射后处理 (120s)' }
+    ],
+    params: [
+      { name: '光学诊断', val: '4 套就绪', led: 'ok' },
+      { name: 'X射线成像', val: '8 套就绪', led: 'ok' },
+      { name: '核诊断', val: '5 套就绪', led: 'ok' },
+      { name: 'DIM 机械手', val: '3 套就绪', led: 'ok' }
+    ]
+  },
+  timing_sync: {
+    name: '集中同步分系统', nameEn: 'Central Timing Sync', tango: 'gxlf/timing_sync/01',
+    instances: '66 套', location: '种子源同步间 + 靶场一层', status: 'Ready',
+    desc: '确保所有束线的激光脉冲在纳秒级精度内同时到达靶丸。通过示波器测量 3ω 信号做偏差计算，反馈给种子源调整 AWG 出光时序。',
+    cmds: [
+      { name: 'ShotReadyRecipe', phase: 'A', desc: '打靶就绪配方下发' },
+      { name: 'MeasRepRateRecipe', phase: 'A', desc: '测量重频配方' },
+      { name: 'PreampRepRateRecipe', phase: 'A', desc: '预放重频配方' },
+      { name: 'MeasSingleRecipe', phase: 'B', desc: '测量单次配方' },
+      { name: 'PreampSingleRecipe', phase: 'B', desc: '预放单次配方' },
+      { name: 'SyncTrigger', phase: 'B/C', desc: '同步触发 (5s, 关键路径, 不重试)' }
+    ],
+    params: [
+      { name: '同步偏差 (ns)', val: '±0.8', led: 'ok' },
+      { name: '触发就绪', val: 'YES', led: 'ok' },
+      { name: 'AWG 时序', val: '已锁定', led: 'ok' },
+      { name: '3ω 反馈', val: '正常', led: 'ok' }
+    ]
+  },
+  cooling_air: {
+    name: '冷空系统', nameEn: 'Cooling / Slab Purge', tango: 'gxlf/cooling_air/01',
+    instances: '2 套', location: '激光大厅 -1层 / 冷空间', status: 'Ready',
+    desc: '光学元件冷却。主放大器钕玻璃片在每次发射后会积累热量，需要片放吹扫 (~15min)，是限制重频发射间隔的关键因素。',
+    cmds: [
+      { name: 'SlabPurge', phase: 'A/C', desc: '片放吹扫 (15s, 1=start 2=end 3=shutdown)' }
+    ],
+    params: [
+      { name: '吹扫状态', val: '待机', led: 'ok' },
+      { name: '片放温度 (°C)', val: '23.5', led: 'ok' },
+      { name: '冷空气流量', val: '正常', led: 'ok' }
+    ]
+  },
+  safety_interlock: {
+    name: '安全联锁', nameEn: 'Safety Interlock', tango: 'gxlf/safety_interlock/01',
+    instances: '1 套', location: '靶场全区域', status: 'Locked',
+    desc: '靶场是辐射区域 (中子、X射线、γ射线)。发射前必须清场、关闭屏蔽门、确认人员全部撤离 (RFID 计数清零)。屏蔽门与泵浦电源联锁。',
+    cmds: [
+      { name: 'AreaClear', phase: 'A', desc: '清场' },
+      { name: 'ShieldDoorControl', phase: 'A', desc: '屏蔽门控制 (30s, 0=open 1=close 2=lock)' },
+      { name: 'SafetyStateControl', phase: 'A/C', desc: '进入/退出安全管控状态' },
+      { name: 'WarningLightControl', phase: 'B/C', desc: '警告灯控制' },
+      { name: 'WarningSoundControl', phase: 'B/C', desc: '警告声控制' }
+    ],
+    params: [
+      { name: '清场状态', val: '完成', led: 'ok' },
+      { name: '屏蔽门', val: '已锁', led: 'ok' },
+      { name: '风淋门', val: '已锁', led: 'ok' },
+      { name: 'RFID 人员计数', val: '0', led: 'ok' },
+      { name: '紧急停机开关', val: '正常 (10/10)', led: 'ok' },
+      { name: '泵浦联锁', val: '允许充电', led: 'ok' }
+    ]
+  },
+  model_calibration: {
+    name: '运行参数获取与性能模型校准', nameEn: 'Performance Model Calibration', tango: 'gxlf/model_calibration/01',
+    instances: '1 套', location: '后处理流水线', status: 'Offline',
+    desc: '基于发射数据反演计算性能模型参数，用于下一发的参数预测。',
+    cmds: [
+      { name: 'ModelParamCalc', phase: 'C', desc: '模型参数计算 (120s)' }
+    ],
+    params: [
+      { name: '校准状态', val: '待机', led: 'ok' },
+      { name: '上次校准发次', val: 'SY20260426_0002', led: 'ok' }
+    ]
+  }
+};
+
+function showDetail(modId) {
+  const d = subsysData[modId];
+  if (!d) return;
+  document.getElementById('panelTitle').textContent = d.name;
+  const statusColor = { Ready: '#4caf50', 'In Progress': '#ff9800', Fault: '#f44336', Offline: '#666', Locked: '#f44336' }[d.status] || '#888';
+  document.getElementById('panelInfo').innerHTML = `
+    <div class="info-row"><span class="label">英文</span><span class="value">${d.nameEn}</span></div>
+    <div class="info-row"><span class="label">Tango Path</span><span class="value" style="color:#00ced1">${d.tango}</span></div>
+    <div class="info-row"><span class="label">实例</span><span class="value">${d.instances}</span></div>
+    <div class="info-row"><span class="label">位置</span><span class="value">${d.location}</span></div>
+    <div class="info-row"><span class="label">状态</span><span class="value" style="color:${statusColor}">${d.status}</span></div>
+    <div style="margin-top:8px;color:#aaa;font-size:11px;line-height:1.5">${d.desc}</div>
+  `;
+  document.getElementById('panelCmds').innerHTML = d.cmds.map(c => {
+    const phaseClass = c.phase.includes('A') ? 'phase-a' : c.phase.includes('B') ? 'phase-b' : c.phase.includes('C') ? 'phase-c' : '';
+    return `<div class="cmd-item ${phaseClass}">
+      <div class="cmd-name">${c.name}</div>
+      <div class="cmd-phase">阶段: ${c.phase} — ${c.desc}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('panelParams').innerHTML = d.params.map(p => `
+    <div class="param-item">
+      <div class="param-led ${p.led}"></div>
+      <div class="param-name">${p.name}</div>
+      <div class="param-val">${p.val}</div>
+    </div>
+  `).join('');
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closePanel() { document.getElementById('detailPanel').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+</script>
+</body>
+</html>

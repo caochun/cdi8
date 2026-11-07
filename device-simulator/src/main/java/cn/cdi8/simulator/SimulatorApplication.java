@@ -2,7 +2,8 @@ package cn.cdi8.simulator;
 
 import cn.cdi8.simulator.runtime.ComponentModel;
 import cn.cdi8.simulator.tango.ComponentDevice;
-import cn.cdi8.simulator.bridge.JavaControlBridgeApplication;
+import cn.cdi8.simulator.environment.EnvironmentConfiguration;
+import cn.cdi8.simulator.environment.ComponentModelSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -20,20 +21,30 @@ public final class SimulatorApplication {
                         boolean context, Map<String,Boolean> contextDefaults, String revision) { }
 
     public static void main(String[] args) throws Exception {
-        if (args.length > 0 && "--bridge".equals(args[0])) {
-            JavaControlBridgeApplication.main(Arrays.copyOfRange(args, 1, args.length));
-            return;
-        }
         Map<String,String> options=new HashMap<>();boolean auto=false;
-        Set<String> valued=Set.of("--port","--device","--db","--model","--devices","--ready-file","--completion-delay-ms","--parent-pid");
+        Set<String> valued=Set.of("--port","--device","--db","--model","--devices","--ready-file","--completion-delay-ms","--parent-pid","--environment","--validate","--result");
         for (int i=0;i<args.length;i++) {
             if (args[i].equals("--auto-complete")) { auto=true;continue; }
             if (args[i].equals("--help")) {
-                System.out.println("Java component simulator: --port 10000 --device gxlf/seed/seed_01 --db data/java-device-simulator/seed_01.sqlite3 [--model file.scxml] [--devices devices.json] [--ready-file file.json] [--auto-complete --completion-delay-ms 500]; managed bridge: --bridge --port 8766 [--data-dir data/java-simulator]; external bridge: --bridge --devices bindings.json");
+                System.out.println("Java component simulator: --port 10000 --device gxlf/seed/seed_01 --db data/java-device-simulator/seed_01.sqlite3 [--model file.scxml] [--devices devices.json] [--ready-file file.json] [--auto-complete --completion-delay-ms 500]; --environment request.json; --validate model.scxml --result validation.json");
                 return;
             }
             if (!valued.contains(args[i]) || i+1==args.length) throw new IllegalArgumentException("未知或缺少值的参数："+args[i]);
             options.put(args[i],args[++i]);
+        }
+        if(options.containsKey("--validate")) {
+            if(!options.containsKey("--result"))throw new IllegalArgumentException("--validate 需要 --result");
+            Files.writeString(Path.of(options.get("--result")),ComponentModel.encode(
+                ComponentModelSupport.validate(Files.readString(Path.of(options.get("--validate"))))));
+            return;
+        }
+        ObjectNode environment=null;
+        if(options.containsKey("--environment")) {
+            if(options.containsKey("--devices")||options.containsKey("--model")||options.containsKey("--device")||options.containsKey("--db"))
+                throw new IllegalArgumentException("--environment 不能与单独设备配置混用");
+            Path request=Path.of(options.get("--environment")).toAbsolutePath();
+            var prepared=EnvironmentConfiguration.prepare(ComponentModel.JSON.readTree(request.toFile()),request.getParent());
+            options.put("--devices",prepared.devices().toString());environment=prepared.description();
         }
         int port=Integer.parseInt(options.getOrDefault("--port","10000"));
         long delay=Long.parseLong(options.getOrDefault("--completion-delay-ms","500"));
@@ -48,7 +59,7 @@ public final class SimulatorApplication {
             Thread watcher=new Thread(()->{
                 while(parent.isAlive())try{Thread.sleep(1000);}catch(InterruptedException ex){return;}
                 System.exit(0);
-            },"bridge-parent-watch");watcher.setDaemon(true);watcher.start();
+            },"facility-parent-watch");watcher.setDaemon(true);watcher.start();
         }
 
         ComponentDevice.clearConfiguration();
@@ -79,6 +90,16 @@ public final class SimulatorApplication {
         }
         ArrayNode devices=ready.putArray("devices");
         for (Spec spec:specs) devices.addObject().put("device",spec.name()).put("model",modelId(spec)).put("address",address(port,spec.name()));
+        if(environment!=null) {
+            ObjectNode bindings=ready.putObject("bindings");
+            for(Spec spec:specs) {
+                String[] parts=spec.name().split("/");
+                bindings.putObject(parts[2]).put("deviceBindingKey",parts[1]).put("address",address(port,spec.name()));
+            }
+            ready.set("environment",environment);
+            ComponentModel.JSON.writerWithDefaultPrettyPrinter().writeValue(
+                Path.of(options.get("--environment")).toAbsolutePath().getParent().resolve("environment.json").toFile(),environment);
+        }
         String readyText=ComponentModel.encode(ready);
         if (options.containsKey("--ready-file")) {
             Path file=Path.of(options.get("--ready-file")).toAbsolutePath();Files.createDirectories(file.getParent());
@@ -105,7 +126,7 @@ public final class SimulatorApplication {
         List<Spec> result=new ArrayList<>();Set<String> names=new HashSet<>();
         for (JsonNode value:root) {
             String name=required(value,"device");validateName(name);if(!names.add(name))throw new IllegalArgumentException("设备名重复："+name);
-            boolean context="context".equals(value.path("component").asText())||"context".equals(value.path("kind").asText());
+            boolean context="context".equals(value.path("kind").asText())||"context".equals(value.path("component").asText()); // Legacy device configuration.
             ComponentModel model=null;Path db=null;Map<String,Boolean> defaults=Map.of();
             if (!context) {
                 String modelFile=required(value,"model");

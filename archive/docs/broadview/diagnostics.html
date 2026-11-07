@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GXLF 物理实验诊断系统 — Broadview</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #2a2a2e; color: #e0e0e0; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+/* Top status bar */
+.status-bar { background: #1a1a1e; border-bottom: 1px solid #444; padding: 4px 12px; display: flex; justify-content: space-between; align-items: center; height: 28px; flex-shrink: 0; }
+.status-bar .left { display: flex; gap: 16px; align-items: center; }
+.status-bar .indicator { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; display: inline-block; margin-right: 4px; }
+.status-bar .shot-id { color: #00ced1; font-weight: bold; }
+
+/* Main layout */
+.main { display: flex; flex: 1; overflow: hidden; }
+.svg-container { flex: 1; overflow: auto; position: relative; }
+.detail-panel { width: 340px; background: #1e1e22; border-left: 1px solid #444; overflow-y: auto; display: none; flex-shrink: 0; }
+.detail-panel.open { display: block; }
+
+/* SVG styles */
+svg text { font-family: 'Consolas', 'Monaco', 'Courier New', monospace; }
+
+/* Panel header */
+.panel-section { border-bottom: 1px solid #333; }
+.panel-header { background: #252528; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+.panel-header h3 { font-size: 13px; font-weight: bold; color: #00ced1; }
+.panel-close { cursor: pointer; color: #888; font-size: 16px; }
+.panel-close:hover { color: #fff; }
+
+/* Unit list */
+.unit-list { padding: 8px 12px; }
+.unit-item { display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid #2a2a2e; }
+.unit-item:last-child { border-bottom: none; }
+.unit-icon { width: 24px; height: 24px; margin-right: 8px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 10px; font-weight: bold; flex-shrink: 0; }
+.unit-icon.osc { background: #1565c0; color: #fff; }
+.unit-icon.cam { background: #6a1b9a; color: #fff; }
+.unit-icon.hv { background: #e65100; color: #fff; }
+.unit-icon.mot { background: #2e7d32; color: #fff; }
+.unit-icon.spec { background: #00838f; color: #fff; }
+.unit-icon.sync { background: #4527a0; color: #fff; }
+.unit-icon.cal { background: #795548; color: #fff; }
+.unit-icon.dim { background: #37474f; color: #fff; }
+.unit-icon.vac { background: #455a64; color: #fff; }
+.unit-info { flex: 1; }
+.unit-name { font-size: 11px; color: #ccc; }
+.unit-params { font-size: 10px; color: #888; margin-top: 2px; }
+.unit-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: 8px; }
+.unit-status.ready { background: #4caf50; }
+.unit-status.warning { background: #ff9800; }
+.unit-status.fault { background: #f44336; }
+.unit-status.offline { background: #666; }
+
+/* Module info in panel */
+.module-info { padding: 8px 12px; }
+.module-info .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; }
+.module-info .label { color: #888; }
+.module-info .value { color: #e0e0e0; }
+.module-info .purpose { color: #00ced1; font-style: italic; margin-top: 4px; font-size: 11px; }
+
+/* Bottom bar */
+.bottom-bar { background: #1a1a1e; border-top: 1px solid #444; padding: 4px 12px; display: flex; gap: 16px; align-items: center; height: 24px; flex-shrink: 0; font-size: 11px; color: #888; }
+
+/* Legend */
+.legend { display: flex; gap: 16px; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.legend-dot.ready { background: #4caf50; }
+.legend-dot.warning { background: #ff9800; }
+.legend-dot.fault { background: #f44336; }
+.legend-dot.offline { background: #666; }
+</style>
+</head>
+<body>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="left">
+    <span><span class="indicator"></span>Connected</span>
+    <span>Automatic Updates</span>
+    <span>GXLF 物理实验诊断系统 Broadview</span>
+  </div>
+  <div>
+    <span class="shot-id">Shot_SY20260426_0003</span>
+    <span style="margin-left:16px; color:#888">v1.0.0</span>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="svg-container" id="svgContainer">
+    <svg width="1200" height="900" viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="none" stroke="#00ced1" stroke-width="1"/></marker>
+        <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- ===== Upper Panel: Target Chamber Cross-Section (Front View) ===== -->
+      <rect x="20" y="10" width="1160" height="540" rx="4" fill="#303035" stroke="#555" stroke-width="1"/>
+      <text x="36" y="32" fill="#aaa" font-size="13" font-weight="bold">靶室截面视图 — 正视图 (Target Chamber Front View)</text>
+
+      <!-- Target chamber circle -->
+      <circle cx="480" cy="300" r="220" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="8,4"/>
+      <text x="480" y="530" text-anchor="middle" fill="#666" font-size="10">靶室 (Vacuum Chamber)</text>
+
+      <!-- Target ball at center -->
+      <circle cx="480" cy="300" r="16" fill="#00ced1" opacity="0.3" stroke="#00ced1" stroke-width="1.5" filter="url(#glow)"/>
+      <circle cx="480" cy="300" r="4" fill="#00ced1"/>
+      <text x="480" y="330" text-anchor="middle" fill="#00ced1" font-size="10">靶球 Target</text>
+
+      <!-- Laser beam lines (cyan dashed) entering from flanges -->
+      <line x1="100" y1="300" x2="464" y2="300" stroke="#00ced1" stroke-width="1" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="480" y1="80" x2="480" y2="284" stroke="#00ced1" stroke-width="1" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="860" y1="300" x2="496" y2="300" stroke="#00ced1" stroke-width="1" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="480" y1="520" x2="480" y2="316" stroke="#00ced1" stroke-width="1" stroke-dasharray="6,3" marker-end="url(#arrowCyan)"/>
+      <line x1="200" y1="130" x2="468" y2="290" stroke="#00ced1" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.5"/>
+      <line x1="760" y1="130" x2="492" y2="290" stroke="#00ced1" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.5"/>
+      <line x1="200" y1="470" x2="468" y2="310" stroke="#00ced1" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.5"/>
+      <line x1="760" y1="470" x2="492" y2="310" stroke="#00ced1" stroke-width="0.8" stroke-dasharray="6,3" opacity="0.5"/>
+
+      <!-- Gate valve indicators -->
+      <rect x="140" y="290" width="20" height="20" fill="none" stroke="#888" stroke-width="1"/>
+      <line x1="140" y1="290" x2="160" y2="310" stroke="#888" stroke-width="1"/>
+      <text x="150" y="322" text-anchor="middle" fill="#666" font-size="8">闸板阀</text>
+
+      <!-- Shield door -->
+      <rect x="60" y="260" width="8" height="80" fill="#555" stroke="#777" stroke-width="1"/>
+      <text x="64" y="355" text-anchor="middle" fill="#666" font-size="8">屏蔽门</text>
+
+      <!-- ===== Optical Diagnostics (Left side, on flanges) ===== -->
+      <!-- Full-aperture backscatter module ×2 -->
+      <g class="module-node" data-module="fabs" onclick="showDetail('fabs')" style="cursor:pointer">
+        <rect x="50" y="160" width="160" height="80" rx="3" fill="#2a3a2a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="50" y="160" width="160" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="130" y="174" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">全孔径背向散射 ×2</text>
+        <text x="60" y="198" fill="#888" font-size="9">门控相机×2 光谱仪×1</text>
+        <text x="60" y="210" fill="#888" font-size="9">条纹相机×1 示波器×2</text>
+        <text x="60" y="222" fill="#888" font-size="9">运动控制×1</text>
+        <text x="60" y="234" fill="#00ced1" font-size="8" font-style="italic">束靶耦合效率</text>
+        <circle cx="198" cy="172" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- Near-backscatter module ×2 -->
+      <g class="module-node" data-module="nbs" onclick="showDetail('nbs')" style="cursor:pointer">
+        <rect x="50" y="380" width="160" height="70" rx="3" fill="#2a3a2a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="50" y="380" width="160" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="130" y="394" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">近背向散射光 ×2</text>
+        <text x="60" y="416" fill="#888" font-size="9">门控相机×2 标定模块×1</text>
+        <text x="60" y="428" fill="#888" font-size="9">高压电源×3</text>
+        <text x="60" y="440" fill="#00ced1" font-size="8" font-style="italic">近角度散射光</text>
+        <circle cx="198" cy="392" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- Component group label -->
+      <text x="40" y="152" fill="#4caf50" font-size="10" font-weight="bold">光学诊断组件</text>
+      <text x="40" y="142" fill="#666" font-size="9">Optical Diagnostics</text>
+
+      <!-- ===== X-ray Imaging (Top and Right, on flanges) ===== -->
+      <!-- Static imaging ×2 -->
+      <g class="module-node" data-module="xstatic" onclick="showDetail('xstatic')" style="cursor:pointer">
+        <rect x="340" y="50" width="140" height="60" rx="3" fill="#2a2a3a" stroke="#ff9800" stroke-width="1.5"/>
+        <rect x="340" y="50" width="140" height="18" rx="3" fill="#ff9800" opacity="0.2"/>
+        <text x="410" y="64" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">静态成像 ×2</text>
+        <text x="350" y="84" fill="#888" font-size="9">CMOS相机×1</text>
+        <text x="350" y="96" fill="#888" font-size="9">运动控制×1</text>
+        <text x="350" y="106" fill="#00ced1" font-size="8" font-style="italic">辐照均匀性</text>
+        <circle cx="468" cy="62" r="4" fill="#ff9800"/>
+      </g>
+
+      <!-- Framing imaging ×3 -->
+      <g class="module-node" data-module="xframe" onclick="showDetail('xframe')" style="cursor:pointer">
+        <rect x="510" y="50" width="140" height="60" rx="3" fill="#2a2a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="510" y="50" width="140" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="580" y="64" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">分幅成像 ×3</text>
+        <text x="520" y="84" fill="#888" font-size="9">分幅电控×1 CMOS×1</text>
+        <text x="520" y="96" fill="#888" font-size="9">同步机×1</text>
+        <text x="520" y="106" fill="#00ced1" font-size="8" font-style="italic">内爆对称性</text>
+        <circle cx="638" cy="62" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- Microscopic imaging ×3 -->
+      <g class="module-node" data-module="xmicro" onclick="showDetail('xmicro')" style="cursor:pointer">
+        <rect x="680" y="50" width="140" height="60" rx="3" fill="#2a2a3a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="680" y="50" width="140" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="750" y="64" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">显微成像 ×3</text>
+        <text x="690" y="84" fill="#888" font-size="9">KB CMOS相机×1</text>
+        <text x="690" y="96" fill="#888" font-size="9">分幅示波器×1</text>
+        <text x="690" y="106" fill="#00ced1" font-size="8" font-style="italic">高分辨X射线</text>
+        <circle cx="808" cy="62" r="4" fill="#4caf50"/>
+      </g>
+
+      <!-- X-ray group label -->
+      <text x="340" y="44" fill="#ff9800" font-size="10" font-weight="bold">X射线成像组件</text>
+      <text x="540" y="44" fill="#666" font-size="9">X-ray Imaging</text>
+
+      <!-- ===== DIM (Bottom-left, can extend into chamber) ===== -->
+      <g class="module-node" data-module="dim" onclick="showDetail('dim')" style="cursor:pointer">
+        <rect x="750" y="200" width="170" height="90" rx="3" fill="#2a2e30" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="750" y="200" width="170" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="835" y="214" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">DIM 搭载机械手 ×3</text>
+        <text x="760" y="236" fill="#888" font-size="9">DIM搭载平台×1</text>
+        <text x="760" y="248" fill="#888" font-size="9">激光跟踪仪 摆阀</text>
+        <text x="760" y="260" fill="#888" font-size="9">真空机组</text>
+        <text x="760" y="276" fill="#00ced1" font-size="8" font-style="italic">可伸入靶室搭载诊断设备</text>
+        <circle cx="908" cy="212" r="4" fill="#4caf50"/>
+      </g>
+      <!-- DIM arm extending into chamber -->
+      <line x1="750" y1="250" x2="580" y2="290" stroke="#4caf50" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+      <line x1="750" y1="230" x2="600" y2="270" stroke="#4caf50" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+      <line x1="750" y1="270" x2="560" y2="310" stroke="#4caf50" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
+
+      <!-- Vacuum manipulator ×3 -->
+      <g class="module-node" data-module="vmanip" onclick="showDetail('vmanip')" style="cursor:pointer">
+        <rect x="750" y="310" width="170" height="50" rx="3" fill="#2a2e30" stroke="#666" stroke-width="1.5"/>
+        <rect x="750" y="310" width="170" height="18" rx="3" fill="#666" opacity="0.2"/>
+        <text x="835" y="324" text-anchor="middle" fill="#aaa" font-size="11" font-weight="bold">真空内操作手 ×3</text>
+        <text x="760" y="346" fill="#888" font-size="9">真空环境靶室内操作</text>
+        <circle cx="908" cy="322" r="4" fill="#666"/>
+      </g>
+
+      <!-- Neutron Bangtime on flange -->
+      <g class="module-node" data-module="bangtime" onclick="showDetail('bangtime')" style="cursor:pointer">
+        <rect x="750" y="400" width="170" height="70" rx="3" fill="#302a2a" stroke="#f44336" stroke-width="1.5"/>
+        <rect x="750" y="400" width="170" height="18" rx="3" fill="#f44336" opacity="0.2"/>
+        <text x="835" y="414" text-anchor="middle" fill="#f44336" font-size="11" font-weight="bold">中子Bangtime ×1</text>
+        <text x="760" y="436" fill="#888" font-size="9">示波器×1 高压电源×1</text>
+        <text x="760" y="448" fill="#888" font-size="9">BT运动控制×1</text>
+        <text x="760" y="460" fill="#00ced1" font-size="8" font-style="italic">中子产生精确时刻</text>
+        <circle cx="908" cy="412" r="4" fill="#f44336"/>
+      </g>
+      <text x="750" y="490" fill="#666" font-size="8">安装在靶室法兰上</text>
+
+      <!-- ===== Lower Panel: Nuclear Diagnostics (Top-down View) ===== -->
+      <rect x="20" y="560" width="1160" height="330" rx="4" fill="#303035" stroke="#555" stroke-width="1"/>
+      <text x="36" y="582" fill="#aaa" font-size="13" font-weight="bold">核诊断分布视图 — 俯视图 (Nuclear Diagnostics Top-Down View)</text>
+
+      <!-- Target chamber outline (top-down) -->
+      <circle cx="580" cy="730" r="80" fill="none" stroke="#555" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <circle cx="580" cy="730" r="6" fill="#00ced1" opacity="0.5"/>
+      <text x="580" y="738" text-anchor="middle" fill="#00ced1" font-size="9">靶球</text>
+      <text x="580" y="820" text-anchor="middle" fill="#666" font-size="9">靶室 (Top-Down)</text>
+
+      <!-- Neutron yield module ×1 (top) -->
+      <g class="module-node" data-module="nyield" onclick="showDetail('nyield')" style="cursor:pointer">
+        <rect x="490" y="600" width="180" height="60" rx="3" fill="#302a2a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="490" y="600" width="180" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="580" y="614" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">中子产额测量 ×1</text>
+        <text x="500" y="636" fill="#888" font-size="9">示波器×1 高压电源×1</text>
+        <text x="500" y="650" fill="#00ced1" font-size="8" font-style="italic">聚变中子产额</text>
+        <circle cx="658" cy="612" r="4" fill="#4caf50"/>
+      </g>
+      <line x1="580" y1="660" x2="580" y2="724" stroke="#888" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+      <!-- Ion temperature modules ×3 (left, right, bottom) -->
+      <g class="module-node" data-module="itemp" onclick="showDetail('itemp')" style="cursor:pointer">
+        <rect x="280" y="690" width="180" height="60" rx="3" fill="#302a2a" stroke="#4caf50" stroke-width="1.5"/>
+        <rect x="280" y="690" width="180" height="18" rx="3" fill="#4caf50" opacity="0.2"/>
+        <text x="370" y="704" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">离子温度测量 ×3</text>
+        <text x="290" y="726" fill="#888" font-size="9">示波器×1 高压电源×1 (每套)</text>
+        <text x="290" y="740" fill="#00ced1" font-size="8" font-style="italic">中子飞行时间→离子温度</text>
+        <circle cx="448" cy="702" r="4" fill="#4caf50"/>
+      </g>
+      <line x1="460" y1="720" x2="500" y2="730" stroke="#888" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+      <!-- Bangtime in nuclear view (reference) -->
+      <g class="module-node" data-module="bangtime" onclick="showDetail('bangtime')" style="cursor:pointer">
+        <rect x="700" y="690" width="180" height="60" rx="3" fill="#302a2a" stroke="#f44336" stroke-width="1.5"/>
+        <rect x="700" y="690" width="180" height="18" rx="3" fill="#f44336" opacity="0.2"/>
+        <text x="790" y="704" text-anchor="middle" fill="#f44336" font-size="11" font-weight="bold">中子Bangtime ×1</text>
+        <text x="710" y="726" fill="#888" font-size="9">示波器×1 高压电源×1</text>
+        <text x="710" y="738" fill="#888" font-size="9">BT运动控制×1</text>
+        <text x="710" y="750" fill="#00ced1" font-size="8" font-style="italic">中子产生精确时刻</text>
+        <circle cx="868" cy="702" r="4" fill="#f44336"/>
+      </g>
+      <line x1="700" y1="720" x2="660" y2="730" stroke="#888" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+      <!-- Nuclear diagnostics group label -->
+      <text x="40" y="610" fill="#e65100" font-size="10" font-weight="bold">核诊断组件 — 分布在靶场区四周</text>
+      <text x="40" y="622" fill="#666" font-size="9">Nuclear Diagnostics — Distributed around target area</text>
+
+      <!-- Summary stats -->
+      <rect x="940" y="590" width="220" height="160" rx="3" fill="#252528" stroke="#444" stroke-width="1"/>
+      <text x="1050" y="610" text-anchor="middle" fill="#aaa" font-size="11" font-weight="bold">诊断系统概览</text>
+      <text x="955" y="632" fill="#888" font-size="10">诊断模块总数</text>
+      <text x="1145" y="632" fill="#e0e0e0" font-size="10" text-anchor="end">9 类 / 20 套</text>
+      <text x="955" y="650" fill="#888" font-size="10">诊断单元总数</text>
+      <text x="1145" y="650" fill="#e0e0e0" font-size="10" text-anchor="end">~60 台</text>
+      <text x="955" y="668" fill="#888" font-size="10">示波器</text>
+      <text x="1145" y="668" fill="#1565c0" font-size="10" text-anchor="end">12 台</text>
+      <text x="955" y="686" fill="#888" font-size="10">相机 (CMOS/CCD/门控)</text>
+      <text x="1145" y="686" fill="#6a1b9a" font-size="10" text-anchor="end">16 台</text>
+      <text x="955" y="704" fill="#888" font-size="10">高压电源</text>
+      <text x="1145" y="704" fill="#e65100" font-size="10" text-anchor="end">11 台</text>
+      <text x="955" y="722" fill="#888" font-size="10">运动控制</text>
+      <text x="1145" y="722" fill="#2e7d32" font-size="10" text-anchor="end">4 台</text>
+      <text x="955" y="740" fill="#888" font-size="10">DIM搭载平台</text>
+      <text x="1145" y="740" fill="#37474f" font-size="10" text-anchor="end">3 套</text>
+
+      <!-- Diagnostic purpose summary -->
+      <rect x="940" y="760" width="220" height="100" rx="3" fill="#252528" stroke="#444" stroke-width="1"/>
+      <text x="1050" y="780" text-anchor="middle" fill="#00ced1" font-size="11" font-weight="bold">诊断核心问题</text>
+      <text x="955" y="800" fill="#ccc" font-size="9">• 束靶耦合效率 → 背向散射光</text>
+      <text x="955" y="816" fill="#ccc" font-size="9">• 辐照均匀性 → X射线静态成像</text>
+      <text x="955" y="832" fill="#ccc" font-size="9">• 内爆对称性 → X射线分幅成像</text>
+      <text x="955" y="848" fill="#ccc" font-size="9">• 聚变产额/离子温度 → 核诊断</text>
+    </svg>
+  </div>
+  <div class="detail-panel" id="detailPanel">
+    <div class="panel-section">
+      <div class="panel-header">
+        <h3 id="panelTitle">模块详情</h3>
+        <span class="panel-close" onclick="closePanel()">✕</span>
+      </div>
+    </div>
+    <div class="module-info" id="moduleInfo"></div>
+    <div class="panel-section">
+      <div class="panel-header"><h3>诊断单元</h3></div>
+    </div>
+    <div class="unit-list" id="unitList"></div>
+  </div>
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <div class="legend">
+    <span style="color:#aaa">状态：</span>
+    <div class="legend-item"><div class="legend-dot ready"></div>Ready</div>
+    <div class="legend-item"><div class="legend-dot warning"></div>In Progress</div>
+    <div class="legend-item"><div class="legend-dot fault"></div>Fault</div>
+    <div class="legend-item"><div class="legend-dot offline"></div>Offline</div>
+  </div>
+  <span style="margin-left:auto">gxlf/diag_system/01 | Tango CORBA</span>
+</div>
+
+<script>
+const moduleData = {
+  fabs: {
+    name: '全孔径背向散射测量模块',
+    nameEn: 'Full-Aperture Backscatter Module',
+    count: 2,
+    location: '靶室法兰',
+    purpose: '诊断束靶耦合效率（有多少激光能量被靶丸吸收）',
+    status: 'Ready',
+    units: [
+      { name: '门控相机 #1', type: 'cam', icon: 'CAM', status: 'ready', params: '增益: 120, 门宽: 5ns' },
+      { name: '门控相机 #2', type: 'cam', icon: 'CAM', status: 'ready', params: '增益: 120, 门宽: 5ns' },
+      { name: '光谱仪', type: 'spec', icon: 'SPE', status: 'ready', params: '波长范围: 300-800nm' },
+      { name: '条纹相机', type: 'cam', icon: 'STR', status: 'ready', params: '时间分辨: 2ps' },
+      { name: '示波器 #1', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 4GHz, 采样: 20GS/s' },
+      { name: '示波器 #2', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 4GHz, 采样: 20GS/s' },
+      { name: '运动控制模块', type: 'mot', icon: 'MOT', status: 'ready', params: '精度: 0.1μm' }
+    ]
+  },
+  nbs: {
+    name: '近背向散射光测量模块',
+    nameEn: 'Near-Backscatter Module',
+    count: 2,
+    location: '靶室法兰',
+    purpose: '测量近角度散射光',
+    status: 'Ready',
+    units: [
+      { name: '门控相机 #1', type: 'cam', icon: 'CAM', status: 'ready', params: '增益: 100, 门宽: 10ns' },
+      { name: '门控相机 #2', type: 'cam', icon: 'CAM', status: 'ready', params: '增益: 100, 门宽: 10ns' },
+      { name: '标定模块', type: 'cal', icon: 'CAL', status: 'ready', params: '标定精度: ±0.5%' },
+      { name: '高压电源 #1', type: 'hv', icon: 'HV', status: 'ready', params: '电压: 1.2kV, 电流: 50mA' },
+      { name: '高压电源 #2', type: 'hv', icon: 'HV', status: 'ready', params: '电压: 1.2kV, 电流: 50mA' },
+      { name: '高压电源 #3', type: 'hv', icon: 'HV', status: 'warning', params: '电压: 1.1kV NOT_AT_SETPOINT' }
+    ]
+  },
+  xstatic: {
+    name: '静态成像模块',
+    nameEn: 'Static X-ray Imaging Module',
+    count: 2,
+    location: '靶室法兰',
+    purpose: '诊断辐照均匀性',
+    status: 'InProgress',
+    units: [
+      { name: 'CMOS相机', type: 'cam', icon: 'CMS', status: 'warning', params: '制冷温度: -25°C 目标: -30°C' },
+      { name: '运动控制', type: 'mot', icon: 'MOT', status: 'ready', params: '精度: 1μm' }
+    ]
+  },
+  xframe: {
+    name: '分幅成像模块',
+    nameEn: 'Framing X-ray Imaging Module',
+    count: 3,
+    location: '靶室法兰',
+    purpose: '时间分辨X射线成像，诊断内爆对称性',
+    status: 'Ready',
+    units: [
+      { name: '分幅电控模块', type: 'sync', icon: 'FRM', status: 'ready', params: '帧率: 10GHz' },
+      { name: 'CMOS相机', type: 'cam', icon: 'CMS', status: 'ready', params: '制冷温度: -30°C' },
+      { name: '同步机', type: 'sync', icon: 'SYN', status: 'ready', params: '同步精度: 100ps' }
+    ]
+  },
+  xmicro: {
+    name: '显微成像模块',
+    nameEn: 'Microscopic X-ray Imaging Module (KB)',
+    count: 3,
+    location: '靶室法兰',
+    purpose: '高分辨X射线成像（KB显微镜）',
+    status: 'Ready',
+    units: [
+      { name: 'KB成像CMOS相机', type: 'cam', icon: 'CMS', status: 'ready', params: '分辨率: 5μm' },
+      { name: '分幅示波器', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 6GHz' }
+    ]
+  },
+  nyield: {
+    name: '中子产额测量模块',
+    nameEn: 'Neutron Yield Module',
+    count: 1,
+    location: '靶场四周',
+    purpose: '测量聚变中子产额',
+    status: 'Ready',
+    units: [
+      { name: '示波器', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 4GHz, 采样: 20GS/s' },
+      { name: '高压电源', type: 'hv', icon: 'HV', status: 'ready', params: '电压: 2.0kV' }
+    ]
+  },
+  itemp: {
+    name: '离子温度测量模块',
+    nameEn: 'Ion Temperature Module (nTOF)',
+    count: 3,
+    location: '靶场四周',
+    purpose: '通过中子飞行时间测量离子温度，表征内爆综合性能',
+    status: 'Ready',
+    units: [
+      { name: '示波器 (每套×1)', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 4GHz' },
+      { name: '高压电源 (每套×1)', type: 'hv', icon: 'HV', status: 'ready', params: '电压: 2.5kV' }
+    ]
+  },
+  bangtime: {
+    name: '中子Bangtime测量模块',
+    nameEn: 'Neutron Bangtime Module',
+    count: 1,
+    location: '靶室法兰 + 靶场四周',
+    purpose: '测量中子产生的精确时刻',
+    status: 'Fault',
+    units: [
+      { name: '示波器', type: 'osc', icon: 'OSC', status: 'ready', params: '带宽: 8GHz' },
+      { name: '高压电源', type: 'hv', icon: 'HV', status: 'fault', params: '电压: 0V ERROR: 通信超时' },
+      { name: 'BT运动控制模块', type: 'mot', icon: 'MOT', status: 'ready', params: '精度: 0.5mm' }
+    ]
+  },
+  dim: {
+    name: 'DIM通用搭载模块',
+    nameEn: 'Diagnostic Insertion Mechanism',
+    count: 3,
+    location: '可伸入靶室',
+    purpose: '搭载诊断设备到靶球附近精确位置',
+    status: 'Ready',
+    units: [
+      { name: 'DIM搭载平台 #1', type: 'dim', icon: 'DIM', status: 'ready', params: '位置: 收回, 真空: 正常' },
+      { name: 'DIM搭载平台 #2', type: 'dim', icon: 'DIM', status: 'ready', params: '位置: 收回, 真空: 正常' },
+      { name: 'DIM搭载平台 #3', type: 'dim', icon: 'DIM', status: 'ready', params: '位置: 收回, 真空: 正常' },
+      { name: '激光跟踪仪', type: 'mot', icon: 'TRK', status: 'ready', params: '定位精度: 10μm' },
+      { name: '摆阀 + 真空机组', type: 'vac', icon: 'VAC', status: 'ready', params: '真空度: 1.2E-4 Pa' }
+    ]
+  },
+  vmanip: {
+    name: '真空内操作手',
+    nameEn: 'Vacuum Internal Manipulator',
+    count: 3,
+    location: '靶室内部',
+    purpose: '在真空环境中进行靶室内部操作',
+    status: 'Offline',
+    units: [
+      { name: '操作手 #1', type: 'dim', icon: 'ARM', status: 'offline', params: '待机' },
+      { name: '操作手 #2', type: 'dim', icon: 'ARM', status: 'offline', params: '待机' },
+      { name: '操作手 #3', type: 'dim', icon: 'ARM', status: 'offline', params: '待机' }
+    ]
+  }
+};
+
+function showDetail(moduleId) {
+  const m = moduleData[moduleId];
+  if (!m) return;
+  document.getElementById('panelTitle').textContent = m.name;
+  const statusColor = m.status === 'Ready' ? '#4caf50' : m.status === 'Fault' ? '#f44336' : m.status === 'InProgress' ? '#ff9800' : '#666';
+  document.getElementById('moduleInfo').innerHTML = `
+    <div class="row"><span class="label">英文名</span><span class="value">${m.nameEn}</span></div>
+    <div class="row"><span class="label">模块数量</span><span class="value">×${m.count}</span></div>
+    <div class="row"><span class="label">安装位置</span><span class="value">${m.location}</span></div>
+    <div class="row"><span class="label">状态</span><span class="value" style="color:${statusColor}">${m.status}</span></div>
+    <div class="purpose">诊断目的：${m.purpose}</div>
+  `;
+  document.getElementById('unitList').innerHTML = m.units.map(u => `
+    <div class="unit-item">
+      <div class="unit-icon ${u.type}">${u.icon}</div>
+      <div class="unit-info">
+        <div class="unit-name">${u.name}</div>
+        <div class="unit-params">${u.params}</div>
+      </div>
+      <div class="unit-status ${u.status}"></div>
+    </div>
+  `).join('');
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('detailPanel').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+</script>
+
+</body>
+</html>

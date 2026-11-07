@@ -23,9 +23,6 @@ env/
 *.log
 simulator/gxlf_component_simulator/output/
 
-# 本地归档（docs 为版本化项目文档）
-archive/
-
 # IDE
 .idea/
 .vscode/
@@ -54,9 +51,9 @@ htmlcov/
 
 # Spring Boot / Flowable local runtime
 /target/
-/server/target/
+/workbench-server/target/
 /device-simulator/target/
-/model-contract/target/
+/component-contract/target/
 /data/
 
 # Local Office documents
@@ -69,3 +66,7 @@ htmlcov/
 # Generated simulation trial / environment data
 /simulator/gxlf_component_simulator/data/workbench-trials/
 /simulator/gxlf_component_simulator/data/workbench-environments/
+
+/facility-contract/target/
+/facility-server/target/
+/tango-adapter/target/

@@ -1,0 +1,15 @@
+server:
+  address: 127.0.0.1
+  port: ${FACILITY_PORT:${SUPERVISION_PORT:8081}}
+spring:
+  mvc:
+    async:
+      # NDJSON notifications remain open; the client checks heartbeat freshness.
+      request-timeout: 0
+control:
+  tango-bindings: ${TANGO_BINDINGS:}
+  simulation:
+    enabled: ${SIMULATION_ENABLED:false}
+    jar: ${SIMULATOR_JAR:./device-simulator/target/device-simulator-0.1.0.jar}
+    directory: ${SIMULATOR_DIRECTORY:./data/java-simulator}
+  facility-store: ${FACILITY_STORE:${control.supervision-store:${SUPERVISION_STORE:./data/supervision}}}

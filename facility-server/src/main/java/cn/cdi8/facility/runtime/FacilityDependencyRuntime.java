@@ -1,0 +1,146 @@
+package cn.cdi8.facility.runtime;
+
+import cn.cdi8.facility.contract.CapabilityDependencies;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.*;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+/** Resolves facility contracts against one invocation's selected resources. Never calls Flowable. */
+@Component
+public final class FacilityDependencyRuntime {
+    public static final String VARIABLE="facilityDependencies";
+    private final ObjectMapper json;
+    private final FacilityStateRuntime states;
+    private final Map<String,Watch> watches=new ConcurrentHashMap<>();
+    private volatile long lastRefresh;
+    private static final class Watch {
+        final ObjectNode plan;
+        ObjectNode failure;
+        Watch(ObjectNode plan){this.plan=plan.deepCopy();}
+    }
+    public FacilityDependencyRuntime(ObjectMapper json,FacilityStateRuntime states){this.json=json;this.states=states;}
+
+    public ObjectNode plan(String command,String componentType,String capability,String target,
+                           Collection<?> beamlines,Map<String,String> selections,String defaultSource,Map<String,String> instances) {
+        return plan(command,componentType,capability,target,beamlines,selections,defaultSource,instances,null);
+    }
+    /** Explicit BPMN scopes select one reusable input and extend its lifetime to the scope. */
+    public ObjectNode plan(String command,String componentType,String capability,String target,
+                           Collection<?> beamlines,Map<String,String> selections,String defaultSource,Map<String,String> instances,String heldInput) {
+        var contracts=states.definition().dependencies();
+        var requirements=contracts.inputs(componentType,capability).stream().filter(i->heldInput==null||heldInput.equals(i.id())).toList();
+        var facts=heldInput==null?contracts.facts(componentType,capability):List.<CapabilityDependencies.Fact>of();
+        if(heldInput!=null&&requirements.isEmpty())throw new IllegalArgumentException("未定义保持输入："+componentType+"/"+capability+"/"+heldInput);
+        if(requirements.isEmpty()&&facts.isEmpty())return null;
+        ObjectNode plan=json.createObjectNode().put("id",command).put("componentType",componentType).put("capability",capability)
+            .put("device",target).put("status","unknown").put("reason","尚未核验能力输入依赖");
+        ArrayNode leaves=plan.putArray("requirements");
+        for(var fact:facts)leaves.addObject().put("kind","fact").put("ref",fact.fact()).put("maintain",fact.maintain())
+            .put("via",componentType+"/"+capability+"/"+fact.id());
+        if(requirements.isEmpty())return plan;
+        try {
+            int matched=0;
+            for(Object value:beamlines) {
+                int beam=Integer.parseInt(value.toString());
+                String source=selections.getOrDefault(Integer.toString(beam),defaultSource);
+                String componentInstanceId=states.binding().topology().componentInstanceId(componentType,beam,source);
+                if(!target.equals(instances.get(componentInstanceId)))continue;
+                matched++;
+                for(var input:requirements)expand(componentType,input,beam,source,instances,leaves,heldInput==null?input.maintain():"execution",componentType+"/"+capability+"/"+input.id());
+            }
+            if(matched==0)throw new IllegalArgumentException("动作目标不属于本发所选束线："+target);
+        } catch(RuntimeException ex) {
+            plan.put("resolutionFailure",Objects.toString(ex.getMessage(),"无法解析能力输入依赖"));
+        }
+        return plan;
+    }
+
+    private void expand(String componentType,CapabilityDependencies.Input input,int beam,String source,Map<String,String> instances,
+                        ArrayNode leaves,String maintain,String via) {
+        var contracts=states.definition().dependencies();
+        var candidates=contracts.incoming(componentType,input).stream().filter(edge->contracts.allocated(edge,beam))
+            .filter(edge->!contracts.isSource(edge)||edge.source().equals(source)).toList();
+        if(candidates.size()!=1)throw new IllegalArgumentException("输入必须唯一选路：束线 "+beam+" / "+via+" / "+source);
+        var edge=candidates.get(0);
+        String componentInstanceId=states.binding().topology().componentInstanceId(edge.source(),beam,source),device=instances.get(componentInstanceId);
+        if(device==null)throw new IllegalArgumentException("依赖设备未绑定："+componentInstanceId+"（束线 "+beam+"）");
+        var output=contracts.output(edge.source(),edge.sourcePort(),input.signal());
+        String trace=via+" ← "+edge.id();
+        leaves.addObject().put("device",device).put("componentInstanceId",componentInstanceId).put("componentType",edge.source())
+            .put("beamline",beam).put("fact",output.fact()).put("signal",input.signal()).put("maintain",maintain).put("via",trace);
+        for(var nested:output.inputs())expand(output.componentType(),nested,beam,source,instances,leaves,maintain,trace+"/"+nested.id());
+    }
+    public ObjectNode read(Object raw) {
+        try {return cn.cdi8.facility.contract.FacilityNames.dependencyPlan((ObjectNode)json.readTree(raw.toString()));}
+        catch(Exception ex){throw new IllegalStateException("能力依赖记录损坏",ex);}
+    }
+
+    /** Register before dispatch. A transient observed failure remains latched for this command. */
+    public ObjectNode check(Object raw,boolean started,boolean reconcile) {
+        ObjectNode plan=read(raw);String id=plan.path("id").asText();
+        Watch candidate=new Watch(plan);
+        if(plan.path("latched").asBoolean())candidate.failure=plan.deepCopy();
+        else if(started&&hasContinuous(plan))candidate.failure=failed(plan,"unknown","持续依赖监控中断，无法证明保持期间条件一直有效");
+        Watch watch=watches.putIfAbsent(id,candidate);
+        if(watch==null)watch=candidate;
+        long now=System.currentTimeMillis();
+        boolean refresh=reconcile&&now-lastRefresh>=1000;
+        if(refresh)lastRefresh=now;
+        ObjectNode snapshot=states.assessment(refresh);
+        synchronized(watch) {
+            if(watch.failure!=null)return watch.failure.deepCopy();
+            ObjectNode result=evaluate(plan,snapshot,started);
+            if(!"valid".equals(result.path("status").asText())) {
+                result.put("latched",true);watch.failure=result.deepCopy();
+            }
+            return result;
+        }
+    }
+
+    @EventListener
+    public void changed(FacilityStateRuntime.Changed event) {
+        var snapshot=states.current();
+        for(var watch:watches.values())synchronized(watch) {
+            if(watch.failure!=null)continue;
+            ObjectNode result=evaluate(watch.plan,snapshot,true);
+            if(!"valid".equals(result.path("status").asText())) {
+                result.put("latched",true);watch.failure=result;
+            }
+        }
+    }
+
+    private ObjectNode evaluate(ObjectNode plan,JsonNode snapshot,boolean started) {
+        ObjectNode result=plan.deepCopy().put("status","valid").put("reason","").put("checkedAt",System.currentTimeMillis());
+        result.put("observationSequence",snapshot.path("sequence").asLong());
+        if(plan.has("resolutionFailure"))return failed(result,"unknown",plan.path("resolutionFailure").asText());
+        for(JsonNode node:result.path("requirements")) {
+            ObjectNode requirement=(ObjectNode)node;
+            if(started&&"start".equals(requirement.path("maintain").asText())) {
+                requirement.put("status","released");continue;
+            }
+            boolean condition=requirement.has("kind");
+            JsonNode fact=condition?snapshot.path("fact".equals(requirement.path("kind").asText())?"facts":"guards").path(requirement.path("ref").asText())
+                :snapshot.path("deviceFacts").path(requirement.path("device").asText()).path(requirement.path("fact").asText());
+            String status=fact.path("status").asText("unknown"),reason=fact.path("reason").asText("缺少设备事实观测");
+            if(!condition&&!requirement.path("componentType").asText().equals(fact.path("componentType").asText())) {status="unknown";reason="设备事实类型不匹配或缺失";}
+            requirement.put("status",status).put("reason",reason);requirement.set("observation",fact.deepCopy());
+            if(!"valid".equals(status)&&"valid".equals(result.path("status").asText())) {
+                result.put("status",status).put("reason",(condition?requirement.path("ref").asText():"束线 "+requirement.path("beamline").asInt()+" / "+requirement.path("componentInstanceId").asText()
+                    +" / "+requirement.path("fact").asText())+"："+reason);
+            }
+        }
+        return result;
+    }
+    private ObjectNode failed(ObjectNode plan,String status,String reason) {
+        return plan.deepCopy().put("status",status).put("reason",reason).put("latched",true).put("checkedAt",System.currentTimeMillis());
+    }
+    private boolean hasContinuous(ObjectNode plan) {
+        for(var requirement:plan.path("requirements"))if("execution".equals(requirement.path("maintain").asText()))return true;
+        return false;
+    }
+    public void release(String command){watches.remove(command);}
+    public void retain(Set<String> active){watches.keySet().retainAll(active);}
+}

@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <facility-binding id="gxlf-facility-binding" definitionRef="gxlf-facility" version="1" xmlns="https://cdi8.cn/facility-binding/v1">
   <instanceBindings resolution="runtime-configuration">
-    <instanceBinding runtimeKey="seed" runtimePattern="seed_{index}" instanceSetRef="seed" />
-    <instanceBinding runtimeKey="shg" runtimePattern="shg_{index}" instanceSetRef="shg" />
-    <instanceBinding runtimeKey="preamp" runtimePattern="preamp_{index}" instanceSetRef="preamp" />
-    <instanceBinding runtimeKey="multipass" runtimePattern="multipass_{index}" instanceSetRef="multipass" />
-    <instanceBinding runtimeKey="pump" runtimePattern="pump_{index}" instanceSetRef="pump" />
-    <instanceBinding runtimeKey="measurement" runtimePattern="measurement_{index}" instanceSetRef="measurement" />
-    <instanceBinding runtimeKey="frequency-conversion" runtimePattern="frequency-conversion_{index}" instanceSetRef="frequency-conversion" />
-    <instanceBinding runtimeKey="target-alignment" runtimePattern="target-alignment_{index}" instanceSetRef="target-alignment" />
-    <instanceBinding runtimeKey="vacuum" runtimePattern="vacuum_{index}" instanceSetRef="vacuum" />
-    <instanceBinding runtimeKey="diagnostics" runtimePattern="diagnostics_{index}" instanceSetRef="diagnostics" />
-    <instanceBinding runtimeKey="synchronization" runtimePattern="synchronization_{index}" instanceSetRef="synchronization" />
-    <instanceBinding runtimeKey="switch-driver" runtimePattern="switch-driver_{index}" instanceSetRef="switch-driver" />
-    <instanceBinding runtimeKey="cooling" runtimePattern="cooling_{index}" instanceSetRef="cooling" />
-    <instanceBinding runtimeKey="control-environment" runtimePattern="control-environment_{index}" instanceSetRef="control-environment" />
+    <instanceBinding deviceBindingKey="seed" deviceIdPattern="seed_{index}" instanceSetRef="seed" />
+    <instanceBinding deviceBindingKey="shg" deviceIdPattern="shg_{index}" instanceSetRef="shg" />
+    <instanceBinding deviceBindingKey="preamp" deviceIdPattern="preamp_{index}" instanceSetRef="preamp" />
+    <instanceBinding deviceBindingKey="multipass" deviceIdPattern="multipass_{index}" instanceSetRef="multipass" />
+    <instanceBinding deviceBindingKey="pump" deviceIdPattern="pump_{index}" instanceSetRef="pump" />
+    <instanceBinding deviceBindingKey="measurement" deviceIdPattern="measurement_{index}" instanceSetRef="measurement" />
+    <instanceBinding deviceBindingKey="frequency-conversion" deviceIdPattern="frequency-conversion_{index}" instanceSetRef="frequency-conversion" />
+    <instanceBinding deviceBindingKey="target-alignment" deviceIdPattern="target-alignment_{index}" instanceSetRef="target-alignment" />
+    <instanceBinding deviceBindingKey="vacuum" deviceIdPattern="vacuum_{index}" instanceSetRef="vacuum" />
+    <instanceBinding deviceBindingKey="diagnostics" deviceIdPattern="diagnostics_{index}" instanceSetRef="diagnostics" />
+    <instanceBinding deviceBindingKey="synchronization" deviceIdPattern="synchronization_{index}" instanceSetRef="synchronization" />
+    <instanceBinding deviceBindingKey="switch-driver" deviceIdPattern="switch-driver_{index}" instanceSetRef="switch-driver" />
+    <instanceBinding deviceBindingKey="cooling" deviceIdPattern="cooling_{index}" instanceSetRef="cooling" />
+    <instanceBinding deviceBindingKey="control-environment" deviceIdPattern="control-environment_{index}" instanceSetRef="control-environment" />
   </instanceBindings>
   <beamlineBindings resolution="runtime-configuration">
     <beamlineBinding id="beamlines" resourceRef="beamline">
@@ -26,12 +26,12 @@
     </beamlineBinding>
   </beamlineBindings>
   <externalBindings resolution="runtime-configuration">
-    <externalBinding runtimeKey="shield-door" status="endpoint-unresolved" externalEndpointRef="shield-door" />
-    <externalBinding runtimeKey="personnel-counter" status="endpoint-unresolved" externalEndpointRef="personnel-counter" />
-    <externalBinding runtimeKey="wind-shower-door" status="scope-unresolved" externalEndpointRef="wind-shower-door" />
-    <externalBinding runtimeKey="parameter-service" status="contract-unresolved" externalEndpointRef="parameter-service" />
-    <externalBinding runtimeKey="data-service" status="contract-unresolved" externalEndpointRef="data-service" />
-    <externalBinding runtimeKey="reservation-service" externalEndpointRef="reservation-service" />
-    <externalBinding runtimeKey="interlock-controller" status="controller-unresolved" externalEndpointRef="interlock-controller" />
+    <externalBinding deviceBindingKey="shield-door" status="endpoint-unresolved" externalEndpointRef="shield-door" />
+    <externalBinding deviceBindingKey="personnel-counter" status="endpoint-unresolved" externalEndpointRef="personnel-counter" />
+    <externalBinding deviceBindingKey="wind-shower-door" status="scope-unresolved" externalEndpointRef="wind-shower-door" />
+    <externalBinding deviceBindingKey="parameter-service" status="contract-unresolved" externalEndpointRef="parameter-service" />
+    <externalBinding deviceBindingKey="data-service" status="contract-unresolved" externalEndpointRef="data-service" />
+    <externalBinding deviceBindingKey="reservation-service" externalEndpointRef="reservation-service" />
+    <externalBinding deviceBindingKey="interlock-controller" status="controller-unresolved" externalEndpointRef="interlock-controller" />
   </externalBindings>
 </facility-binding>

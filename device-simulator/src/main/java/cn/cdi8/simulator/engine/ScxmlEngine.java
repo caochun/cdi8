@@ -6,11 +6,13 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.commons.scxml2.*;
 import org.apache.commons.scxml2.env.SimpleDispatcher;
+import org.apache.commons.scxml2.env.jexl.JexlBuiltin;
 import org.apache.commons.scxml2.env.jexl.JexlEvaluator;
 import org.apache.commons.scxml2.io.SCXMLReader;
 import org.apache.commons.scxml2.model.*;
 import org.apache.commons.scxml2.semantics.SCXMLSemanticsImpl;
 import org.apache.commons.jexl3.*;
+import org.apache.commons.jexl3.introspection.JexlPermissions;
 import org.xml.sax.InputSource;
 
 /** State selection and entry/exit semantics belong entirely to Commons SCXML. */
@@ -51,6 +53,14 @@ public final class ScxmlEngine {
     private static final class PureGuardEvaluator extends JexlEvaluator {
         private static final JexlEngine SYNTAX=new JexlBuilder().features(new JexlFeatures()
             .sideEffect(false).methodCall(false).newInstance(false).lambda(false)).create();
+        @Override protected JexlEngine createJexlEngine() {
+            // JEXL 3.3+ restricts reflection by default. Permit the SCXML In()
+            // builtin explicitly while retaining the default restrictions.
+            Map<String,Object> functions=new HashMap<>();
+            functions.put(null,JexlBuiltin.class);
+            return new JexlBuilder().namespaces(functions).cache(256)
+                .permissions(new JexlPermissions.ClassPermissions(JexlBuiltin.class)).create();
+        }
         static void validate(String expression) {
             try { SYNTAX.createExpression(expression); }
             catch(RuntimeException ex) { throw new IllegalArgumentException("SCXML cond 必须是无副作用的条件表达式："+expression,ex); }
