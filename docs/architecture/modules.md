@@ -47,7 +47,7 @@ flowchart TD
 
 `tango-adapter` 只产出普通 JAR，集成在 `facility-server` 内。设施侧 `TangoGateway` 直接调用 `TangoAdapter`，把设备观测交给事实与监督运行时。模块不依赖 SCXML，也不负责模拟设备进程。
 
-`facility-server/simulation/SimulatorLauncher` 按需启动独立的设备 JVM；设备 JVM 自行解析 SCXML、生成配置并提供 Tango 服务。设施后端通过真实 Snapshot 验证全部新设备后才切换，失败保留原环境。模型校验使用模拟器的短时 `--validate` 命令，因此后端没有 SCXML 引擎依赖。
+`facility-server/simulation/SimulatorLauncher` 按设施 profile 启动或替换独立的设备 JVM；设备 JVM 自行解析 SCXML、生成配置并提供 Tango 服务。设施后端通过真实 Snapshot 验证全部新设备后才切换，失败保留原环境。模型校验使用模拟器的短时 `--validate` 命令，因此后端没有 SCXML 引擎依赖。
 
 ## 运行协作
 
@@ -76,6 +76,6 @@ flowchart LR
 | 已构建后启动设施侧及其模拟设备启动器 | `make facility-start` |
 | 已构建后单独重启工作台 | `make workbench-restart` |
 
-统一进程入口为 `java scripts/Services.java start|stop|restart|status [facility|workbench|all]`。默认操作 all；facility 范围包括按需创建的模拟设备子进程。旧的 `make workbench` 完整启动用法已改为 `make simulation`，`make java-workbench-smoke` 改为 `make simulation-test`。
+统一进程入口为 `java scripts/Services.java start|stop|restart|status [facility|workbench|all]`。默认操作 all；facility 范围包括其独立 profile 创建的模拟设备子进程。旧的 `make workbench` 完整启动用法已改为 `make simulation`，`make java-workbench-smoke` 改为 `make simulation-test`。
 
 模块迁移不移动用户数据。设施状态仍位于 `data/supervision/`，工作台模型位于 `data/workbench/`，数据库仍使用 `data/control-v2`。接口及配置兼容说明见[设施运行边界](facility-runtime.md)。

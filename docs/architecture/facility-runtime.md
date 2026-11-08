@@ -41,6 +41,10 @@
 |---|---|
 | `GET /health` | 进程健康；不表示设备或联锁有效 |
 | `GET /connection` | 设备观测通道状态 |
+| `GET/POST /environment` | 读取或替换设施拥有的模拟环境；替换会检查活动义务、未决命令和活动设备命令 |
+| `GET /devices`、`GET /devices/{device}` | 读取设备目录和原始快照，直接验证观测边界 |
+| `GET /devices/{device}/history` | 读取设备动作历史 |
+| `POST /validate` | 使用设施实际配置的模拟器校验 SCXML |
 | `GET /facts?refresh=true` | 验证观测、逐设备事实、聚合事实和 guard；不包含监督约束 |
 | `GET /state?refresh=true` | 在事实之上增加工作状态义务及锁存事件 |
 | `GET/POST /models` | 读取或激活完整模型包 |
@@ -50,7 +54,16 @@
 | `GET /events` | NDJSON 观测和状态变化通知；缺失通知后仍须重新查询 |
 | `POST /adapter` | 白名单内的设备读取和实验控制；不能旁路生产命令准入 |
 
-可直接启动监督 JAR，用 `facts` 验证“设备观测 → 设施事实”，再用 `state` 验证系统监督，最后启动工作台验证流程编排。缺失、过期、来源不一致或修订号倒退的观测不能成为有效放行证据。没有可用设备时，监督服务本身可以健康，设备事实仍为 unknown。
+设备快照采用统一信封：组件快照和条件源快照都必须提供 `snapshot_kind`、`source_id`、非负 `state_revision` 及活动命令的一致字段。`tango-adapter` 在事件和补读进入设施运行时前拒绝缺字段或状态矛盾的快照；设施运行时随后负责来源切换、修订号回退和证据过期判断。GXLF 事实的逐项来源和 unknown 传播规则见[事实完整性矩阵](fact-integrity-matrix.md)。
+
+可直接启动设施 JAR；仿真模式按设施服务器自己的 profile 创建 facility。用 `environment` 和 `devices` 验证设备观测，再用 `facts` 验证“设备观测 → 设施事实”，最后用 `state` 验证系统监督，整个过程不需要工作台。工作台只是随后连接该 facility 做流程编排。缺失、过期、来源不一致或修订号倒退的观测不能成为有效放行证据。
+
+```bash
+curl http://127.0.0.1:8081/api/facility/environment
+curl http://127.0.0.1:8081/api/facility/devices
+curl 'http://127.0.0.1:8081/api/facility/facts?refresh=true'
+curl 'http://127.0.0.1:8081/api/facility/state?refresh=true'
+```
 
 ## 监督义务与命令恢复
 
@@ -72,8 +85,12 @@
 # 无需构建设备模拟器，打包两个后端与前端
 make backend-package
 
-# 两个终端分别执行；通过 TANGO_BINDINGS 配置真实设备
-java -jar facility-server/target/facility-server-0.1.0.jar
+# 设施后端可以独立启动并建立默认仿真 facility
+java -jar facility-server/target/facility-server-0.1.0.jar --control.simulation.enabled=true
+# 真实设备模式则使用 TANGO_BINDINGS，并关闭模拟环境
+# java -jar facility-server/target/facility-server-0.1.0.jar --control.tango-bindings=bindings.json
+
+# 工作台是可选客户端
 java -jar workbench-server/target/workbench-server-0.1.0.jar
 
 # 完整模拟链路（需要模拟器依赖可用）
@@ -86,7 +103,7 @@ java scripts/Services.java start facility
 java scripts/Services.java restart workbench
 ```
 
-默认端口为工作台 8080、设施后端 8081。设备接入直接使用 JTango，不再开放 8766。`FACILITY_URL` 配置工作台连接的设施地址；`TANGO_BINDINGS` 指向已有设备绑定 JSON；`FACILITY_STORE` 配置监督日志目录；`FACILITY_PORT` 配置设施端口。仿真使用 `SIMULATION_ENABLED=true`、`SIMULATOR_JAR` 和 `SIMULATOR_DIRECTORY`；模拟器按需在独立 JVM 中启动。源码启动器自动配置仿真模式。`TANGO_BRIDGE_URL` 已移除。
+默认端口为工作台 8080、设施后端 8081。设备接入直接使用 JTango，不再开放 8766。`FACILITY_URL` 配置工作台连接的设施地址；`TANGO_BINDINGS` 指向已有设备绑定 JSON；`FACILITY_STORE` 配置监督日志目录；`FACILITY_PORT` 配置设施端口。仿真使用 `SIMULATION_ENABLED=true`、`SIMULATOR_PROFILE`、`SIMULATOR_JAR` 和 `SIMULATOR_DIRECTORY`；默认 profile 为 `classpath:simulation/gxlf-facility.json`，也可用外部 JSON 替换。模拟器由设施后端在独立 JVM 中启动。`TANGO_BRIDGE_URL` 已移除。
 
 原 `SUPERVISION_URL`、`SUPERVISION_PORT`、`SUPERVISION_STORE` 环境变量，以及 `control.supervision-url`、`control.supervision-store` 配置仍可作为旧名称使用。新配置优先。默认数据目录继续为 `data/supervision/`；启动器沿用原 PID、日志和锁文件，以识别迁移前已运行的进程。
 

@@ -57,7 +57,7 @@ public class RunDeploymentService {
         config=cn.cdi8.workbench.workflow.facility.FacilitySimulationProfile.normalizeConfiguration(config);
         synchronized (environments) {
             environments.ensureIdle();
-            JsonNode environment = facility.request("GET", "/lab/environment", null);
+            JsonNode environment = facility.environment();
             if (!"ready".equals(environment.path("status").asText()))
                 throw new IllegalStateException(environment.path("error").asText("请先创建就绪的模拟环境"));
             if (!environment.path("id").asText().equals(config.path("environment").path("id").asText()))

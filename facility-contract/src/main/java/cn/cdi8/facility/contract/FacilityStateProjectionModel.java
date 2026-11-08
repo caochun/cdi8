@@ -8,9 +8,23 @@ import static cn.cdi8.facility.contract.xml.ModelXml.*;
 /** Typed conditions with acyclic fact references and explicit three-valued junctions. */
 public final class FacilityStateProjectionModel {
     public static final String NS="https://cdi8.cn/facility-state/v1";
+    public enum FactRole {
+        STATE("state"), QUALIFICATION("qualification"), DERIVED("derived");
+        private final String value;
+        FactRole(String value){this.value=value;}
+        public String value(){return value;}
+        static FactRole parse(String value){
+            return switch(value){
+                case "state" -> STATE;
+                case "qualification" -> QUALIFICATION;
+                case "derived" -> DERIVED;
+                default -> throw invalid("事实角色无效："+value);
+            };
+        }
+    }
     public record DeviceFact(String id,String componentType,String label,String states,String outerStates) {}
     public record Condition(String kind,String ref,String states,String outerStates,String expected,String action,boolean active,boolean anyDevice,List<Condition> terms) {}
-    public record Predicate(String id,String label,Condition condition) {}
+    public record Predicate(String id,String label,FactRole role,Condition condition) {}
     public record Observation(String id,String adapter,Element source) {}
     private final Element root;
     private final long evidenceMaxAgeMs;
@@ -48,6 +62,11 @@ public final class FacilityStateProjectionModel {
     public int guardCount(){return guards.size();}
     public boolean hasGuard(String id){return guards.containsKey(id);}
     public boolean hasFact(String id){return facts.containsKey(id);}
+    public FactRole factRole(String id){
+        var fact=facts.get(id);
+        if(fact==null)throw invalid("事实引用未定义："+id);
+        return fact.role();
+    }
     public List<Predicate> evaluationOrder(){return List.copyOf(evaluationOrder);}
     public Collection<Predicate> guards(){return Collections.unmodifiableCollection(guards.values());}
     public Collection<DeviceFact> deviceFacts(){return Collections.unmodifiableCollection(deviceFacts.values());}
@@ -71,6 +90,9 @@ public final class FacilityStateProjectionModel {
         for(var constraint:definition.operatingConstraints()) {
             requireFact(constraint.activation());requireFact(constraint.release());
             for(var requirement:constraint.requirements())requireFact(requirement.fact());
+            requireSupervisionSafe(constraint.id(),constraint.activation());
+            requireSupervisionSafe(constraint.id(),constraint.release());
+            for(var requirement:constraint.requirements())requireSupervisionSafe(constraint.id(),requirement.fact());
             var applicability=new HashSet<String>();
             factReferences(facts.get(constraint.activation()).condition,applicability);
             factReferences(facts.get(constraint.release()).condition,applicability);
@@ -79,6 +101,23 @@ public final class FacilityStateProjectionModel {
         }
     }
     private void requireFact(String ref){if(!facts.containsKey(ref))throw invalid("系统约束引用未定义事实："+ref);}
+    private void requireSupervisionSafe(String constraint,String fact){
+        if(!supervisionSafe(fact,new HashSet<>()))
+            throw invalid("监督义务不能依赖流程资格事实："+constraint+" / "+fact);
+    }
+    private boolean supervisionSafe(String id,Set<String> visiting){
+        if(!visiting.add(id))throw invalid("事实依赖存在环："+id);
+        var predicate=facts.get(id);
+        boolean safe=predicate.role()!=FactRole.QUALIFICATION;
+        if(safe)safe=supervisionSafeCondition(predicate.condition(),visiting);
+        visiting.remove(id);
+        return safe;
+    }
+    private boolean supervisionSafeCondition(Condition condition,Set<String> visiting){
+        if("factPredicate".equals(condition.kind())&&!supervisionSafe(condition.ref(),visiting))return false;
+        for(var term:condition.terms())if(!supervisionSafeCondition(term,visiting))return false;
+        return true;
+    }
     private void factReferences(Condition condition,Set<String> refs) {
         if("factPredicate".equals(condition.kind)&&refs.add(condition.ref))factReferences(facts.get(condition.ref).condition,refs);
         condition.terms.forEach(term->factReferences(term,refs));
@@ -127,7 +166,7 @@ public final class FacilityStateProjectionModel {
         if("factPredicate".equals(c.kind))visit(c.ref,visiting,visited);
         c.terms.forEach(term->visitReferences(term,visiting,visited));
     }
-    private static Predicate predicate(Element e){return new Predicate(e.getAttribute("id"),e.getAttribute("label"),condition(children(child(e,"condition")).get(0),0));}
+    private static Predicate predicate(Element e){return new Predicate(e.getAttribute("id"),e.getAttribute("label"),FactRole.parse(e.hasAttribute("role")?e.getAttribute("role"):"state"),condition(children(child(e,"condition")).get(0),0));}
     private static Condition condition(Element e,int depth) {
         if(depth>64)throw invalid("条件嵌套超过 64 层");
         String kind=e.getLocalName();

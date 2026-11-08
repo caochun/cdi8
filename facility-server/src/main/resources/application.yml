@@ -12,4 +12,5 @@ control:
     enabled: ${SIMULATION_ENABLED:false}
     jar: ${SIMULATOR_JAR:./device-simulator/target/device-simulator-0.1.0.jar}
     directory: ${SIMULATOR_DIRECTORY:./data/java-simulator}
+    profile: ${SIMULATION_PROFILE:classpath:simulation/gxlf-facility.json}
   facility-store: ${FACILITY_STORE:${control.supervision-store:${SUPERVISION_STORE:./data/supervision}}}

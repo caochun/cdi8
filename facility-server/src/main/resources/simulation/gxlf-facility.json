@@ -1,0 +1,20 @@
+{
+  "autoComplete": true,
+  "conditions": {},
+  "devices": [
+    {"id": "seed_01", "deviceBindingKey": "seed", "model": "seed-source-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "shg_01", "deviceBindingKey": "shg", "model": "shg-injection-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "preamp_01", "deviceBindingKey": "preamp", "model": "preamp-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "multipass_01", "deviceBindingKey": "multipass", "model": "multipass-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "pump_01", "deviceBindingKey": "pump", "model": "pump-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "measurement_01", "deviceBindingKey": "measurement", "model": "measurement-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "frequency-conversion_01", "deviceBindingKey": "frequency-conversion", "model": "frequency-conversion-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "target-alignment_01", "deviceBindingKey": "target-alignment", "model": "target-alignment-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "vacuum_01", "deviceBindingKey": "vacuum", "model": "vacuum-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "diagnostics_01", "deviceBindingKey": "diagnostics", "model": "diagnostics-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "synchronization_01", "deviceBindingKey": "synchronization", "model": "synchronization-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "switch-driver_01", "deviceBindingKey": "switch-driver", "model": "switch-driver-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "cooling_01", "deviceBindingKey": "cooling", "model": "cooling-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500},
+    {"id": "control-environment_01", "deviceBindingKey": "control-environment", "model": "control-environment-state-machine.scxml", "revision": "embedded-gxlf-1", "autoComplete": true, "delayMs": 500}
+  ]
+}

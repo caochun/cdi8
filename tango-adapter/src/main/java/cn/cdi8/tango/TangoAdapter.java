@@ -64,9 +64,16 @@ public final class TangoAdapter implements AutoCloseable {
     }
     private synchronized void publish(String id,JsonNode snapshot,String origin) {
         if(closed)return;
+        JsonNode normalized=normalizeSnapshot(snapshot);
+        ObjectNode previous=latest.get(id);
+        // Tango CHANGE_EVENT may repeat the current attribute value. Keep the
+        // latest cache quiet in that case; a changed revision still publishes
+        // immediately, while reconciliation remains the loss-recovery path.
+        if(previous!=null&&previous.path("connected").asBoolean(false)
+            &&previous.path("snapshot").equals(normalized))return;
         ObjectNode event=JSON.createObjectNode().put("type","snapshot").put("device_id",id)
             .put("origin",origin).put("connected",true);
-        event.set("snapshot",normalizeSnapshot(snapshot));latest.put(id,event);if(active)notices.accept(event);
+        event.set("snapshot",normalized);latest.put(id,event);if(active)notices.accept(event);
     }
     private synchronized void failure(String id,Exception ex) {
         if(closed)return;
@@ -92,7 +99,7 @@ public final class TangoAdapter implements AutoCloseable {
             if(!snapshot.has("componentLabel"))snapshot.set("componentLabel",snapshot.get("component"));
             snapshot.remove("component");
         }
-        return value;
+        return SnapshotContract.validate(value);
     }
     public JsonNode call(String id,String command,JsonNode argument) throws Exception {
         JsonNode result=binding(id).connect().call(command,argument);

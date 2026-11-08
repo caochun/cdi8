@@ -103,7 +103,7 @@ SCXML 的解析和执行统一交给 Apache Commons SCXML。Java 校验会实际
 - Flowable 执行与活动历史继续使用现有 H2 数据库。
 - `data/supervision/`：监督端模型、物理工作状态义务、锁存事件和命令日志，独立于工作台；可用 `FACILITY_STORE` 修改。
 
-Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/configuration`、`/environment`、`/runs`、`/runs/{id}/trace` 和设备反馈接口。工作台经设施接口提交不可变 XML 创建模拟设备；设施后端的 `--control.tango-bindings=bindings.json` 是外部设备绑定模式，不开放模拟环境重建。`SIMULATOR_DIRECTORY` 可隔离模拟环境数据，默认 `data/java-simulator/`。
+Java 提供 `/api/workbench/models`、`/validate`、`/models/{id}/versions`、`/configuration`、`/environment`、`/runs`、`/runs/{id}/trace` 和设备反馈接口。工作台的环境操作只是调用设施后端的 `/api/facility/environment`；独立 facility 可以先启动并通过 `/api/facility/environment`、`/devices`、`/facts`、`/state` 验证观测、事实和监督。设施后端的 `--control.tango-bindings=bindings.json` 是外部设备绑定模式，不开放模拟环境重建。`SIMULATION_PROFILE` 和 `SIMULATOR_DIRECTORY` 可隔离模拟环境数据。
 
 ## 设施动作运行
 

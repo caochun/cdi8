@@ -134,6 +134,7 @@ public class ComponentRuntime implements AutoCloseable {
         var result=state.get("last_result_id")==null?null:command((String)state.get("last_result_id"));
         ObjectNode context=(ObjectNode)parse((String)state.get("context"));
         var value=JSON.createObjectNode();
+        value.put("snapshot_kind","component");
         value.put("source_id",sourceId);
         value.put("supports_entry_condition",true);
         value.put("supports_action_contract",true);

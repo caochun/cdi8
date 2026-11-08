@@ -22,14 +22,14 @@
 | `api` | REST 及页面入口 |
 | `model` | 模型存储、校验、草稿编辑和版本发布 |
 | `application` | 对 API 保持稳定的工作台门面 |
-| `environment` | 运行方案存取、环境替换及空闲约束 |
+| `environment` | 运行方案存取、向设施提交环境请求及工作台空闲约束 |
 | `workflow` | 运行部署、发次记录、设备命令推进、超时和终态 |
 | `workflow.facility` | BPMN guard/completion/hold 和动作队列 |
 | `integration.flowable` | 自定义组件命令活动和 BPMN 解析适配 |
 | `integration.facility` | 设施 HTTP 客户端、事实视图和依赖监测客户端 |
 | `trace` | 按运行保存设备事件 |
 
-`WorkbenchService` 保持 API 门面，委托 `ModelService`、`EnvironmentService` 和 `RunDeploymentService`。工作台在活动流程期间禁止切换环境；监督端另外检查物理义务和未决命令，避免停止 BPMN 后清除仍有效的运行证据。
+`WorkbenchService` 保持 API 门面，委托 `ModelService`、`EnvironmentService` 和 `RunDeploymentService`。工作台在活动流程期间禁止提交环境替换；设施端另外检查物理义务、未决命令和活动设备命令，避免停止 BPMN 后清除仍有效的运行证据。
 
 ## 前端开发与运行视图
 
@@ -79,7 +79,7 @@ Java 设备模块将 `examples/gxlf/components/` 打包到 `models/`；服务端
 
 `SimulatorLauncher` 接受所选版本的 XML、实例 ID、反馈方式、延迟与外部条件。每代生成唯一 ID，并在 `data/java-simulator/environments/<ID>/` 固定模型 XML、请求配置、设备配置、SQLite 与日志。新设备使用独立的随机端口与 DServer 身份；所有 Tango Snapshot 可读后，设施后端才替换绑定与订阅，然后关闭旧设备进程。失败保留旧环境；失败代日志也保留供排查。
 
-每代 Session 独占事件订阅、快照缓存，旧订阅的迟到事件不能进入新环境。设备进程退出后环境状态为 `failed`，设施后端不自动以初始设备替代在途状态。活动流程、尚无安全退出证据的物理义务、未决或活动设备命令都会阻止重建；停止流程并不解除物理义务。设施后端重启得到新的空环境，重建仍需通过监督检查。正常关闭会清理设备子进程；父进程意外消失时子进程自退出。
+每代 Session 独占事件订阅、快照缓存，旧订阅的迟到事件不能进入新环境。设备进程退出后环境状态为 `failed`，设施后端不自动以初始设备替代在途状态。活动流程、尚无安全退出证据的物理义务、未决或活动设备命令都会阻止重建；停止流程并不解除物理义务。设施后端重启时按自己的 `SIMULATION_PROFILE` 建立新的 facility；正常关闭会清理设备子进程，父进程意外消失时子进程自退出。
 
 SCXML 校验和模拟设备执行使用同一 `ComponentModel` / Apache 引擎。Java 设备快照携带工作台 `model_revision`，运行页按实际不可变版本绘图，历史记录保留当时的快照与模型引用。
 

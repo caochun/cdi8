@@ -62,4 +62,43 @@ class ScxmlCompatibilityTest {
             assertEquals(events,runtime.history(100).size());
         }
     }
+
+    @Test void snapshotRevisionAndCommandResultStayAligned() throws Exception {
+        String xml;
+        try(var input=getClass().getResourceAsStream("/component.scxml")) {
+            assertNotNull(input);
+            xml=new String(input.readAllBytes(),StandardCharsets.UTF_8);
+        }
+        var model=new ComponentModel(xml);
+        var request=ComponentModel.JSON.createObjectNode().put("command_id","activate-2").put("action","activate");
+        try(var runtime=new ComponentRuntime(model,directory.resolve("snapshot.sqlite3"))) {
+            var initial=runtime.snapshot();
+            assertEquals("component",initial.path("snapshot_kind").asText());
+            assertFalse(initial.path("source_id").asText().isBlank());
+            assertTrue(initial.path("state_revision").isIntegralNumber());
+            assertTrue(initial.path("model_digest").asText().matches("[0-9a-f]{64}"));
+            assertEquals(initial.path("state_revision").asLong(),0L);
+
+            var accepted=runtime.execute(request);
+            var executing=runtime.snapshot();
+            assertTrue(executing.path("state_revision").asLong()>initial.path("state_revision").asLong());
+            assertEquals("activate-2",executing.path("active_command_id").asText());
+            assertEquals("executing",executing.path("task_state").asText());
+            assertEquals(executing,accepted.path("snapshot"));
+
+            var completed=runtime.simulate(ComponentModel.JSON.createObjectNode()
+                .put("command_id","activate-2").put("outcome","success"));
+            var finalSnapshot=runtime.snapshot();
+            assertEquals("active",finalSnapshot.path("state_id").asText());
+            assertTrue(finalSnapshot.path("state_revision").asLong()>executing.path("state_revision").asLong());
+            assertTrue(finalSnapshot.path("active_command_id").isNull());
+            assertEquals(finalSnapshot,completed.path("snapshot"));
+            var persisted=runtime.result("activate-2").path("snapshot");
+            assertEquals(finalSnapshot.path("source_id"),persisted.path("source_id"));
+            assertEquals(finalSnapshot.path("state_revision").asLong(),persisted.path("state_revision").asLong());
+            assertEquals(finalSnapshot.path("state_id"),persisted.path("state_id"));
+            assertEquals(finalSnapshot.path("task_state"),persisted.path("task_state"));
+            assertFalse(runtime.history(100).isEmpty());
+        }
+    }
 }

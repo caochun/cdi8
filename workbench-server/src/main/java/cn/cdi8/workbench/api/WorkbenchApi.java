@@ -22,10 +22,10 @@ public class WorkbenchApi {
     @GetMapping("/configuration") public Object configuration(){return workbench.config();}
     @PostMapping("/configuration") public Object saveConfiguration(@RequestBody JsonNode body){return workbench.saveConfig(body);}
     @PostMapping("/environment") public Object apply(@RequestBody JsonNode body){return workbench.apply(body);}
-    @GetMapping("/environment") public Object environment(){return facility.request("GET","/lab/environment",null);}
+    @GetMapping("/environment") public Object environment(){return facility.environment();}
     @PostMapping("/runs") public Object start(@RequestBody JsonNode body){return workbench.start(body);}
     @GetMapping("/runs/{id}/trace") public Object trace(@PathVariable String id){return trace.events(id);}
-    @GetMapping("/devices/{id}/history") public Object history(@PathVariable String id){return facility.request("GET","/devices/"+id+"/history",null);}
+    @GetMapping("/devices/{id}/history") public Object history(@PathVariable String id){return facility.history(id);}
     @PostMapping("/devices/{id}/{operation}") public Object action(@PathVariable String id,@PathVariable String operation,@RequestBody JsonNode body){
         if(!Set.of("commands","simulate","events").contains(operation))throw new IllegalArgumentException("未知操作");
         return facility.request("POST","/devices/"+id+"/"+operation,body);

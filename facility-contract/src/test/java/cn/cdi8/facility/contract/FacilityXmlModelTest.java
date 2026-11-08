@@ -105,6 +105,18 @@ class FacilityXmlModelTest {
             projection().replace("typeRef=\"seed\"","typeRef=\"noSuchType\"")))
             assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(changed).validateDependencies(definition));
     }
+    @Test void qualificationFactsAreDistinctAndCannotDriveSupervision()throws Exception {
+        var projection=FacilityStateProjectionModel.parse(projection());
+        assertEquals(FacilityStateProjectionModel.FactRole.QUALIFICATION,projection.factRole("allPowerChecked"));
+        assertEquals(FacilityStateProjectionModel.FactRole.STATE,projection.factRole("pumpEnergyActive"));
+        var definition=SystemDefinitionModel.parse(definition().replace(
+            "activationFactRef=\"pumpEnergyActive\"","activationFactRef=\"allPowerChecked\""));
+        assertThrows(IllegalArgumentException.class,()->projection.validateDependencies(definition));
+    }
+    @Test void rejectsUnknownFactRoles()throws Exception {
+        assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(
+            projection().replace("role=\"qualification\"","role=\"run-evidence\"")));
+    }
     @Test void unsupportedUpstreamEdgesCannotBeSilentlySkipped()throws Exception {
         String xml=definition().replace("<connections>","<connections><connection id=\"unsupported\" relation=\"recipe-control\"><source externalEndpointRef=\"interlock-controller\" portRef=\"event-out\" /><target instanceSetRef=\"preamp\" portRef=\"command-in\" /></connection>");
         assertThrows(IllegalArgumentException.class,()->SystemDefinitionModel.parse(xml));

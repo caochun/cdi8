@@ -31,11 +31,16 @@ mvn -B -ntp -pl tango-adapter -am package
 # 单独构建和测试模拟器（SCXML 2 固定发行包从 Maven Central 获取）
 mvn -B -ntp -pl device-simulator -am package
 
+# 设施独立快照边界：真实模拟器 JVM、JTango 和 facility-server，不启动 Workbench
+mvn -B -ntp -Pfacility-e2e -pl facility-server -am -Dexec.skip=true verify
+
 # 全链路：隔离端口、临时目录、真实 JTango、监督和 Flowable
 mvn -B -ntp -Pworkbench-e2e verify
 ```
 
 默认后端测试验证无效/缺失观测、事实三值、义务激活与安全退出、失效锁存、依赖与准入、日志失败及重启恢复、工作台远端边界和 BPMN 模型引用。`WorkbenchIT` 由 `workbench-e2e` profile 启用，需要可运行的模拟器 JAR；默认 `package` 通过不代表端到端已通过。
+
+`FacilityObservationIT` 由 `facility-e2e` profile 启用，先构建设备模拟器 JAR，再启动独立的 facility-server。它验证环境和设备目录、逐设备快照、事件流启动信封、单设备命令后的执行/完成快照、事实接口边界以及环境重建后的新设备代次；测试不启动工作台或 Flowable。
 
 设施 XML 校验测试集中在 `facility-contract`，两个后端不再重复维护。日常按变更范围选择模块：文档检查链接，局部修改运行相关测试，跨模块边界或流程语义变化时再执行完整回归。
 

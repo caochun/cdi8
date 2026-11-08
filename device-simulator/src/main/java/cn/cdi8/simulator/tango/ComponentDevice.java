@@ -143,6 +143,8 @@ public class ComponentDevice {
             "slab_purge_complete","shielding_door_open"));
         private final Map<String,Boolean> conditions=new LinkedHashMap<>();
         private final Map<String,ObjectNode> results=new LinkedHashMap<>();
+        private final String sourceId=java.util.UUID.randomUUID().toString();
+        private long revision;
         private String active,last;
         ContextState(Map<String,Boolean> defaults) {
             for(String key:BASE_CONDITIONS) conditions.put(key,false);
@@ -152,7 +154,10 @@ public class ComponentDevice {
             }
         }
         synchronized JsonNode snapshot() {
-            ObjectNode value=JSON.createObjectNode().put("model","preparation-context-demo-v1").put("componentLabel","演示同步及环境条件");
+            ObjectNode value=JSON.createObjectNode().put("snapshot_kind","condition-source")
+                .put("source_id",sourceId).put("state_revision",revision)
+                .put("model","preparation-context-demo-v1").put("componentLabel","演示同步及环境条件")
+                .put("engine","condition-source").put("task_state",active==null?last==null?"idle":results.get(last).path("status").asText():"executing");
             value.set("conditions",JSON.valueToTree(conditions));value.put("active_command_id",active);
             value.put("active_action",active==null?null:"preamp_repeat");
             value.set("last_result",last==null?NullNode.instance:results.get(last));return value;
@@ -162,7 +167,7 @@ public class ComponentDevice {
             ObjectNode previous=results.get(id);
             if(previous!=null) { if(!request.equals(previous.path("request"))) throw new IllegalArgumentException("command ID reused"); return previous.deepCopy(); }
             if(!"preamp_repeat".equals(action)||active!=null) throw new IllegalArgumentException("unsupported action or command already active");
-            conditions.put("preamp_repeat_ready",false);active=id;
+            conditions.put("preamp_repeat_ready",false);active=id;revision++;
             ObjectNode result=JSON.createObjectNode().put("command_id",id).put("action",action).put("status","accepted");result.set("request",request.deepCopy());results.put(id,result);return result.deepCopy();
         }
         synchronized JsonNode complete(JsonNode request) {
@@ -172,12 +177,12 @@ public class ComponentDevice {
             String expected="success".equals(outcome)?"succeeded":"failed";
             if(!"accepted".equals(result.path("status").asText())) { if(!expected.equals(result.path("status").asText())) throw new IllegalArgumentException("conflicting completion"); return result.deepCopy(); }
             if(!id.equals(active)) throw new IllegalArgumentException("feedback is not for active command");
-            conditions.put("preamp_repeat_ready","success".equals(outcome));active=null;last=id;result.put("status",expected);
+            conditions.put("preamp_repeat_ready","success".equals(outcome));active=null;last=id;result.put("status",expected);revision++;
             ObjectNode snapshot=JSON.createObjectNode();snapshot.set("conditions",JSON.valueToTree(conditions));snapshot.putNull("active_command_id");result.set("snapshot",snapshot);return result.deepCopy();
         }
         synchronized JsonNode result(String id) { if(id==null||!results.containsKey(id)) throw new IllegalArgumentException("unknown command: "+id);return results.get(id).deepCopy(); }
         synchronized JsonNode history(int limit) { int count=Math.max(0,Math.min(limit,1000));ArrayNode value=JSON.createArrayNode();var values=new ArrayList<>(results.values());for(int i=Math.max(0,values.size()-count);i<values.size();i++)value.add(values.get(i));return value; }
-        synchronized JsonNode setConditions(JsonNode request) { requireObject(request);if(request.isEmpty()) throw new IllegalArgumentException("expected named boolean conditions");for(var fields=request.fields();fields.hasNext();) {var entry=fields.next();if(!conditions.containsKey(entry.getKey())||!entry.getValue().isBoolean())throw new IllegalArgumentException("expected named boolean conditions");}request.fields().forEachRemaining(entry->conditions.put(entry.getKey(),entry.getValue().asBoolean()));return snapshot(); }
+        synchronized JsonNode setConditions(JsonNode request) { requireObject(request);if(request.isEmpty()) throw new IllegalArgumentException("expected named boolean conditions");for(var fields=request.fields();fields.hasNext();) {var entry=fields.next();if(!conditions.containsKey(entry.getKey())||!entry.getValue().isBoolean())throw new IllegalArgumentException("expected named boolean conditions");}request.fields().forEachRemaining(entry->conditions.put(entry.getKey(),entry.getValue().asBoolean()));revision++;return snapshot(); }
         private static void requireObject(JsonNode value){if(value==null||!value.isObject())throw new IllegalArgumentException("请求必须是 JSON 对象");}
         private static String identifier(JsonNode value,String key){String id=value.path(key).asText("");if(!id.matches("[A-Za-z0-9_-]{1,128}"))throw new IllegalArgumentException("非法任务编号");return id;}
         private static String text(JsonNode value,String key){String text=value.path(key).asText("");if(text.isBlank())throw new IllegalArgumentException(key+" 必须为非空字符串");return text;}

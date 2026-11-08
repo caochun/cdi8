@@ -3,6 +3,7 @@ package cn.cdi8.facility.simulation;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -15,13 +16,53 @@ public class SimulatorLauncher {
     private final ObjectMapper json;
     private final Path jar,directory;
     private final boolean enabled;
+    private final String profile;
     public SimulatorLauncher(ObjectMapper json,
             @Value("${control.simulation.jar:device-simulator/target/device-simulator-0.1.0.jar}") String jar,
             @Value("${control.simulation.directory:data/java-simulator}") String directory,
-            @Value("${control.simulation.enabled:false}") boolean enabled) {
-        this.json=json;this.jar=Path.of(jar).toAbsolutePath();this.directory=Path.of(directory).toAbsolutePath();this.enabled=enabled;
+            @Value("${control.simulation.enabled:false}") boolean enabled,
+            @Value("${control.simulation.profile:classpath:simulation/gxlf-facility.json}") String profile) {
+        this.json=json;this.jar=Path.of(jar).toAbsolutePath();this.directory=Path.of(directory).toAbsolutePath();this.enabled=enabled;this.profile=profile;
     }
     public boolean enabled(){return enabled;}
+    /**
+     * Loads the facility-owned initial environment.  The profile is deliberately
+     * independent of the workbench model store; model references resolve to the
+     * immutable component resources bundled in this server.
+     */
+    public JsonNode initialRequest() throws Exception {
+        if(profile==null||profile.isBlank())return null;
+        JsonNode source=readProfile(profile);
+        if(!source.isObject()||!source.path("devices").isArray())
+            throw new IllegalArgumentException("设施模拟 profile 必须包含 devices 数组");
+        ObjectNode request=(ObjectNode)source.deepCopy();
+        for(JsonNode row:request.path("devices")) {
+            if(!row.isObject())throw new IllegalArgumentException("设施模拟 profile 的设备项必须为对象");
+            if(!row.path("xml").isTextual()||row.path("xml").asText().isBlank()) {
+                String model=row.path("model").asText();
+                if(model.isBlank())throw new IllegalArgumentException("设施模拟 profile 设备缺少 model 或 xml");
+                ((ObjectNode)row).put("xml",readModel(model));
+            }
+        }
+        return request;
+    }
+    private JsonNode readProfile(String reference) throws Exception {
+        if(reference.startsWith("classpath:"))
+            try(var stream=getClass().getClassLoader().getResourceAsStream(reference.substring("classpath:".length()))) {
+                if(stream==null)throw new IllegalArgumentException("找不到设施模拟 profile："+reference);
+                return json.readTree(stream);
+            }
+        Path path=Path.of(reference).toAbsolutePath();
+        return json.readTree(Files.readString(path,StandardCharsets.UTF_8));
+    }
+    private String readModel(String reference) throws Exception {
+        String resource=reference.startsWith("classpath:")?reference.substring("classpath:".length()):"component-models/"+reference;
+        try(var stream=getClass().getClassLoader().getResourceAsStream(resource)) {
+            if(stream!=null)return new String(stream.readAllBytes(),StandardCharsets.UTF_8);
+        }
+        Path path=Path.of(reference).toAbsolutePath();
+        return Files.readString(path,StandardCharsets.UTF_8);
+    }
     public record Generation(Process process,ObjectNode description,ObjectNode bindings) implements AutoCloseable {
         public boolean alive(){return process.isAlive();}
         @Override public void close(){stop(process);}

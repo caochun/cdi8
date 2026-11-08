@@ -21,4 +21,20 @@
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>cn.cdi8.facility.FacilityServerApplication</mainClass></configuration></plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>facility-e2e</id>
+      <dependencies>
+        <!-- The production server launches the simulator from a JAR.  This
+             test-only dependency puts the current simulator module in the
+             reactor so facility-e2e never reuses a stale local JAR. -->
+        <dependency><groupId>cn.cdi8</groupId><artifactId>device-simulator</artifactId><version>${project.version}</version><scope>test</scope></dependency>
+      </dependencies>
+      <build><plugins><plugin>
+        <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+        <configuration><workingDirectory>${project.basedir}/..</workingDirectory></configuration>
+        <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+      </plugin></plugins></build>
+    </profile>
+  </profiles>
 </project>

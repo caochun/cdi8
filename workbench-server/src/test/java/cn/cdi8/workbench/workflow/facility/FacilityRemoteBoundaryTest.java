@@ -57,7 +57,15 @@ class FacilityRemoteBoundaryTest {
         client.execute("seed_01","cmd","power_on_check",Map.of(),Map.of("beamlines",List.of(1)));
         assertEquals(List.of("POST /api/facility/devices/seed_01/commands"),requests);
         assertEquals(1,lastBody.path("admission").path("beamlines").get(0).asInt());
-        client.catalog();assertEquals("POST /api/facility/adapter",requests.get(1));assertEquals("/devices",lastBody.path("path").asText());
+        client.catalog();assertEquals("GET /api/facility/devices",requests.get(1));
+    }
+    @Test void environmentAndModelValidationUseFacilityOwnedEndpoints() {
+        client.environment();
+        assertEquals("GET /api/facility/environment",requests.get(0));
+        client.replaceEnvironment(Map.of("devices",List.of()));
+        assertEquals("POST /api/facility/environment",requests.get(1));
+        client.validate(Map.of("xml","<scxml/>"));
+        assertEquals("POST /api/facility/validate",requests.get(2));
     }
     @Test void modelChangeNotificationInvalidatesWorkbenchModelCache()throws Exception {
         String definition=Files.readString(Path.of("examples/gxlf/system/gxlf-facility.system-definition.xml"));

@@ -23,12 +23,14 @@ public final class FacilityEvents {
     @GetMapping(value={"/api/facility/events","/api/supervision/events"},produces="application/x-ndjson")
     public synchronized StreamingResponseBody events(){
         var queue=new LinkedBlockingQueue<JsonNode>(1024);
+        String generationId=gateway.generationId();
         // Supply an initial device view to a newly started workbench. System latches
         // remain authoritative even if notifications were missed before subscribing.
         // Registration and bootstrap share the publication lock; no network call
         // or transition can fall between the initial view and subscription.
-        gateway.cachedSnapshots().forEach((id,snapshot)->queue.offer(json.createObjectNode().put("type","snapshot").put("device_id",id).put("connected",true).set("snapshot",snapshot)));
-        queue.offer(json.createObjectNode().put("type",gateway.connected()?"ready":"connection_lost"));
+        gateway.cachedSnapshots().forEach((id,snapshot)->queue.offer(json.createObjectNode().put("type","snapshot").put("device_id",id).put("connected",true)
+            .put("generation_id",generationId).set("snapshot",snapshot)));
+        queue.offer(json.createObjectNode().put("type",gateway.connected()?"ready":"connection_lost").put("generation_id",generationId));
         subscribers.add(queue);
         return output->{
             try {
@@ -38,6 +40,7 @@ public final class FacilityEvents {
                     output.write(json.writeValueAsBytes(event));output.write(10);output.flush();
                 }
             }catch(InterruptedException ex){Thread.currentThread().interrupt();}
+            catch(java.io.IOException ignored){ /* subscriber disconnected */ }
             finally{subscribers.remove(queue);}
         };
     }

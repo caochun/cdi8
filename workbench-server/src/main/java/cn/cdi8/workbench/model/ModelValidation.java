@@ -49,7 +49,7 @@ public class ModelValidation {
         try{return new BpmnXMLConverter().convertToBpmnModel(reader);}finally{reader.close();}
     }
     public JsonNode validate(String kind,String xml) {
-        if("scxml".equals(kind))return facility.request("POST","/lab/validate",java.util.Map.of("xml",xml));
+        if("scxml".equals(kind))return facility.validate(java.util.Map.of("xml",xml));
         ObjectNode value=json.createObjectNode();ArrayNode diagnostics=value.putArray("diagnostics");
         try {
             if("system".equals(kind)) {

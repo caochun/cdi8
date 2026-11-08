@@ -44,7 +44,8 @@ public class FacilityClient {
 
     public JsonNode facility(String method, String path, Object body) {
         try {
-            var builder = HttpRequest.newBuilder(URI.create(base + "/api/facility" + path)).timeout(Duration.ofSeconds(path.equals("/adapter") ? 65 : 10));
+            long timeout=path.equals("/adapter")||path.equals("/environment")?65:path.equals("/validate")?25:10;
+            var builder = HttpRequest.newBuilder(URI.create(base + "/api/facility" + path)).timeout(Duration.ofSeconds(timeout));
             if (body == null) builder.GET();
             else builder.header("Content-Type", "application/json").method(method,
                 HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
@@ -69,8 +70,13 @@ public class FacilityClient {
         envelope.put("method",method);envelope.put("path",path);envelope.put("body",body);
         return facility("POST","/adapter",envelope);
     }
-    public JsonNode catalog() { return request("GET", "/devices", null); }
-    public JsonNode snapshot(String id) { JsonNode value=request("GET", "/devices/" + id, null);snapshots.put(id,value);return value; }
+    /** Stable facility boundary; adapter remains only for test controls. */
+    public JsonNode environment() { return facility("GET", "/environment", null); }
+    public JsonNode replaceEnvironment(Object body) { return facility("POST", "/environment", body); }
+    public JsonNode validate(Object body) { return facility("POST", "/validate", body); }
+    public JsonNode history(String id) { return facility("GET", "/devices/" + id + "/history", null); }
+    public JsonNode catalog() { return facility("GET", "/devices", null); }
+    public JsonNode snapshot(String id) { JsonNode value=facility("GET", "/devices/" + id, null);snapshots.put(id,value);return value; }
     public JsonNode execute(String device, String id, String action, Object parameters) {
         return request("POST", "/devices/" + device + "/commands",
             Map.of("command_id", id, "action", action, "parameters", parameters));

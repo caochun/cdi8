@@ -85,13 +85,23 @@ public class TangoGateway {
     @EventListener(ApplicationReadyEvent.class) public void start() {
         if(!enabled)return;
         try {
-            JsonNode bindings=bindingsFile.isBlank()?json.createObjectNode():json.readTree(Path.of(bindingsFile).toFile());
-            ObjectNode environment=json.createObjectNode().put("id",UUID.randomUUID().toString()).put("runtime","java")
-                .put("managed",launcher.enabled()).put("status",bindings.isEmpty()?"empty":"ready");
-            var devices=environment.putArray("devices");
-            current=prepare(bindings,environment,null,false);
-            for(var device:current.adapter().catalog())devices.addObject().put("id",device.path("id").asText())
-                .put("deviceBindingKey",device.path("deviceBindingKey").asText()).put("address",device.path("address").asText());
+            JsonNode configured=launcher.enabled()?launcher.initialRequest():null;
+            SimulatorLauncher.Generation generation=null;
+            JsonNode bindings;
+            ObjectNode environment;
+            if(configured!=null) {
+                generation=launcher.prepare(configured);
+                bindings=generation.bindings();
+                environment=generation.description();
+            } else {
+                bindings=bindingsFile.isBlank()?json.createObjectNode():json.readTree(Path.of(bindingsFile).toFile());
+                environment=json.createObjectNode().put("id",UUID.randomUUID().toString()).put("runtime","java")
+                    .put("managed",launcher.enabled()).put("status",bindings.isEmpty()?"empty":"ready");
+                environment.putArray("devices");
+            }
+            current=prepare(bindings,environment,generation,configured!=null||!bindings.isEmpty());
+            if(configured==null)for(var device:current.adapter().catalog())environment.withArray("devices").addObject()
+                .put("id",device.path("id").asText()).put("deviceBindingKey",device.path("deviceBindingKey").asText()).put("address",device.path("address").asText());
             bootstrap(current);
         }catch(Exception ex){throw new IllegalStateException("无法建立 Tango 设备绑定",ex);}
         reader.submit(()->{
@@ -180,6 +190,7 @@ public class TangoGateway {
     public boolean connected(){var session=current;return connected&&session!=null&&session.alive()&&System.currentTimeMillis()-lastEvent<15000;}
     public JsonNode cached(String id){return cachedSnapshots().get(id);}
     public Map<String,JsonNode> cachedSnapshots(){var session=current;return session==null||!session.alive()?Map.of():session.adapter().snapshots();}
+    public String generationId(){var session=current;return session==null?"":session.id();}
     public Map<String,Object> status(){return Map.of("connected",connected(),"error",error,"transport","jtango");}
     @PreDestroy public void close() {
         Session session;

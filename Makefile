@@ -1,4 +1,4 @@
-.PHONY: package backend-package adapter-package simulator-package facility workbench simulation simulation-start simulation-stop simulation-restart simulation-status facility-start facility-stop workbench-start workbench-stop workbench-restart simulation-test
+.PHONY: package backend-package adapter-package simulator-package facility workbench simulation simulation-start simulation-stop simulation-restart simulation-status facility-start facility-stop workbench-start workbench-stop workbench-restart facility-observation-test simulation-test
 
 package:
 	mvn package
@@ -54,6 +54,10 @@ workbench-stop:
 
 workbench-restart:
 	java scripts/Services.java restart workbench
+
+# Facility-only observation boundary: real simulator JVM, JTango and facility server; no Workbench.
+facility-observation-test:
+	mvn -Pfacility-e2e -pl facility-server -am -Dexec.skip=true verify
 
 # Real HTTP / Flowable / JTango / SCXML integration, using isolated data and ports.
 simulation-test:

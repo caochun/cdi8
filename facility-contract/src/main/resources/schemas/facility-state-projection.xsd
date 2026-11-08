@@ -48,6 +48,13 @@
       <xs:enumeration value="external" />
     </xs:restriction>
   </xs:simpleType>
+  <xs:simpleType name="factRole">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="state" />
+      <xs:enumeration value="qualification" />
+      <xs:enumeration value="derived" />
+    </xs:restriction>
+  </xs:simpleType>
   <xs:complexType name="source">
     <xs:attribute name="instanceSetRef" type="xs:NCName" use="optional" />
     <xs:attribute name="instanceGroupRef" type="xs:NCName" use="optional" />
@@ -118,6 +125,7 @@
     </xs:sequence>
     <xs:attribute name="id" type="xs:NCName" use="required" />
     <xs:attribute name="label" type="m:text" use="required" />
+    <xs:attribute name="role" type="m:factRole" use="optional" default="state" />
   </xs:complexType>
   <xs:complexType name="observations">
     <xs:sequence>

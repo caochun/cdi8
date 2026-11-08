@@ -35,6 +35,13 @@ public final class FacilityApi {
         });
     }
     @GetMapping("/connection") public Object connection(){return gateway.status();}
+    /** Facility-owned environment lifecycle. Workbench is only an optional client. */
+    @GetMapping("/environment") public Object environment(){return gateway.request("GET","/lab/environment",null);}
+    @PostMapping("/environment") public Object replaceEnvironment(@RequestBody JsonNode body){return replaceEnvironmentInternal(body);}
+    @GetMapping("/devices") public Object devices(){return gateway.catalog();}
+    @GetMapping("/devices/{device}") public Object snapshot(@PathVariable String device){return gateway.snapshot(device);}
+    @GetMapping("/devices/{device}/history") public Object history(@PathVariable String device){return gateway.request("GET","/devices/"+device+"/history",null);}
+    @PostMapping("/validate") public Object validate(@RequestBody JsonNode body){return gateway.request("POST","/lab/validate",body);}
     @PostMapping("/reconnect") public Object reconnect(){gateway.reconnect();return gateway.status();}
     @PostMapping("/devices/{device}/commands") public Object execute(@PathVariable String device,@RequestBody JsonNode body){return commands.execute(device,body);}
     @GetMapping("/devices/{device}/commands/{id}") public Object result(@PathVariable String device,@PathVariable String id){return commands.result(device,id);}
@@ -53,18 +60,19 @@ public final class FacilityApi {
         boolean read="GET".equals(method)&&(path.matches("/devices(?:/[A-Za-z0-9_.:-]+(?:/history)?)?")||path.equals("/lab/environment"));
         boolean write="POST".equals(method)&&(Set.of("/lab/environment","/lab/validate").contains(path)||path.matches("/devices/[A-Za-z0-9_.:-]+/(conditions|simulate|events)"));
         if(!read&&!write)throw new IllegalArgumentException("监督接口不允许该适配操作："+method+" "+path);
-        if(write&&path.equals("/lab/environment"))return commands.replaceContext(()->{
-            // Active adapter actions can also exist outside a BPMN invocation.
-            for(var device:gateway.catalog()) {
-                var snapshot=gateway.snapshot(device.path("id").asText());
-                if(!snapshot.path("active_command_id").asText("").isBlank())
-                    throw new IllegalStateException("设备仍有活动命令，禁止重建模拟环境");
-            }
-            var result=gateway.request(method,path,b.path("body"));
-            gateway.reconnect();return result;
-        });
+        if(write&&path.equals("/lab/environment"))return replaceEnvironmentInternal(b.path("body"));
         return gateway.request(method,path,b.hasNonNull("body")?b.path("body"):null);
     }
+    private Object replaceEnvironmentInternal(JsonNode body){return commands.replaceContext(()->{
+        // Active adapter actions can also exist outside a BPMN invocation.
+        for(var device:gateway.catalog()) {
+            var snapshot=gateway.snapshot(device.path("id").asText());
+            if(!snapshot.path("active_command_id").asText("").isBlank())
+                throw new IllegalStateException("设备仍有活动命令，禁止重建模拟环境");
+        }
+        var result=gateway.request("POST","/lab/environment",body);
+        gateway.reconnect();return result;
+    });}
     private Map<String,String> strings(JsonNode node){return node.isObject()?json.convertValue(node,new com.fasterxml.jackson.core.type.TypeReference<Map<String,String>>(){}):Map.of();}
     @ExceptionHandler({IllegalArgumentException.class,IllegalStateException.class,TangoGateway.GatewayException.class})
     public ResponseEntity<?> error(RuntimeException ex){return ResponseEntity.status(ex instanceof TangoGateway.GatewayException g?g.status():409).body(Map.of("error",Objects.toString(ex.getMessage(),ex.toString())));}

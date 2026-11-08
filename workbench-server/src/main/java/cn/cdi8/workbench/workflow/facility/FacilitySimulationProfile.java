@@ -13,12 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.Set;
 
 /**
- * Resolved simulator topology for one facility generation.
+ * Workbench-side environment request resolver.
  *
- * The profile is the adapter-side boundary: it turns the operator's component
- * groups into immutable device instances, while keeping model revision and
- * runtime naming in one place. Facts and workflow code consume the resulting
- * Tango devices; they do not expand counts themselves.
+ * This class expands a saved workbench selection into an immutable request for
+ * the facility API. It does not own a simulator process or the live facility;
+ * those belong to facility-server.
  */
 public final class FacilitySimulationProfile {
     /** Old saved preparation files used component for a device binding key. */

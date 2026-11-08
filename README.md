@@ -53,7 +53,7 @@ make simulation-stop
 make simulation-restart
 ```
 
-访问 **http://127.0.0.1:8080/**。首次启动时模拟环境为空，在“运行准备”选择模型版本后点击“创建模拟设备”；“使用示例方案”会选择 `gxlf_shot_run_smoke`，预填十四类组件与本发参数。设施侧的 SimulatorLauncher 创建一个设备子 JVM，承载全部组件实例和同步条件设备。
+访问 **http://127.0.0.1:8080/**。仿真 facility 由设施后端独立创建，默认 profile 会启动一个承载十四类组件和 `context_01` 的设备子 JVM；工作台的“运行准备”只是选择流程和可选地替换这套环境。“使用示例方案”会选择 `gxlf_shot_run_smoke`，预填十四类组件与本发参数。
 
 JAR 运行副本、PID 和日志保存在 `data/runtime/`，构建目录可以安全重新打包。已有工作台模型、版本、配置及 Flowable 数据继续使用 `data/`；历史运行仍可查看。
 
@@ -65,7 +65,7 @@ java -jar facility-server/target/facility-server-0.1.0.jar --control.simulation.
 java -jar workbench-server/target/workbench-server-0.1.0.jar
 ```
 
-以上两个 JAR 各在一个终端运行。工作台通过 `FACILITY_URL` 连接设施后端，默认 `http://127.0.0.1:8081`；设施后端直接通过 JTango 访问设备。创建模拟环境后总计三个常驻 JVM：工作台、设施后端、模拟设备。真实设备使用设施后端的 `--control.tango-bindings=bindings.json` 接入，并关闭模拟环境创建。
+以上两个 JAR 各在一个终端运行。工作台通过 `FACILITY_URL` 连接设施后端，默认 `http://127.0.0.1:8081`；设施后端直接通过 JTango 访问独立 facility。仿真配置和设备子 JVM 由设施后端拥有，真实设备使用设施后端的 `--control.tango-bindings=bindings.json` 接入，并关闭模拟环境创建。
 
 两个后端可以单独构建及启动，适用于先验证观测、事实和监督接口：
 
@@ -75,13 +75,13 @@ make backend-package
 java -jar facility-server/target/facility-server-0.1.0.jar
 java -jar workbench-server/target/workbench-server-0.1.0.jar
 
-# 已构建完整模拟链路时，只启动监督侧（按需管理模拟设备子进程）
+# 已构建完整模拟链路时，只启动设施侧（设施后端管理自己的模拟设备子进程）
 make facility-start
 # 单独重启工作台，监督侧持续运行
 make workbench-restart
 ```
 
-监督健康接口为 `http://127.0.0.1:8081/api/facility/health`；`/facts?refresh=true` 查看观测与事实，`/state?refresh=true` 额外查看监督约束。未绑定设备时服务仍可启动，设施状态保持 unknown，受保护动作不会放行。部署边界与恢复语义见[两个 Java 后端的运行边界](docs/architecture/facility-runtime.md)。
+监督健康接口为 `http://127.0.0.1:8081/api/facility/health`；`/environment`、`/devices`、`/facts?refresh=true` 和 `/state?refresh=true` 可以完全绕过工作台验证 facility 的环境、快照、事实和监督约束。部署边界与恢复语义见[两个 Java 后端的运行边界](docs/architecture/facility-runtime.md)。
 
 1. **模型开发**：编辑或导入模型，校验并保存不可变版本，SCXML 保存的版本可用于创建模拟设备。
 2. **运行准备**：选择流程版本，自动识别子流程依赖，配置组件模型、数量和反馈方式；检查设备是否就绪，必要时创建或重新创建模拟设备，再开始调试。设备集合、参数与初始条件放在高级配置中。

@@ -47,7 +47,7 @@ public class EnvironmentService {
         ArrayNode devices=profile.toSimulatorDevices(json);
         Set<String> ids=new HashSet<>();
         for(JsonNode device:devices)ids.add(device.path("id").asText());
-        var environment=facility.request("POST","/lab/environment",Map.of("devices",devices,"autoComplete",config.path("autoComplete").asBoolean(),"conditions",config.path("conditions").isObject()?config.path("conditions"):json.createObjectNode()));
+        var environment=facility.replaceEnvironment(Map.of("devices",devices,"autoComplete",config.path("autoComplete").asBoolean(),"conditions",config.path("conditions").isObject()?config.path("conditions"):json.createObjectNode()));
         facility.reconnect();
         for(int attempt=0;attempt<100;attempt++) {
             if(facility.connected() && ids.stream().allMatch(id->facility.cached(id)!=null))break;

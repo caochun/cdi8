@@ -13,6 +13,18 @@
 - `environment/EnvironmentConfiguration`：在设备 JVM 内按不可变 XML 和设备参数生成配置。
 - `facility-server/simulation/SimulatorLauncher`：管理模拟设备子进程、启动就绪与失败清理。
 
+设备端 `Snapshot` 属性和 Tango CHANGE_EVENT 使用同一个观测信封。组件设备至少提供：
+`snapshot_kind=component`、`source_id`、非负 `state_revision`、`model`、`model_version`、
+`model_digest`、组件状态、任务状态、活动命令/动作、动作契约、上下文和最近一次结果；
+条件源设备使用 `snapshot_kind=condition-source`，并提供 `conditions`、`model`、`componentLabel`、
+`engine`、任务状态、活动命令/动作和最近一次结果。活动命令与动作必须成对出现，活动任务的
+`task_state` 必须为 `executing`。适配器验证结构和字段间一致性，设施运行时再验证来源代次、
+修订号连续性和证据时效；两者都不解析 BPMN 或监督语义。
+
+`state_revision` 是设备状态的单调修订号，不是 Tango 事件序号。设备状态改变时必须递增，
+CHANGE_EVENT 丢失时设施后端通过属性补读恢复最新快照。重复的同值事件在适配器缓存层折叠，
+而补读到的新快照仍会立即发布给设施运行时。
+
 SCXML 引擎使用 [Maven Central 上的固定发行包](https://repo.maven.apache.org/maven2/de/dfki/cos/basys/common/scxml/0.5.1/)，无需 Apache 快照仓库。`0.5.1` 是 DFKI/BaSyS 的发行版本号，包内仍为 `org.apache.commons.scxml2`；它不是 Apache 官方的 SCXML 2 正式发行版。JEXL 固定为 3.6.4，并显式允许 SCXML 内置 `In()` 函数，保留其余默认权限限制及无副作用守卫校验。JTango Server 使用 10.0.1，许可证 LGPL-3.0。SQLite 恢复叶子状态和项目组件上下文，尚不保证任意 SCXML 数据模型、定时器或外部副作用的恢复。
 
 ## 默认构建和启动
@@ -35,9 +47,9 @@ java -jar facility-server/target/facility-server-0.1.0.jar --control.simulation.
 java -jar workbench-server/target/workbench-server-0.1.0.jar
 ```
 
-设施后端启用仿真后以空环境启动。页面选择组件版本、数量和反馈方式后，“创建模拟设备”会创建一个承载全部组件及 `context_01` 的 Java 子 JVM。SCXML、版本、延迟、自动反馈和自定义条件均按请求真实应用。新设备全部可读后才切换；失败保留旧环境。重建恢复初态并生成新的环境 ID 和数据库。工作台禁止有活动流程时重建；监督端还检查物理义务、未决命令和设备活动命令。
+设施后端启用仿真后按 `control.simulation.profile` 建立独立 facility；默认 `classpath:simulation/gxlf-facility.json` 包含十四类组件和 `context_01`。工作台可以通过设施的 `POST /api/facility/environment` 提交另一套不可变设备配置，但不拥有设备进程。SCXML、版本、延迟、自动反馈和自定义条件均按请求真实应用。新设备全部可读后才切换；失败保留旧环境。重建恢复初态并生成新的环境 ID 和数据库。监督端检查物理义务、未决命令和设备活动命令。
 
-设施后端关闭会清理设备子进程；设施后端意外退出时子进程检测父进程并退出。设备崩溃将环境标为 `failed`；设施后端重启为空环境，必须显式重建，不会用旧 ID 宣称就绪。
+设施后端关闭会清理设备子进程；设施后端意外退出时子进程检测父进程并退出。设备崩溃将环境标为 `failed`；设施后端重启时按 profile 建立新的环境，不会用旧 ID 宣称就绪。
 
 运行数据：
 
@@ -75,7 +87,7 @@ java -jar facility-server/target/facility-server-0.1.0.jar \
 {"seed_01":{"deviceBindingKey":"seed","address":"tango://127.0.0.1:10000/gxlf/seed/seed_01#dbase=no"}}
 ```
 
-设备读取、反馈和模拟环境操作继续通过设施后端的 `POST /api/facility/adapter` 白名单接口提供；`/devices`、`/lab/environment`、`/lab/validate` 是该接口请求中的操作路径，不是独立适配服务的 HTTP 地址。设备通知经 `/api/facility/events` 发给工作台。Tango CHANGE_EVENT 不可用时按秒补读快照。
+设施环境和设备观测使用设施后端的稳定接口：`GET/POST /api/facility/environment`、`GET /api/facility/devices`、`GET /api/facility/devices/{id}`、`POST /api/facility/validate`。`POST /api/facility/adapter` 只保留实验性的 conditions、simulate 和 events 控制。设备通知经 `/api/facility/events` 发给工作台。Tango CHANGE_EVENT 不可用时按秒补读快照。
 
 外部设备绑定模式禁止创建或重建环境。SCXML 可执行性校验通过模拟器 JAR 的短时命令完成，仍需本地存在该 JAR；设备接入和监督本身不需要模拟器。可通过 `SIMULATOR_JAR` 和 `SIMULATOR_DIRECTORY` 配置模拟器产物及数据目录。旧 `--bridge` 和独立适配器可执行 JAR 已移除。
 

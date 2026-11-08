@@ -42,7 +42,7 @@ final class FacilityFactProjection {
                 snapshots, deviceBindingKeys, observedAt, invalidObservations);
             statuses.put(fact.id(), result);
             facts.putObject(fact.id()).put("status", result.status).put("reason", result.reason)
-                .put("label", fact.label());
+                .put("label", fact.label()).put("role", fact.role().value());
         }
 
         ObjectNode guards = json.createObjectNode();
