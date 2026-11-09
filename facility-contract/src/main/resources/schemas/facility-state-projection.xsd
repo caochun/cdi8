@@ -55,6 +55,12 @@
       <xs:enumeration value="derived" />
     </xs:restriction>
   </xs:simpleType>
+  <xs:simpleType name="factScope">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="facility" />
+      <xs:enumeration value="instance-set" />
+    </xs:restriction>
+  </xs:simpleType>
   <xs:complexType name="source">
     <xs:attribute name="instanceSetRef" type="xs:NCName" use="optional" />
     <xs:attribute name="instanceGroupRef" type="xs:NCName" use="optional" />
@@ -126,6 +132,8 @@
     <xs:attribute name="id" type="xs:NCName" use="required" />
     <xs:attribute name="label" type="m:text" use="required" />
     <xs:attribute name="role" type="m:factRole" use="optional" default="state" />
+    <xs:attribute name="scope" type="m:factScope" use="optional" default="facility" />
+    <xs:attribute name="scopeRef" type="xs:NCName" use="optional" />
   </xs:complexType>
   <xs:complexType name="observations">
     <xs:sequence>

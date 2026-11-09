@@ -87,6 +87,49 @@ public final class FacilityStateRuntime {
     public synchronized FacilityBindingModel binding() { return binding; }
     public synchronized FacilityComponentModels components() { return components; }
     public synchronized ObjectNode models(){return models.deepCopy();}
+    /** Evaluate a server-owned operation admission against the current facility facts. */
+    public synchronized ObjectNode admission(String operationRef) {
+        refresh();
+        return evaluateAdmission(definition.operationAdmission(operationRef),current.path("facts"),sequence);
+    }
+    private ObjectNode evaluateAdmission(SystemDefinitionModel.OperationAdmission operation,JsonNode facts,long observationSequence) {
+        ObjectNode result=json.createObjectNode().put("operationRef",operation.id()).put("label",operation.label())
+            .put("status","valid").put("reason","").put("checkedAt",System.currentTimeMillis()).put("observationSequence",observationSequence);
+        ArrayNode requirements=result.putArray("requirements");
+        for(var requirement:operation.requirements()) {
+            JsonNode fact=facts.path(requirement.fact());
+            String status=fact.path("status").asText("unknown");
+            ObjectNode item=requirements.addObject().put("id",requirement.id()).put("factRef",requirement.fact())
+                .put("maintain",requirement.maintain()).put("status",status)
+                .put("label",fact.path("label").asText(requirement.fact()))
+                .put("reason",fact.path("reason").asText("设施事实没有有效观测"));
+            if(!"valid".equals(status)) {
+                String prior=result.path("status").asText();
+                if("violated".equals(status)) {
+                    result.put("status","violated");
+                    if(!"violated".equals(prior))
+                        result.put("reason",requirement.fact()+"："+item.path("reason").asText());
+                } else if(!"violated".equals(prior)) {
+                    result.put("status","unknown");
+                    if("valid".equals(prior))
+                        result.put("reason",requirement.fact()+"："+item.path("reason").asText());
+                }
+            }
+            item.set("observation",fact.deepCopy());
+        }
+        return result;
+    }
+    private ObjectNode guardsWithLegacyAliases(JsonNode facts,ObjectNode guards,long observationSequence) {
+        ObjectNode result=guards.deepCopy();
+        for(var alias:SystemDefinitionModel.legacyOperationAliases().entrySet())
+            if(definition.hasOperationAdmission(alias.getValue())) {
+                ObjectNode admission=evaluateAdmission(definition.operationAdmission(alias.getValue()),facts,observationSequence);
+                admission.remove("checkedAt");
+                admission.remove("observationSequence");
+                result.set(alias.getKey(),admission);
+            }
+        return result;
+    }
     public synchronized boolean hasActiveDuty(){return supervision.active();}
     private ObjectNode bundle(String definition,String binding,String projection,FacilityComponentModels components) {
         ObjectNode value=json.createObjectNode().put("definitionXml",definition).put("bindingXml",binding).put("projectionXml",projection);
@@ -219,7 +262,7 @@ public final class FacilityStateRuntime {
         var assessment=factProjection.evaluate(definition,binding,projection,snapshots,deviceBindingKeys,observedAt,invalidObservations);
         ObjectNode result=current.deepCopy();
         result.set("facts",assessment.facts());
-        result.set("guards",assessment.guards());
+        result.set("guards",guardsWithLegacyAliases(assessment.facts(),assessment.guards(),sequence));
         result.set("deviceFacts",assessment.deviceFacts());
         result.set("observations",assessment.observations());
         result.put("integrity",assessment.integrity()).put("reason",assessment.reason())
@@ -230,19 +273,20 @@ public final class FacilityStateRuntime {
 
     private void evaluate() {
         var assessment=factProjection.evaluate(definition,binding,projection,snapshots,deviceBindingKeys,observedAt,invalidObservations);
+        ObjectNode guards=guardsWithLegacyAliases(assessment.facts(),assessment.guards(),sequence);
         ObjectNode constraints=supervision.assess(definition.operatingConstraints(),assessment.facts());
         if(store!=null) {
             var checkpoint=supervision.checkpoint();
             if(!checkpoint.equals(lastCheckpoint)){store.write("duties",checkpoint);lastCheckpoint=checkpoint;}
         }
         boolean changed=!assessment.facts().equals(current.path("facts"))
-            || !assessment.guards().equals(current.path("guards"))
+            || !guards.equals(current.path("guards"))
             || !assessment.deviceFacts().equals(current.path("deviceFacts"))
             || !constraints.equals(current.path("constraints"));
         if(changed)sequence++;
         current.put("sequence",sequence);
         current.set("facts",assessment.facts());
-        current.set("guards",assessment.guards());
+        current.set("guards",guards);
         current.set("deviceFacts",assessment.deviceFacts());
         current.set("constraints",constraints);
         current.put("integrity",assessment.integrity()).put("reason",assessment.reason()).put("connected",gateway.connected());

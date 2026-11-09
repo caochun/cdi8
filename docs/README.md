@@ -7,6 +7,7 @@
 - [监督运行边界](architecture/facility-runtime.md)：独立监督、权威准入、持久化与恢复。
 - [观测、事实、证据与监督的分层基线](architecture/evidence-layer-boundaries.md)：各层定义来源、当前 GXLF 模型盘点和后续建模规则。
 - [GXLF 事实完整性矩阵](architecture/fact-integrity-matrix.md)：逐事实记录来源、成立条件、`unknown` 传播、流程 guard 和监督用途。
+- [设施事实目录 v1](architecture/fact-catalog-v1.md)：冻结当前设施事实、组合事实、流程资格和暂缓接入项。
 - [核心代码与验证范围](development/validation.md)：链路上的实现位置、验证顺序和未完成接口。
 - [工作台架构](architecture/workbench.md)与[工作台操作](development/workbench.md)：模型版本、模拟环境和流程调试。
 - [设施 XML 模型](architecture/facility-xml-models.md)与[自定义模型契约](architecture/custom-model-contracts.md)：模型结构、引用和校验。

@@ -24,6 +24,7 @@ public final class FacilityApi {
     @GetMapping("/state") public Object state(@RequestParam(defaultValue="false") boolean refresh){return states.assessment(refresh);}
     @GetMapping("/facts") public Object facts(@RequestParam(defaultValue="false") boolean refresh){return states.factAssessment(refresh);}
     @GetMapping("/models") public Object models(){return states.models();}
+    @PostMapping("/admissions/check") public Object admission(@RequestBody JsonNode body){return states.admission(body.path("operationRef").asText());}
     @PostMapping("/models") public Object activate(@RequestBody JsonNode body){
         var definition=SystemDefinitionModel.parse(body.path("definitionXml").asText());
         var components=FacilityComponentModels.archived(definition,strings(body.path("components")));

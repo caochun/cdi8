@@ -41,9 +41,9 @@
 
 ## 操作流程与实验设施状态
 
-当前模型分成四个职责面：`system-definition` 描述设施结构、能力、输入依赖、输出成立条件和结构约束，`facility-binding` 描述逻辑实例到运行设备的绑定，`facility-state-projection` 从观测计算实时事实和 guard，BPMN 与 `shot-run` 描述一次发次的操作和证据。设备 SCXML 仍负责单设备状态、动作准入和本地故障。详细边界见[监督运行边界](facility-runtime.md)和[设施 XML 模型](facility-xml-models.md)。
+当前模型分成四个职责面：`system-definition` 描述设施结构、能力、输入依赖、操作准入、输出成立条件和结构约束，`facility-binding` 描述逻辑实例到运行设备的绑定，`facility-state-projection` 从观测计算实时事实和组合条件，BPMN 与 `shot-run` 描述一次发次的操作和证据。设备 SCXML 仍负责单设备状态、动作准入和本地故障。详细边界见[监督运行边界](facility-runtime.md)和[设施 XML 模型](facility-xml-models.md)。
 
-可执行 BPMN 使用 `fac:requires`、`fac:action` 和 `run:stage`。guard 在 serviceTask 进入时检查，包括普通表达式任务；动作按绑定集合串行执行，成功必须同时满足命令终态和目标状态。动作任务统一声明 `flowable:delegateExpression="${facilityActions}"`，不能同时使用记录表达式。每设备结果自动写入 shot-run；`run:records` 仍仅用于不可执行设计。
+可执行 BPMN 使用 `fac:operation`、`fac:action` 和 `run:stage`。`fac:operation operationRef="…"` 只声明要执行的设施操作；进入任务时由 facility-server 根据系统定义中的操作准入和当前事实返回准入证据，工作台不组合事实，也不能自行放行。旧 `fac:requires guardRef="…"` 仍作为迁移兼容入口。动作按绑定集合串行执行，成功必须同时满足命令终态和目标状态。动作任务统一声明 `flowable:delegateExpression="${facilityActions}"`，不能同时使用记录表达式。每设备结果自动写入 shot-run；`run:records` 仍仅用于不可执行设计。
 
 活动还可声明 `fac:completion`，在命令队列全部成功后等待设施事实或 guard。`FacilityCompletionRuntime` 管理持久化等待，投影变化通知和定时补查由 `WorkflowService` 协调，满足条件后触发 Flowable；超时/取消保留等待诊断。详见[活动完成条件](activity-completion.md)。
 

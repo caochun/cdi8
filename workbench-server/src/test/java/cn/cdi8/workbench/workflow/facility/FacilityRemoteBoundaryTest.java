@@ -59,6 +59,17 @@ class FacilityRemoteBoundaryTest {
         assertEquals(1,lastBody.path("admission").path("beamlines").get(0).asInt());
         client.catalog();assertEquals("GET /api/facility/devices",requests.get(1));
     }
+    @Test void operationAdmissionIsEvaluatedByTheFacilityEndpoint() {
+        response=JSON.createObjectNode().put("operationRef","trigger").put("status","valid");
+        states.requireOperation("trigger");
+        assertEquals(List.of("POST /api/facility/admissions/check"),requests);
+        assertEquals("trigger",lastBody.path("operationRef").asText());
+
+        response=JSON.createObjectNode().put("operationRef","trigger").put("status","unknown").put("reason","设施事实尚未建立");
+        var failure=assertThrows(IllegalStateException.class,()->states.requireOperation("trigger"));
+        assertTrue(failure.getMessage().contains("设施事实尚未建立"));
+        assertEquals(2,requests.size());
+    }
     @Test void environmentAndModelValidationUseFacilityOwnedEndpoints() {
         client.environment();
         assertEquals("GET /api/facility/environment",requests.get(0));

@@ -9,7 +9,7 @@
                   flowable:delegateExpression="${facilityActions}">
   <bpmn:extensionElements>
     <run:stage value="initializing" />
-    <fac:requires guardRef="simulationFunctionCheckAllowed" />
+    <fac:operation operationRef="simulation-function-check" />
     <fac:actions>
       <fac:action typeRef="seed" capabilityRef="function-check"
                   collectionVar="seedTargets" expectedStateRef="qualified" />
@@ -25,7 +25,8 @@
 |---|---|---|
 | `fac:actions` | 无 | 每个任务最多一个；出现时至少包含一个 `fac:action`，顺序展开设备命令 |
 | `fac:action` | `typeRef`、`capabilityRef`、`collectionVar`、`expectedStateRef` | 引用组件类型、该类型的能力、运行变量中的设备集合、该组件的目标叶子状态；可执行模型四项必填 |
-| `fac:requires` | `guardRef` | 每个任务最多一个进入条件；多个条件在投影 guard 中组合 |
+| `fac:operation` | `operationRef` | 每个任务最多一个设施操作准入引用；条件由系统定义和 facility-server 计算 |
+| `fac:requires` | `guardRef` | 旧流程迁移用的进入条件；新流程使用 `fac:operation` |
 | `fac:completion` | `factRef` 或 `guardRef`，另有 `timeout` | 每个任务最多一个完成条件；引用二选一，时长为至少 1 毫秒的正 ISO-8601 duration |
 | `fac:hold` | `errorRef` | 普通子流程的持续保持范围，至少一个 input/condition；必须有匹配的边界错误异常路径 |
 | `fac:input` | `typeRef`、`capabilityRef`、`requirementRef`、`collectionVar` | 保持已有能力输入，按本发资源递归展开上游输出依赖 |

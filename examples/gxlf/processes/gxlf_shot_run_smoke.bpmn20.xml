@@ -27,7 +27,7 @@
     <bpmn:serviceTask id="function_check" name="全部设备功能检查" flowable:delegateExpression="${facilityActions}">
       <bpmn:extensionElements>
         <run:stage value="initializing" />
-        <fac:requires guardRef="simulationFunctionCheckAllowed" />
+        <fac:operation operationRef="simulation-function-check" />
         <fac:completion factRef="allFunctionReady" timeout="PT2M" />
         <fac:actions><fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" expectedStateRef="qualified" />
         <fac:action typeRef="shg" capabilityRef="function-check" collectionVar="shgTargets" expectedStateRef="functionReady" />
@@ -48,7 +48,7 @@
     <bpmn:serviceTask id="receive_parameters" name="接收本发参数" flowable:delegateExpression="${facilityActions}">
       <bpmn:extensionElements>
         <run:stage value="parameters_receiving" />
-        <fac:requires guardRef="simulationParameterDispatchAllowed" />
+        <fac:operation operationRef="simulation-parameter-dispatch" />
         <fac:completion factRef="allParametersReceived" timeout="PT2M" />
         <fac:actions><fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" expectedStateRef="configured" />
         <fac:action typeRef="shg" capabilityRef="parameter-receive" collectionVar="shgTargets" expectedStateRef="parameterOk" />

@@ -61,6 +61,7 @@ public class ModelValidation {
                         value.put("componentTypes",model.componentTypeCount());
                         value.put("instanceSets",model.instanceSetCount());
                         value.put("structuralConstraints",model.structuralConstraintCount());
+                        value.put("operationAdmissions",model.operationAdmissions().size());
                         value.put("operatingConstraints",model.operatingConstraints().size());
                         value.put("connections",model.connectionCount());
                         value.put("openIssues",model.openIssueCount());

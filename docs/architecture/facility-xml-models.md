@@ -86,9 +86,11 @@
 
 `signals/signal` 是可引用信号目录。输出 `signalRef` 必须匹配端口接口；`factRef` 引用投影的逐设备事实，并在模型组激活时验证类型一致。输入依赖使用 `requirements/inputRequirement`。能力依赖必须声明 `maintain="start|execution"`，输出进一步依赖不允许声明 `maintain`，而是继承调用者的保持范围。具体运行语义见[能力输入依赖](capability-dependencies.md)。
 
+系统定义还可以声明 `operationAdmissions/operationAdmission`。它的 `factRequirement` 定义某项设施操作的起始条件；BPMN 只引用 `fac:operation operationRef`，由 facility-server 根据当前事实计算准入证据。操作准入属于设施端的权威边界，不能由工作台重新组合事实。
+
 ## 条件和三值求值
 
-`fact` 可声明 `role`，取值为 `state`、`qualification` 或 `derived`，省略时默认为 `state`。`state` 表示设施当前状态，`qualification` 表示由检查、配置或配方确认形成的设施资格，`derived` 表示由其他设施事实组合出的状态。`role` 是事实语义的一部分，不由 BPMN 使用位置推断。`guard` 复用同一 XML 结构，但其角色只作为兼容元数据，放行语义仍由 guard 本身决定。
+`fact` 可声明 `role` 和 `scope`。`role` 取值为 `state`、`qualification` 或 `derived`，省略时默认为 `state`；`scope` 取值为 `facility` 或 `instance-set`，省略时默认为 `facility`。`state` 表示设施当前状态，`qualification` 表示由检查、配置或配方确认形成的设施资格，`derived` 表示由其他设施事实组合出的状态。`scope="instance-set"` 必须同时声明 `scopeRef`，并且条件中的设备、动作和观测来源只能属于该实例集合；`scope="facility"` 不得声明 `scopeRef`。`role` 和 `scope` 都是事实语义的一部分，不由 BPMN 使用位置推断。投影仍兼容旧 `guard` 元素，但新的设施操作准入定义在系统定义的 `operationAdmissions` 中。
 
 系统监督只能依赖设施状态事实和由状态事实推导出的事实。模型组激活时会沿事实引用树检查监督义务的激活、解除和要求，直接或间接引用 `qualification` 的监督义务会被拒绝。命令结果和本发完成情况不放入状态投影；它们属于运行证据。
 
@@ -108,11 +110,12 @@
 </fact>
 ```
 
-此例中的引用事实需另行声明；选中光源的实际能力依赖仍按本发选路解析，不能用“任一光源正常”代替所选光源正常。
+此例中的引用事实需另行声明；选中光源的实际能力依赖仍按本发选路解析，不能用“任一光源正常”代替所选光源正常。`beamline` 和本发选中实例不是设施事实的 scope，它们由能力依赖和运行证据按本发上下文解析。
 
-- `devicePredicate` 检查绑定到指定实例集合的参与设备。必须至少有一台观测；同集合内所有参与设备须满足判据。`states` 与 `outerStates` 任一匹配即满足。
+- `devicePredicate` 检查绑定到指定实例集合的参与设备。必须至少有一台观测；默认要求同集合内所有参与设备满足判据，`quantifier="any"` 改为任一参与设备满足。`states` 与 `outerStates` 任一匹配即满足。实例集合事实的 `scopeRef` 必须与这里的 `instanceSetRef` 一致。
 - `factPredicate` 引用同一投影中的事实，允许前向引用，禁止环。
-- `observationPredicate` 引用已声明的观测，`expected` 表示预期值。`device-connectivity` 适配器只判断当前参与目录中的设备可观测，不接受 `expected`；`device-state` 要求 `expected`，匹配当前叶状态或外层状态；尚未接入的 `external` 观测始终为 unknown。
+- `actionPredicate` 与 `devicePredicate` 使用相同的实例集合范围，判断动作是否明确活动或空闲。
+- `observationPredicate` 引用已声明的观测，`expected` 表示预期值。`device-connectivity` 适配器只判断当前参与目录中的设备可观测，不接受 `expected`；`device-state` 要求 `expected`，匹配当前叶状态或外层状态；实例集合事实只能引用实例集合或实例组来源；尚未接入的 `external` 观测始终为 unknown。
 - `all`：任一 violated 则 violated，否则有 unknown 则 unknown，全部 valid 才 valid。
 - `any`：任一 valid 则 valid，否则有 unknown 则 unknown，全部 violated 才 violated。
 

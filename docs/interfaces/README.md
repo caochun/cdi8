@@ -52,7 +52,7 @@ Execute 返回 `accepted` 仅表示受理。后续反馈产生 `succeeded`、`fa
 
 快照中的 `supports_action_contract=true` 和 `action_contracts.<action>` 提供当前本地就绪信息，包括 `entry.idle`、`entry.event`、`ready` 和失败原因。查询复用引擎选择和守卫求值，不执行迁移内容；无法确认时就绪为 false。设备 Execute 在本地事务内再次复核，读取就绪状态不能预约设备。
 
-可选的 `parameters.entry_condition` 是设备协议保留的附加限制，与 SCXML 准入取交集：必须 `idle=true`，并提供空格分隔的 `states` 或 `outer_states`。它只约束受理瞬间。当前 BPMN 使用 `fac:requires`、`fac:completion`、`fac:hold` 和设施能力，旧 `ctl:actionContract` / `ctl:entryCondition` 扩展不属于现行模型。
+可选的 `parameters.entry_condition` 是设备协议保留的附加限制，与 SCXML 准入取交集：必须 `idle=true`，并提供空格分隔的 `states` 或 `outer_states`。它只约束受理瞬间。当前 BPMN 使用 `fac:operation`、`fac:completion`、`fac:hold` 和设施能力；`fac:requires` 仅用于旧模型迁移，旧 `ctl:actionContract` / `ctl:entryCondition` 扩展不属于现行模型。
 
 SCXML 元数据静态校验位于 [ComponentContract](../../component-contract/src/main/java/cn/cdi8/component/contract/ComponentContract.java)；可执行性由模拟器的同一 Apache 引擎校验。组件协议要求单一活动叶子状态，不支持 `parallel`。元数据及运行时能力字段属于项目协议，并非 Tango 标准。
 

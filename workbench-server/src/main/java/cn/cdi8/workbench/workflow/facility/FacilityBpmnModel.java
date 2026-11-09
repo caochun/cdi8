@@ -67,6 +67,7 @@ public final class FacilityBpmnModel {
             for (var process : model.getProcesses()) for (var element : all(process)) {
                 if (!extensions(element, "requires", FACILITY_NS).isEmpty()
                         || !extensions(element, "completion", FACILITY_NS).isEmpty()
+                        || !extensions(element, "operation", FACILITY_NS).isEmpty()
                         || !extensions(element, "capability", FACILITY_NS).isEmpty()
                         || !actions(element).isEmpty()
                         || !extensions(element, "stage", RUN_NS).isEmpty()
@@ -78,17 +79,27 @@ public final class FacilityBpmnModel {
             if (!usesFacilityExtensions) return;
             for(var process:model.getProcesses()) for(var element:all(process)) {
                 Completion completion=completion(element);
+                var operationDeclarations=extensions(element,"operation",FACILITY_NS);
+                var legacyRequirements=extensions(element,"requires",FACILITY_NS);
+                if(!operationDeclarations.isEmpty()&&!legacyRequirements.isEmpty())
+                    throw new IllegalArgumentException("fac:operation 与迁移兼容的 fac:requires 不能同时声明："+element.getId());
                 if(completion!=null) {
                     if(!(element instanceof ServiceTask task))throw new IllegalArgumentException("fac:completion 当前仅支持 serviceTask："+element.getId());
                     if(process.isExecutable() && !"${facilityActions}".equals(task.getImplementation()))
                         throw new IllegalArgumentException("完成条件任务必须使用 delegateExpression=${facilityActions}："+element.getId());
-                    if("fact".equals(completion.kind()) ? !projection.hasFact(completion.ref()) : !projection.hasGuard(completion.ref()))
+                    if("fact".equals(completion.kind()) ? !projection.hasFact(completion.ref()) : !hasGuard(definition,projection,completion.ref()))
                         throw new IllegalArgumentException("fac:completion 引用了未定义 "+completion.kind()+"："+completion.ref()+" / "+element.getId());
+                }
+                for(var extension:operationDeclarations) {
+                    if(!(element instanceof ServiceTask))throw new IllegalArgumentException("fac:operation 当前仅支持 serviceTask："+element.getId());
+                    String operation=attr(extension,"operationRef");
+                    if(operation.isBlank()||!definition.hasOperationAdmission(operation))
+                        throw new IllegalArgumentException("fac:operation 引用了未定义操作准入："+operation+" / "+element.getId());
                 }
                 for(var extension:extensions(element,"requires",FACILITY_NS)) {
                     if(!(element instanceof ServiceTask))throw new IllegalArgumentException("fac:requires 当前仅支持 serviceTask："+element.getId());
                     String guard=attr(extension,"guardRef");
-                    if(guard.isBlank()||!projection.hasGuard(guard))throw new IllegalArgumentException("fac:requires 引用了未定义 guard："+guard+" / "+element.getId());
+                    if(guard.isBlank()||!hasGuard(definition,projection,guard))throw new IllegalArgumentException("fac:requires 引用了未定义 guard："+guard+" / "+element.getId());
                 }
                 for(var extension:extensions(element,"capability",FACILITY_NS)) {
                     if(process.isExecutable())throw new IllegalArgumentException("fac:capability 仅为设计标注，不能用于可执行流程："+element.getId());
@@ -158,6 +169,11 @@ public final class FacilityBpmnModel {
             throw new IllegalArgumentException("旧条件等待扩展已移除："+element.getId());
     }
 
+    private static boolean hasGuard(SystemDefinitionModel definition,FacilityStateProjectionModel projection,String guard) {
+        return projection.hasGuard(guard) || (SystemDefinitionModel.operationForLegacyGuard(guard)!=null
+            && definition.hasOperationAdmission(SystemDefinitionModel.operationForLegacyGuard(guard)));
+    }
+
     public static List<ExtensionElement> actions(BaseElement element) {
         return extensions(element,"actions",FACILITY_NS).stream()
             .flatMap(container->container.getChildElements().getOrDefault("action",List.of()).stream())
@@ -208,7 +224,7 @@ public final class FacilityBpmnModel {
         }
         for(var condition:hold.conditions()) {
             if(!uniqueConditions.add(condition))throw new IllegalArgumentException("重复保持条件："+condition.ref());
-            if("fact".equals(condition.kind())?!projection.hasFact(condition.ref()):!projection.hasGuard(condition.ref()))
+            if("fact".equals(condition.kind())?!projection.hasFact(condition.ref()):!hasGuard(definition,projection,condition.ref()))
                 throw new IllegalArgumentException("fac:condition 未定义："+condition.ref());
         }
         // Restrict unsupported escape paths rather than silently losing monitoring coverage.

@@ -62,7 +62,7 @@
         <bpmn:extensionElements>
           <run:stage value="initializing" />
           <run:records kind="device-command" operation="function-check" />
-          <fac:requires guardRef="functionCheckAllowed" />
+          <fac:operation operationRef="function-check" />
           <fac:completion factRef="allFunctionReady" timeout="PT2M" />
           <fac:actions>
             <fac:action typeRef="seed" capabilityRef="function-check" collectionVar="seedTargets" />
@@ -87,7 +87,7 @@
         <bpmn:extensionElements>
           <run:stage value="parameters_receiving" />
           <run:records kind="device-command" operation="parameter-receive" />
-          <fac:requires guardRef="parameterDispatchAllowed" />
+          <fac:operation operationRef="parameter-dispatch" />
           <fac:completion factRef="allParametersReceived" timeout="PT2M" />
           <fac:actions>
             <fac:action typeRef="seed" capabilityRef="parameter-receive" collectionVar="seedTargets" />
@@ -111,7 +111,7 @@
         <bpmn:extensionElements>
           <run:stage value="preparing" />
           <run:records kind="safety-preparation" operation="establish" />
-          <fac:requires guardRef="preparationAllowed" />
+          <fac:operation operationRef="preparation" />
           <fac:completion factRef="interlockOperational" timeout="PT5M" />
           <fac:actions>
             <fac:action typeRef="control-environment" capabilityRef="clearance" collectionVar="controlEnvironmentTargets" />
@@ -219,7 +219,7 @@
         <bpmn:extensionElements>
           <run:stage value="triggering" />
           <run:records kind="trigger-preparation" operation="prepare" />
-          <fac:requires guardRef="triggerAllowed" />
+          <fac:operation operationRef="trigger" />
           <fac:completion factRef="synchronizationReady" timeout="PT2M" />
           <fac:actions>
             <fac:action typeRef="pump" capabilityRef="trigger-prepare" collectionVar="pumpTargets" />

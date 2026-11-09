@@ -68,17 +68,17 @@ SCXML 的解析和执行统一交给 Apache Commons SCXML。Java 校验会实际
 
 ## 设施放行条件
 
-放行条件通过状态投影中的 guard 声明，在 BPMN serviceTask 的 extensionElements 中引用：
+设施操作准入通过系统定义中的 operation admission 声明，在 BPMN serviceTask 的 extensionElements 中引用：
 
 ```xml
 <bpmn:serviceTask id="gate" name="核验触发条件" flowable:expression="${shotRuns.stage(execution, 'triggering')}">
   <bpmn:extensionElements>
-    <fac:requires guardRef="triggerAllowed" />
+    <fac:operation operationRef="trigger" />
   </bpmn:extensionElements>
 </bpmn:serviceTask>
 ```
 
-根元素需声明 `xmlns:fac="https://cdi8.cn/facility/v1"`。guard 在进入任务时必须为 valid，否则结束本发并记录原因；unknown 不会自动放行。模拟条件设备上的布尔值不会自动成为外部安全事实。
+根元素需声明 `xmlns:fac="https://cdi8.cn/facility/v1"`。`operationRef` 必须由设施系统定义声明；进入任务时由 facility-server 重新读取事实并返回准入证据，`unknown` 或 `violated` 都不会放行。模拟条件设备上的布尔值不会自动成为外部安全事实。已有 `fac:requires` 仅用于迁移旧流程。
 
 需要等待条件成立时，在 `${facilityActions}` 的 serviceTask 上声明 `fac:completion factRef="allPowerChecked" timeout="PT2M"`，也可用 `guardRef="…"` 引用组合条件。任务先验收全部本发动作，再进入有截止时间的条件等待；没有动作的任务直接等待。unknown 和 violated 均保持等待，只有 valid 推进。条件初始就成立也会被主动检查，事件重发不重发设备命令。运行调试页会显示原因、期限及结束时等待快照。
 

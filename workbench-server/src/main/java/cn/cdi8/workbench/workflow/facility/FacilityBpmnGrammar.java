@@ -14,6 +14,7 @@ public final class FacilityBpmnGrammar {
     private static final Map<String,Rule> RULES=Map.ofEntries(
         Map.entry("actions",rule("","")),
         Map.entry("action",rule("typeRef capabilityRef collectionVar expectedStateRef","typeRef capabilityRef collectionVar")),
+        Map.entry("operation",rule("operationRef","operationRef")),
         Map.entry("requires",rule("guardRef","guardRef")),
         Map.entry("completion",rule("factRef guardRef timeout","timeout")),
         Map.entry("hold",rule("errorRef","errorRef")),

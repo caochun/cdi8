@@ -7,6 +7,13 @@ import static cn.cdi8.facility.contract.xml.ModelXml.*;
 /** Static composition and executable structural contracts, independent of live device state. */
 public final class SystemDefinitionModel {
     public static final String NS = "https://cdi8.cn/system-definition/v1";
+    private static final Map<String,String> LEGACY_OPERATION_ALIASES=Map.of(
+        "simulationFunctionCheckAllowed","simulation-function-check",
+        "simulationParameterDispatchAllowed","simulation-parameter-dispatch",
+        "functionCheckAllowed","function-check",
+        "parameterDispatchAllowed","parameter-dispatch",
+        "preparationAllowed","preparation",
+        "triggerAllowed","trigger");
     public record InstanceSet(String id, String type, int quantity, String pattern) {
         public String componentInstanceId(int index) {
             if (index < 1 || index > quantity) throw invalid("实例索引越界：" + id + "/" + index);
@@ -19,6 +26,8 @@ public final class SystemDefinitionModel {
     public record Mapping(String id, String kind, String resource, int groupSize, List<Member> members) {}
     public record Endpoint(String kind, String ref, String port) {}
     public record OperatingConstraint(String id,String label,String activation,String release,List<CapabilityDependencies.Fact> requirements) {}
+    /** Facility-owned operation admission. BPMN names the operation; the facility evaluates its facts. */
+    public record OperationAdmission(String id,String label,List<CapabilityDependencies.Fact> requirements) {}
     private final Element root;
     private final Map<String,Element> types, controls, externals, interfaces, signals, paths;
     private final Map<String,Integer> resources = new LinkedHashMap<>();
@@ -27,6 +36,7 @@ public final class SystemDefinitionModel {
     private final Map<String,Mapping> mappings = new LinkedHashMap<>();
     private final CapabilityDependencies dependencies;
     private final List<OperatingConstraint> operatingConstraints=new ArrayList<>();
+    private final Map<String,OperationAdmission> operationAdmissions=new LinkedHashMap<>();
     private int connections;
 
     private SystemDefinitionModel(Element root) {
@@ -96,6 +106,16 @@ public final class SystemDefinitionModel {
             if ("mappingCoverage".equals(e.getLocalName())) mapping(e.getAttribute("mappingRef"));
         }
         dependencies = CapabilityDependencies.parse(root,this);
+        for(var e:entries(root,"operationAdmissions")) {
+            var requirements=CapabilityDependencies.parseFacts(e);
+            if(requirements.size()!=entries(e,"requirements").size()
+                || requirements.stream().anyMatch(r->!"start".equals(r.maintain())))
+                throw invalid("操作准入只接受 start 范围的 factRequirement："+e.getAttribute("id"));
+            if(requirements.stream().map(CapabilityDependencies.Fact::id).distinct().count()!=requirements.size())
+                throw invalid("操作准入的依赖 id 重复："+e.getAttribute("id"));
+            var admission=new OperationAdmission(required(e,"id"),required(e,"label"),requirements);
+            if(operationAdmissions.putIfAbsent(admission.id(),admission)!=null)throw invalid("操作准入 id 重复："+admission.id());
+        }
         for(var e:entries(root,"operatingConstraints")) {
             var requirements=CapabilityDependencies.parseFacts(e);
             if(requirements.size()!=entries(e,"requirements").size()||requirements.stream().anyMatch(r->!"execution".equals(r.maintain())))
@@ -177,6 +197,11 @@ public final class SystemDefinitionModel {
     public int openIssueCount(){return entries(child(root,"annotations"),"issues").size();}
     public CapabilityDependencies dependencies(){return dependencies;}
     public List<OperatingConstraint> operatingConstraints(){return List.copyOf(operatingConstraints);}
+    public Collection<OperationAdmission> operationAdmissions(){return Collections.unmodifiableCollection(operationAdmissions.values());}
+    public OperationAdmission operationAdmission(String id){return requireRef(operationAdmissions,id,"操作准入");}
+    public boolean hasOperationAdmission(String id){return operationAdmissions.containsKey(id);}
+    public static String operationForLegacyGuard(String guard){return LEGACY_OPERATION_ALIASES.get(guard);}
+    public static Map<String,String> legacyOperationAliases(){return LEGACY_OPERATION_ALIASES;}
     public Collection<InstanceSet> instanceSets(){return Collections.unmodifiableCollection(instanceSets.values());}
     public Collection<Mapping> mappings(){return Collections.unmodifiableCollection(mappings.values());}
     public InstanceSet instanceSet(String id){return requireRef(instanceSets,id,"实例集合");}

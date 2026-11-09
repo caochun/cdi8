@@ -47,6 +47,16 @@ class FacilityContractTest {
             xml.replace("<bpmn:extensionElements>","<bpmn:extensionElements><unknown xmlns='urn:example'><fac:requires guardRef='triggerAllowed'/></unknown>")))
             assertThrows(IllegalArgumentException.class,()->ModelValidation.parse(bad));
     }
+    @Test void operationAdmissionMustBeDeclaredByTheFacilityAndReplacesLegacyGuardEntry()throws Exception {
+        String process=minimal().replace("<bpmn:extensionElements><fac:actions>",
+            "<bpmn:extensionElements><fac:operation operationRef='trigger'/><fac:actions>");
+        assertDoesNotThrow(()->validate(process));
+        assertThrows(IllegalArgumentException.class,()->validate(process.replace("operationRef='trigger'","operationRef='missing-operation'")));
+        assertThrows(IllegalArgumentException.class,()->validate(process.replace("<fac:operation operationRef='trigger'/>",
+            "<fac:operation operationRef='trigger'/><fac:operation operationRef='trigger'/>") ));
+        assertThrows(IllegalArgumentException.class,()->validate(process.replace("<fac:operation operationRef='trigger'/>",
+            "<fac:operation operationRef='trigger'/><fac:requires guardRef='triggerAllowed'/>") ));
+    }
     @Test void allExecutableAndDesignExamplesValidate()throws Exception {
         validate(minimal());
         for(String dir:List.of("processes","design"))try(var files=Files.list(Path.of("examples/gxlf",dir))) {

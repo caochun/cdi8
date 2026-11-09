@@ -132,7 +132,7 @@
         <observationPredicate observationRef="titaniumPumpVacuum" expected="true" />
       </condition>
     </fact>
-    <fact id="interlockEstablished" label="安全联锁输入全部成立">
+    <fact id="interlockEstablished" role="derived" label="安全联锁输入全部成立">
       <condition>
         <all>
           <factPredicate factRef="shieldDoorLocked" />
@@ -142,17 +142,17 @@
         </all>
       </condition>
     </fact>
-    <fact id="pumpChargeComplete" label="泵浦当前充电完成">
+    <fact id="pumpChargeComplete" label="泵浦当前充电完成" scope="instance-set" scopeRef="pump">
       <condition>
         <devicePredicate instanceSetRef="pump" states="chargeComplete" />
       </condition>
     </fact>
-    <fact id="switchChargeComplete" label="开关当前充电完成">
+    <fact id="switchChargeComplete" label="开关当前充电完成" scope="instance-set" scopeRef="switch-driver">
       <condition>
         <devicePredicate instanceSetRef="switch-driver" states="chargeComplete" />
       </condition>
     </fact>
-    <fact id="synchronizationReady" label="同步系统具备当前触发能力">
+    <fact id="synchronizationReady" label="同步系统具备当前触发能力" scope="instance-set" scopeRef="synchronization">
       <condition>
         <devicePredicate instanceSetRef="synchronization" states="singleConfigured" />
       </condition>
@@ -166,104 +166,68 @@
     <fact id="noInterlockTrip" label="联锁控制器确认无触发">
       <condition><observationPredicate observationRef="interlockTripState" expected="clear" /></condition>
     </fact>
-    <fact id="interlockOperational" label="联锁已启用且输入正常、无触发">
+    <fact id="interlockOperational" role="derived" label="联锁已启用且输入正常、无触发">
       <condition><all><factPredicate factRef="interlockArmed" /><factPredicate factRef="interlockEstablished" /><factPredicate factRef="noInterlockTrip" /></all></condition>
     </fact>
-    <fact id="pumpEnergyActive" label="任一泵浦正在充电、已充电或待触发">
+    <fact id="pumpEnergyActive" role="derived" label="任一泵浦正在充电、已充电或待触发" scope="instance-set" scopeRef="pump">
       <condition><any><devicePredicate instanceSetRef="pump" outerStates="charging charged armed" quantifier="any" /><actionPredicate instanceSetRef="pump" actionRef="charge" active="true" quantifier="any" /></any></condition>
     </fact>
-    <fact id="switchEnergyActive" label="任一开关正在充电、已充电或待触发">
+    <fact id="switchEnergyActive" role="derived" label="任一开关正在充电、已充电或待触发" scope="instance-set" scopeRef="switch-driver">
       <condition><any><devicePredicate instanceSetRef="switch-driver" outerStates="charged armed" quantifier="any" /><actionPredicate instanceSetRef="switch-driver" actionRef="charge" active="true" quantifier="any" /></any></condition>
     </fact>
-    <fact id="pumpEnergyAbsent" label="泵浦实际储能已消除">
+    <fact id="pumpEnergyAbsent" label="泵浦实际储能已消除" scope="instance-set" scopeRef="pump">
       <condition><observationPredicate observationRef="pumpEnergySafety" expected="safe" /></condition>
     </fact>
-    <fact id="switchEnergyAbsent" label="开关实际储能已消除">
+    <fact id="switchEnergyAbsent" label="开关实际储能已消除" scope="instance-set" scopeRef="switch-driver">
       <condition><observationPredicate observationRef="switchEnergySafety" expected="safe" /></condition>
     </fact>
-    <fact id="collimationExecuting" label="任一多程设备正在执行准直">
+    <fact id="collimationExecuting" label="任一多程设备正在执行准直" scope="instance-set" scopeRef="multipass">
       <condition><actionPredicate instanceSetRef="multipass" actionRef="collimation" active="true" quantifier="any" /></condition>
     </fact>
-    <fact id="collimationIdle" label="全部参与多程设备均未执行准直">
+    <fact id="collimationIdle" label="全部参与多程设备均未执行准直" scope="instance-set" scopeRef="multipass">
       <condition><actionPredicate instanceSetRef="multipass" actionRef="collimation" active="false" quantifier="all" /></condition>
     </fact>
-    <fact id="purgeStopped" label="冷却设备当前确认吹扫停止">
+    <fact id="purgeStopped" label="冷却设备当前确认吹扫停止" scope="instance-set" scopeRef="cooling">
       <condition><devicePredicate instanceSetRef="cooling" outerStates="ready" /></condition>
     </fact>
-    <fact id="multipassCollimated" label="多程设备准直结果当前达标">
+    <fact id="multipassCollimated" label="多程设备准直结果当前达标" scope="instance-set" scopeRef="multipass">
       <condition><devicePredicate instanceSetRef="multipass" outerStates="collimated shotCapable" /></condition>
     </fact>
-    <fact id="preampFineLoopReady" label="预放唤醒且本轮精闭环已达标">
+    <fact id="preampFineLoopReady" label="预放唤醒且本轮精闭环已达标" scope="instance-set" scopeRef="preamp">
       <condition><devicePredicate instanceSetRef="preamp" states="fineLoopOk" /></condition>
     </fact>
     <fact id="selectedOpticalDeliveryReady" label="所选束线的光源选通和上游输出已核验">
       <condition><observationPredicate observationRef="selectedOpticalDelivery" expected="ready" /></condition>
     </fact>
-    <fact id="targetShotReady" label="靶瞄已进入打靶状态">
+    <fact id="targetShotReady" label="靶瞄已进入打靶状态" scope="instance-set" scopeRef="target-alignment">
       <condition><devicePredicate instanceSetRef="target-alignment" states="shotReady" /></condition>
     </fact>
-    <fact id="measurementMotionReady" label="测量打靶运动准备完成">
+    <fact id="measurementMotionReady" label="测量打靶运动准备完成" scope="instance-set" scopeRef="measurement">
       <condition><devicePredicate instanceSetRef="measurement" states="motionPrepared" /></condition>
     </fact>
     <fact id="independentShotMotionReady" label="独立打靶运动准备完成">
       <condition><observationPredicate observationRef="independentShotMotion" expected="ready" /></condition>
     </fact>
-    <fact id="diagnosticsPrepared" label="诊断设备发射准备完成">
+    <fact id="diagnosticsPrepared" label="诊断设备发射准备完成" scope="instance-set" scopeRef="diagnostics">
       <condition><devicePredicate instanceSetRef="diagnostics" states="deviceConfirmed" /></condition>
     </fact>
-    <fact id="pumpEmissionPrepared" label="泵浦发射准备完成">
+    <fact id="pumpEmissionPrepared" label="泵浦发射准备完成" scope="instance-set" scopeRef="pump">
       <condition><devicePredicate instanceSetRef="pump" states="emissionPrepared" /></condition>
     </fact>
-    <fact id="emissionPreparationReady" label="发射准备九项条件及独立运动链路同时成立">
+    <fact id="emissionPreparationReady" role="derived" label="发射准备九项条件及独立运动链路同时成立">
       <condition><all><factPredicate factRef="diagnosticsPrepared" /><factPredicate factRef="measurementMotionReady" /><factPredicate factRef="independentShotMotionReady" /><factPredicate factRef="targetShotReady" /><factPredicate factRef="multipassCollimated" /><factPredicate factRef="selectedOpticalDeliveryReady" /><factPredicate factRef="preampFineLoopReady" /><factPredicate factRef="allServicesHealthy" /><factPredicate factRef="interlockOperational" /><factPredicate factRef="pumpEmissionPrepared" /></all></condition>
     </fact>
-    <fact id="chargePreparationReady" label="本次充电前设备配置同时就绪">
+    <fact id="chargePreparationReady" role="derived" label="本次充电前设备配置同时就绪">
       <condition><all><devicePredicate instanceSetRef="diagnostics" states="acquisitionReady" /><devicePredicate instanceSetRef="frequency-conversion" states="poseSet" /><devicePredicate instanceSetRef="pump" states="chargePrepared" /><devicePredicate instanceSetRef="preamp" states="energyMeterCleared" /><devicePredicate instanceSetRef="measurement" states="measurementPrepared" /><factPredicate factRef="switchChargeComplete" /><factPredicate factRef="synchronizationReady" /><factPredicate factRef="interlockOperational" /><factPredicate factRef="allServicesHealthy" /><factPredicate factRef="preampSingleConfigured" /><factPredicate factRef="measurementSingleConfigured" /></all></condition>
     </fact>
-    <fact id="triggerWindowReady" label="进入同步触发窗口前充电与联锁同时就绪">
+    <fact id="triggerWindowReady" role="derived" label="进入同步触发窗口前充电与联锁同时就绪">
       <condition><all><factPredicate factRef="pumpChargeComplete" /><factPredicate factRef="switchChargeComplete" /><factPredicate factRef="synchronizationReady" /><factPredicate factRef="interlockOperational" /><factPredicate factRef="allServicesHealthy" /><factPredicate factRef="preampSingleConfigured" /><factPredicate factRef="measurementSingleConfigured" /></all></condition>
     </fact>
-    <fact id="preampSingleConfigured" role="qualification" label="同步预放单次配方实际确认"><condition><observationPredicate observationRef="preampRecipe" expected="single" /></condition></fact>
-    <fact id="measurementSingleConfigured" role="qualification" label="同步测量单次配方实际确认"><condition><observationPredicate observationRef="measurementRecipe" expected="single" /></condition></fact>
-    <fact id="opticalOperationActive" label="光源出光或预放工作"><condition><any><devicePredicate instanceSetRef="seed" outerStates="emitting" quantifier="any" /><actionPredicate instanceSetRef="seed" actionRef="seed_source_emit" active="true" quantifier="any" /><devicePredicate instanceSetRef="shg" outerStates="emitting" quantifier="any" /><actionPredicate instanceSetRef="shg" actionRef="frequency_doubled_emit" active="true" quantifier="any" /><devicePredicate instanceSetRef="preamp" outerStates="wakeup" quantifier="any" /><actionPredicate instanceSetRef="preamp" actionRef="preamp_wakeup" active="true" quantifier="any" /></any></condition></fact>
-    <fact id="opticalOperationReleased" label="光源与预放均退出工作并确认就绪"><condition><all><devicePredicate instanceSetRef="seed" outerStates="ready" /><actionPredicate instanceSetRef="seed" actionRef="seed_source_emit" active="false" quantifier="all" /><devicePredicate instanceSetRef="shg" outerStates="ready" /><actionPredicate instanceSetRef="shg" actionRef="frequency_doubled_emit" active="false" quantifier="all" /><devicePredicate instanceSetRef="preamp" outerStates="ready" /><actionPredicate instanceSetRef="preamp" actionRef="preamp_wakeup" active="false" quantifier="all" /></all></condition></fact>
+    <fact id="preampSingleConfigured" role="qualification" label="同步预放单次配方实际确认" scope="instance-set" scopeRef="synchronization"><condition><observationPredicate observationRef="preampRecipe" expected="single" /></condition></fact>
+    <fact id="measurementSingleConfigured" role="qualification" label="同步测量单次配方实际确认" scope="instance-set" scopeRef="synchronization"><condition><observationPredicate observationRef="measurementRecipe" expected="single" /></condition></fact>
+    <fact id="opticalOperationActive" role="derived" label="光源出光或预放工作"><condition><any><devicePredicate instanceSetRef="seed" outerStates="emitting" quantifier="any" /><actionPredicate instanceSetRef="seed" actionRef="seed_source_emit" active="true" quantifier="any" /><devicePredicate instanceSetRef="shg" outerStates="emitting" quantifier="any" /><actionPredicate instanceSetRef="shg" actionRef="frequency_doubled_emit" active="true" quantifier="any" /><devicePredicate instanceSetRef="preamp" outerStates="wakeup" quantifier="any" /><actionPredicate instanceSetRef="preamp" actionRef="preamp_wakeup" active="true" quantifier="any" /></any></condition></fact>
+    <fact id="opticalOperationReleased" role="derived" label="光源与预放均退出工作并确认就绪"><condition><all><devicePredicate instanceSetRef="seed" outerStates="ready" /><actionPredicate instanceSetRef="seed" actionRef="seed_source_emit" active="false" quantifier="all" /><devicePredicate instanceSetRef="shg" outerStates="ready" /><actionPredicate instanceSetRef="shg" actionRef="frequency_doubled_emit" active="false" quantifier="all" /><devicePredicate instanceSetRef="preamp" outerStates="ready" /><actionPredicate instanceSetRef="preamp" actionRef="preamp_wakeup" active="false" quantifier="all" /></all></condition></fact>
   </facts>
-  <guards>
-    <guard id="simulationFunctionCheckAllowed" label="模拟初始化：允许功能检查">
-      <condition>
-        <all>
-          <factPredicate factRef="allPowerChecked" />
-          <factPredicate factRef="simulationDevicesObserved" />
-        </all>
-      </condition>
-    </guard>
-    <guard id="simulationParameterDispatchAllowed" label="模拟初始化：允许参数接收">
-      <condition>
-        <all>
-          <factPredicate factRef="allFunctionReady" />
-          <factPredicate factRef="simulationDevicesObserved" />
-        </all>
-      </condition>
-    </guard>
-    <guard id="functionCheckAllowed" label="允许开始功能检查">
-      <condition>
-        <all>
-          <factPredicate factRef="allPowerChecked" />
-          <factPredicate factRef="allServicesHealthy" />
-        </all>
-      </condition>
-    </guard>
-    <guard id="parameterDispatchAllowed" label="允许开始本发参数下发">
-      <condition>
-        <all>
-          <factPredicate factRef="allFunctionReady" />
-          <factPredicate factRef="allServicesHealthy" />
-        </all>
-      </condition>
-    </guard>
-    <guard id="preparationAllowed" label="允许进入受联锁保护的发射准备"><condition><all><factPredicate factRef="allParametersReceived" /><factPredicate factRef="allServicesHealthy" /><factPredicate factRef="interlockOperational" /></all></condition></guard>
-    <guard id="triggerAllowed" label="允许进入同步触发窗口"><condition><factPredicate factRef="triggerWindowReady" /></condition></guard>
-  </guards>
   <annotations>
     <notes>
       <note id="projection-boundary" kind="design"><description>事实只报告当前观测，不等于本发历史完成证据。allFunctionReady 包含功能自检后仍正常的工作状态；allParametersReceived 是参数阶段的即时完成判据。准直结果保持与准直动作执行分开；未知外部观测不能替换为成功。prepared/充电准备是同时成立的事实，本发前后顺序和命令关联由 BPMN/shot-run 核验。</description></note>

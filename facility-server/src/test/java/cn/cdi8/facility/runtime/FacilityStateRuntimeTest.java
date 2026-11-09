@@ -38,7 +38,14 @@ class FacilityStateRuntimeTest {
         transport=new Transport();runtime=new FacilityStateRuntime(JSON,transport,event->{});
         String defaults=resource("gxlf-facility-state-projection.xml");
         String deviceFacts=defaults.substring(defaults.indexOf("<deviceFacts>"),defaults.indexOf("</deviceFacts>")+"</deviceFacts>".length());
-        runtime.activate(resource("gxlf-facility.system-definition.xml"),resource("gxlf-facility-binding.xml"),PROJECTION.replace("<facts>",deviceFacts+"<facts>"));
+        String definition=resource("gxlf-facility.system-definition.xml");
+        int annotations=definition.lastIndexOf("<annotations>");
+        definition=definition.substring(0,annotations)+"""
+            <operationAdmissions><operationAdmission id="seed-operation" label="种子源操作准入"><requirements>
+              <factRequirement id="ready" factRef="seedReady" maintain="start" />
+            </requirements></operationAdmission></operationAdmissions>
+            """+definition.substring(annotations);
+        runtime.activate(definition,resource("gxlf-facility-binding.xml"),PROJECTION.replace("<facts>",deviceFacts+"<facts>"));
     }
     @AfterEach void close(){transport.close();}
     String status(){return runtime.current().path("guards").path("ready").path("status").asText();}
@@ -50,6 +57,31 @@ class FacilityStateRuntimeTest {
     }
     @Test void resolvesBindingWithoutGuessingDevicePrefix() {
         assertEquals("valid",status());assertDoesNotThrow(()->runtime.requireGuard("ready"));
+    }
+
+    @Test void facilityOwnsOperationAdmissionEvaluation() {
+        assertEquals("valid",runtime.admission("seed-operation").path("status").asText());
+        transport.value.put("state_id","fault").put("state_revision",11);
+        assertEquals("violated",runtime.admission("seed-operation").path("status").asText());
+    }
+    @Test void violatedRequirementWinsAndExplainsTheViolatingFact() throws Exception {
+        String definition=runtime.models().path("definitionXml").asText().replace("</operationAdmissions>","""
+            <operationAdmission id="mixed-operation" label="混合准入"><requirements>
+              <factRequirement id="unknown" factRef="missingReady" maintain="start" />
+              <factRequirement id="fault" factRef="seedFault" maintain="start" />
+            </requirements></operationAdmission>
+            </operationAdmissions>
+            """);
+        String projection=runtime.models().path("projectionXml").asText().replace("</facts>","""
+            <fact id="missingReady" label="缺失实例未就绪"><condition><devicePredicate instanceSetRef="shg" outerStates="ready" /></condition></fact>
+            <fact id="seedFault" label="种子源未进入出光状态"><condition><devicePredicate instanceSetRef="seed" states="stableEmission" /></condition></fact>
+            </facts>
+            """);
+        runtime.activate(definition,resource("gxlf-facility-binding.xml"),projection);
+        transport.value.put("state_id","powerOnChecked").put("state_revision",12);
+        var admission=runtime.admission("mixed-operation");
+        assertEquals("violated",admission.path("status").asText());
+        assertTrue(admission.path("reason").asText().contains("seedFault"),admission.toPrettyString());
     }
     @Test void oldRevisionCannotRestoreAStateFact() {
         runtime.observe(new TangoGateway.Notice(JSON.createObjectNode().put("type","snapshot").put("connected",true)
@@ -65,6 +97,16 @@ class FacilityStateRuntimeTest {
         transport.online=false;
         runtime.observe(new TangoGateway.Notice(JSON.createObjectNode().put("type","connection_lost")));
         assertEquals("unknown",status());
+    }
+
+    @Test void explicitStateMismatchIsViolatedButInvalidEvidenceIsUnknown() {
+        transport.value.put("state_id","fault").put("state_revision",11);
+        runtime.refresh();
+        assertEquals("violated",status(),"有效快照明确不满足条件时应为 violated");
+
+        transport.online=false;
+        runtime.observe(new TangoGateway.Notice(JSON.createObjectNode().put("type","connection_lost")));
+        assertEquals("unknown",status(),"连接失效后不能继续使用此前的 violated 或 valid 结论");
     }
     @Test void missingDeviceTypeNeverPassesUniversalRequirement() {
         transport.present=false;runtime.refresh();assertEquals("unknown",status());
@@ -96,7 +138,13 @@ class FacilityStateRuntimeTest {
     void activateFacts(String facts,String guard)throws Exception {
         String xml=resource("gxlf-facility-state-projection.xml");
         xml=xml.substring(0,xml.indexOf("<facts>"))+"<facts>"+facts+"</facts>"+xml.substring(xml.indexOf("</facts>")+8);
-        xml=xml.substring(0,xml.indexOf("<guards>"))+"<guards><guard id=\"ready\" label=\"条件\"><condition>"+guard+"</condition></guard></guards>"+xml.substring(xml.indexOf("</guards>")+9);
+        int guards=xml.indexOf("<guards>");
+        if(guards<0) {
+            int annotations=xml.indexOf("<annotations>");
+            xml=xml.substring(0,annotations)+"<guards><guard id=\"ready\" label=\"条件\"><condition>"+guard+"</condition></guard></guards>"+xml.substring(annotations);
+        } else {
+            xml=xml.substring(0,guards)+"<guards><guard id=\"ready\" label=\"条件\"><condition>"+guard+"</condition></guard></guards>"+xml.substring(xml.indexOf("</guards>")+9);
+        }
         runtime.activate(resource("gxlf-facility.system-definition.xml"),resource("gxlf-facility-binding.xml"),xml);
     }
     @Test void nestedAllAnyUseThreeValuedLogicWithoutTreatingUnknownAsTrue()throws Exception {

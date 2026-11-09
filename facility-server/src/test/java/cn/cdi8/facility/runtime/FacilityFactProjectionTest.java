@@ -21,7 +21,7 @@ class FacilityFactProjectionTest {
             <observation id="unused" adapter="device-state"><source instanceSetRef="preamp" portRef="state-out" /></observation>
           </observations>
           <facts>
-            <fact id="anyPreampWakeup" label="任一预放处于唤醒">
+            <fact id="anyPreampWakeup" scope="instance-set" scopeRef="preamp" label="任一预放处于唤醒">
               <condition><devicePredicate instanceSetRef="preamp" outerStates="wakeup" quantifier="any" /></condition>
             </fact>
             <fact id="allPreampWakeup" label="全部已部署预放处于唤醒">
@@ -88,6 +88,15 @@ class FacilityFactProjectionTest {
         facts = states.factAssessment(false).path("facts");
         assertEquals("valid", facts.path("preampWakeupExecuting").path("status").asText());
         assertEquals("violated", facts.path("allPreampActionsIdle").path("status").asText());
+    }
+
+    @Test
+    void factOutputCarriesInstanceSetScope() {
+        var facts = states.factAssessment(false).path("facts");
+        assertEquals("instance-set", facts.path("anyPreampWakeup").path("scope").asText());
+        assertEquals("preamp", facts.path("anyPreampWakeup").path("scope_ref").asText());
+        assertEquals("facility", facts.path("allPreampWakeup").path("scope").asText());
+        assertEquals("", facts.path("allPreampWakeup").path("scope_ref").asText());
     }
 
     @Test

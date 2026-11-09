@@ -34,6 +34,8 @@ public final class FacilityActionRuntime {
     /** Entry guards apply equally to action tasks and ordinary expression tasks. */
     public void enter(DelegateExecution execution) {
         var element=execution.getCurrentFlowElement();
+        for(var operation:element.getExtensionElements().getOrDefault("operation",List.of()))
+            if(NS.equals(operation.getNamespace()))facilityStates.requireOperation(attr(operation,"operationRef"));
         for(var requirement:element.getExtensionElements().getOrDefault("requires",List.of()))
             if(NS.equals(requirement.getNamespace()))facilityStates.requireGuard(attr(requirement,"guardRef"));
         for(var stage:element.getExtensionElements().getOrDefault("stage",List.of()))

@@ -29,6 +29,12 @@ class FacilityXmlModelTest {
         rejectedDefinition(xml,"<requirements>","<requirements xmlns=\"https://example.invalid/foreign\">");
         rejectedDefinition(xml,"<annotations>","<safetyRules /><annotations>");
     }
+    @Test void operationAdmissionsAreStartChecksOnly()throws Exception {
+        String xml=definition();
+        String changed=xml.replaceFirst("(<operationAdmission[\\s\\S]*?<factRequirement[^>]*maintain=\")start(\")", "$1execution$2");
+        assertNotEquals(xml,changed);
+        assertThrows(IllegalArgumentException.class,()->SystemDefinitionModel.parse(changed));
+    }
     @Test void rejectsDuplicateScopedIdsAndInvalidDirection()throws Exception {
         String xml=definition();
         rejectedDefinition(xml,"<port id=\"optical-in\" direction=\"in\" interfaceRef=\"optical-link\" />",
@@ -108,7 +114,12 @@ class FacilityXmlModelTest {
     @Test void qualificationFactsAreDistinctAndCannotDriveSupervision()throws Exception {
         var projection=FacilityStateProjectionModel.parse(projection());
         assertEquals(FacilityStateProjectionModel.FactRole.QUALIFICATION,projection.factRole("allPowerChecked"));
-        assertEquals(FacilityStateProjectionModel.FactRole.STATE,projection.factRole("pumpEnergyActive"));
+        assertEquals(FacilityStateProjectionModel.FactRole.DERIVED,projection.factRole("pumpEnergyActive"));
+        assertEquals(FacilityStateProjectionModel.FactRole.DERIVED,projection.factRole("interlockOperational"));
+        assertEquals(FacilityStateProjectionModel.FactRole.DERIVED,projection.factRole("triggerWindowReady"));
+        assertEquals(FacilityStateProjectionModel.FactScope.INSTANCE_SET,projection.factScope("pumpChargeComplete"));
+        assertEquals("pump",projection.factScopeRef("pumpChargeComplete"));
+        assertEquals(FacilityStateProjectionModel.FactScope.FACILITY,projection.factScope("interlockOperational"));
         var definition=SystemDefinitionModel.parse(definition().replace(
             "activationFactRef=\"pumpEnergyActive\"","activationFactRef=\"allPowerChecked\""));
         assertThrows(IllegalArgumentException.class,()->projection.validateDependencies(definition));
@@ -116,6 +127,24 @@ class FacilityXmlModelTest {
     @Test void rejectsUnknownFactRoles()throws Exception {
         assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(
             projection().replace("role=\"qualification\"","role=\"run-evidence\"")));
+    }
+    @Test void derivedFactsMustDeclareACombination() {
+        String xml="""
+            <facility-state-projection xmlns="https://cdi8.cn/facility-state/v1" id="derived-shape"
+              definitionRef="gxlf-facility" bindingRef="gxlf-facility-binding" evidenceMaxAgeMs="1000">
+              <observations><observation id="seedState" adapter="device-state"><source instanceSetRef="seed" portRef="state-out" /></observation></observations>
+              <facts><fact id="ready" role="derived" label="错误组合"><condition><devicePredicate instanceSetRef="seed" states="powerOnChecked" /></condition></fact></facts>
+            </facility-state-projection>
+            """;
+        assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(xml));
+    }
+    @Test void instanceSetFactsMustUseOneMatchingInstanceSet()throws Exception {
+        String xml=projection().replace("scopeRef=\"pump\"", "scopeRef=\"preamp\"");
+        var definition=SystemDefinitionModel.parse(definition());
+        assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(xml).validateDependencies(definition));
+
+        String missing=projection().replace("scope=\"instance-set\" scopeRef=\"pump\"", "scope=\"instance-set\"");
+        assertThrows(IllegalArgumentException.class,()->FacilityStateProjectionModel.parse(missing));
     }
     @Test void unsupportedUpstreamEdgesCannotBeSilentlySkipped()throws Exception {
         String xml=definition().replace("<connections>","<connections><connection id=\"unsupported\" relation=\"recipe-control\"><source externalEndpointRef=\"interlock-controller\" portRef=\"event-out\" /><target instanceSetRef=\"preamp\" portRef=\"command-in\" /></connection>");

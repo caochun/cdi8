@@ -6,7 +6,7 @@ BPMN 声明某个活动要执行的动作、进入条件和完成条件。设施
 
 | 条件 | 表达 | 当前运行语义 |
 |---|---|---|
-| 进入条件 | `fac:requires guardRef="…"` | 进入 serviceTask 前检查；不为 valid 则失败 |
+| 进入条件 | `fac:operation operationRef="…"` | 进入 serviceTask 前由 facility-server 检查操作准入；不为 valid 则失败 |
 | 完成条件 | `fac:completion factRef="…"` 或 `guardRef="…"` | 活动的全部设备命令验收成功后检查；不成立则等待，超时失败 |
 | 能力输入保持条件 | 系统定义中的 `requirements/inputRequirement maintain="execution"` | 持续到该设备命令验收结束，失效或 unknown 结束流程；不延长到后续完成条件等待，详见[能力依赖](capability-dependencies.md) |
 | 阶段持续保持条件 | 子流程 `fac:hold` | 跨任务、分支和等待监控，失效走边界错误路径；详见[阶段保持](stage-hold.md) |
@@ -51,7 +51,7 @@ BPMN 声明某个活动要执行的动作、进入条件和完成条件。设施
 
 ## 运行过程
 
-1. 进入活动时检查 `fac:requires`，写入 `run:stage`，展开设备动作队列。
+1. 进入活动时检查 `fac:operation`，写入 `run:stage`，展开设备动作队列。历史模型中的 `fac:requires` 仅作为迁移兼容入口。
 2. 按实例发送命令并等待终态；校验本次 command ID、action、source ID、无活动命令和目标状态。每个成功结果先持久化，再推进队列。
 3. 队列全部成功后，登记 `facilityCompletion` 等待记录，包括独立 ID、活动 ID、事实/guard 引用、开始时间及绝对截止时间。纯等待任务在进入时登记。
 4. 协调器主动检查一次条件。投影的事实/guard 变化发布 `FacilityStateRuntime.Changed`，只将协调器标为需要重新检查；定时补查覆盖通知遗漏和已经成立的条件。

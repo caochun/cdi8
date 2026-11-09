@@ -847,6 +847,45 @@
     <mappingCoverage id="preamp-coverage" mappingRef="preamp-to-beamline" />
     <mappingCoverage id="one-to-one-beamline-services" mappingRef="beamline-components" />
   </structuralConstraints>
+  <operationAdmissions>
+    <!-- BPMN names these operations; facility-server evaluates the referenced facts. -->
+    <operationAdmission id="simulation-function-check" label="模拟初始化：允许功能检查">
+      <requirements>
+        <factRequirement id="power" factRef="allPowerChecked" maintain="start" />
+        <factRequirement id="observed" factRef="simulationDevicesObserved" maintain="start" />
+      </requirements>
+    </operationAdmission>
+    <operationAdmission id="simulation-parameter-dispatch" label="模拟初始化：允许参数接收">
+      <requirements>
+        <factRequirement id="function" factRef="allFunctionReady" maintain="start" />
+        <factRequirement id="observed" factRef="simulationDevicesObserved" maintain="start" />
+      </requirements>
+    </operationAdmission>
+    <operationAdmission id="function-check" label="允许开始功能检查">
+      <requirements>
+        <factRequirement id="power" factRef="allPowerChecked" maintain="start" />
+        <factRequirement id="services" factRef="allServicesHealthy" maintain="start" />
+      </requirements>
+    </operationAdmission>
+    <operationAdmission id="parameter-dispatch" label="允许开始本发参数下发">
+      <requirements>
+        <factRequirement id="function" factRef="allFunctionReady" maintain="start" />
+        <factRequirement id="services" factRef="allServicesHealthy" maintain="start" />
+      </requirements>
+    </operationAdmission>
+    <operationAdmission id="preparation" label="允许进入受联锁保护的发射准备">
+      <requirements>
+        <factRequirement id="parameters" factRef="allParametersReceived" maintain="start" />
+        <factRequirement id="services" factRef="allServicesHealthy" maintain="start" />
+        <factRequirement id="interlock" factRef="interlockOperational" maintain="start" />
+      </requirements>
+    </operationAdmission>
+    <operationAdmission id="trigger" label="允许进入同步触发窗口">
+      <requirements>
+        <factRequirement id="window" factRef="triggerWindowReady" maintain="start" />
+      </requirements>
+    </operationAdmission>
+  </operationAdmissions>
   <operatingConstraints>
     <operatingConstraint id="interlock-session" label="联锁启用期间保持安全输入和服务健康" activationFactRef="interlockArmed" releaseFactRef="interlockReleased">
       <requirements>

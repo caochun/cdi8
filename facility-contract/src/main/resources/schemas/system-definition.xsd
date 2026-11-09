@@ -150,6 +150,18 @@
       <xs:element name="operatingConstraint" type="m:operatingConstraint" maxOccurs="unbounded" />
     </xs:sequence>
   </xs:complexType>
+  <xs:complexType name="operationAdmission">
+    <xs:sequence>
+      <xs:element name="requirements" type="m:requirements" />
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:NCName" use="required" />
+    <xs:attribute name="label" type="m:text" use="required" />
+  </xs:complexType>
+  <xs:complexType name="operationAdmissions">
+    <xs:sequence>
+      <xs:element name="operationAdmission" type="m:operationAdmission" minOccurs="1" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
   <xs:complexType name="output">
     <xs:sequence>
       <xs:element name="requirements" type="m:requirements" minOccurs="0" maxOccurs="1" />
@@ -391,6 +403,7 @@
         <xs:element name="topology" type="m:topology" minOccurs="0" />
         <xs:element name="mappings" type="m:mappings" minOccurs="0" />
         <xs:element name="structuralConstraints" type="m:structuralConstraints" minOccurs="0" />
+        <xs:element name="operationAdmissions" type="m:operationAdmissions" minOccurs="0" />
         <xs:element name="operatingConstraints" type="m:operatingConstraints" minOccurs="0" />
         <xs:element name="annotations" type="m:annotations" minOccurs="0" />
       </xs:sequence>
@@ -404,6 +417,10 @@
     </xs:key>
     <xs:key name="operatingConstraintsKey">
       <xs:selector xpath="m:operatingConstraints/m:operatingConstraint" />
+      <xs:field xpath="@id" />
+    </xs:key>
+    <xs:key name="operationAdmissionsKey">
+      <xs:selector xpath="m:operationAdmissions/m:operationAdmission" />
       <xs:field xpath="@id" />
     </xs:key>
     <xs:key name="interfacesKey">

@@ -49,6 +49,12 @@ public final class FacilityStateClient {
         var value=assessment(true).path("guards").path(guard);
         if(!"valid".equals(value.path("status").asText()))throw new IllegalStateException("设施放行条件不满足："+guard+" / "+value.path("reason").asText("监督观测不可用"));
     }
+    /** BPMN names an operation; only facility-server may decide whether it is admissible. */
+    public void requireOperation(String operationRef){
+        var value=client.facility("POST","/admissions/check",Map.of("operationRef",operationRef));
+        if(!"valid".equals(value.path("status").asText()))
+            throw new IllegalStateException("设施操作准入不满足："+operationRef+" / "+value.path("reason").asText("监督观测不可用"));
+    }
     @EventListener public void notice(FacilityClient.Notice notice){
         String type=notice.payload().path("type").asText();
         if("models_changed".equals(type)||"connection_lost".equals(type))models=null;

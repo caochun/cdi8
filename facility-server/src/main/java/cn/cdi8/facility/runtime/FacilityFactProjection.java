@@ -42,7 +42,8 @@ final class FacilityFactProjection {
                 snapshots, deviceBindingKeys, observedAt, invalidObservations);
             statuses.put(fact.id(), result);
             facts.putObject(fact.id()).put("status", result.status).put("reason", result.reason)
-                .put("label", fact.label()).put("role", fact.role().value());
+                .put("label", fact.label()).put("role", fact.role().value())
+                .put("scope", fact.scope().value()).put("scope_ref", fact.scopeRef());
         }
 
         ObjectNode guards = json.createObjectNode();
@@ -50,7 +51,7 @@ final class FacilityFactProjection {
             Status result = evaluateCondition(guard.condition(), statuses, definition, binding, projection,
                 snapshots, deviceBindingKeys, observedAt, invalidObservations);
             guards.putObject(guard.id()).put("status", result.status).put("reason", result.reason)
-                .put("label", guard.label());
+                .put("label", guard.label()).put("scope", guard.scope().value()).put("scope_ref", guard.scopeRef());
         }
 
         String integrity = "valid", reason = "";

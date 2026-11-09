@@ -31,7 +31,7 @@
 
 两个后端都依赖共享契约。设施运行实现位于 `cn.cdi8.facility.runtime`，设施模型位于 `cn.cdi8.facility.contract`，工作台流程实现位于 `cn.cdi8.workbench.workflow`。`examples/` 作为内置模型的唯一源文件，构建时分别打包。完整模块依赖见[代码组织](modules.md)。
 
-工作台的 `FacilityStateClient` 和 `FacilityDependencyClient` 是 HTTP 门面，不在本地重新生成权威设施事实。BPMN 的 guard、completion 和 hold 读取设施结果；每个生产命令仍需由设施端重新核验。工作台不能通过传入有效依赖计划或释放自己的 watch 来移除命令的私有持续监控。
+工作台的 `FacilityStateClient` 和 `FacilityDependencyClient` 是 HTTP 门面，不在本地重新生成权威设施事实。BPMN 的 `fac:operation` 只携带操作引用，`POST /admissions/check` 在 facility-server 内根据系统定义和事实计算准入证据；工作台不能通过本地组合事实或传入 `valid` 绕过它。旧 guard 入口暂时保留用于已有流程迁移。每个生产命令仍需由设施端重新核验，工作台不能通过传入有效依赖计划或释放自己的 watch 来移除命令的私有持续监控。
 
 ## 分阶段验证接口
 
@@ -45,8 +45,9 @@
 | `GET /devices`、`GET /devices/{device}` | 读取设备目录和原始快照，直接验证观测边界 |
 | `GET /devices/{device}/history` | 读取设备动作历史 |
 | `POST /validate` | 使用设施实际配置的模拟器校验 SCXML |
-| `GET /facts?refresh=true` | 验证观测、逐设备事实、聚合事实和 guard；不包含监督约束 |
+| `GET /facts?refresh=true` | 验证观测、逐设备事实、聚合事实和组合条件（兼容输出 guard）；不包含监督约束 |
 | `GET /state?refresh=true` | 在事实之上增加工作状态义务及锁存事件 |
+| `POST /admissions/check` | 按 `operationRef` 对当前设施事实执行一次启动准入检查并返回证据 |
 | `GET/POST /models` | 读取或激活完整模型包 |
 | `POST /devices/{device}/commands` | 权威动作准入、记录意图后下发 |
 | `GET /devices/{device}/commands/{id}` | 查询已记录命令及准入证据 |

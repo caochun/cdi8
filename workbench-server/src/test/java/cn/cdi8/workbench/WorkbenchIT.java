@@ -45,7 +45,12 @@ class WorkbenchIT {
         long deadline=System.nanoTime()+Duration.ofSeconds(40).toNanos();
         while(true) {
             if(!facilityServer.isAlive()||System.nanoTime()>deadline)throw new IllegalStateException("监督后端启动失败："+directory);
-            try {if(HTTP.send(HttpRequest.newBuilder(URI.create(facilityUrl+"/api/facility/health")).GET().build(),HttpResponse.BodyHandlers.ofString()).statusCode()==200)break;}
+            try {
+                var health=HTTP.send(HttpRequest.newBuilder(URI.create(facilityUrl+"/api/facility/health")).GET().build(),HttpResponse.BodyHandlers.ofString());
+                var connection=HTTP.send(HttpRequest.newBuilder(URI.create(facilityUrl+"/api/facility/connection")).GET().build(),HttpResponse.BodyHandlers.ofString());
+                if(health.statusCode()==200 && connection.statusCode()==200
+                    && JSON.readTree(connection.body()).path("connected").asBoolean())break;
+            }
             catch(java.io.IOException ignored){}
             Thread.sleep(100);
         }
